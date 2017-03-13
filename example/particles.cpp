@@ -1,11 +1,11 @@
-#include "inc/radiance.h"
+#include "inc/cubez.h"
 #include "inc/stack_memory.h"
 
 #include "particles.h"
 
-radiance::Collection* add_particle_collection(const char* collection, uint64_t particle_count) {
-  radiance::Collection* particles =
-      radiance::add_collection(kMainProgram, collection);
+cubez::Collection* add_particle_collection(const char* collection, uint64_t particle_count) {
+  cubez::Collection* particles =
+      cubez::add_collection(kMainProgram, collection);
 
   Particles::Table* table = new Particles::Table();
   table->keys.reserve(particle_count);
@@ -27,13 +27,13 @@ radiance::Collection* add_particle_collection(const char* collection, uint64_t p
     table->insert(i, {p, v});
   }
 
-  radiance::Copy copy =
+  cubez::Copy copy =
       [](const uint8_t*, const uint8_t* value, uint64_t offset,
-         radiance::Stack* stack) {
-        radiance::Mutation* mutation = (radiance::Mutation*)stack->alloc(
-            sizeof(radiance::Mutation) + sizeof(Particles::Element));
-        mutation->element = (uint8_t*)(mutation + sizeof(radiance::Mutation));
-        mutation->mutate_by = radiance::MutateBy::UPDATE;
+         cubez::Stack* stack) {
+        cubez::Mutation* mutation = (cubez::Mutation*)stack->alloc(
+            sizeof(cubez::Mutation) + sizeof(Particles::Element));
+        mutation->element = (uint8_t*)(mutation + sizeof(cubez::Mutation));
+        mutation->mutate_by = cubez::MutateBy::UPDATE;
         Particles::Element* el =
             (Particles::Element*)(mutation->element);
         el->offset = offset;
@@ -41,8 +41,8 @@ radiance::Collection* add_particle_collection(const char* collection, uint64_t p
             *(Particles::Value*)(value) );
       };
 
-  radiance::Mutate mutate =
-      [](radiance::Collection* c, const radiance::Mutation* m) {
+  cubez::Mutate mutate =
+      [](cubez::Collection* c, const cubez::Mutation* m) {
         Particles::Table* t = (Particles::Table*)c->collection;
         Particles::Element* el = (Particles::Element*)(m->element);
         t->values[el->offset] = std::move(el->value); 
@@ -51,7 +51,7 @@ radiance::Collection* add_particle_collection(const char* collection, uint64_t p
   particles->collection = (uint8_t*)table;
   particles->copy = copy;
   particles->mutate = mutate;
-  particles->count = [](radiance::Collection* c) -> uint64_t {
+  particles->count = [](cubez::Collection* c) -> uint64_t {
     return ((Particles::Table*)c->collection)->size();
   };
 
@@ -65,12 +65,12 @@ radiance::Collection* add_particle_collection(const char* collection, uint64_t p
 }
 
 void add_particle_pipeline(const char* collection) {
-  radiance::Pipeline* pipeline =
-    radiance::add_pipeline(kMainProgram, collection, collection);
+  cubez::Pipeline* pipeline =
+    cubez::add_pipeline(kMainProgram, collection, collection);
   pipeline->select = nullptr;
-  pipeline->transform = [](radiance::Stack* s) {
+  pipeline->transform = [](cubez::Stack* s) {
     Particles::Element* el =
-        (Particles::Element*)((radiance::Mutation*)(s->top()))->element;
+        (Particles::Element*)((cubez::Mutation*)(s->top()))->element;
     el->value.p += el->value.v;
     if (el->value.p.x >  1.0f) { el->value.p.x =  1.0f; el->value.v.x *= -1; }
     if (el->value.p.x < -1.0f) { el->value.p.x = -1.0f; el->value.v.x *= -1; }
@@ -78,9 +78,9 @@ void add_particle_pipeline(const char* collection) {
     if (el->value.p.y < -1.0f) { el->value.p.y = -1.0f; el->value.v.y *= -1; }
   };
 
-  radiance::ExecutionPolicy policy;
-  policy.priority = radiance::MAX_PRIORITY;
-  policy.trigger = radiance::Trigger::LOOP;
+  cubez::ExecutionPolicy policy;
+  policy.priority = cubez::MAX_PRIORITY;
+  policy.trigger = cubez::Trigger::LOOP;
   enable_pipeline(pipeline, policy);
 }
 

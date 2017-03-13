@@ -1,7 +1,7 @@
 #ifndef UNIVERSE__H
 #define UNIVERSE__H
 
-namespace radiance {
+namespace cubez {
 
 // Holds the game engine state.
 struct Universe {

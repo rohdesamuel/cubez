@@ -7,7 +7,7 @@
 #include "common.h"
 #include "stack_memory.h"
 
-namespace radiance
+namespace cubez
 {
 
 class Frame {
@@ -44,6 +44,6 @@ public:
   }
 };
 
-}  // namespace radiance
+}  // namespace cubez
 
 #endif  // FRAME__H

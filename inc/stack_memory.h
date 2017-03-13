@@ -13,7 +13,7 @@
 
 static const int MAX_SIZE = 512;
 
-namespace radiance
+namespace cubez
 {
 
 class Stack {
@@ -72,5 +72,5 @@ public:
   }
 };
 
-}  // namespace radiance
+}  // namespace cubez
 #endif

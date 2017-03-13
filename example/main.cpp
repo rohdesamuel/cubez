@@ -1,4 +1,4 @@
-#include "inc/radiance.h"
+#include "inc/cubez.h"
 #include "inc/table.h"
 #include "inc/stack_memory.h"
 #include "inc/schema.h"
@@ -20,20 +20,20 @@
 #include <unordered_map>
 
 void add_render_pipeline() {
-  radiance::Pipeline* render_pipeline =
-      radiance::add_pipeline(kMainProgram, kParticleCollection, nullptr);
+  cubez::Pipeline* render_pipeline =
+      cubez::add_pipeline(kMainProgram, kParticleCollection, nullptr);
   render_pipeline->select = nullptr;
-  render_pipeline->transform = [](radiance::Stack*){
+  render_pipeline->transform = [](cubez::Stack*){
    /* Particles::Element* el =
-        (Particles::Element*)((radiance::Mutation*)(s->top()))->element;*/
+        (Particles::Element*)((cubez::Mutation*)(s->top()))->element;*/
   };
 
-  render_pipeline->callback = [](radiance::Pipeline*, radiance::Collections, radiance::Collections) {
+  render_pipeline->callback = [](cubez::Pipeline*, cubez::Collections, cubez::Collections) {
   };
 
-  radiance::ExecutionPolicy policy;
-  policy.priority = radiance::MIN_PRIORITY;
-  policy.trigger = radiance::Trigger::LOOP;
+  cubez::ExecutionPolicy policy;
+  policy.priority = cubez::MIN_PRIORITY;
+  policy.trigger = cubez::Trigger::LOOP;
   enable_pipeline(render_pipeline, policy);
 }
 
@@ -147,12 +147,12 @@ int main(int, char* []) {
   glAttachShader(shader_program, vs);
   glLinkProgram(shader_program);
 
-  radiance::Universe uni;
-  radiance::init(&uni);
-  radiance::create_program(kMainProgram); 
+  cubez::Universe uni;
+  cubez::init(&uni);
+  cubez::create_program(kMainProgram); 
 
   uint64_t particle_count = 100;
-  radiance::Collection* c = add_particle_collection(kParticleCollection, particle_count);
+  cubez::Collection* c = add_particle_collection(kParticleCollection, particle_count);
   add_particle_pipeline(kParticleCollection);
   add_render_pipeline();
 
@@ -164,7 +164,7 @@ int main(int, char* []) {
       c->count(c) * c->values.size,
       c->values.data, GL_DYNAMIC_DRAW);
 
-  radiance::start();
+  cubez::start();
   int frame = 0;
   WindowTimer frame_time(100);
   while (1) {
@@ -178,7 +178,7 @@ int main(int, char* []) {
         glXDestroyContext(dpy, glc);
         XDestroyWindow(dpy, win);
         XCloseDisplay(dpy);
-        radiance::stop();
+        cubez::stop();
         exit(0);
       }
     }
@@ -205,7 +205,7 @@ int main(int, char* []) {
     glXSwapBuffers(dpy, win);
 
     if (frame % 5 == 0) {
-      radiance::loop();
+      cubez::loop();
     }
     ++frame;
     frame_time.stop();

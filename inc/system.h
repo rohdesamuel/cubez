@@ -14,7 +14,7 @@
 #include "common.h"
 #include "frame.h"
 
-namespace radiance
+namespace cubez
 {
 
 class System {
@@ -129,6 +129,6 @@ class SystemExecutor {
   Id id_;
 };
 
-}  // namespace radiance
+}  // namespace cubez
 
 #endif

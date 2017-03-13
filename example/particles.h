@@ -1,7 +1,7 @@
 #ifndef PARTICLES__H
 #define PARTICLES__H
 
-#include "inc/radiance.h"
+#include "inc/cubez.h"
 #include "inc/schema.h"
 
 #include <glm/glm.hpp>
@@ -14,9 +14,9 @@ struct Particle {
   glm::vec3 v;
 };
 
-typedef radiance::Schema<uint32_t, Particle> Particles;
+typedef cubez::Schema<uint32_t, Particle> Particles;
 
-radiance::Collection* add_particle_collection(const char* collection, uint64_t particle_count);
+cubez::Collection* add_particle_collection(const char* collection, uint64_t particle_count);
 
 void add_particle_pipeline(const char* collection);
 

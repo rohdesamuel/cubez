@@ -18,10 +18,10 @@
 #include <vector>
 #include <map>
 
-#include "radiance.h"
+#include "cubez.h"
 #include "common.h"
 
-namespace radiance
+namespace cubez
 {
 
 enum class IndexedBy {
@@ -306,6 +306,6 @@ private:
 
 
 
-}  // namespace radiance
+}  // namespace cubez
 
 #endif

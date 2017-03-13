@@ -14,7 +14,7 @@
 BEGIN_EXTERN_C
 
 #ifdef __cplusplus
-namespace radiance {
+namespace cubez {
 #endif
 
 struct Element {
@@ -153,7 +153,7 @@ Status::Code share_collection(const char* source, const char* dest);
 Status::Code copy_collection(const char* source, const char* dest);
 
 #ifdef __cplusplus
-}  // namespace radiance
+}  // namespace cubez
 #endif
 
 END_EXTERN_C

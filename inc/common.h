@@ -31,7 +31,7 @@ do{ if (!(expr)) exit(exit_code); } while (0)
 #define DEBUG_OP(expr) do{ expr; } while(0)
 
 #define ASSERT_NOT_NULL(var) \
-DEBUG_ASSERT((var) != nullptr, ::radiance::Status::Code::NULL_POINTER)
+DEBUG_ASSERT((var) != nullptr, ::cubez::Status::Code::NULL_POINTER)
 
 #else
 #define DEBUG_ASSERT(expr, exit_code) do{} while(0)
@@ -48,7 +48,7 @@ DEBUG_ASSERT((var) != nullptr, ::radiance::Status::Code::NULL_POINTER)
 #include <cstdint>
 using std::size_t;
 
-namespace radiance
+namespace cubez
 {
 
 #if (defined __WIN32__ || defined __CYGWIN32__ || defined _WIN32 || defined _WIN64 || defined _MSC_VER)
@@ -106,6 +106,6 @@ struct Status {
   }
 };
 
-}  // namespace radiance
+}  // namespace cubez
 
 #endif
