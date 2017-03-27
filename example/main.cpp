@@ -1,3 +1,4 @@
+#define __ENGINE_DEBUG__
 #include "inc/cubez.h"
 #include "inc/table.h"
 #include "inc/stack_memory.h"
@@ -7,16 +8,17 @@
 #define GL3_PROTOTYPES 1
 
 #include <GL/glew.h>
-#include<stdio.h>
-#include<stdlib.h>
-#include<X11/X.h>
-#include<X11/Xlib.h>
-#include<GL/gl.h>
-#include<GL/glx.h>
-#include<GL/glu.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <X11/X.h>
+#include <X11/Xlib.h>
+#include <GL/gl.h>
+#include <GL/glx.h>
+#include <GL/glu.h>
 
 #include "particles.h"
 
+#include <thread>
 #include <unordered_map>
 
 void add_render_pipeline() {
@@ -28,8 +30,7 @@ void add_render_pipeline() {
         (Particles::Element*)((cubez::Mutation*)(s->top()))->element;*/
   };
 
-  render_pipeline->callback = [](cubez::Pipeline*, cubez::Collections, cubez::Collections) {
-  };
+  render_pipeline->callback = nullptr;
 
   cubez::ExecutionPolicy policy;
   policy.priority = cubez::MIN_PRIORITY;
@@ -77,7 +78,7 @@ void init_rendering(int width, int height) {
                       vi->visual, CWColormap | CWEventMask, &swa);
 
   XMapWindow(dpy, win);
-  XStoreName(dpy, win, "Radiance Example");
+  XStoreName(dpy, win, "Cubez Example");
 
   glc = glXCreateContext(dpy, vi, NULL, GL_TRUE);
   glXMakeCurrent(dpy, win, glc);
@@ -146,15 +147,15 @@ int main(int, char* []) {
   glAttachShader(shader_program, fs);
   glAttachShader(shader_program, vs);
   glLinkProgram(shader_program);
+  glUseProgram(shader_program);
 
   cubez::Universe uni;
   cubez::init(&uni);
   cubez::create_program(kMainProgram); 
 
-  uint64_t particle_count = 100;
+  uint64_t particle_count = 10;
   cubez::Collection* c = add_particle_collection(kParticleCollection, particle_count);
   add_particle_pipeline(kParticleCollection);
-  add_render_pipeline();
 
   GLuint points_buffer;
   glGenBuffers(1, &points_buffer);
@@ -162,17 +163,20 @@ int main(int, char* []) {
   glBufferData(
       GL_ARRAY_BUFFER,
       c->count(c) * c->values.size,
-      c->values.data, GL_DYNAMIC_DRAW);
+      c->values.data(c), GL_DYNAMIC_DRAW);
 
   cubez::start();
   int frame = 0;
   WindowTimer frame_time(100);
+  WindowTimer update_time(10);
+  WindowTimer render_time(10);
+
+  XGetWindowAttributes(dpy, win, &gwa);
+  glViewport(0, 0, gwa.width, gwa.height);
   while (1) {
     frame_time.start();
     if (XCheckWindowEvent(dpy, win, KeyPressMask, &xev)) {
       if (xev.type == Expose) {
-        XGetWindowAttributes(dpy, win, &gwa);
-        glViewport(0, 0, gwa.width, gwa.height);
       } else if (xev.type == KeyPress) {
         glXMakeCurrent(dpy, None, NULL);
         glXDestroyContext(dpy, glc);
@@ -182,35 +186,49 @@ int main(int, char* []) {
         exit(0);
       }
     }
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUseProgram(shader_program);
+    render_time.start();
+    if (frame % 2 == 0) {
+      glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr, GL_DYNAMIC_DRAW);
+      glBufferSubData(
+          GL_ARRAY_BUFFER, 0,
+          c->count(c) * c->values.size,
+          c->values.data(c));
 
-    glBindBuffer(GL_ARRAY_BUFFER, points_buffer);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0,
-        c->count(c) * c->values.size,
-        c->values.data);
+      //glEnableClientState(GL_VERTEX_ARRAY);
+      // 3 for 3 dimensions.
+      //glVertexPointer(3, GL_FLOAT, c->values.size, (void*)(0));
+      //glDisableClientState(GL_VERTEX_ARRAY);
 
-    glEnableClientState(GL_VERTEX_ARRAY);
-    // 3 for 3 dimensions.
-    glVertexPointer(3, GL_FLOAT, c->values.size, (void*)(0));
-    glDrawArrays(GL_POINTS, 0, c->count(c));
-    glDisableClientState(GL_VERTEX_ARRAY);
-
-    GLenum error = glGetError();
-    if (error) {
-      const GLubyte* error_str = gluErrorString(error);
-      std::cout << "Error(" << error << "): " << error_str << std::endl;
+      GLenum error = glGetError();
+      if (error) {
+        const GLubyte* error_str = gluErrorString(error);
+        std::cout << "Error(" << error << "): " << error_str << std::endl;
+      }
+    }
+    if (frame % 1 == 0) {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
+      glDrawArrays(GL_POINTS, 0, c->count(c));
     }
     glXSwapBuffers(dpy, win);
+    render_time.stop();
+    render_time.step();
 
-    if (frame % 5 == 0) {
+    update_time.start();
+    if (1) {
       cubez::loop();
     }
+    update_time.stop();
+    update_time.step();
+
     ++frame;
     frame_time.stop();
     frame_time.step();
 
-    std::cout << 1e9 / frame_time.get_elapsed_ns() << std::endl;
+    double total = 1e9; //update_time.get_avg_elapsed_ns() + render_time.get_avg_elapsed_ns();
+    std::cout << frame_time.get_elapsed_ns() / 1e6 << "\n";
+    std::cout << 100.0 * update_time.get_avg_elapsed_ns() / total << " : "
+              << 100.0 * render_time.get_avg_elapsed_ns() / total << "\n";
   }
 }

@@ -15,13 +15,13 @@ cubez::Collection* add_particle_collection(const char* collection, uint64_t part
     glm::vec3 p{
       2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
       2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-      2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f)
+      0
     };
 
     glm::vec3 v{
       ((float)(rand() % 1000) / 100000.0f) - 0.005f,
       ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-      ((float)(rand() % 1000) / 100000.0f) - 0.005f
+      0
     };
 
     table->insert(i, {p, v});
@@ -55,10 +55,15 @@ cubez::Collection* add_particle_collection(const char* collection, uint64_t part
     return ((Particles::Table*)c->collection)->size();
   };
 
-  particles->keys.data = (uint8_t*)table->keys.data();
+  particles->keys.data = [](cubez::Collection* c) -> uint8_t* {
+    return (uint8_t*)((Particles::Table*)c->collection)->keys.data();
+  };
   particles->keys.size = sizeof(Particles::Key);
   particles->keys.offset = 0;
-  particles->values.data = (uint8_t*)table->values.data();
+
+  particles->values.data = [](cubez::Collection* c) -> uint8_t* {
+    return (uint8_t*)((Particles::Table*)c->collection)->values.data();
+  };
   particles->values.size = sizeof(Particles::Value);
   particles->values.offset = 0;
   return particles;

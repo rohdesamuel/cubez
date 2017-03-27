@@ -120,21 +120,23 @@ class PipelineImpl {
       run_1_to_0();
     }
     if (pipeline_->callback) {
-      Collections sources {source_size, sources_.data()};
-      Collections sinks {sink_size, sinks_.data()};
-      pipeline_->callback(pipeline_, sources, sinks);
+      //Collections sources {source_size, sources_.data()};
+      //Collections sinks {sink_size, sinks_.data()};
+      //pipeline_->callback(pipeline_, sources, sinks);
     }
   }
 
   void run_1_to_0() {
     Collection* source = sources_[0];
     uint64_t count = source->count(source);
+    uint8_t* keys = source->keys.data(source);
+    uint8_t* values = source->values.data(source);
 
     for(uint64_t i = 0; i < count; ++i) {
       thread_local static Stack stack;
       source->copy(
-          source->keys.data + source->keys.offset + i * source->keys.size,
-          source->values.data + source->values.offset + i * source->values.size,
+          keys + source->keys.offset + i * source->keys.size,
+          values + source->values.offset + i * source->values.size,
           i, &stack);
       pipeline_->transform(&stack);
       stack.clear();
@@ -144,14 +146,16 @@ class PipelineImpl {
   void run_1_to_1() {
     Collection* source = sources_[0];
     Collection* sink = sinks_[0];
-    uint64_t count = source->count(source);
+    const uint64_t count = source->count(source);
+    const uint8_t* keys = source->keys.data(source);
+    const uint8_t* values = source->values.data(source);
 
-#pragma omp parallel for
+//#pragma omp parallel for
     for(uint64_t i = 0; i < count; ++i) {
       thread_local static Stack stack;
       source->copy(
-          source->keys.data + source->keys.offset + i * source->keys.size,
-          source->values.data + source->values.offset + i * source->values.size,
+          keys + source->keys.offset + i * source->keys.size,
+          values + source->values.offset + i * source->values.size,
           i, &stack);
       pipeline_->transform(&stack);
       sink->mutate(sink, (const Mutation*)stack.top());
@@ -159,6 +163,7 @@ class PipelineImpl {
     }
   }
 
+  /*
   void run_m_to_n() {
     Stack stack;
     std::unordered_map<uint8_t*, std::vector<uint8_t*>> joined;
@@ -213,6 +218,7 @@ class PipelineImpl {
       }
     }
   }
+  */
 };
 
 class ProgramImpl {
@@ -254,9 +260,9 @@ class ProgramImpl {
     auto found = std::lower_bound(loop_pipelines_.begin(), loop_pipelines_.end(), pipeline);
     if (found != loop_pipelines_.end()) {
       loop_pipelines_.erase(found);
+    } else {
+      event_pipelines_.erase(pipeline);
     }
-
-    event_pipelines_.erase(pipeline);
     return Status::OK;
   }
 
@@ -422,6 +428,7 @@ class PrivateUniverse {
 
   CollectionRegistry collections_;
   ProgramRegistry programs_;
+  //RenderingContext rendering_context_;
 
   RunState run_state_;
 };

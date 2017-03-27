@@ -11,7 +11,10 @@ namespace {
 namespace cubez {
 
 PrivateUniverse::PrivateUniverse():
-    run_state_(RunState::STOPPED) {}
+    run_state_(RunState::STOPPED) {
+  //init_rendering(&rendering_context_,
+      //{ GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None }, 600, 600);
+}
 
 PrivateUniverse::~PrivateUniverse() {}
 

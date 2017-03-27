@@ -52,9 +52,10 @@ typedef void (*Callback)(struct Pipeline*, struct Collections sources, struct Co
 typedef void (*Mutate)(struct Collection*, const struct Mutation*);
 typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Stack*);
 typedef uint64_t (*Count)(struct Collection*);
+typedef uint8_t* (*Data)(struct Collection*);
 
 struct Iterator {
-  uint8_t* data;
+  Data data;
   uint32_t offset;
   size_t size;
 };
@@ -144,6 +145,13 @@ Status::Code remove_pipeline(struct Pipeline* pipeline);
 Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
 Status::Code disable_pipeline(struct Pipeline* pipeline);
 
+/*
+struct Event {
+  void* data;
+  size_t size;
+};
+void send_event(struct Pipeline* pipeline, Event event);
+*/
 Status::Code add_source(struct Pipeline*, const char* collection);
 Status::Code add_sink(struct Pipeline*, const char* collection);
 
