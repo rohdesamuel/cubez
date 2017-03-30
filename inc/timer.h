@@ -16,6 +16,9 @@
 class Timer {
 public:
   Timer();
+
+  static double now();
+
   // Starts the timer.
   void start();
 

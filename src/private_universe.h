@@ -8,17 +8,51 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
-#include <mutex>
 
 #define LOG_VAR(var) std::cout << #var << " = " << var << std::endl
 
 namespace cubez {
 
 const static char NAMESPACE_DELIMETER = '/';
+
+class Runner {
+ public:
+  enum class State {
+    ERROR = -1,
+    UNKNOWN = 0,
+    INITIALIZED,
+    STARTED,
+    RUNNING,
+    LOOPING,
+    STOPPED,
+    WAITING,
+  };
+
+  Runner(): state_(State::STOPPED) {}
+
+  template<class Func_>
+  Status::Code execute_if_in_state(std::vector<State>&& allowed, State next, Func_ f) {
+    Status::Code status = transition(std::move(allowed), next);
+    if (status == Status::OK) {
+      f();
+    }
+    return status;
+  }
+
+  Status::Code transition(State allowed, State next);
+  Status::Code transition(std::vector<State>&& allowed, State next);
+  Status::Code assert_in_state(State allowed);
+  Status::Code assert_in_state(std::vector<State>&& allowed);
+
+ private:
+  State state_;
+};
 
 class CollectionImpl {
  private:
@@ -281,9 +315,26 @@ class ProgramImpl {
   }
 
   void run() {
-    for(Pipeline* p : loop_pipelines_) {
-      ((PipelineImpl*)p->self)->run();
-    }
+    runner_.execute_if_in_state(
+        { Runner::State::STOPPED, Runner::State::WAITING },
+        Runner::State::RUNNING,
+    [this]() {
+      for(Pipeline* p : loop_pipelines_) {
+        ((PipelineImpl*)p->self)->run();
+      }
+    });
+
+    runner_.transition({ Runner::State::WAITING }, Runner::State::WAITING);
+  }
+
+  void detach() {
+    static std::thread* detached = new std::thread([this]() {
+      while(1) {
+        run();
+      }
+    });
+
+    detached->detach();
   }
 
  private:
@@ -325,6 +376,8 @@ class ProgramImpl {
   Program* program_;
   Mutators writers_;
   Mutators readers_;
+  Runner runner_;
+
   std::vector<Pipeline*> pipelines_;
   std::vector<Pipeline*> loop_pipelines_;
   std::set<Pipeline*> event_pipelines_;
@@ -383,16 +436,6 @@ class ProgramRegistry {
 
 class PrivateUniverse {
  public:
-  enum class RunState {
-    ERROR = -1,
-    UNKNOWN = 0,
-    INITIALIZED,
-    STARTED,
-    RUNNING,
-    LOOPING,
-    STOPPED,
-  };
-
   PrivateUniverse();
   ~PrivateUniverse();
 
@@ -402,6 +445,8 @@ class PrivateUniverse {
   Status::Code loop();
 
   Id create_program(const char* name);
+  Id detach_program(const char* name);
+  Id join_program(const char* name);
 
   // Pipeline manipulation.
   struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
@@ -421,16 +466,10 @@ class PrivateUniverse {
   Status::Code copy_collection(const char* source, const char* dest);
 
  private:
-  Status::Code transition(RunState allowed, RunState next);
-  Status::Code transition(std::vector<RunState>&& allowed, RunState next);
-  Status::Code assert_in_state(RunState allowed);
-  Status::Code assert_in_state(std::vector<RunState>&& allowed);
-
   CollectionRegistry collections_;
   ProgramRegistry programs_;
-  //RenderingContext rendering_context_;
 
-  RunState run_state_;
+  Runner runner_;
 };
 
 }  // namespace cubez

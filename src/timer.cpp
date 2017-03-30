@@ -15,6 +15,24 @@ Timer::Timer() {
 #endif
 }
 
+double Timer::now() {
+  double ret = 0.0;
+#ifdef __COMPILE_AS_WINDOWS__
+  LARGE_INTEGER freq;
+  LARGE_INTEGER now;
+  if (!freq.QuadPart) {
+    QueryPerformanceFrequency(&freq);
+  }
+  QueryPerformanceCounter(&now);
+  ret = (now.QuadPart * NS_TO_SEC) / (double)freq.QuadPart;
+#elif defined (__COMPILE_AS_LINUX__)
+  timespec now;
+  clock_gettime(CLOCK_TYPE, &now);
+  ret = (NS_TO_SEC * now.tv_sec) + now.tv_nsec;
+#endif
+  return ret;
+}
+
 void Timer::start() {
 #ifdef __COMPILE_AS_WINDOWS__
   get_clock_frequency();

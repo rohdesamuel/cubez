@@ -137,6 +137,8 @@ Status::Code stop();
 Status::Code loop();
 
 Id create_program(const char* name);
+Id detach_program(const char* name);
+Id join_program(const char* name);
 
 // Pipelines.
 struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);

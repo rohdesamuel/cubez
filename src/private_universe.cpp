@@ -10,64 +10,76 @@ namespace {
 
 namespace cubez {
 
-PrivateUniverse::PrivateUniverse():
-    run_state_(RunState::STOPPED) {
+typedef Runner::State RunState;
+
+Status::Code Runner::transition(
+    State allowed, State next) {
+  return transition(std::vector<State>{allowed}, next);
+}
+
+Status::Code Runner::transition(
+    std::vector<State>&& allowed, State next) {
+  if (assert_in_state(std::move(allowed))) {
+    state_ = next;
+    return Status::OK;
+  }
+  state_ = State::ERROR;
+  return Status::BAD_RUN_STATE;
+}
+
+Status::Code Runner::assert_in_state(State allowed) {
+  return assert_in_state(std::vector<State>{allowed});
+}
+
+Status::Code Runner::assert_in_state(std::vector<State>&& allowed) {
+  if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
+    return Status::OK;
+  }
+  return Status::BAD_RUN_STATE;
+}
+
+PrivateUniverse::PrivateUniverse() {
   //init_rendering(&rendering_context_,
       //{ GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None }, 600, 600);
 }
 
 PrivateUniverse::~PrivateUniverse() {}
 
-Status::Code PrivateUniverse::transition(
-    RunState allowed, RunState next) {
-  return transition(std::vector<RunState>{allowed}, next);
-}
-
-Status::Code PrivateUniverse::transition(
-    std::vector<RunState>&& allowed, RunState next) {
-  if (assert_in_state(std::move(allowed))) {
-    run_state_ = next;
-    return Status::OK;
-  }
-  run_state_ = RunState::ERROR;
-  return Status::BAD_RUN_STATE;
-}
-
-Status::Code PrivateUniverse::assert_in_state(RunState allowed) {
-  return assert_in_state(std::vector<RunState>{allowed});
-}
-
-Status::Code PrivateUniverse::assert_in_state(std::vector<RunState>&& allowed) {
-  if (std::find(allowed.begin(), allowed.end(), run_state_) != allowed.end()) {
-    return Status::OK;
-  }
-  return Status::BAD_RUN_STATE;
-}
-
 Status::Code PrivateUniverse::init() {
-  return transition(RunState::STOPPED, RunState::INITIALIZED);
+  return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 
 Status::Code PrivateUniverse::start() {
-  return transition(RunState::INITIALIZED, RunState::STARTED);
+  return runner_.transition(RunState::INITIALIZED, RunState::STARTED);
 }
 
 Status::Code PrivateUniverse::loop() {
-  transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
+  runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
   ProgramImpl* p = (ProgramImpl*)programs_.get_program("main")->self;
   p->run();
 
-  return transition(RunState::LOOPING, RunState::RUNNING);
+  return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
 
 Status::Code PrivateUniverse::stop() {
-  return transition({RunState::RUNNING, RunState::UNKNOWN}, RunState::STOPPED);
+  return runner_.transition({RunState::RUNNING, RunState::UNKNOWN}, RunState::STOPPED);
 }
 
 Id PrivateUniverse::create_program(const char* name) {
   return programs_.create_program(name); 
 }
+
+Id PrivateUniverse::detach_program(const char* name) {
+  Program* to_detach = programs_.get_program(name);
+  if (to_detach) {
+    programs_.to_impl(to_detach)->detach();
+    return to_detach->id;
+  }
+  return -1;
+}
+
+Id PrivateUniverse::join_program(const char*){ return -1; }
 
 struct Pipeline* PrivateUniverse::add_pipeline(
     const char* program, const char* source, const char* sink) {
