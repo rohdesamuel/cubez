@@ -22,15 +22,20 @@ private:
     size_t size;
   };
 
-  uint8_t stack_[MAX_SIZE];
+  bool should_delete_ = false;
+  uint8_t* stack_;
   // Always points to the next empty piece of memory.
   uint8_t* top_;
   uint8_t* ceiling_;
 
 public:
-  Stack() : top_(stack_), ceiling_(stack_ + MAX_SIZE) {}
+  Stack(uint8_t* stack, size_t size) : stack_(stack), top_(stack_), ceiling_(stack_ + size) {}
+  Stack(size_t size = MAX_SIZE) : Stack(new uint8_t[size], size) { should_delete_ = true; }
   ~Stack() {
     clear();
+    if (should_delete_ && stack_) {
+      delete[] stack_;
+    }
   }
 
   void* alloc(size_t type_size) {

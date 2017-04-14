@@ -4,6 +4,7 @@
 #include "cubez.h"
 #include "table.h"
 #include "stack_memory.h"
+#include "concurrentqueue.h"
 
 #include <algorithm>
 #include <cstring>
@@ -13,45 +14,68 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #define LOG_VAR(var) std::cout << #var << " = " << var << std::endl
 
+using moodycamel::ConcurrentQueue;
+
 namespace cubez {
 
 const static char NAMESPACE_DELIMETER = '/';
+const static uint8_t MAX_ARG_COUNT = 16;
 
 class Runner {
+
  public:
   enum class State {
-    ERROR = -1,
+    ERROR = -10,
     UNKNOWN = 0,
-    INITIALIZED,
-    STARTED,
-    RUNNING,
-    LOOPING,
-    STOPPED,
-    WAITING,
+    INITIALIZED = 10,
+    STARTED = 20,
+    RUNNING = 30,
+    LOOPING = 40,
+    STOPPED = 50,
+    WAITING = 60,
+    PAUSED = 70,
+  };
+
+  class TransitionGuard {
+   public:
+    TransitionGuard(Runner* runner, std::vector<State>&& allowed, State next):
+      runner_(runner),
+      old_(runner->state_),
+      next_(next) {
+      std::vector<State> allowed_from{allowed};
+      runner_->wait_until(allowed_from);
+      runner_->transition(allowed_from, next);
+    }
+    ~TransitionGuard() {
+      runner_->transition(next_, old_);
+    }
+   private:
+    Runner* runner_;
+    State old_;
+    State next_;
   };
 
   Runner(): state_(State::STOPPED) {}
 
-  template<class Func_>
-  Status::Code execute_if_in_state(std::vector<State>&& allowed, State next, Func_ f) {
-    Status::Code status = transition(std::move(allowed), next);
-    if (status == Status::OK) {
-      f();
-    }
-    return status;
-  }
+  // Wait until runner enters an allowed state.
+  void wait_until(const std::vector<State>& allowed);
+  void wait_until(std::vector<State>&& allowed);
 
   Status::Code transition(State allowed, State next);
+  Status::Code transition(const std::vector<State>& allowed, State next);
   Status::Code transition(std::vector<State>&& allowed, State next);
   Status::Code assert_in_state(State allowed);
+  Status::Code assert_in_state(const std::vector<State>& allowed);
   Status::Code assert_in_state(std::vector<State>&& allowed);
 
  private:
-  State state_;
+  std::mutex state_change_;
+  volatile State state_;
 };
 
 class CollectionImpl {
@@ -120,6 +144,52 @@ class CollectionRegistry {
   Table<std::string, Collection*> collections_;
 };
 
+class FrameImpl {
+ public:
+  FrameImpl(Stack* stack): stack_(stack) {}
+
+  static FrameImpl* from_raw(Frame* f) { return (FrameImpl*)f->self; }
+
+  static Arg* get_arg(Frame* frame, const char* name) {
+    FrameImpl* self = from_raw(frame);
+    auto it = self->args_.find(name);
+    if (it == self->args_.end()) {
+      return nullptr;
+    }
+    return it->second;
+  }
+
+  static Arg* new_arg(Frame* frame, const char* name, size_t size) {
+    if (frame->args.count >= MAX_ARG_COUNT) {
+      return nullptr;
+    }
+
+    Arg* ret = get_arg(frame, name);
+    if (ret) {
+      return ret;
+    }
+
+    FrameImpl* self = from_raw(frame);
+    Arg* arg = &frame->args.arg[frame->args.count++];
+    arg->data = self->stack_->alloc(size);
+    arg->size = size;
+    self->args_[name] = arg;
+    return arg;
+  }
+
+  static Arg* set_arg(Frame* frame, const char* name, void* data, size_t size) {
+    Arg* ret = new_arg(frame, name, size);
+    if (ret) {
+      memcpy(ret->data, data, size);
+    }
+    return ret;
+  }
+
+ private:
+  Stack* stack_;
+  std::unordered_map<const char*, Arg*> args_;
+};
+
 class PipelineImpl {
  private:
   Pipeline* pipeline_;
@@ -148,7 +218,9 @@ class PipelineImpl {
   void run() {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
-    if (source_size == 1 && sink_size == 1) {
+    if (source_size == 0 && sink_size == 0) {
+      run_0_to_0();
+    } else if (source_size == 1 && sink_size == 1) {
       run_1_to_1();
     } else if (source_size == 1 && sink_size == 0) {
       run_1_to_0();
@@ -160,6 +232,13 @@ class PipelineImpl {
     }
   }
 
+  void run_0_to_0() {
+    static Stack stack;
+    Frame frame;
+    pipeline_->transform(&frame);
+    stack.clear();
+  }
+
   void run_1_to_0() {
     Collection* source = sources_[0];
     uint64_t count = source->count(source);
@@ -167,13 +246,21 @@ class PipelineImpl {
     uint8_t* values = source->values.data(source);
 
     for(uint64_t i = 0; i < count; ++i) {
-      thread_local static Stack stack;
+      //thread_local static uint8_t stack_mem[512];
+      //thread_local static uint8_t args[16 * sizeof(Arg)];
+      //Stack stack(stack_mem, 512);
+      //FrameImpl frame_impl(&stack);
+      Frame frame;
+      //frame.self = &frame_impl;
+      //frame.args.arg = (Arg*)args;
+      //frame.args.count = 0;
+
       source->copy(
           keys + source->keys.offset + i * source->keys.size,
           values + source->values.offset + i * source->values.size,
-          i, &stack);
-      pipeline_->transform(&stack);
-      stack.clear();
+          i, &frame);
+      pipeline_->transform(&frame);
+      //stack.clear();
     }
   }
 
@@ -186,14 +273,25 @@ class PipelineImpl {
 
 //#pragma omp parallel for
     for(uint64_t i = 0; i < count; ++i) {
-      thread_local static Stack stack;
+      thread_local static uint8_t mutation[512];
+      //thread_local static uint8_t stack_mem[512];
+      //thread_local static uint8_t args[16 * sizeof(Arg)];
+      //Stack stack(stack_mem, 512);
+      //FrameImpl frame_impl(&stack);
+      Frame frame;
+      //frame.self = &frame_impl;
+      //frame.args.arg = (Arg*)args;
+      //frame.args.count = 0;
+      frame.mutation.mutate_by = MutateBy::UNKNOWN;
+      frame.mutation.element = mutation;
+
       source->copy(
           keys + source->keys.offset + i * source->keys.size,
           values + source->values.offset + i * source->values.size,
-          i, &stack);
-      pipeline_->transform(&stack);
-      sink->mutate(sink, (const Mutation*)stack.top());
-      stack.clear();
+          i, &frame);
+      pipeline_->transform(&frame);
+      sink->mutate(sink, &frame.mutation);
+      //stack.clear();
     }
   }
 
@@ -255,6 +353,157 @@ class PipelineImpl {
   */
 };
 
+class ChannelImpl {
+ public:
+  void send_event(Event e) {
+    Event* event = (Event*)malloc(sizeof(Event) + e.size);
+    event->data = event + sizeof(Event);
+    event->size = e.size;
+    memcpy(event->data, e.data, e.size);
+    event_queue_->enqueue(token_, event);
+  }
+ private:
+  moodycamel::ProducerToken token_;
+  ConcurrentQueue<void*>* event_queue_;
+};
+
+class EventQueue {
+ public:
+  void add_handler(Pipeline* p) {
+    handlers_[p->id] = p;
+  }
+
+  void remove_handler(Id id) {
+    handlers_.erase(id);
+  }
+
+  void flush() {
+    Event* event;
+    while (event_queue_.try_dequeue(event)) {
+      static Stack stack;
+      *(Event*)stack.alloc(event->size) = *event;
+
+      for (const auto& handler : handlers_) {
+        ((PipelineImpl*)(handler.second))->run();
+      }
+
+      free(event);
+      stack.clear();
+    }
+  }
+
+ private:
+  std::unordered_map<Id, Pipeline*> handlers_;
+  Stack stack;
+  moodycamel::ConcurrentQueue<Event*> event_queue_;
+};
+
+const char kBroadcast[] = "";
+
+class EventRegistry {
+ public:
+  EventRegistry(Id program): program_(program), event_id_(0) {
+    create_event(kBroadcast);
+  }
+
+  Subscription* subscribe(const char* event, Pipeline* pipeline) {
+    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+    Id event_id = create_event(event);
+    events_[event_id]->add_handler(pipeline); 
+    Subscription* ret = new_subscription(event_id, pipeline->id);
+
+    return ret;
+  }
+
+  void unsubscribe(Subscription* s) {
+    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+    events_[s->event]->remove_handler(s->pipeline);
+  }
+
+  Channel* open_channel(const char* event) {
+    // Broadcast channel.
+    Id event_id = -1;
+    if (event) {
+      std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+      event_id = create_event(event);
+    }
+    Channel* ret = (Channel*)malloc(sizeof(Channel));
+    *(Id*)(&ret->program) = program_;
+    *(Id*)(&ret->event) = event_id;
+
+    return ret;
+  }
+
+  void close_channel(Channel* channel) {
+    free(channel);
+  }
+
+ private:
+  Id create_event(const char* event) {
+    Id event_id;
+    auto it = event_name_.find(event);
+    if (it == event_name_.end()) {
+      event_id = event_id_++;
+      event_name_[event] = event_id;
+    } else {
+      event_id = it->second;
+    }
+    events_[event_id] = new EventQueue();
+    return event_id;
+  }
+
+  Subscription* new_subscription(Id event, Id pipeline) {
+    Subscription* ret = (Subscription*)malloc(sizeof(Subscription));
+    *(Id*)(&ret->program) = program_;
+    *(Id*)(&ret->event) = event;
+    *(Id*)(&ret->pipeline) = pipeline;
+    return ret;
+  }
+
+  void free_subscription(Subscription* subscription) {
+    free(subscription);
+  }
+
+  Id program_;
+  Id event_id_;
+  std::mutex state_mutex_;
+  std::unordered_map<std::string, Id> event_name_;
+  std::unordered_map<Id, EventQueue*> events_; 
+};
+
+/*
+ *  Sent to:
+ *    Subscribed Pipelines in a Program
+ *    Program/ Pipeline (to change running state)
+ *  Effect:
+ *    None (read-only)
+ *    Change Program/ Pipeline state
+ *  Lifetime:
+ *    Destroyed when read once
+ *    Destroyed after Pipelines loop
+ *  Callback:
+ *    Yes
+ *    No
+ *
+ *  Trigger:
+ *    Sent To: Program or Pipeline
+ *    Effect: Change running state
+ *    Lifetime: Destroyed when read once
+ *    Callback: Available
+ *
+ *  Event:
+ *    Sent To: Program or subscribed Pipelines
+ *    Effect: Change (non-running) state
+ *    Lifetime: Destroyed after Pipelines loop
+ *    Callback: Yes
+ *    
+ *  Message:
+ *    Sent To: Program or subscribed Pipelines
+ *    Effect: None (read-only)
+ *    Lifetime: Destroyed after Pipelines loop
+ *    Callback: No
+ */
+
 class ProgramImpl {
  private:
    typedef Table<Collection*, std::set<Pipeline*>> Mutators;
@@ -265,8 +514,13 @@ class ProgramImpl {
     Pipeline* pipeline = new_pipeline(pipelines_.size());
     pipelines_.push_back(pipeline);
 
-    add_source(pipeline, source);
-    add_sink(pipeline, sink);
+    if (source) {
+      add_source(pipeline, source);
+    }
+
+    if (sink) {
+      add_sink(pipeline, sink);
+    }
 
     return pipeline;
   }
@@ -315,22 +569,14 @@ class ProgramImpl {
   }
 
   void run() {
-    runner_.execute_if_in_state(
-        { Runner::State::STOPPED, Runner::State::WAITING },
-        Runner::State::RUNNING,
-    [this]() {
-      for(Pipeline* p : loop_pipelines_) {
-        ((PipelineImpl*)p->self)->run();
-      }
-    });
-
-    runner_.transition({ Runner::State::WAITING }, Runner::State::WAITING);
+    for(Pipeline* p : loop_pipelines_) {
+      ((PipelineImpl*)p->self)->run();
+    }
   }
 
   void detach() {
     static std::thread* detached = new std::thread([this]() {
       while(1) {
-        run();
       }
     });
 
@@ -376,7 +622,6 @@ class ProgramImpl {
   Program* program_;
   Mutators writers_;
   Mutators readers_;
-  Runner runner_;
 
   std::vector<Pipeline*> pipelines_;
   std::vector<Pipeline*> loop_pipelines_;

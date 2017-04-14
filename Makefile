@@ -10,6 +10,9 @@ MINOR_VERSION = 0
 BUILD_VERSION = 0
 VERSION = $(MAJOR_VERSION).$(MINOR_VERSION).$(BUILD_VERSION)
 
+# Debug Vars
+DEBUG_MODE = __ENGINE_DEBUG__
+
 all:
 	# Author: Samuel Rohde (rohde.samuel@gmail.com)
 	#
@@ -22,7 +25,7 @@ all:
 	@mv *.o obj/
 
 debug:
-	g++ -c -fPIC -fno-exceptions -I$(INC_DIR) $(SRC_DIR)/*.cpp -Wall -Wextra -Werror -std=c++14 -g -lSDL2 -lGLEW -lGL -lGLU -fopenmp
+	g++ -c -fPIC -fno-exceptions -D$(DEBUG_MODE) -I$(INC_DIR) $(SRC_DIR)/*.cpp -Wall -Wextra -Werror -std=c++14 -g -lSDL2 -lGLEW -lGL -lGLU -fopenmp
 	g++ -shared -fPIC -fno-exceptions -Wl,-soname,libcubez.so.$(MAJOR_VERSION) -o $(LIB_DIR)/libcubez.so.$(VERSION) *.o -lc
 	@ln -f -r -s $(LIB_DIR)/libcubez.so.$(VERSION) $(LIB_DIR)/libcubez.so.$(MAJOR_VERSION)
 	@ln -f -r -s $(LIB_DIR)/libcubez.so.$(VERSION) $(LIB_DIR)/libcubez.so

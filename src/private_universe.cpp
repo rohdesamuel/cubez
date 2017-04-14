@@ -12,14 +12,24 @@ namespace cubez {
 
 typedef Runner::State RunState;
 
+void Runner::wait_until(const std::vector<State>& allowed) {
+  while (std::find(allowed.begin(), allowed.end(), state_) == allowed.end());
+}
+
+void Runner::wait_until(std::vector<State>&& allowed) {
+  while (std::find(allowed.begin(), allowed.end(), state_) == allowed.end());
+}
+
 Status::Code Runner::transition(
     State allowed, State next) {
   return transition(std::vector<State>{allowed}, next);
 }
 
-Status::Code Runner::transition(
-    std::vector<State>&& allowed, State next) {
-  if (assert_in_state(std::move(allowed))) {
+
+#ifdef __ENGINE_DEBUG__
+Status::Code Runner::transition(const std::vector<State>& allowed, State next) {
+  std::lock_guard<std::mutex> lock(state_change_);
+  if (assert_in_state(allowed) == Status::OK) {
     state_ = next;
     return Status::OK;
   }
@@ -27,14 +37,59 @@ Status::Code Runner::transition(
   return Status::BAD_RUN_STATE;
 }
 
+Status::Code Runner::transition(
+    std::vector<State>&& allowed, State next) {
+  std::lock_guard<std::mutex> lock(state_change_);
+  if (assert_in_state(std::move(allowed)) == Status::OK) {
+    state_ = next;
+    return Status::OK;
+  }
+  state_ = State::ERROR;
+  return Status::BAD_RUN_STATE;
+}
+#else
+Status::Code Runner::transition(const std::vector<State>&, State next) {
+  std::lock_guard<std::mutex> lock(state_change_);
+  state_ = next;
+  return Status::OK;
+}
+Status::Code Runner::transition(std::vector<State>&&, State next) {
+  std::lock_guard<std::mutex> lock(state_change_);
+  state_ = next;
+  return Status::OK;
+}
+#endif
+
+
 Status::Code Runner::assert_in_state(State allowed) {
   return assert_in_state(std::vector<State>{allowed});
+}
+
+Status::Code Runner::assert_in_state(const std::vector<State>& allowed) {
+  if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
+    return Status::OK;
+  }
+  std::cerr << "Runner is in bad state: " << (int)state_
+            << "\nAllowed to be in { ";
+  for (auto state : allowed) {
+    std::cerr << (int)state << " ";
+  }
+  std::cerr << "}\n";
+  
+  return Status::BAD_RUN_STATE;
 }
 
 Status::Code Runner::assert_in_state(std::vector<State>&& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
     return Status::OK;
   }
+  std::cerr << "Runner is in bad state: " << (int)state_
+            << "\nAllowed to be in { ";
+  for (auto state : allowed) {
+    std::cerr << (int)state << " ";
+  }
+  std::cerr << "}\n";
+  
   return Status::BAD_RUN_STATE;
 }
 

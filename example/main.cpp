@@ -25,7 +25,7 @@ void add_render_pipeline() {
   cubez::Pipeline* render_pipeline =
       cubez::add_pipeline(kMainProgram, kParticleCollection, nullptr);
   render_pipeline->select = nullptr;
-  render_pipeline->transform = [](cubez::Stack*){
+  render_pipeline->transform = [](cubez::Frame*){
    /* Particles::Element* el =
         (Particles::Element*)((cubez::Mutation*)(s->top()))->element;*/
   };
@@ -153,7 +153,10 @@ int main(int, char* []) {
   cubez::init(&uni);
   cubez::create_program(kMainProgram); 
 
-  uint64_t particle_count = 10;
+  cubez::create_program("stdout");
+  //cubez::detach_program("stdout");
+
+  uint64_t particle_count = 10000;
   cubez::Collection* c = add_particle_collection(kParticleCollection, particle_count);
   add_particle_pipeline(kParticleCollection);
 
@@ -167,14 +170,38 @@ int main(int, char* []) {
 
   cubez::start();
   int frame = 0;
-  WindowTimer frame_time(100);
-  WindowTimer update_time(10);
-  WindowTimer render_time(10);
+  WindowTimer fps_timer(50);
+  WindowTimer update_timer(50);
+  WindowTimer render_timer(50);
+
 
   XGetWindowAttributes(dpy, win, &gwa);
   glViewport(0, 0, gwa.width, gwa.height);
+
+
+  double t = 0.0;
+  const double dt = 0.01;
+  double current_time = Timer::now() * 0.000000001;
+  double accumulator = 0.0;
+
   while (1) {
-    frame_time.start();
+    fps_timer.start();
+
+    double new_time = Timer::now() * 0.000000001;
+    double frame_time = new_time - current_time;
+    current_time = new_time;
+
+    accumulator += frame_time;
+
+    update_timer.start();
+    while (accumulator >= dt) {
+      cubez::loop();
+      accumulator -= dt;
+      t += dt;
+    }
+    update_timer.stop();
+    update_timer.step();
+
     if (XCheckWindowEvent(dpy, win, KeyPressMask, &xev)) {
       if (xev.type == Expose) {
       } else if (xev.type == KeyPress) {
@@ -186,49 +213,45 @@ int main(int, char* []) {
         exit(0);
       }
     }
-    render_time.start();
-    if (frame % 2 == 0) {
-      glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr, GL_DYNAMIC_DRAW);
-      glBufferSubData(
-          GL_ARRAY_BUFFER, 0,
-          c->count(c) * c->values.size,
-          c->values.data(c));
 
-      //glEnableClientState(GL_VERTEX_ARRAY);
-      // 3 for 3 dimensions.
-      //glVertexPointer(3, GL_FLOAT, c->values.size, (void*)(0));
-      //glDisableClientState(GL_VERTEX_ARRAY);
+    render_timer.start();
+    glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr, GL_DYNAMIC_DRAW);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0,
+        c->count(c) * c->values.size,
+        c->values.data(c));
 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
+    glDrawArrays(GL_POINTS, 0, c->count(c));
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    {
       GLenum error = glGetError();
       if (error) {
         const GLubyte* error_str = gluErrorString(error);
         std::cout << "Error(" << error << "): " << error_str << std::endl;
       }
     }
-    if (frame % 1 == 0) {
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glEnableVertexAttribArray(0);
-      glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
-      glDrawArrays(GL_POINTS, 0, c->count(c));
-    }
     glXSwapBuffers(dpy, win);
-    render_time.stop();
-    render_time.step();
+    render_timer.stop();
+    render_timer.step();
 
-    update_time.start();
-    if (1) {
-      cubez::loop();
-    }
-    update_time.stop();
-    update_time.step();
 
     ++frame;
-    frame_time.stop();
-    frame_time.step();
+    fps_timer.stop();
+    fps_timer.step();
 
-    double total = 1e9; //update_time.get_avg_elapsed_ns() + render_time.get_avg_elapsed_ns();
-    std::cout << frame_time.get_elapsed_ns() / 1e6 << "\n";
-    std::cout << 100.0 * update_time.get_avg_elapsed_ns() / total << " : "
-              << 100.0 * render_time.get_avg_elapsed_ns() / total << "\n";
+    if (frame % 1000 == 0) {
+      std::cout << "Frame " << frame << std::endl;
+      double total = 15 * 1e6;
+      std::cout << "Utilization: "  << 100.0 * render_timer.get_avg_elapsed_ns() / total << " : " << 100.0 * update_timer.get_avg_elapsed_ns() / total << "\n";
+      std::cout << "Update FPS: " << 1e9 / update_timer.get_avg_elapsed_ns() << "\n";
+      std::cout << "Render FPS: " << 1e9 / render_timer.get_avg_elapsed_ns() << "\n";
+      std::cout << "Total FPS: " << 1e9 / fps_timer.get_elapsed_ns() << "\n";
+      std::cout << "Accumulator: " << accumulator << "\n";
+      std::cout << "\n";
+    }
   }
 }

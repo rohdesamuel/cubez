@@ -85,4 +85,16 @@ Status::Code copy_collection(const char* source, const char* dest) {
   return AS_PRIVATE(copy_collection(source, dest));
 }
 
+Arg* get_arg(Frame* frame, const char* name) {
+  return FrameImpl::get_arg(frame, name);
+}
+
+Arg* new_arg(Frame* frame, const char* name, size_t size) {
+  return FrameImpl::new_arg(frame, name, size);
+}
+
+Arg* set_arg(Frame* frame, const char* name, void* data, size_t size) {
+  return FrameImpl::set_arg(frame, name, data, size);
+}
+
 }  // namespace cubez

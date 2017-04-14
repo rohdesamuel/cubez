@@ -42,15 +42,36 @@ enum class MutateBy {
 
 struct Mutation {
   MutateBy mutate_by;
-  uint8_t* element;
+  void* element;
 };
 
+struct Arg {
+  void* data;
+  size_t size;
+};
+
+struct Args {
+  Arg* arg;
+  uint8_t count;
+};
+
+struct Frame {
+  const void* self;
+  Args args;
+  Mutation mutation;
+};
+
+Arg* get_arg(Frame* frame, const char* name);
+Arg* new_arg(Frame* frame, const char* name, size_t size);
+Arg* set_arg(Frame* frame, const char* name, void* data, size_t size);
+
 typedef bool (*Select)(uint8_t, ...);
-typedef void (*Transform)(struct Stack*);
+typedef void (*Transform)(struct Frame*);
 typedef void (*Callback)(struct Pipeline*, struct Collections sources, struct Collections sinks);
+typedef void (*EventCallback)(void* message);
 
 typedef void (*Mutate)(struct Collection*, const struct Mutation*);
-typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Stack*);
+typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Frame*);
 typedef uint64_t (*Count)(struct Collection*);
 typedef uint8_t* (*Data)(struct Collection*);
 
@@ -99,17 +120,6 @@ struct GameState {
   struct Keys* change;
 };
 
-typedef bool (*Event)(GameState*);
-
-/*
-extern Event KeyPressed;
-extern Event KeyReleased;
-extern Event Timer;
-*/
-struct EventPolicy {
-  Event event;
-};
-
 struct ExecutionPolicy {
   int16_t priority;
   Trigger trigger;
@@ -131,7 +141,8 @@ struct Program {
   const void* self;
 };
 
-Status::Code init(Universe* universe);
+
+Status::Code init(struct Universe* universe);
 Status::Code start();
 Status::Code stop();
 Status::Code loop();
@@ -147,20 +158,40 @@ Status::Code remove_pipeline(struct Pipeline* pipeline);
 Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
 Status::Code disable_pipeline(struct Pipeline* pipeline);
 
-/*
-struct Event {
-  void* data;
-  size_t size;
-};
-void send_event(struct Pipeline* pipeline, Event event);
-*/
 Status::Code add_source(struct Pipeline*, const char* collection);
 Status::Code add_sink(struct Pipeline*, const char* collection);
 
 // Collections.
 Collection* add_collection(const char* program, const char* name);
-Status::Code share_collection(const char* source, const char* dest);
-Status::Code copy_collection(const char* source, const char* dest);
+Status::Code share_collection(/*const char* program*/ const char* source, const char* dest);
+Status::Code copy_collection(/*const char* program*/ const char* source, const char* dest);
+
+struct Event {
+  void* data;
+  size_t size;
+};
+
+struct Channel {
+  const Id program;
+  const Id event;
+};
+
+struct Subscription {
+  const Id program;
+  const Id event;
+  const Id pipeline;
+};
+
+// Thread-safe.
+void create_event(const char* program, const char* event, size_t event_size);
+
+void send_event(struct Channel* channel, Event e);
+struct Channel* open_channel(const char* program, const char* event);
+void close_channel(struct Channel* channel);
+
+struct Subscription* subscribe_to(
+    const char* program, const char* event, struct Pipeline* pipeline);
+void unsubscribe_from(struct Subscription* subscription);
 
 #ifdef __cplusplus
 }  // namespace cubez
