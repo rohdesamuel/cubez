@@ -225,11 +225,11 @@ class PipelineImpl {
     } else if (source_size == 1 && sink_size == 0) {
       run_1_to_0();
     }
-    if (pipeline_->callback) {
+    //if (pipeline_->callback) {
       //Collections sources {source_size, sources_.data()};
       //Collections sinks {sink_size, sinks_.data()};
       //pipeline_->callback(pipeline_, sources, sinks);
-    }
+    //}
   }
 
   void run_0_to_0() {
@@ -274,11 +274,16 @@ class PipelineImpl {
 //#pragma omp parallel for
     for(uint64_t i = 0; i < count; ++i) {
       thread_local static uint8_t mutation[512];
-      //thread_local static uint8_t stack_mem[512];
-      //thread_local static uint8_t args[16 * sizeof(Arg)];
+      thread_local static uint8_t args[8 * sizeof(Arg)];
+      thread_local static uint8_t stack_mem[8][128];
       //Stack stack(stack_mem, 512);
       //FrameImpl frame_impl(&stack);
       Frame frame;
+      frame.args.arg = (Arg*)args;
+      for (int i = 0; i < 8; ++i) {
+        frame.args.arg[i].data = (void*)stack_mem[i];
+        frame.args.arg[i].size = 128;
+      }
       //frame.self = &frame_impl;
       //frame.args.arg = (Arg*)args;
       //frame.args.count = 0;
@@ -353,33 +358,47 @@ class PipelineImpl {
   */
 };
 
-class ChannelImpl {
+class MessageQueue {
  public:
-  void send_event(Event e) {
-    Event* event = (Event*)malloc(sizeof(Event) + e.size);
-    event->data = event + sizeof(Event);
-    event->size = e.size;
-    memcpy(event->data, e.data, e.size);
-    event_queue_->enqueue(token_, event);
+  MessageQueue(size_t size = 1) : size_(size) {
+    // Start count is arbitrarily choosen.
+    for (int i = 0; i < 16; ++i) {
+      free_mem_.enqueue(new_message());
+    }
   }
- private:
-  moodycamel::ProducerToken token_;
-  ConcurrentQueue<void*>* event_queue_;
-};
 
-class EventQueue {
- public:
+  // Thread-safe.
+  Message* new_message() {
+    Message* ret = nullptr;
+    if (free_mem_.size_approx() == 0) {
+      ret = new_mem();
+    }
+    return ret;
+  }
+
+  // Thread-safe.
+  void free_message(Message* message) {
+    free_mem_.enqueue(message);
+  }
+
+  void send_message(Message* message) {
+    message_queue_.enqueue(message);
+  }
+
   void add_handler(Pipeline* p) {
     handlers_[p->id] = p;
   }
 
   void remove_handler(Id id) {
+    std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
     handlers_.erase(id);
   }
 
   void flush() {
-    Event* event;
-    while (event_queue_.try_dequeue(event)) {
+    /*
+    std::lock_guard<decltype(handlers_mu_)>(handlers_mu_) lock;
+    Message* msg;
+    while (message_queue_.try_dequeue(msg)) {
       static Stack stack;
       *(Event*)stack.alloc(event->size) = *event;
 
@@ -389,57 +408,55 @@ class EventQueue {
 
       free(event);
       stack.clear();
-    }
+    }*/
   }
 
  private:
+  Message* new_mem() {
+    Message* ret = (Message*)(malloc(sizeof(Message) + size_));
+    ret->data = ret + sizeof(Message);
+    ret->size = size_;
+    return ret;
+  }
+
+  std::mutex handlers_mu_;
   std::unordered_map<Id, Pipeline*> handlers_;
   Stack stack;
-  moodycamel::ConcurrentQueue<Event*> event_queue_;
+  moodycamel::ConcurrentQueue<Message*> message_queue_;
+  moodycamel::ConcurrentQueue<Message*> free_mem_;
+  size_t size_;
 };
 
-const char kBroadcast[] = "";
+class ChannelImpl {
+ public:
+  ChannelImpl(MessageQueue* message_queue)
+      : message_queue_(message_queue) {}
+
+  static ChannelImpl* to_impl(Channel* c) {
+    return (ChannelImpl*)c->self;
+  }
+
+  // Thread-safe.
+  Message* new_message() {
+    return message_queue_->new_message();
+  }
+
+  // Thread-safe.
+  void send_message(Message* message) {
+    message_queue_->send_message(message);
+  }
+
+ private:
+  MessageQueue* message_queue_;
+};
 
 class EventRegistry {
  public:
-  EventRegistry(Id program): program_(program), event_id_(0) {
-    create_event(kBroadcast);
-  }
+  EventRegistry(Id program): program_(program), event_id_(0) { }
 
-  Subscription* subscribe(const char* event, Pipeline* pipeline) {
+  // Thread-safe.
+  Id create_event(const char* event, EventPolicy policy) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    Id event_id = create_event(event);
-    events_[event_id]->add_handler(pipeline); 
-    Subscription* ret = new_subscription(event_id, pipeline->id);
-
-    return ret;
-  }
-
-  void unsubscribe(Subscription* s) {
-    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    events_[s->event]->remove_handler(s->pipeline);
-  }
-
-  Channel* open_channel(const char* event) {
-    // Broadcast channel.
-    Id event_id = -1;
-    if (event) {
-      std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-      event_id = create_event(event);
-    }
-    Channel* ret = (Channel*)malloc(sizeof(Channel));
-    *(Id*)(&ret->program) = program_;
-    *(Id*)(&ret->event) = event_id;
-
-    return ret;
-  }
-
-  void close_channel(Channel* channel) {
-    free(channel);
-  }
-
- private:
-  Id create_event(const char* event) {
     Id event_id;
     auto it = event_name_.find(event);
     if (it == event_name_.end()) {
@@ -448,8 +465,59 @@ class EventRegistry {
     } else {
       event_id = it->second;
     }
-    events_[event_id] = new EventQueue();
+    events_[event_id] = new MessageQueue(policy.size);
     return event_id;
+  }
+
+  // Thread-safe.
+  Subscription* subscribe(const char* event, Pipeline* pipeline) {
+    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+    Subscription* ret = nullptr;
+    Id event_id = find_event(event);
+    if (event_id != -1) {
+      events_[event_id]->add_handler(pipeline); 
+      ret = new_subscription(event_id, pipeline->id);
+    }
+
+    return ret;
+  }
+
+  // Thread-safe.
+  void unsubscribe(Subscription* s) {
+    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+    events_[s->event]->remove_handler(s->pipeline);
+  }
+
+  // Thread-safe.
+  Channel* open_channel(const char* event) {
+    Channel* ret = nullptr;
+    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
+    Id event_id = find_event(event);;
+    if (event_id != -1) {
+      ret = (Channel*)malloc(sizeof(Channel));
+      *(Id*)(&ret->program) = program_;
+      *(Id*)(&ret->event) = event_id;
+      ret->self = new ChannelImpl(events_[event_id]);
+    }
+
+    return ret;
+  }
+
+  // Thread-safe.
+  void close_channel(Channel* channel) {
+    delete (ChannelImpl*)channel->self;
+    free(channel);
+  }
+
+ private:
+  // Requires state_mutex_.
+  Id find_event(const char* event) {
+    Id ret = -1;
+    auto it = event_name_.find(event);
+    if (it != event_name_.end()) {
+      ret = it->second;
+    }
+    return ret;
   }
 
   Subscription* new_subscription(Id event, Id pipeline) {
@@ -468,7 +536,7 @@ class EventRegistry {
   Id event_id_;
   std::mutex state_mutex_;
   std::unordered_map<std::string, Id> event_name_;
-  std::unordered_map<Id, EventQueue*> events_; 
+  std::unordered_map<Id, MessageQueue*> events_; 
 };
 
 /*
@@ -508,7 +576,9 @@ class ProgramImpl {
  private:
    typedef Table<Collection*, std::set<Pipeline*>> Mutators;
  public:
-  ProgramImpl(Program* program) : program_(program) {}
+  ProgramImpl(Program* program)
+      : program_(program),
+        events_(program->id) {}
 
   Pipeline* add_pipeline(Collection* source, Collection* sink) {
     Pipeline* pipeline = new_pipeline(pipelines_.size());
@@ -568,6 +638,27 @@ class ProgramImpl {
     return std::find(pipelines_.begin(), pipelines_.end(), pipeline) != pipelines_.end();
   }
 
+  Id create_event(const char* event, EventPolicy policy) {
+    return events_.create_event(event, policy);
+  }
+
+  Channel* open_channel(const char* event) {
+    return events_.open_channel(event);
+  }
+
+  void close_channel(Channel* channel) {
+    events_.close_channel(channel);
+  }
+
+  struct Subscription* subscribe_to(const char* event,
+                                    struct Pipeline* pipeline) {
+    return events_.subscribe(event, pipeline);
+  }
+
+  void unsubscribe_from(struct Subscription* subscription) {
+    events_.unsubscribe(subscription);
+  }
+
   void run() {
     for(Pipeline* p : loop_pipelines_) {
       ((PipelineImpl*)p->self)->run();
@@ -623,6 +714,7 @@ class ProgramImpl {
   Mutators writers_;
   Mutators readers_;
 
+  EventRegistry events_;
   std::vector<Pipeline*> pipelines_;
   std::vector<Pipeline*> loop_pipelines_;
   std::set<Pipeline*> event_pipelines_;
@@ -709,6 +801,16 @@ class PrivateUniverse {
 
   Status::Code share_collection(const char* source, const char* dest);
   Status::Code copy_collection(const char* source, const char* dest);
+
+  // Events.
+  Id create_event(const char* program, const char* event, EventPolicy policy);
+
+  struct Channel* open_channel(const char* program, const char* event);
+  void close_channel(struct Channel* channel);
+
+  struct Subscription* subscribe_to(
+      const char* program, const char* event, struct Pipeline* pipeline);
+  void unsubscribe_from(struct Subscription* subscription);
 
  private:
   CollectionRegistry collections_;

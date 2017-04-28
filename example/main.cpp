@@ -149,11 +149,44 @@ int main(int, char* []) {
   glLinkProgram(shader_program);
   glUseProgram(shader_program);
 
+  // Create and initialize the game engine.
   cubez::Universe uni;
   cubez::init(&uni);
+
+  // Create the "main".
   cubez::create_program(kMainProgram); 
 
-  cubez::create_program("stdout");
+  // Create a separate program/pipeline to handle stdout.
+  char kStdout[] = "stdout";
+  cubez::create_program(kStdout);
+  cubez::Pipeline* out = cubez::add_pipeline(kStdout, nullptr, nullptr);
+  cubez::ExecutionPolicy policy;
+  policy.priority = cubez::MAX_PRIORITY;
+  policy.trigger = cubez::Trigger::EVENT;
+  cubez::enable_pipeline(out, policy);
+  
+  // Create an event to write to stdout with max buffer of 128 chars.
+  char kWriteEvent[] = "write";
+  cubez::EventPolicy event_policy;
+  event_policy.size = 128;
+  cubez::create_event(kStdout, kWriteEvent, event_policy);
+
+  // Subcsribe pipeline handler to stdout.
+  cubez::subscribe_to(kStdout, kWriteEvent, out);
+
+  // Open channel to start writing.
+  cubez::Channel* std_out = cubez::open_channel(kStdout, kWriteEvent);
+
+  // Write a simple "hi".
+  cubez::Message* m = new_message(std_out);
+
+  ((char*)m->data)[0] = 'h';
+  ((char*)m->data)[1] = 'i';
+  ((char*)m->data)[2] = '\0';
+  m->size = 2;
+
+  cubez::send_message(m);
+
   //cubez::detach_program("stdout");
 
   uint64_t particle_count = 10000;

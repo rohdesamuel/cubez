@@ -166,7 +166,8 @@ Collection* add_collection(const char* program, const char* name);
 Status::Code share_collection(/*const char* program*/ const char* source, const char* dest);
 Status::Code copy_collection(/*const char* program*/ const char* source, const char* dest);
 
-struct Event {
+struct Message {
+  struct Channel* channel;
   void* data;
   size_t size;
 };
@@ -174,6 +175,7 @@ struct Event {
 struct Channel {
   const Id program;
   const Id event;
+  void* self;
 };
 
 struct Subscription {
@@ -182,10 +184,16 @@ struct Subscription {
   const Id pipeline;
 };
 
-// Thread-safe.
-void create_event(const char* program, const char* event, size_t event_size);
+struct EventPolicy {
+  size_t size;
+};
 
-void send_event(struct Channel* channel, Event e);
+// Thread-safe.
+Id create_event(const char* program, const char* event, EventPolicy policy);
+
+Message* new_message(struct Channel* channel);
+void send_message(Message* e);
+
 struct Channel* open_channel(const char* program, const char* event);
 void close_channel(struct Channel* channel);
 

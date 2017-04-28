@@ -97,4 +97,34 @@ Arg* set_arg(Frame* frame, const char* name, void* data, size_t size) {
   return FrameImpl::set_arg(frame, name, data, size);
 }
 
+Id create_event(const char* program, const char* event, EventPolicy policy) { 
+  return AS_PRIVATE(create_event(program, event, policy));
+}
+
+Message* new_message(struct Channel* c) {
+  return ChannelImpl::to_impl(c)->new_message();
+}
+
+void send_message(Message* m) {
+  ChannelImpl::to_impl(m->channel)->send_message(m);
+}
+
+struct Channel* open_channel(const char* program, const char* event) {
+  return AS_PRIVATE(open_channel(program, event));
+}
+
+void close_channel(struct Channel* channel) {
+  AS_PRIVATE(close_channel(channel));
+}
+
+struct Subscription* subscribe_to(
+    const char* program, const char* event, struct Pipeline* pipeline) {
+  return AS_PRIVATE(subscribe_to(program, event, pipeline));
+}
+
+void unsubscribe_from(struct Subscription* subscription) {
+  AS_PRIVATE(unsubscribe_from(subscription));
+}
+
+
 }  // namespace cubez
