@@ -160,6 +160,13 @@ int main(int, char* []) {
   char kStdout[] = "stdout";
   cubez::create_program(kStdout);
   cubez::Pipeline* out = cubez::add_pipeline(kStdout, nullptr, nullptr);
+  out->transform = +[](cubez::Frame*) {
+    //auto* arg = cubez::get_arg(f, "event");
+    //std::cout << (char*)(arg->data);
+    std::cout << "hello, world!\n";
+  };
+  out->select = nullptr;
+  out->callback = nullptr;
   cubez::ExecutionPolicy policy;
   policy.priority = cubez::MAX_PRIORITY;
   policy.trigger = cubez::Trigger::EVENT;
@@ -176,9 +183,17 @@ int main(int, char* []) {
 
   // Open channel to start writing.
   cubez::Channel* std_out = cubez::open_channel(kStdout, kWriteEvent);
+  std::cout << "std_out = " << std_out << std::endl;
+  std::cout << "std_out->program = " << std_out->program << std::endl;
+  std::cout << "std_out->event = " << std_out->event << std::endl;
+  std::cout << "std_out->self = " << std_out->self << std::endl;
 
   // Write a simple "hi".
   cubez::Message* m = new_message(std_out);
+  std::cout << "m = " << m << std::endl;
+  std::cout << "m->channel = " << m->channel << std::endl;
+  std::cout << "m->data = " << (void*)m->data << std::endl;
+  std::cout << "m->size = " << m->size << std::endl;
 
   ((char*)m->data)[0] = 'h';
   ((char*)m->data)[1] = 'i';

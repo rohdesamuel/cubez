@@ -111,8 +111,7 @@ Status::Code PrivateUniverse::start() {
 Status::Code PrivateUniverse::loop() {
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
-  ProgramImpl* p = (ProgramImpl*)programs_.get_program("main")->self;
-  p->run();
+  programs_.run();
 
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
@@ -219,42 +218,32 @@ Status::Code PrivateUniverse::copy_collection(const char*, const char*) {
 
 Id PrivateUniverse::create_event(const char* program, const char* event, EventPolicy policy) {
   Program* p = programs_.get_program(program);
-  if (!p) {
-    return -1;
-  }
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
   return programs_.to_impl(p)->create_event(event, policy);
 }
 
 struct Channel* PrivateUniverse::open_channel(const char* program, const char* event) {
   Program* p = programs_.get_program(program);
-  if (!p) {
-    return nullptr;
-  }
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
   return programs_.to_impl(p)->open_channel(event);
 }
 
 void PrivateUniverse::close_channel(struct Channel* channel) {
   Program* p = programs_.get_program(channel->program);
-  if (!p) {
-    return;
-  }
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
   programs_.to_impl(p)->close_channel(channel);
 }
 
 struct Subscription* PrivateUniverse::subscribe_to(
     const char* program, const char* event, struct Pipeline* pipeline) {
   Program* p = programs_.get_program(program);
-  if (!p) {
-    return nullptr;
-  }
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
   return programs_.to_impl(p)->subscribe_to(event, pipeline);
 }
 
 void PrivateUniverse::unsubscribe_from(struct Subscription* subscription) {
   Program* p = programs_.get_program(subscription->program);
-  if (!p) {
-    return;
-  }
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
   programs_.to_impl(p)->unsubscribe_from(subscription);
 }
 

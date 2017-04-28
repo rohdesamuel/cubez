@@ -21,7 +21,36 @@
 
 using moodycamel::ConcurrentQueue;
 
+#define DECLARE_FRAME_ARENAS() \
+    thread_local static uint8_t MUTATION_ARENA[MUTATION_ARENA_SIZE]; \
+    thread_local static uint8_t ARGS_ARENA[MAX_ARG_COUNT * sizeof(Arg)]; \
+    thread_local static uint8_t STACK_ARENA[MAX_ARG_COUNT][MAX_ARG_SIZE]
+
+#define DECLARE_FRAME(var) \
+    DECLARE_FRAME_ARENAS(); \
+    Frame var; \
+    init_frame(&var, ARGS_ARENA, STACK_ARENA, MUTATION_ARENA);
+
+constexpr uint32_t MAX_ARG_COUNT = 8;
+constexpr uint32_t MAX_ARG_SIZE = 128;
+constexpr uint32_t MUTATION_ARENA_SIZE = 512;
+
 namespace cubez {
+
+namespace {
+
+void init_frame(Frame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
+                uint8_t* mutation_arena) {
+  frame->args.arg = (Arg*)args_arena;
+  for (uint32_t i = 0; i < MAX_ARG_COUNT; ++i) {
+    frame->args.arg[i].data = (void*)(stack_arena[i]);
+    frame->args.arg[i].size = MAX_ARG_SIZE;
+  }
+  frame->mutation.mutate_by = MutateBy::UNKNOWN;
+  frame->mutation.element = mutation_arena;
+}
+
+}  // namespace
 
 const static char NAMESPACE_DELIMETER = '/';
 const static uint8_t MAX_ARG_COUNT = 16;
@@ -215,15 +244,15 @@ class PipelineImpl {
     }
   }
 
-  void run() {
+  void run(Frame* frame) {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
     if (source_size == 0 && sink_size == 0) {
-      run_0_to_0();
+      run_0_to_0(frame);
     } else if (source_size == 1 && sink_size == 1) {
-      run_1_to_1();
+      run_1_to_1(frame);
     } else if (source_size == 1 && sink_size == 0) {
-      run_1_to_0();
+      run_1_to_0(frame);
     }
     //if (pipeline_->callback) {
       //Collections sources {source_size, sources_.data()};
@@ -232,14 +261,13 @@ class PipelineImpl {
     //}
   }
 
-  void run_0_to_0() {
+  void run_0_to_0(Frame* frame) {
     static Stack stack;
-    Frame frame;
-    pipeline_->transform(&frame);
+    pipeline_->transform(frame);
     stack.clear();
   }
 
-  void run_1_to_0() {
+  void run_1_to_0(Frame*) {
     Collection* source = sources_[0];
     uint64_t count = source->count(source);
     uint8_t* keys = source->keys.data(source);
@@ -264,7 +292,7 @@ class PipelineImpl {
     }
   }
 
-  void run_1_to_1() {
+  void run_1_to_1(Frame*) {
     Collection* source = sources_[0];
     Collection* sink = sinks_[0];
     const uint64_t count = source->count(source);
@@ -273,22 +301,7 @@ class PipelineImpl {
 
 //#pragma omp parallel for
     for(uint64_t i = 0; i < count; ++i) {
-      thread_local static uint8_t mutation[512];
-      thread_local static uint8_t args[8 * sizeof(Arg)];
-      thread_local static uint8_t stack_mem[8][128];
-      //Stack stack(stack_mem, 512);
-      //FrameImpl frame_impl(&stack);
-      Frame frame;
-      frame.args.arg = (Arg*)args;
-      for (int i = 0; i < 8; ++i) {
-        frame.args.arg[i].data = (void*)stack_mem[i];
-        frame.args.arg[i].size = 128;
-      }
-      //frame.self = &frame_impl;
-      //frame.args.arg = (Arg*)args;
-      //frame.args.count = 0;
-      frame.mutation.mutate_by = MutateBy::UNKNOWN;
-      frame.mutation.element = mutation;
+      DECLARE_FRAME(frame);
 
       source->copy(
           keys + source->keys.offset + i * source->keys.size,
@@ -296,7 +309,6 @@ class PipelineImpl {
           i, &frame);
       pipeline_->transform(&frame);
       sink->mutate(sink, &frame.mutation);
-      //stack.clear();
     }
   }
 
@@ -363,16 +375,22 @@ class MessageQueue {
   MessageQueue(size_t size = 1) : size_(size) {
     // Start count is arbitrarily choosen.
     for (int i = 0; i < 16; ++i) {
-      free_mem_.enqueue(new_message());
+      free_mem_.enqueue(new_message(nullptr));
     }
   }
 
   // Thread-safe.
-  Message* new_message() {
+  Message* new_message(Channel* c) {
     Message* ret = nullptr;
     if (free_mem_.size_approx() == 0) {
-      ret = new_mem();
+      ret = new_mem(c);
+    } else {
+      if (!free_mem_.try_dequeue(ret)) {
+        ret = new_mem(c);
+      }
     }
+    ret->channel = c;
+    DEBUG_ASSERT(ret, Status::Code::NULL_POINTER);
     return ret;
   }
 
@@ -395,25 +413,33 @@ class MessageQueue {
   }
 
   void flush() {
-    /*
-    std::lock_guard<decltype(handlers_mu_)>(handlers_mu_) lock;
-    Message* msg;
-    while (message_queue_.try_dequeue(msg)) {
-      static Stack stack;
-      *(Event*)stack.alloc(event->size) = *event;
+    std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
+    Message* msg = nullptr;
+    int max_events = message_queue_.size_approx();
+    for (int i = 0; i < max_events; ++i) {
+      std::cout << "flush\n";
+      DECLARE_FRAME(frame);
+      message_queue_.try_dequeue(msg);
+      //set_arg(&frame, "event", msg->data, msg->size);
 
       for (const auto& handler : handlers_) {
-        ((PipelineImpl*)(handler.second))->run();
+        std::cout << handler.first << std::endl;
+        std::cout << handler.second << std::endl;
+        std::cout << handler.second->id << std::endl;
+        std::cout << handler.second->program << std::endl;
+        ((PipelineImpl*)(handler.second->self))->run(&frame);
       }
 
-      free(event);
+      free_message(msg);
+
       stack.clear();
-    }*/
+    }
   }
 
  private:
-  Message* new_mem() {
+  Message* new_mem(Channel* c) {
     Message* ret = (Message*)(malloc(sizeof(Message) + size_));
+    ret->channel = c;
     ret->data = ret + sizeof(Message);
     ret->size = size_;
     return ret;
@@ -429,8 +455,9 @@ class MessageQueue {
 
 class ChannelImpl {
  public:
-  ChannelImpl(MessageQueue* message_queue)
-      : message_queue_(message_queue) {}
+  ChannelImpl(Channel* self, MessageQueue* message_queue)
+      : self_(self),
+        message_queue_(message_queue) {}
 
   static ChannelImpl* to_impl(Channel* c) {
     return (ChannelImpl*)c->self;
@@ -438,7 +465,7 @@ class ChannelImpl {
 
   // Thread-safe.
   Message* new_message() {
-    return message_queue_->new_message();
+    return message_queue_->new_message(self_);
   }
 
   // Thread-safe.
@@ -447,6 +474,7 @@ class ChannelImpl {
   }
 
  private:
+  Channel* self_;
   MessageQueue* message_queue_;
 };
 
@@ -492,12 +520,12 @@ class EventRegistry {
   Channel* open_channel(const char* event) {
     Channel* ret = nullptr;
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    Id event_id = find_event(event);;
+    Id event_id = find_event(event);
     if (event_id != -1) {
       ret = (Channel*)malloc(sizeof(Channel));
       *(Id*)(&ret->program) = program_;
       *(Id*)(&ret->event) = event_id;
-      ret->self = new ChannelImpl(events_[event_id]);
+      ret->self = new ChannelImpl(ret, events_[event_id]);
     }
 
     return ret;
@@ -507,6 +535,12 @@ class EventRegistry {
   void close_channel(Channel* channel) {
     delete (ChannelImpl*)channel->self;
     free(channel);
+  }
+
+  void flush_all() {
+    for (auto event : events_) {
+      event.second->flush();
+    }
   }
 
  private:
@@ -660,8 +694,9 @@ class ProgramImpl {
   }
 
   void run() {
+    events_.flush_all();
     for(Pipeline* p : loop_pipelines_) {
-      ((PipelineImpl*)p->self)->run();
+      ((PipelineImpl*)p->self)->run(nullptr);
     }
   }
 
@@ -757,6 +792,13 @@ class ProgramRegistry {
 
   inline ProgramImpl* to_impl(Program* p) {
     return (ProgramImpl*)(p->self);
+  }
+
+  void run() {
+    for (uint64_t i = 0; i < programs_.size(); ++i) {
+      ProgramImpl* p = (ProgramImpl*)programs_[i]->self;
+      p->run();
+    }
   }
 
  private:
