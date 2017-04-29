@@ -160,10 +160,9 @@ int main(int, char* []) {
   char kStdout[] = "stdout";
   cubez::create_program(kStdout);
   cubez::Pipeline* out = cubez::add_pipeline(kStdout, nullptr, nullptr);
-  out->transform = +[](cubez::Frame*) {
+  out->transform = +[](cubez::Frame* f) {
     //auto* arg = cubez::get_arg(f, "event");
-    //std::cout << (char*)(arg->data);
-    std::cout << "hello, world!\n";
+    std::cout << (char*)(f->args.arg[0].data) << std::endl;
   };
   out->select = nullptr;
   out->callback = nullptr;
@@ -183,17 +182,9 @@ int main(int, char* []) {
 
   // Open channel to start writing.
   cubez::Channel* std_out = cubez::open_channel(kStdout, kWriteEvent);
-  std::cout << "std_out = " << std_out << std::endl;
-  std::cout << "std_out->program = " << std_out->program << std::endl;
-  std::cout << "std_out->event = " << std_out->event << std::endl;
-  std::cout << "std_out->self = " << std_out->self << std::endl;
 
   // Write a simple "hi".
   cubez::Message* m = new_message(std_out);
-  std::cout << "m = " << m << std::endl;
-  std::cout << "m->channel = " << m->channel << std::endl;
-  std::cout << "m->data = " << (void*)m->data << std::endl;
-  std::cout << "m->size = " << m->size << std::endl;
 
   ((char*)m->data)[0] = 'h';
   ((char*)m->data)[1] = 'i';
@@ -290,6 +281,15 @@ int main(int, char* []) {
     ++frame;
     fps_timer.stop();
     fps_timer.step();
+
+    for (int i = 0; i < 50; ++i) {
+      cubez::Message* m = new_message(std_out);
+      ((char*)m->data)[0] = 'h';
+      ((char*)m->data)[1] = 'i';
+      ((char*)m->data)[2] = '\0';
+      m->size = 2;
+      cubez::send_message(m);
+    }
 
     if (frame % 1000 == 0) {
       std::cout << "Frame " << frame << std::endl;

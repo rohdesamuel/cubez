@@ -42,8 +42,9 @@ namespace {
 void init_frame(Frame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
                 uint8_t* mutation_arena) {
   frame->args.arg = (Arg*)args_arena;
+  frame->args.count = 0;
   for (uint32_t i = 0; i < MAX_ARG_COUNT; ++i) {
-    frame->args.arg[i].data = (void*)(stack_arena[i]);
+    frame->args.arg[i].data = (void*)(stack_arena + MAX_ARG_SIZE * i);
     frame->args.arg[i].size = MAX_ARG_SIZE;
   }
   frame->mutation.mutate_by = MutateBy::UNKNOWN;
@@ -417,16 +418,13 @@ class MessageQueue {
     Message* msg = nullptr;
     int max_events = message_queue_.size_approx();
     for (int i = 0; i < max_events; ++i) {
-      std::cout << "flush\n";
       DECLARE_FRAME(frame);
-      message_queue_.try_dequeue(msg);
-      //set_arg(&frame, "event", msg->data, msg->size);
+      if (!message_queue_.try_dequeue(msg)) {
+        break;
+      }
+      memcpy(frame.args.arg[0].data, msg->data, msg->size);
 
       for (const auto& handler : handlers_) {
-        std::cout << handler.first << std::endl;
-        std::cout << handler.second << std::endl;
-        std::cout << handler.second->id << std::endl;
-        std::cout << handler.second->program << std::endl;
         ((PipelineImpl*)(handler.second->self))->run(&frame);
       }
 
@@ -438,10 +436,13 @@ class MessageQueue {
 
  private:
   Message* new_mem(Channel* c) {
+    static int message_count = 0;
+    ++message_count;
     Message* ret = (Message*)(malloc(sizeof(Message) + size_));
     ret->channel = c;
-    ret->data = ret + sizeof(Message);
+    ret->data = (uint8_t*)ret + sizeof(Message);
     ret->size = size_;
+    LOG_VAR(message_count);
     return ret;
   }
 
