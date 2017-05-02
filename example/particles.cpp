@@ -30,20 +30,6 @@ cubez::Collection* add_particle_collection(const char* collection, uint64_t part
   cubez::Copy copy =
       [](const uint8_t*, const uint8_t* value, uint64_t offset,
          cubez::Frame* f) {
-        /*
-         * cubez::Mutation* mut = new_arg(
-         *     frame, "mutation", sizeof(cubez::Mutation) + sizeof(Particles::Element));
-         * mutation->element = (uint8_t*)(mutation + sizeof(cubez::Mutation));
-         * mutation->mutate_by = cubez::MutateBy::UPDATE;
-         * Particles::Element* el =
-         *     (Particles::Element*)(mutation->element);
-         * el->offset = offset;
-         * new (&el->value) Particles::Value(
-         *     *(Particles::Value*)(value) );
-         */
-
-        /*cubez::Mutation* mutation = (cubez::Mutation*)stack->alloc(
-            sizeof(cubez::Mutation) + sizeof(Particles::Element));*/
         cubez::Mutation* mutation = &f->mutation;
         mutation->mutate_by = cubez::MutateBy::UPDATE;
         Particles::Element* el =

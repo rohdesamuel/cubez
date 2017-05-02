@@ -124,10 +124,14 @@ Id PrivateUniverse::create_program(const char* name) {
   return programs_.create_program(name); 
 }
 
+Status::Code PrivateUniverse::run_program(Id program) {
+  return programs_.run_program(program); 
+}
+
 Id PrivateUniverse::detach_program(const char* name) {
   Program* to_detach = programs_.get_program(name);
   if (to_detach) {
-    programs_.to_impl(to_detach)->detach();
+    //programs_.to_impl(to_detach)->detach();
     return to_detach->id;
   }
   return -1;

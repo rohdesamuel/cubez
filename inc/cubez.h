@@ -55,20 +55,13 @@ struct Args {
   uint8_t count;
 };
 
-struct Frame {
-  const void* self;
-  Args args;
-  Mutation mutation;
-};
-
-Arg* get_arg(Frame* frame, const char* name);
-Arg* new_arg(Frame* frame, const char* name, size_t size);
-Arg* set_arg(Frame* frame, const char* name, void* data, size_t size);
+Arg* get_arg(struct Frame* frame, const char* name);
+Arg* new_arg(struct Frame* frame, const char* name, size_t size);
+Arg* set_arg(struct Frame* frame, const char* name, void* data, size_t size);
 
 typedef bool (*Select)(uint8_t, ...);
 typedef void (*Transform)(struct Frame*);
-typedef void (*Callback)(struct Pipeline*, struct Collections sources, struct Collections sinks);
-typedef void (*EventCallback)(void* message);
+typedef void (*Callback)(struct Frame*);
 
 typedef void (*Mutate)(struct Collection*, const struct Mutation*);
 typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Frame*);
@@ -146,10 +139,9 @@ Status::Code init(struct Universe* universe);
 Status::Code start();
 Status::Code stop();
 Status::Code loop();
+Status::Code run_program(Id program);
 
 Id create_program(const char* name);
-Id detach_program(const char* name);
-Id join_program(const char* name);
 
 // Pipelines.
 struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
@@ -170,6 +162,13 @@ struct Message {
   struct Channel* channel;
   void* data;
   size_t size;
+};
+
+struct Frame {
+  const void* self;
+  Args args;
+  Mutation mutation;
+  Message message;
 };
 
 struct Channel {

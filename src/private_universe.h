@@ -255,45 +255,48 @@ class PipelineImpl {
     } else if (source_size == 1 && sink_size == 0) {
       run_1_to_0(frame);
     }
-    //if (pipeline_->callback) {
-      //Collections sources {source_size, sources_.data()};
-      //Collections sinks {sink_size, sinks_.data()};
-      //pipeline_->callback(pipeline_, sources, sinks);
-    //}
+    if (pipeline_->callback) {
+      pipeline_->callback(frame);
+    }
   }
 
-  void run_0_to_0(Frame* frame) {
-    static Stack stack;
-    pipeline_->transform(frame);
-    stack.clear();
+  void run_0_to_0(Frame* f) {
+    if (f) {
+      pipeline_->transform(f);
+    } else {
+      DECLARE_FRAME(frame);
+      pipeline_->transform(&frame);
+    }
   }
 
-  void run_1_to_0(Frame*) {
+  void run_1_to_0(Frame* f) {
     Collection* source = sources_[0];
     uint64_t count = source->count(source);
     uint8_t* keys = source->keys.data(source);
     uint8_t* values = source->values.data(source);
 
-    for(uint64_t i = 0; i < count; ++i) {
-      //thread_local static uint8_t stack_mem[512];
-      //thread_local static uint8_t args[16 * sizeof(Arg)];
-      //Stack stack(stack_mem, 512);
-      //FrameImpl frame_impl(&stack);
-      Frame frame;
-      //frame.self = &frame_impl;
-      //frame.args.arg = (Arg*)args;
-      //frame.args.count = 0;
+    if (f) {
+      for(uint64_t i = 0; i < count; ++i) {
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, f);
+        pipeline_->transform(f);
+      }
+    } else {
+      for(uint64_t i = 0; i < count; ++i) {
+        DECLARE_FRAME(frame);
 
-      source->copy(
-          keys + source->keys.offset + i * source->keys.size,
-          values + source->values.offset + i * source->values.size,
-          i, &frame);
-      pipeline_->transform(&frame);
-      //stack.clear();
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, &frame);
+        pipeline_->transform(&frame);
+      }
     }
   }
 
-  void run_1_to_1(Frame*) {
+  void run_1_to_1(Frame* f) {
     Collection* source = sources_[0];
     Collection* sink = sinks_[0];
     const uint64_t count = source->count(source);
@@ -301,15 +304,26 @@ class PipelineImpl {
     const uint8_t* values = source->values.data(source);
 
 //#pragma omp parallel for
-    for(uint64_t i = 0; i < count; ++i) {
-      DECLARE_FRAME(frame);
+    if (f) {
+      for(uint64_t i = 0; i < count; ++i) {
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, f);
+        pipeline_->transform(f);
+        sink->mutate(sink, &f->mutation);
+      }
+    } else {
+      for(uint64_t i = 0; i < count; ++i) {
+        DECLARE_FRAME(frame);
 
-      source->copy(
-          keys + source->keys.offset + i * source->keys.size,
-          values + source->values.offset + i * source->values.size,
-          i, &frame);
-      pipeline_->transform(&frame);
-      sink->mutate(sink, &frame.mutation);
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, &frame);
+        pipeline_->transform(&frame);
+        sink->mutate(sink, &frame.mutation);
+      }
     }
   }
 
@@ -422,7 +436,7 @@ class MessageQueue {
       if (!message_queue_.try_dequeue(msg)) {
         break;
       }
-      memcpy(frame.args.arg[0].data, msg->data, msg->size);
+      frame.message = *msg;
 
       for (const auto& handler : handlers_) {
         ((PipelineImpl*)(handler.second->self))->run(&frame);
@@ -436,13 +450,10 @@ class MessageQueue {
 
  private:
   Message* new_mem(Channel* c) {
-    static int message_count = 0;
-    ++message_count;
     Message* ret = (Message*)(malloc(sizeof(Message) + size_));
     ret->channel = c;
     ret->data = (uint8_t*)ret + sizeof(Message);
     ret->size = size_;
-    LOG_VAR(message_count);
     return ret;
   }
 
@@ -701,15 +712,6 @@ class ProgramImpl {
     }
   }
 
-  void detach() {
-    static std::thread* detached = new std::thread([this]() {
-      while(1) {
-      }
-    });
-
-    detached->detach();
-  }
-
  private:
   Pipeline* new_pipeline(Id id) {
     Pipeline* p = (Pipeline*)malloc(sizeof(Pipeline));
@@ -769,6 +771,14 @@ class ProgramRegistry {
     return id;
   }
 
+  Id detach_program(const char*) {
+    return -1;
+  }
+
+  Id join_program(const char*) {
+    return -1;
+  }
+
   Status::Code add_source(Pipeline* pipeline, Collection* collection) {
     Program* p = programs_[pipeline->program];
     return to_impl(p)->add_source(pipeline, collection);
@@ -797,9 +807,15 @@ class ProgramRegistry {
 
   void run() {
     for (uint64_t i = 0; i < programs_.size(); ++i) {
-      ProgramImpl* p = (ProgramImpl*)programs_[i]->self;
+      ProgramImpl* p = (ProgramImpl*)programs_.values[i]->self;
       p->run();
     }
+  }
+
+  Status::Code run_program(Id program) {
+    ProgramImpl* p = (ProgramImpl*)programs_[program]->self;
+    p->run();
+    return Status::Code::OK;
   }
 
  private:
@@ -827,6 +843,7 @@ class PrivateUniverse {
   Id create_program(const char* name);
   Id detach_program(const char* name);
   Id join_program(const char* name);
+  Status::Code run_program(Id program);
 
   // Pipeline manipulation.
   struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);

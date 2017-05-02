@@ -37,12 +37,8 @@ Id create_program(const char* name) {
   return AS_PRIVATE(create_program(name));
 }
 
-Id detach_program(const char* name) {
-  return AS_PRIVATE(detach_program(name));
-}
-
-Id join_program(const char* name) {
-  return AS_PRIVATE(join_program(name));
+Status::Code run_program(Id program) {
+  return AS_PRIVATE(run_program(program));
 }
 
 struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink) {

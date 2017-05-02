@@ -161,8 +161,7 @@ int main(int, char* []) {
   cubez::create_program(kStdout);
   cubez::Pipeline* out = cubez::add_pipeline(kStdout, nullptr, nullptr);
   out->transform = +[](cubez::Frame* f) {
-    //auto* arg = cubez::get_arg(f, "event");
-    std::cout << (char*)(f->args.arg[0].data) << std::endl;
+    std::cout << (char*)(f->message.data);
   };
   out->select = nullptr;
   out->callback = nullptr;
@@ -185,13 +184,16 @@ int main(int, char* []) {
 
   // Write a simple "hi".
   cubez::Message* m = new_message(std_out);
-
   ((char*)m->data)[0] = 'h';
   ((char*)m->data)[1] = 'i';
-  ((char*)m->data)[2] = '\0';
-  m->size = 2;
+  ((char*)m->data)[2] = '\n';
+  ((char*)m->data)[3] = '\0';
+  m->size = 4;
 
   cubez::send_message(m);
+
+  const char kStopEvent[] = "stop_event";
+  cubez::create_event(kMainProgram, kStopEvent, { sizeof(int) });
 
   //cubez::detach_program("stdout");
 
@@ -282,24 +284,29 @@ int main(int, char* []) {
     fps_timer.stop();
     fps_timer.step();
 
-    for (int i = 0; i < 50; ++i) {
-      cubez::Message* m = new_message(std_out);
-      ((char*)m->data)[0] = 'h';
-      ((char*)m->data)[1] = 'i';
-      ((char*)m->data)[2] = '\0';
-      m->size = 2;
-      cubez::send_message(m);
-    }
-
     if (frame % 1000 == 0) {
-      std::cout << "Frame " << frame << std::endl;
       double total = 15 * 1e6;
+      std::string out = "Frame " + std::to_string(frame) + "\n" +
+      + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total) + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
+      + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
+      + "Render FPS: " + std::to_string(1e9 / render_timer.get_avg_elapsed_ns()) + "\n"
+      + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
+      + "Accum: " + std::to_string(accumulator) + "\n";
+  cubez::Message* m = new_message(std_out);
+  memcpy(m->data, out.c_str(), out.size());
+  m->size = out.size();
+
+  cubez::send_message(m);
+
+  /*
+      std::cout << "Frame " << frame << std::endl;
       std::cout << "Utilization: "  << 100.0 * render_timer.get_avg_elapsed_ns() / total << " : " << 100.0 * update_timer.get_avg_elapsed_ns() / total << "\n";
       std::cout << "Update FPS: " << 1e9 / update_timer.get_avg_elapsed_ns() << "\n";
       std::cout << "Render FPS: " << 1e9 / render_timer.get_avg_elapsed_ns() << "\n";
       std::cout << "Total FPS: " << 1e9 / fps_timer.get_elapsed_ns() << "\n";
       std::cout << "Accumulator: " << accumulator << "\n";
       std::cout << "\n";
+      */
     }
   }
 }
