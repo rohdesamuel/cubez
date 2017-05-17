@@ -248,15 +248,33 @@ class PipelineImpl {
   void run(Frame* frame) {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
-    if (source_size == 0 && sink_size == 0) {
-      run_0_to_0(frame);
-    } else if (source_size == 1 && sink_size == 1) {
-      run_1_to_1(frame);
-    } else if (source_size == 1 && sink_size == 0) {
-      run_1_to_0(frame);
+    if (pipeline_->transform) {
+      if (source_size == 0 && sink_size == 0) {
+        run_0_to_0(frame);
+      } else if (source_size == 1 && sink_size == 1) {
+        run_1_to_1(frame);
+      } else if (source_size == 1 && sink_size == 0) {
+        run_1_to_0(frame);
+      } else if (source_size == 0 && sink_size == 1) {
+        run_0_to_1(frame);
+      }
     }
+
     if (pipeline_->callback) {
-      pipeline_->callback(frame);
+      Collections sources;
+      sources.count = sources_.size();
+      sources.collection = sources_.data();
+
+      Collections sinks;
+      sinks.count = sinks_.size();
+      sinks.collection = sinks_.data();
+
+      if (frame) {
+        pipeline_->callback(frame, &sources, &sinks);
+      } else {
+        DECLARE_FRAME(static_frame);
+        pipeline_->callback(&static_frame, &sources, &sinks);
+      }
     }
   }
 
@@ -266,6 +284,18 @@ class PipelineImpl {
     } else {
       DECLARE_FRAME(frame);
       pipeline_->transform(&frame);
+    }
+  }
+
+  void run_0_to_1(Frame* f) {
+    Collection* sink = sinks_[0];
+    if (f) {
+      pipeline_->transform(f);
+      sink->mutate(sink, &f->mutation);
+    } else {
+      DECLARE_FRAME(frame);
+      pipeline_->transform(&frame);
+      sink->mutate(sink, &frame.mutation);
     }
   }
 
@@ -404,8 +434,9 @@ class MessageQueue {
         ret = new_mem(c);
       }
     }
-    ret->channel = c;
     DEBUG_ASSERT(ret, Status::Code::NULL_POINTER);
+    ret->channel = c;
+    ret->size = size_;
     return ret;
   }
 
@@ -443,8 +474,6 @@ class MessageQueue {
       }
 
       free_message(msg);
-
-      stack.clear();
     }
   }
 
@@ -459,7 +488,6 @@ class MessageQueue {
 
   std::mutex handlers_mu_;
   std::unordered_map<Id, Pipeline*> handlers_;
-  Stack stack;
   moodycamel::ConcurrentQueue<Message*> message_queue_;
   moodycamel::ConcurrentQueue<Message*> free_mem_;
   size_t size_;
@@ -841,8 +869,6 @@ class PrivateUniverse {
   Status::Code loop();
 
   Id create_program(const char* name);
-  Id detach_program(const char* name);
-  Id join_program(const char* name);
   Status::Code run_program(Id program);
 
   // Pipeline manipulation.

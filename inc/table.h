@@ -24,13 +24,6 @@
 namespace cubez
 {
 
-enum class IndexedBy {
-  UNKNOWN = 0,
-  OFFSET,
-  HANDLE,
-  KEY
-};
-
 template<typename Key_, typename Value_>
 struct BaseElement {
   IndexedBy indexed_by;
@@ -173,6 +166,55 @@ public:
 
     return 0;
   }
+
+  static void* default_accessor(Collection* c, IndexedBy indexed_by,
+                                const void* index) {
+    Table* t = (Table*)c->collection;
+    if (indexed_by == IndexedBy::KEY) {
+      const Key_* key = (const Key_*)index;
+      return &(*t)[t->find(*key)];
+    } else if (indexed_by == IndexedBy::HANDLE) {
+      const Handle* handle = (const Handle*)index;
+      return &(*t)[*handle];
+    } else if (indexed_by == IndexedBy::OFFSET) {
+      return &t->value(*(Offset*)index);
+    }
+    return nullptr;
+  }
+
+  static void default_copy(const uint8_t* /* key */,
+                           const uint8_t* value,
+                           uint64_t offset,
+                           cubez::Frame* f) {
+    cubez::Mutation* mutation = &f->mutation;
+    mutation->mutate_by = cubez::MutateBy::UPDATE;
+    Element* el = (Element*)(mutation->element);
+    el->offset = offset;
+    new (&el->value) Value(*(Value*)(value) );
+  }
+
+  static void default_mutate(cubez::Collection* c,
+                             const cubez::Mutation* m) {
+      Table* t = (Table*)c->collection;
+      Element* el = (Element*)(m->element);
+      if (m->mutate_by == cubez::MutateBy::UPDATE) {
+        t->values[el->offset] = std::move(el->value); 
+      } else if (m->mutate_by == cubez::MutateBy::INSERT) {
+        t->insert(std::move(el->key), std::move(el->value));
+      }
+  }
+
+  static uint64_t default_count(cubez::Collection* c) {
+    return ((Table*)c->collection)->size();
+  }
+
+  static uint8_t* default_keys(cubez::Collection* c) {
+    return (uint8_t*)((Table*)c->collection)->keys.data();
+  };
+
+  static uint8_t* default_values(cubez::Collection* c) {
+    return (uint8_t*)((Table*)c->collection)->values.data();
+  };
 
   Keys keys;
   Values values;

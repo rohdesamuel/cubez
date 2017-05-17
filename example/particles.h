@@ -1,13 +1,15 @@
 #ifndef PARTICLES__H
 #define PARTICLES__H
 
+#include "constants.h"
+
 #include "inc/cubez.h"
 #include "inc/schema.h"
 
 #include <glm/glm.hpp>
 
-const char kMainProgram[] = "main";
 const char kParticleCollection[] = "particles";
+const char kInsertParticle[] = "insert_particle";
 
 struct Particle {
   glm::vec3 p;

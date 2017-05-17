@@ -12,31 +12,17 @@
 #include <stdlib.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
+#include <X11/keysymdef.h>
+#include <X11/keysym.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glu.h>
 
-#include "particles.h"
+#include "physics.h"
+#include "player.h"
 
 #include <thread>
 #include <unordered_map>
-
-void add_render_pipeline() {
-  cubez::Pipeline* render_pipeline =
-      cubez::add_pipeline(kMainProgram, kParticleCollection, nullptr);
-  render_pipeline->select = nullptr;
-  render_pipeline->transform = [](cubez::Frame*){
-   /* Particles::Element* el =
-        (Particles::Element*)((cubez::Mutation*)(s->top()))->element;*/
-  };
-
-  render_pipeline->callback = nullptr;
-
-  cubez::ExecutionPolicy policy;
-  policy.priority = cubez::MIN_PRIORITY;
-  policy.trigger = cubez::Trigger::LOOP;
-  enable_pipeline(render_pipeline, policy);
-}
 
 Display                 *dpy;
 Window                  root;
@@ -106,7 +92,7 @@ int main(int, char* []) {
     "#version 130\n"
     "out vec4 frag_color;"
     "void main() {"
-    "  frag_color = vec4(1.0, 0.0, 0.0, 1.0);"
+    "  frag_color = vec4(1.0, 0.0, 1.0, 1.0);"
     "}";
 
   GLuint vs = glCreateShader(GL_VERTEX_SHADER);
@@ -183,12 +169,10 @@ int main(int, char* []) {
   cubez::Channel* std_out = cubez::open_channel(kStdout, kWriteEvent);
 
   // Write a simple "hi".
+  std::string msg = "Hello, world!\n";
   cubez::Message* m = new_message(std_out);
-  ((char*)m->data)[0] = 'h';
-  ((char*)m->data)[1] = 'i';
-  ((char*)m->data)[2] = '\n';
-  ((char*)m->data)[3] = '\0';
-  m->size = 4;
+  memcpy(m->data, msg.c_str(), msg.length());
+  m->size = msg.length();
 
   cubez::send_message(m);
 
@@ -197,9 +181,16 @@ int main(int, char* []) {
 
   //cubez::detach_program("stdout");
 
-  uint64_t particle_count = 10000;
-  cubez::Collection* c = add_particle_collection(kParticleCollection, particle_count);
-  add_particle_pipeline(kParticleCollection);
+  {
+    physics::Settings settings;
+    physics::initialize(settings);
+  }
+  cubez::Collection* c = physics::get_collection();
+
+  {
+    player::Settings settings;
+    player::initialize(settings);
+  }
 
   GLuint points_buffer;
   glGenBuffers(1, &points_buffer);
@@ -246,12 +237,36 @@ int main(int, char* []) {
     if (XCheckWindowEvent(dpy, win, KeyPressMask, &xev)) {
       if (xev.type == Expose) {
       } else if (xev.type == KeyPress) {
-        glXMakeCurrent(dpy, None, NULL);
-        glXDestroyContext(dpy, glc);
-        XDestroyWindow(dpy, win);
-        XCloseDisplay(dpy);
-        cubez::stop();
-        exit(0);
+        // 0x09 is ESC
+        if (xev.xkey.keycode == 0x09) {
+          glXMakeCurrent(dpy, None, NULL);
+          glXDestroyContext(dpy, glc);
+          XDestroyWindow(dpy, win);
+          XCloseDisplay(dpy);
+          cubez::stop();
+          exit(0);
+        } else if (XLookupKeysym(&xev.xkey, 0) == XK_w) {
+           player::move_up(0.001f);
+        } else if (XLookupKeysym(&xev.xkey, 0) == XK_a) {
+           player::move_left(0.001f);
+        } else if (XLookupKeysym(&xev.xkey, 0) == XK_s) {
+           player::move_down(0.001f);
+        } else if (XLookupKeysym(&xev.xkey, 0) == XK_d) {
+           player::move_right(0.001f);
+        } else {
+          glm::vec3 p{
+            2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
+            2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
+            0
+          };
+
+          glm::vec3 v{
+            ((float)(rand() % 1000) / 100000.0f) - 0.005f,
+            ((float)(rand() % 1000) / 100000.0f) - 0.005f,
+            0
+          };
+          physics::create(p, v);
+        }
       }
     }
 
@@ -293,7 +308,7 @@ int main(int, char* []) {
       + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
       + "Accum: " + std::to_string(accumulator) + "\n";
   cubez::Message* m = new_message(std_out);
-  memcpy(m->data, out.c_str(), out.size());
+  memcpy(m->data, out.c_str(), out.size() > 128 ? 128 : out.size());
   m->size = out.size();
 
   cubez::send_message(m);

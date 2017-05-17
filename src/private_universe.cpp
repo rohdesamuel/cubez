@@ -128,17 +128,6 @@ Status::Code PrivateUniverse::run_program(Id program) {
   return programs_.run_program(program); 
 }
 
-Id PrivateUniverse::detach_program(const char* name) {
-  Program* to_detach = programs_.get_program(name);
-  if (to_detach) {
-    //programs_.to_impl(to_detach)->detach();
-    return to_detach->id;
-  }
-  return -1;
-}
-
-Id PrivateUniverse::join_program(const char*){ return -1; }
-
 struct Pipeline* PrivateUniverse::add_pipeline(
     const char* program, const char* source, const char* sink) {
   Program* p = programs_.get_program(program);

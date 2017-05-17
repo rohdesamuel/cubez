@@ -11,7 +11,41 @@ cubez::Collection* add_particle_collection(const char* collection, uint64_t part
   table->keys.reserve(particle_count);
   table->values.reserve(particle_count);
 
-  for (uint64_t i = 0; i < particle_count; ++i) {
+  particles->collection = (uint8_t*)table;
+  particles->copy = Particles::Table::default_copy;
+  particles->mutate = Particles::Table::default_mutate;
+  particles->count = Particles::Table::default_count;
+
+  particles->keys.data = Particles::Table::default_keys;
+  particles->keys.size = sizeof(Particles::Key);
+  particles->keys.offset = 0;
+
+  particles->values.data = Particles::Table::default_values;
+  particles->values.size = sizeof(Particles::Value);
+  particles->values.offset = 0;
+
+  cubez::Pipeline* insert_particle = cubez::add_pipeline(kMainProgram, nullptr, kParticleCollection);
+  insert_particle->callback = nullptr;
+  insert_particle->select = nullptr;
+  insert_particle->transform = [](cubez::Frame* f) {
+    cubez::Mutation* mutation = &f->mutation;
+    mutation->mutate_by = cubez::MutateBy::INSERT;
+    Particles::Element* msg = (Particles::Element*)f->message.data;
+    Particles::Element* el =
+      (Particles::Element*)(mutation->element);
+    *el = *msg;
+  };
+  cubez::ExecutionPolicy insert_exe_policy;
+  insert_exe_policy.trigger = cubez::Trigger::EVENT;
+  cubez::enable_pipeline(insert_particle, insert_exe_policy);
+
+  cubez::EventPolicy insert_policy;
+  insert_policy.size = sizeof(Particles::Element);
+  cubez::create_event(kMainProgram, kInsertParticle, insert_policy);
+  cubez::subscribe_to(kMainProgram, kInsertParticle, insert_particle);
+
+  cubez::Channel* insert = cubez::open_channel(kMainProgram, kInsertParticle);
+  for (uint32_t i = 0; i < particle_count; ++i) {
     glm::vec3 p{
       2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
       2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
@@ -24,46 +58,16 @@ cubez::Collection* add_particle_collection(const char* collection, uint64_t part
       0
     };
 
-    table->insert(i, {p, v});
+    cubez::Message* msg = cubez::new_message(insert);
+    Particles::Element el;
+    el.indexed_by = cubez::IndexedBy::KEY;
+    el.key = i;
+    el.value = {p, v};
+    *(Particles::Element*)msg->data = el;
+    cubez::send_message(msg);
+    //table->insert(i, {p, v});
   }
 
-  cubez::Copy copy =
-      [](const uint8_t*, const uint8_t* value, uint64_t offset,
-         cubez::Frame* f) {
-        cubez::Mutation* mutation = &f->mutation;
-        mutation->mutate_by = cubez::MutateBy::UPDATE;
-        Particles::Element* el =
-            (Particles::Element*)(mutation->element);
-        el->offset = offset;
-        new (&el->value) Particles::Value(
-            *(Particles::Value*)(value) );
-      };
-
-  cubez::Mutate mutate =
-      [](cubez::Collection* c, const cubez::Mutation* m) {
-        Particles::Table* t = (Particles::Table*)c->collection;
-        Particles::Element* el = (Particles::Element*)(m->element);
-        t->values[el->offset] = std::move(el->value); 
-      };
-
-  particles->collection = (uint8_t*)table;
-  particles->copy = copy;
-  particles->mutate = mutate;
-  particles->count = [](cubez::Collection* c) -> uint64_t {
-    return ((Particles::Table*)c->collection)->size();
-  };
-
-  particles->keys.data = [](cubez::Collection* c) -> uint8_t* {
-    return (uint8_t*)((Particles::Table*)c->collection)->keys.data();
-  };
-  particles->keys.size = sizeof(Particles::Key);
-  particles->keys.offset = 0;
-
-  particles->values.data = [](cubez::Collection* c) -> uint8_t* {
-    return (uint8_t*)((Particles::Table*)c->collection)->values.data();
-  };
-  particles->values.size = sizeof(Particles::Value);
-  particles->values.offset = 0;
   return particles;
 }
 
@@ -72,21 +76,11 @@ void add_particle_pipeline(const char* collection) {
     cubez::add_pipeline(kMainProgram, collection, collection);
   pipeline->select = nullptr;
   pipeline->transform = [](cubez::Frame* f) {
-    /*
-     * Particles::Element* el =
-     *    (Particles::Element*)((cubez::Mutation*)(get_arg_by_index(frame, 0))->element;
-     *
-     * Particles::Element* el =
-     *    (Particles::Element*)((cubez::Mutation*)(get_arg(frame, "mutation"))->element;
-     */
-    /*
-    Particles::Element* el =
-        (Particles::Element*)((cubez::Mutation*)(s->top()))->element;
-    */
-    // Particles::Element* el = 
-    //   (Particles::Element*)((cubez::Mutation*)f->args.arg[0].data)->element;
     Particles::Element* el = (Particles::Element*)f->mutation.element;
 
+    //el->value.p.x += ((rand() % 100000) - 50000) / 5000000.0f;
+    //el->value.p.y += ((rand() % 100000) - 50000) / 5000000.0f;
+    el->value.v.y -= 0.0001f;
     el->value.p += el->value.v;
     if (el->value.p.x >  1.0f) { el->value.p.x =  1.0f; el->value.v.x *= -1; }
     if (el->value.p.x < -1.0f) { el->value.p.x = -1.0f; el->value.v.x *= -1; }

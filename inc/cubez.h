@@ -22,22 +22,19 @@ struct Element {
   size_t size;
 };
 
-struct TypedElement {
-  const Id collection;
-  Element element;
-};
-
-struct Tuple {
-  uint64_t count;
-  TypedElement* element;
-};
-
 enum class MutateBy {
   UNKNOWN = 0,
   INSERT,
   UPDATE,
   REMOVE,
   INSERT_OR_UPDATE,
+};
+
+enum class IndexedBy {
+  UNKNOWN = 0,
+  OFFSET,
+  HANDLE,
+  KEY
 };
 
 struct Mutation {
@@ -59,14 +56,16 @@ Arg* get_arg(struct Frame* frame, const char* name);
 Arg* new_arg(struct Frame* frame, const char* name, size_t size);
 Arg* set_arg(struct Frame* frame, const char* name, void* data, size_t size);
 
-typedef bool (*Select)(uint8_t, ...);
+typedef bool (*Select)(struct Frame*);
 typedef void (*Transform)(struct Frame*);
-typedef void (*Callback)(struct Frame*);
+typedef void (*Callback)(struct Frame*, const struct Collections* sources,
+                                        const struct Collections* sinks);
 
 typedef void (*Mutate)(struct Collection*, const struct Mutation*);
 typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Frame*);
 typedef uint64_t (*Count)(struct Collection*);
 typedef uint8_t* (*Data)(struct Collection*);
+typedef void* (*Accessor)(struct Collection*, IndexedBy indexed_by, const void* index);
 
 struct Iterator {
   Data data;
@@ -81,6 +80,8 @@ struct Collection {
 
   void* collection;
 
+  Accessor accessor;
+
   Iterator keys;
   Iterator values;
   
@@ -91,7 +92,7 @@ struct Collection {
 
 struct Collections {
   uint64_t count;
-  struct Collection** collections;
+  struct Collection** collection;
 };
 
 enum class Trigger {
@@ -102,16 +103,6 @@ enum class Trigger {
 
 const int16_t MAX_PRIORITY = 0x7FFF;
 const int16_t MIN_PRIORITY = 0x8001;
-
-struct GameState {
-  uint64_t frame;
-  uint64_t timestamp_ns;
-  uint64_t prev_timestamp_ns;
-
-  struct Keys* down;
-  struct Keys* up;
-  struct Keys* change;
-};
 
 struct ExecutionPolicy {
   int16_t priority;
@@ -124,7 +115,12 @@ struct Pipeline {
   const void* self;
 
   Select select;
+
+  // If defined, will run for each object in collection.
   Transform transform;
+
+  // If defined, will run after all objects have been processed with
+  // 'transform'.
   Callback callback;
 };
 
@@ -146,12 +142,14 @@ Id create_program(const char* name);
 // Pipelines.
 struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
 struct Pipeline* copy_pipeline(struct Pipeline* pipeline, const char* dest);
+
 Status::Code remove_pipeline(struct Pipeline* pipeline);
 Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
 Status::Code disable_pipeline(struct Pipeline* pipeline);
 
 Status::Code add_source(struct Pipeline*, const char* collection);
 Status::Code add_sink(struct Pipeline*, const char* collection);
+Status::Code add_keys(struct Pipeline*, uint8_t count, ...);
 
 // Collections.
 Collection* add_collection(const char* program, const char* name);
@@ -164,9 +162,20 @@ struct Message {
   size_t size;
 };
 
+struct Key {
+  void* data;
+  size_t size;
+};
+
+struct Keys {
+  uint8_t count;
+  struct Key* key;
+};
+
 struct Frame {
   const void* self;
   Args args;
+
   Mutation mutation;
   Message message;
 };
@@ -189,6 +198,9 @@ struct EventPolicy {
 
 // Thread-safe.
 Id create_event(const char* program, const char* event, EventPolicy policy);
+
+// Equivalent to creating an event and subscribing to it with pipeline.
+// struct Subscription* add_key_event(const char* program, int key, struct Pipeline* pipeline);
 
 Message* new_message(struct Channel* channel);
 void send_message(Message* e);
