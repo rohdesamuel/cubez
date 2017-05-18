@@ -231,9 +231,7 @@ class PipelineImpl {
   
   void add_source(Collection* source) {
     if (source) {
-      if (std::find(sources_.begin(), sources_.end(), source) == sources_.end()) {
-        sources_.push_back(source);
-      }
+      sources_.push_back(source);
     }
   }
 
