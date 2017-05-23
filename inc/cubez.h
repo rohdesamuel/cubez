@@ -56,10 +56,11 @@ Arg* get_arg(struct Frame* frame, const char* name);
 Arg* new_arg(struct Frame* frame, const char* name, size_t size);
 Arg* set_arg(struct Frame* frame, const char* name, void* data, size_t size);
 
-typedef bool (*Select)(struct Frame*);
-typedef void (*Transform)(struct Frame*);
-typedef void (*Callback)(struct Frame*, const struct Collections* sources,
-                                        const struct Collections* sinks);
+typedef bool (*Select)(struct Pipeline* pipeline, struct Frame*);
+typedef void (*Transform)(struct Pipeline* pipeline, struct Frame*);
+typedef void (*Callback)(struct Pipeline* pipeline, struct Frame*,
+                         const struct Collections* sources,
+                         const struct Collections* sinks);
 
 typedef void (*Mutate)(struct Collection*, const struct Mutation*);
 typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Frame*);
@@ -96,8 +97,7 @@ struct Collections {
 };
 
 enum class Trigger {
-  UNKNOWN = 0,
-  LOOP,
+  LOOP = 0,
   EVENT,
 };
 
@@ -105,7 +105,13 @@ const int16_t MAX_PRIORITY = 0x7FFF;
 const int16_t MIN_PRIORITY = 0x8001;
 
 struct ExecutionPolicy {
+  // OPTIONAL.
+  // Priority of execution.
   int16_t priority;
+
+  // REQUIRED.
+  // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
+  // to only fire during an event.
   Trigger trigger;
 };
 
@@ -114,11 +120,15 @@ struct Pipeline {
   const Id program;
   const void* self;
 
-  Select select;
+  // OPTIONAL.
+  // Pointer to user-defined state.
+  void* state;
 
+  // OPTIONAL.
   // If defined, will run for each object in collection.
   Transform transform;
 
+  // OPTIONAL.
   // If defined, will run after all objects have been processed with
   // 'transform'.
   Callback callback;

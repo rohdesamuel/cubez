@@ -3,6 +3,7 @@
 #include <atomic>
 
 using cubez::Channel;
+using cubez::Frame;
 using cubez::Pipeline;
 using cubez::send_message;
 using cubez::open_channel;
@@ -59,9 +60,7 @@ void initialize(const Settings&) {
     policy.trigger = cubez::Trigger::EVENT;
 
     insert_pipeline = cubez::add_pipeline(kMainProgram, nullptr, physics::kCollection);
-    insert_pipeline->callback = nullptr;
-    insert_pipeline->select = nullptr;
-    insert_pipeline->transform = [](cubez::Frame* f) {
+    insert_pipeline->transform = [](Pipeline*, Frame* f) {
       cubez::Mutation* mutation = &f->mutation;
       mutation->mutate_by = cubez::MutateBy::INSERT;
       Objects::Element* msg = (Objects::Element*)f->message.data;
@@ -77,12 +76,10 @@ void initialize(const Settings&) {
     policy.trigger = cubez::Trigger::LOOP;
 
     move_pipeline = cubez::add_pipeline(kMainProgram, physics::kCollection, physics::kCollection);
-    move_pipeline->callback = nullptr;
-    move_pipeline->select = nullptr;
-    move_pipeline->transform = [](cubez::Frame* f) {
+    move_pipeline->transform = [](Pipeline*, Frame* f) {
       Objects::Element* el = (Objects::Element*)f->mutation.element;
 
-      el->value.v.y -= 0.00001f;
+      //el->value.v.y -= 0.00001f;
       el->value.v *= 0.99f;
       el->value.p += el->value.v;
       if (el->value.p.x >  1.0f) { el->value.p.x =  1.0f; el->value.v.x *= -1; }
@@ -99,9 +96,8 @@ void initialize(const Settings&) {
 
     collision_pipeline = cubez::add_pipeline(kMainProgram, physics::kCollection, physics::kCollection);
     collision_pipeline->transform = nullptr;
-    collision_pipeline->select = nullptr;
-    collision_pipeline->callback = [](cubez::Frame*, const cubez::Collections*,
-                                                   const cubez::Collections* sinks) {
+    collision_pipeline->callback = [](Pipeline*, Frame*, const cubez::Collections*,
+                                                     const cubez::Collections* sinks) {
       cubez::Collection* from = sinks->collection[0];
       uint64_t size = from->count(from);
       for (uint64_t i = 0; i < size; ++i) {
@@ -110,16 +106,26 @@ void initialize(const Settings&) {
               *(physics::Objects::Value*)from->accessor(from, cubez::IndexedBy::OFFSET, &i);
           physics::Objects::Value& b =
               *(physics::Objects::Value*)from->accessor(from, cubez::IndexedBy::OFFSET, &j);
-          glm::vec3 r = b.p - a.p;
-          float l = glm::length(r);
-          if (l < 0.05) {
-            a.v -= (r/l) * 0.001f;
-            b.v += (r/l) * 0.001f;
+
+          glm::vec3 r = a.p - b.p;
+          if (glm::abs(r.x) == 0.0f && glm::abs(r.y) == 0.0f) {
+            continue;
+          }
+          glm::vec3 n = glm::normalize(r);
+          float d = glm::length(r);
+
+          if (d < 0.025) {
+            float p = glm::dot(a.v, n) - glm::dot(b.v, n);
+            a.v += r * 0.001f;
+            b.v -= r * 0.001f;
+            a.v = a.v - (p * n);// * 0.15f;
+            b.v = b.v + (p * n);// * 0.15f;
           }
         }
       }
     };
     cubez::enable_pipeline(collision_pipeline, policy);
+    //cubez::disable_pipeline(collision_pipeline);
   }
   {
     cubez::ExecutionPolicy policy;
@@ -128,8 +134,7 @@ void initialize(const Settings&) {
 
     impulse_pipeline = cubez::add_pipeline(kMainProgram, nullptr, physics::kCollection);
     impulse_pipeline->transform = nullptr;
-    impulse_pipeline->select = nullptr;
-    impulse_pipeline->callback = [](cubez::Frame* f, const cubez::Collections*,
+    impulse_pipeline->callback = [](Pipeline*, Frame* f, const cubez::Collections*,
                                                      const cubez::Collections* sinks) {
       cubez::Collection* from = sinks->collection[0];
       Impulse* impulse = (Impulse*)f->message.data;

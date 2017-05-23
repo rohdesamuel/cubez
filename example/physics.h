@@ -12,6 +12,13 @@ namespace physics {
 
 const char kCollection[] = "physics_objects";
 
+struct Material {
+  float mass;
+  
+  // Constant of restitution.
+  float r;
+};
+
 struct Object {
   glm::vec3 p;
   glm::vec3 v;

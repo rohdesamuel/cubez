@@ -163,8 +163,7 @@ class CollectionRegistry {
 
  private:
   Collection* new_collection(Id id, const char* name) {
-    Collection* c = (Collection*)malloc(sizeof(Collection));
-    memset(c, 0, sizeof(Collection));
+    Collection* c = (Collection*)calloc(1, sizeof(Collection));
     *(Id*)(&c->id) = id;
     *(char**)(&c->name) = (char*)name;
     *(void**)(&c->self) = new CollectionImpl(c);
@@ -268,31 +267,31 @@ class PipelineImpl {
       sinks.collection = sinks_.data();
 
       if (frame) {
-        pipeline_->callback(frame, &sources, &sinks);
+        pipeline_->callback(pipeline_, frame, &sources, &sinks);
       } else {
         DECLARE_FRAME(static_frame);
-        pipeline_->callback(&static_frame, &sources, &sinks);
+        pipeline_->callback(pipeline_, &static_frame, &sources, &sinks);
       }
     }
   }
 
   void run_0_to_0(Frame* f) {
     if (f) {
-      pipeline_->transform(f);
+      pipeline_->transform(pipeline_, f);
     } else {
       DECLARE_FRAME(frame);
-      pipeline_->transform(&frame);
+      pipeline_->transform(pipeline_, &frame);
     }
   }
 
   void run_0_to_1(Frame* f) {
     Collection* sink = sinks_[0];
     if (f) {
-      pipeline_->transform(f);
+      pipeline_->transform(pipeline_, f);
       sink->mutate(sink, &f->mutation);
     } else {
       DECLARE_FRAME(frame);
-      pipeline_->transform(&frame);
+      pipeline_->transform(pipeline_, &frame);
       sink->mutate(sink, &frame.mutation);
     }
   }
@@ -309,7 +308,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, f);
-        pipeline_->transform(f);
+        pipeline_->transform(pipeline_, f);
       }
     } else {
       for(uint64_t i = 0; i < count; ++i) {
@@ -319,7 +318,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, &frame);
-        pipeline_->transform(&frame);
+        pipeline_->transform(pipeline_, &frame);
       }
     }
   }
@@ -338,7 +337,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, f);
-        pipeline_->transform(f);
+        pipeline_->transform(pipeline_, f);
         sink->mutate(sink, &f->mutation);
       }
     } else {
@@ -349,7 +348,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, &frame);
-        pipeline_->transform(&frame);
+        pipeline_->transform(pipeline_, &frame);
         sink->mutate(sink, &frame.mutation);
       }
     }
@@ -687,7 +686,7 @@ class ProgramImpl {
   }
 
   Status::Code disable_pipeline(struct Pipeline* pipeline) {
-    auto found = std::lower_bound(loop_pipelines_.begin(), loop_pipelines_.end(), pipeline);
+    auto found = std::find(loop_pipelines_.begin(), loop_pipelines_.end(), pipeline);
     if (found != loop_pipelines_.end()) {
       loop_pipelines_.erase(found);
     } else {
@@ -740,8 +739,7 @@ class ProgramImpl {
 
  private:
   Pipeline* new_pipeline(Id id) {
-    Pipeline* p = (Pipeline*)malloc(sizeof(Pipeline));
-    memset(p, 0, sizeof(Pipeline));
+    Pipeline* p = (Pipeline*)calloc(1, sizeof(Pipeline));
     *(Id*)(&p->id) = id;
     *(Id*)(&p->program) = program_->id;
     p->self = new PipelineImpl(p);
@@ -791,7 +789,6 @@ class ProgramRegistry {
     if (id == -1) {
       id = programs_.insert(program, nullptr);
       Program* p = new_program(id, program);
-      p->self = new ProgramImpl{p};
       programs_[id] = p;
     }
     return id;
@@ -846,10 +843,10 @@ class ProgramRegistry {
 
  private:
   Program* new_program(Id id, const char* name) {
-    Program* p = (Program*)malloc(sizeof(Program));
-    memset(p, 0, sizeof(Program));
+    Program* p = (Program*)calloc(1, sizeof(Program));
     *(Id*)(&p->id) = id;
     *(char**)(&p->name) = (char*)name;
+    p->self = new ProgramImpl{p};
     return p;
   }
 
