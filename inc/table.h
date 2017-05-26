@@ -14,7 +14,6 @@
 
 #include <iostream>
 
-#include <boost/lockfree/queue.hpp>
 #include <vector>
 #include <map>
 
@@ -273,80 +272,6 @@ public:
 private:
   Table* table_;
 };
-
-template<typename Table_>
-class MutationBuffer {
-public:
-  typedef Table_ Table;
-  typedef typename Table::Mutation Mutation;
-  typedef Mutation Element;
-
-  const uint64_t INITIAL_SIZE = 1 << 10;
-
-  MutationBuffer() : mutations_(INITIAL_SIZE) {}
-
-  const std::function<void(Table*, Mutation&&)> default_resolver = 
-    [=](Table* table, Mutation&& m) {
-        switch (m.mutate_by) {
-          case MutateBy::INSERT:
-            table->insert(std::move(m.el.key), std::move(m.el.value));
-            break;
-          case MutateBy::REMOVE:
-            table->remove(table->find(m.el.key));
-            break;
-          case MutateBy::UPDATE:
-            switch (m.el.indexed_by) {
-              case IndexedBy::HANDLE:
-                (*table)[m.el.handle] = std::move(m.el.value);
-                break;
-              case IndexedBy::KEY:
-                table->values[table->find(m.el.key)] = std::move(m.el.value);
-                break;
-              case IndexedBy::OFFSET:
-                table->values[m.el.offset] = std::move(m.el.value);
-                break;
-              default:
-                break;
-            }
-            break;
-          default:
-            break;
-        }
-      };
-
-  bool push(Mutation&& m) {
-    return mutations_.push(m);
-  }
-
-  template<MutateBy mutate_by, IndexedBy indexed_by, typename IndexType_>
-  void emplace(IndexType_&& index, typename Table::Value&& value) {
-    push(Mutation { 
-           mutate_by, {
-             indexed_by,
-             std::move(index),
-             std::move(value) 
-           }
-         });
-  }
-
-  uint64_t flush(Table* table) {
-    return mutations_.consume_all([&](Mutation& m) {
-      default_resolver(table, std::move(m));
-    });
-  }
-
-  template<typename Resolver_>
-  uint64_t flush(Table* table, Resolver_ r) {
-    return mutations_.consume_all([=](Mutation m) {
-      r(table, std::move(m));
-    });
-  }
-
-private:
-  ::boost::lockfree::queue<Mutation> mutations_;
-};
-
-
 
 }  // namespace cubez
 

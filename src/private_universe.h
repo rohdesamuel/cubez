@@ -424,12 +424,8 @@ class MessageQueue {
   // Thread-safe.
   Message* new_message(Channel* c) {
     Message* ret = nullptr;
-    if (free_mem_.size_approx() == 0) {
+    if (!free_mem_.try_dequeue(ret)) {
       ret = new_mem(c);
-    } else {
-      if (!free_mem_.try_dequeue(ret)) {
-        ret = new_mem(c);
-      }
     }
     DEBUG_ASSERT(ret, Status::Code::NULL_POINTER);
     ret->channel = c;

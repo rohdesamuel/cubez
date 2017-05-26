@@ -44,8 +44,8 @@ void out(const std::string& s) {
   for (int i = 0; i < num_msgs; ++i) {
     cubez::Message* m = new_message(std_out);
     std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
-    memcpy(m->data, to_send.c_str(), to_send.size());
-    m->size = to_send.size();
+    // Add 1 for null terminated character.
+    memcpy(m->data, to_send.c_str(), to_send.size() + 1);
 
     cubez::send_message(m);
   }

@@ -125,7 +125,7 @@ void initialize(const Settings&) {
       }
     };
     cubez::enable_pipeline(collision_pipeline, policy);
-    //cubez::disable_pipeline(collision_pipeline);
+    cubez::disable_pipeline(collision_pipeline);
   }
   {
     cubez::ExecutionPolicy policy;

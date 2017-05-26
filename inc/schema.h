@@ -20,7 +20,6 @@ struct Schema {
   typedef cubez::Table<Key_, Value_, Allocator_> Table;
   typedef cubez::View<Table> View;
   typedef typename Table::Element Element;
-  typedef cubez::MutationBuffer<Table> MutationBuffer;
   typedef Key_ Key;
   typedef Value_ Value;
 };

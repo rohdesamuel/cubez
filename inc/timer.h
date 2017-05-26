@@ -1,7 +1,7 @@
 #ifndef TIMER__H
 #define TIMER__H
 
-#include <boost/container/vector.hpp>
+#include <vector>
 
 #include "common.h"
 
@@ -76,7 +76,7 @@ private:
 
   uint8_t iterator_;
   uint8_t window_size_;
-  boost::container::vector<int64_t> window_;
+  std::vector<int64_t> window_;
 };
 
 #endif

@@ -10,10 +10,7 @@
 #include <GL/glew.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <X11/X.h>
-#include <X11/Xlib.h>
-#include <X11/keysymdef.h>
-#include <X11/keysym.h>
+#include <SDL2/SDL.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glu.h>
@@ -42,47 +39,23 @@ const char fragment_shader[] =
     "  frag_color = vec4(1.0, 1.0, 0.0, 1.0);"
     "}";
 
-Display                 *dpy;
-Window                  root;
-GLint                   att[] = { GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None };
-XVisualInfo             *vi;
-Colormap                cmap;
-XSetWindowAttributes    swa;
-Window                  win;
-GLXContext              glc;
-XWindowAttributes       gwa;
+SDL_Window *win = nullptr;
+SDL_Renderer *renderer = nullptr;
+SDL_GLContext *context = nullptr;
 
 void init_rendering(int width, int height) {
-  dpy = XOpenDisplay(NULL);
+  int posX = 100, posY = 100;
+  
+  SDL_Init(SDL_INIT_VIDEO);
+  
+  win = SDL_CreateWindow("Hello World", posX, posY, width, height, SDL_WINDOW_OPENGL);
+  renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
-  if(dpy == NULL) {
-    printf("\n\tcannot connect to X server\n\n");
-    exit(0);
-  }
-
-  root = DefaultRootWindow(dpy);
-
-  vi = glXChooseVisual(dpy, 0, att);
-
-  if (vi == NULL) {
-    printf("\n\tno appropriate visual found\n\n");
-    exit(0);
-  }
-
-  cmap = XCreateColormap(dpy, root, vi->visual, AllocNone);
-
-  swa.colormap = cmap;
-  swa.event_mask = ExposureMask | KeyPressMask;
-
-  win = XCreateWindow(dpy, root, 0, 0, width, height, 0, vi->depth, InputOutput,
-                      vi->visual, CWColormap | CWEventMask, &swa);
-
-  XMapWindow(dpy, win);
-  XFlush(dpy);
-  XStoreName(dpy, win, "Cubez Example");
-
-  glc = glXCreateContext(dpy, vi, NULL, GL_TRUE);
-  glXMakeCurrent(dpy, win, glc);
+  SDL_GL_SetAttribute(
+      SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  
+  SDL_GL_CreateContext(win);
 }
 
 GLuint create_shader(const char* shader, GLenum shader_type) {
@@ -113,6 +86,10 @@ int main(int, char* []) {
       << "Error code: " << glewError;
     return 1;
   }
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+  SDL_GL_SwapWindow(win);
 
   GLuint vs = create_shader(vertex_shader, GL_VERTEX_SHADER);
   GLuint fs = create_shader(fragment_shader, GL_FRAGMENT_SHADER);
@@ -160,111 +137,16 @@ int main(int, char* []) {
   WindowTimer update_timer(50);
   WindowTimer render_timer(50);
 
-  XGetWindowAttributes(dpy, win, &gwa);
-  glViewport(0, 0, gwa.width, gwa.height);
+  glViewport(0, 0, 800, 600);
 
   double t = 0.0;
   const double dt = 0.01;
   double current_time = Timer::now() * 0.000000001;
+  double start_time = Timer::now();
   double accumulator = 0.0;
 
   std::unordered_map<char, bool> pressed_keys;
-  XSelectInput(dpy, win, KeyPressMask | KeyReleaseMask);
   while (1) {
-    while (XPending(dpy)) {
-      XEvent xev;
-      XNextEvent(dpy, &xev);
-      switch (xev.type) {
-        case KeyPress: {
-          // 0x09 is ESC
-          if (xev.xkey.keycode == 0x09) {
-            glXMakeCurrent(dpy, None, NULL);
-            glXDestroyContext(dpy, glc);
-            XDestroyWindow(dpy, win);
-            XCloseDisplay(dpy);
-            cubez::stop();
-            exit(0);
-          } else {
-            KeySym key = XLookupKeysym(&xev.xkey, 0);
-            if (key == XK_w) {
-              pressed_keys['w'] = true;
-            } else if (key == XK_a) {
-              pressed_keys['a'] = true;
-            } else if (key == XK_s) {
-              pressed_keys['s'] = true;
-            } else if (key == XK_d) {
-              pressed_keys['d'] = true;
-            } else if (key == XK_space) {
-              pressed_keys[' '] = true;
-            }
-
-          }
-          break;
-        } 
-        case KeyRelease: {
-          bool released = true;
-          if (XEventsQueued(dpy, QueuedAfterReading)) {
-            XEvent nev;
-            XPeekEvent(dpy, &nev);
-
-            if (nev.type == KeyPress && nev.xkey.time == xev.xkey.time &&
-                nev.xkey.keycode == xev.xkey.keycode) {
-              released = false;
-              /* Key wasn’t actually released */
-            }
-          }
-          
-          if (released) {
-              KeySym key = XLookupKeysym(&xev.xkey, 0);
-              if (key == XK_w) {
-                pressed_keys['w'] = false;
-              } else if (key == XK_a) {
-                pressed_keys['a'] = false;
-              } else if (key == XK_s) {
-                pressed_keys['s'] = false;
-              } else if (key == XK_d) {
-                pressed_keys['d'] = false;
-              } else if (key == XK_space) {
-                pressed_keys[' '] = false;
-              }
-            }
-          break;
-        }
-        default:
-          break;
-      }
-    }
-
-    if (pressed_keys['w']) {
-      player::move_up(0.0001f);
-    }
-
-    if (pressed_keys['a']) {
-      player::move_left(0.0001f);
-    }
-
-    if (pressed_keys['s']) {
-      player::move_down(0.0001f);
-    }
-
-    if (pressed_keys['d']) {
-      player::move_right(0.0001f);
-    }
-
-    if (pressed_keys[' ']) {
-      glm::vec3 p{
-          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-          0
-        };
-
-      glm::vec3 v{
-          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-          0
-        };
-      physics::create(p, v);
-    }
     fps_timer.start();
 
     double new_time = Timer::now() * 0.000000001;
@@ -275,6 +157,63 @@ int main(int, char* []) {
 
     update_timer.start();
     while (accumulator >= dt) {
+      SDL_Event e;
+      if (SDL_PollEvent(&e)) {
+        if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
+          if (e.key.keysym.sym == SDLK_ESCAPE) {
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(win);
+            SDL_Quit();
+            cubez::stop();
+            exit(0);
+          } else {
+            SDL_Keycode key = e.key.keysym.sym;
+            bool state = e.key.state == SDL_PRESSED;
+            if (key == SDLK_w) {
+              pressed_keys['w'] = state;
+            } else if (key == SDLK_a) {
+              pressed_keys['a'] = state;
+            } else if (key == SDLK_s) {
+              pressed_keys['s'] = state;
+            } else if (key == SDLK_d) {
+              pressed_keys['d'] = state;
+            } else if (key == SDLK_SPACE) {
+              pressed_keys[' '] = state;
+            }
+          }
+        }
+      }
+
+      if (pressed_keys['w']) {
+        player::move_up(0.0001f);
+      }
+
+      if (pressed_keys['a']) {
+        player::move_left(0.0001f);
+      }
+
+      if (pressed_keys['s']) {
+        player::move_down(0.0001f);
+      }
+
+      if (pressed_keys['d']) {
+        player::move_right(0.0001f);
+      }
+
+      if (pressed_keys[' ']) {
+        glm::vec3 p{
+          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
+            2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
+            0
+        };
+
+        glm::vec3 v{
+          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
+            ((float)(rand() % 1000) / 100000.0f) - 0.005f,
+            0
+        };
+        physics::create(p, v);
+      }
       cubez::loop();
       accumulator -= dt;
       t += dt;
@@ -303,7 +242,8 @@ int main(int, char* []) {
       }
     }
 
-    glXSwapBuffers(dpy, win);
+    SDL_GL_SwapWindow(win);
+
     render_timer.stop();
     render_timer.step();
 
@@ -311,7 +251,15 @@ int main(int, char* []) {
     fps_timer.stop();
     fps_timer.step();
 
-    if (false && frame % 1000 == 0) {
+    double time = Timer::now();
+    static int prev_trigger = 0;
+    static int trigger = 0;
+    int period = 1;
+
+    prev_trigger = trigger;
+    trigger = int64_t(time - start_time) / 1000000000;
+
+    if (trigger % period == 0 && prev_trigger != trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +
@@ -319,7 +267,7 @@ int main(int, char* []) {
           + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
           + "Render FPS: " + std::to_string(1e9 / render_timer.get_avg_elapsed_ns()) + "\n"
           + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
-          + "Accum: " + std::to_string(accumulator) + "\n");
+          + "Accum: " + std::to_string(accumulator) + "\n\n");
     }
   }
 }

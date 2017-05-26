@@ -11,6 +11,8 @@
 #include "common.h"
 #include "universe.h"
 
+#define CONST_P(type) const type* const 
+
 BEGIN_EXTERN_C
 
 #ifdef __cplusplus
@@ -169,6 +171,7 @@ Status::Code copy_collection(/*const char* program*/ const char* source, const c
 struct Message {
   struct Channel* channel;
   void* data;
+
   size_t size;
 };
 
