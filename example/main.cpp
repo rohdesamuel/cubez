@@ -11,10 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL2/SDL.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glu.h>
+#include <SDL2/SDL_opengl.h>
+//#include <GL/gl.h>
+//#include <GL/glx.h>
+//#include <GL/glu.h>
 
+#include "ball.h"
 #include "physics.h"
 #include "player.h"
 #include "log.h"
@@ -106,6 +108,9 @@ int main(int, char* []) {
 
   // Create the "main".
   cubez::create_program(kMainProgram); 
+  
+  cubez::EventPolicy policy;
+  cubez::create_event(kMainProgram, kRender, policy);
 
   {
     physics::Settings settings;
@@ -115,6 +120,11 @@ int main(int, char* []) {
   {
     player::Settings settings;
     player::initialize(settings);
+  }
+
+  {
+    ball::initialize();
+    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp");
   }
 
   {
@@ -233,6 +243,10 @@ int main(int, char* []) {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
     glDrawArrays(GL_POINTS, 0, c->count(c));
     glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableVertexAttribArray(0);
+
+    ball::render();
+    cubez::flush_events(kMainProgram, kRender);
 
     {
       GLenum error = glGetError();
@@ -252,6 +266,7 @@ int main(int, char* []) {
     fps_timer.step();
 
     double time = Timer::now();
+
     static int prev_trigger = 0;
     static int trigger = 0;
     int period = 1;

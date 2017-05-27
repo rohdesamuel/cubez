@@ -215,6 +215,19 @@ Id PrivateUniverse::create_event(const char* program, const char* event, EventPo
   return programs_.to_impl(p)->create_event(event, policy);
 }
 
+Status::Code PrivateUniverse::flush_events(const char* program, const char* event) {
+  Status::Code err = runner_.assert_in_state(RunState::RUNNING);
+  if (err != Status::OK) {
+    return err;
+  }
+
+  Program* p = programs_.get_program(program);
+  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+  programs_.to_impl(p)->flush_events(event);
+
+  return Status::OK;
+}
+
 struct Channel* PrivateUniverse::open_channel(const char* program, const char* event) {
   Program* p = programs_.get_program(program);
   DEBUG_ASSERT(p, Status::Code::NULL_POINTER);

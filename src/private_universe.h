@@ -576,6 +576,15 @@ class EventRegistry {
     }
   }
 
+  void flush(const char* event) {
+    Id e = find_event(event);
+    if (e == -1) {
+      return;
+    }
+
+    events_[e]->flush();
+  }
+
  private:
   // Requires state_mutex_.
   Id find_event(const char* event) {
@@ -707,6 +716,14 @@ class ProgramImpl {
 
   Id create_event(const char* event, EventPolicy policy) {
     return events_.create_event(event, policy);
+  }
+
+  void flush_events(const char* event) {
+    if (!event) {
+      events_.flush_all();
+    } else {
+      events_.flush(event);
+    }
   }
 
   Channel* open_channel(const char* event) {
@@ -881,6 +898,8 @@ class PrivateUniverse {
 
   // Events.
   Id create_event(const char* program, const char* event, EventPolicy policy);
+
+  Status::Code flush_events(const char* program, const char* event);
 
   struct Channel* open_channel(const char* program, const char* event);
   void close_channel(struct Channel* channel);

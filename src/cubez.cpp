@@ -97,6 +97,10 @@ Id create_event(const char* program, const char* event, EventPolicy policy) {
   return AS_PRIVATE(create_event(program, event, policy));
 }
 
+Status::Code flush_events(const char* program, const char* event) {
+  return AS_PRIVATE(flush_events(program, event));
+}
+
 Message* new_message(struct Channel* c) {
   return ChannelImpl::to_impl(c)->new_message();
 }

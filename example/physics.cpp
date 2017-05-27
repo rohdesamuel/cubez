@@ -80,12 +80,12 @@ void initialize(const Settings&) {
       Objects::Element* el = (Objects::Element*)f->mutation.element;
 
       //el->value.v.y -= 0.00001f;
-      el->value.v *= 0.99f;
+      //el->value.v *= 0.99f;
       el->value.p += el->value.v;
-      if (el->value.p.x >  1.0f) { el->value.p.x =  1.0f; el->value.v.x *= -1; }
-      if (el->value.p.x < -1.0f) { el->value.p.x = -1.0f; el->value.v.x *= -1; }
-      if (el->value.p.y >  1.0f) { el->value.p.y =  1.0f; el->value.v.y *= -1; }
-      if (el->value.p.y < -1.0f) { el->value.p.y = -1.0f; el->value.v.y *= -1; }
+      if (el->value.p.x >  1.0f) { el->value.p.x =  0.98f; el->value.v.x *= -0.98; }
+      if (el->value.p.x < -1.0f) { el->value.p.x = -0.98f; el->value.v.x *= -0.98; }
+      if (el->value.p.y >  1.0f) { el->value.p.y =  0.98f; el->value.v.y *= -0.98; }
+      if (el->value.p.y < -1.0f) { el->value.p.y = -0.98f; el->value.v.y *= -0.98; }
     };
     cubez::enable_pipeline(move_pipeline, policy);
   }
@@ -97,7 +97,7 @@ void initialize(const Settings&) {
     collision_pipeline = cubez::add_pipeline(kMainProgram, physics::kCollection, physics::kCollection);
     collision_pipeline->transform = nullptr;
     collision_pipeline->callback = [](Pipeline*, Frame*, const cubez::Collections*,
-                                                     const cubez::Collections* sinks) {
+                                                         const cubez::Collections* sinks) {
       cubez::Collection* from = sinks->collection[0];
       uint64_t size = from->count(from);
       for (uint64_t i = 0; i < size; ++i) {
@@ -108,7 +108,7 @@ void initialize(const Settings&) {
               *(physics::Objects::Value*)from->accessor(from, cubez::IndexedBy::OFFSET, &j);
 
           glm::vec3 r = a.p - b.p;
-          if (glm::abs(r.x) == 0.0f && glm::abs(r.y) == 0.0f) {
+          if (glm::abs(r.x) <= 0.0001f && glm::abs(r.y) <= 0.0001f) {
             continue;
           }
           glm::vec3 n = glm::normalize(r);
@@ -116,8 +116,8 @@ void initialize(const Settings&) {
 
           if (d < 0.025) {
             float p = glm::dot(a.v, n) - glm::dot(b.v, n);
-            a.v += r * 0.001f;
-            b.v -= r * 0.001f;
+            //a.v += r * 0.01f;
+            //b.v -= r * 0.01f;
             a.v = a.v - (p * n);// * 0.15f;
             b.v = b.v + (p * n);// * 0.15f;
           }
@@ -125,7 +125,7 @@ void initialize(const Settings&) {
       }
     };
     cubez::enable_pipeline(collision_pipeline, policy);
-    cubez::disable_pipeline(collision_pipeline);
+    //cubez::disable_pipeline(collision_pipeline);
   }
   {
     cubez::ExecutionPolicy policy;

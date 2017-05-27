@@ -25,7 +25,7 @@ struct Object {
 };
 
 struct Impulse {
-  uint32_t key;
+  cubez::Id key;
   glm::vec3 p;
 };
 
@@ -34,7 +34,7 @@ struct Settings {
   float friction = 0.0f;
 };
 
-typedef cubez::Schema<uint32_t, Object> Objects;
+typedef cubez::Schema<cubez::Id, Object> Objects;
 
 void initialize(const Settings& settings);
 cubez::Id create(glm::vec3 pos, glm::vec3 vel);

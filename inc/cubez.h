@@ -212,8 +212,9 @@ struct EventPolicy {
 // Thread-safe.
 Id create_event(const char* program, const char* event, EventPolicy policy);
 
-// Equivalent to creating an event and subscribing to it with pipeline.
-// struct Subscription* add_key_event(const char* program, int key, struct Pipeline* pipeline);
+// Flush events from program. If event if null, flush all events from program.
+// Engine must not be in the LOOPING run state.
+Status::Code flush_events(const char* program, const char* event);
 
 Message* new_message(struct Channel* channel);
 void send_message(Message* e);
