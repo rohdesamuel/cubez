@@ -95,6 +95,17 @@ void initialize() {
       cubez::Collection* ball_c = sources->collection[0];
       cubez::Collection* physics_c = sources->collection[1];
 
+      /*
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, texture1);
+      glUniform1i(glGetUniformLocation(ourShader.Program, "ourTexture1"), 0);
+
+      glBindVertexArray(VAO);
+      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+      glBindVertexArray(0);  
+      */
+
+
       uint64_t size = ball_c->count(ball_c);
       for (uint64_t i = 0; i < size; ++i) {
         Objects::Value& ball =
@@ -103,7 +114,9 @@ void initialize() {
         physics::Objects::Value& pv = *(physics::Objects::Value*)physics_c->accessor(
             physics_c, cubez::IndexedBy::KEY, &ball.physics_id);
 
+        glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, ball.texture_id);
+        glEnable(GL_TEXTURE_2D);
         glBegin(GL_TRIANGLES);
         glTexCoord2f(0.0f,0.0f);
         glVertex3f( 0.0f, 0.1f, 0.0f);
@@ -179,9 +192,22 @@ cubez::Id create(glm::vec3 pos, glm::vec3 vel, const std::string& file) {
   el.indexed_by = cubez::IndexedBy::KEY;
   el.key = new_id;
 
+
+  /*
+  GLfloat vertices[] = {
+     // Positions         // Colors           // Texture Coords
+     0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // Top Right
+     0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // Bottom Right
+    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // Bottom Left
+    -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // Top Left 
+  };*/
+
+
+
   Object obj;
   obj.texture_id = load_texture(file);
   obj.physics_id = physics::create(pos, vel);
+  obj.vao_id = 0;
   el.value = obj;
   *(Objects::Element*)msg->data = el;
   cubez::send_message(msg);

@@ -15,6 +15,7 @@ const char kCollection[] = "ball_objects";
 
 struct Object {
   uint32_t texture_id;
+  uint32_t vao_id;
   cubez::Id physics_id;
 };
 

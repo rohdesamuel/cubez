@@ -20,11 +20,37 @@
 #include "physics.h"
 #include "player.h"
 #include "log.h"
+#include "shader.h"
 
 #include <thread>
 #include <unordered_map>
 
-const char vertex_shader[] =
+const char tex_vs[] =
+    "attribute vec3 Position; "
+    "attribute vec2 TexCoord; "
+    "attribute vec4 Color; "
+    " "
+    "varying vec4 vColor; "
+    "varying vec2 vTexCoord; "
+    "void main() { "
+    "  vColor = Color; "
+    "  vTexCoord = TexCoord; "
+    "  gl_Position = vec4(Position, 1.0); "
+    "}";
+
+const char tex_fs[] =
+    "uniform sampler2D u_texture; "
+    ""
+    "varying vec4 vColor; "
+    "varying vec2 vTexCoord; "
+    " "
+    "void main() { "
+    "  vec4 texColor = texture2D(u_texture, vTexCoord); "
+    "  texColor.rgb = 1.0 - texColor.rgb; "
+    "  gl_FragColor = vColor * texColor; "
+    "}";
+
+const char simple_vs[] =
     "#version 130\n"
     "in vec3 vp;"
     "out vec2 tex;"
@@ -33,7 +59,7 @@ const char vertex_shader[] =
     "  tex = vec2(vp.x, vp.y);"
     "}";
 
-const char fragment_shader[] =
+const char simple_fs[] =
     "#version 130\n"
     "in vec2 tex;"
     "out vec4 frag_color;"
@@ -93,14 +119,9 @@ int main(int, char* []) {
   SDL_RenderClear(renderer);
   SDL_GL_SwapWindow(win);
 
-  GLuint vs = create_shader(vertex_shader, GL_VERTEX_SHADER);
-  GLuint fs = create_shader(fragment_shader, GL_FRAGMENT_SHADER);
-
-  GLuint shader_program = glCreateProgram();
-  glAttachShader(shader_program, fs);
-  glAttachShader(shader_program, vs);
-  glLinkProgram(shader_program);
-  glUseProgram(shader_program);
+  ShaderProgram texture_program(tex_vs, tex_fs);
+  ShaderProgram simple_program(simple_vs, simple_fs);
+  simple_program.use();
 
   // Create and initialize the game engine.
   cubez::Universe uni;
@@ -132,7 +153,6 @@ int main(int, char* []) {
   }
 
   cubez::Collection* c = physics::get_collection();
-
   GLuint points_buffer;
   glGenBuffers(1, &points_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, points_buffer);
@@ -239,12 +259,15 @@ int main(int, char* []) {
         c->values.data(c));
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    simple_program.use();
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
     glDrawArrays(GL_POINTS, 0, c->count(c));
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableVertexAttribArray(0);
 
+    texture_program.use();
     ball::render();
     cubez::flush_events(kMainProgram, kRender);
 
