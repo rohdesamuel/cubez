@@ -69,12 +69,13 @@ Status::Code Runner::assert_in_state(const std::vector<State>& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
     return Status::OK;
   }
-  std::cerr << "Runner is in bad state: " << (int)state_
-            << "\nAllowed to be in { ";
-  for (auto state : allowed) {
-    std::cerr << (int)state << " ";
-  }
-  std::cerr << "}\n";
+  LOG(ERROR, << "Runner is in bad state: " << (int)state_
+             << "\nAllowed to be in { ");
+  DEBUG_OP(
+      for (auto state : allowed) {
+        LOG(ERROR, (int)state << " ");
+      });
+  LOG(ERROR, "}\n");
   
   return Status::BAD_RUN_STATE;
 }
@@ -83,12 +84,14 @@ Status::Code Runner::assert_in_state(std::vector<State>&& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
     return Status::OK;
   }
-  std::cerr << "Runner is in bad state: " << (int)state_
-            << "\nAllowed to be in { ";
-  for (auto state : allowed) {
-    std::cerr << (int)state << " ";
-  }
-  std::cerr << "}\n";
+  LOG(ERROR, "Runner is in bad state: " << (int)state_
+             << "\nAllowed to be in { ");
+  
+  DEBUG_OP(
+      for (auto state : allowed) {
+        LOG(ERROR, (int)state << " ");
+      });
+  LOG(ERROR, "}\n");
   
   return Status::BAD_RUN_STATE;
 }

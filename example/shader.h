@@ -1,10 +1,13 @@
 #ifndef SHADER__H
 #define SHADER__H
 
+#include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
 
 #include "inc/cubez.h"
 #include "inc/common.h"
+
+#include <iostream>
 
 class ShaderProgram {
  private:

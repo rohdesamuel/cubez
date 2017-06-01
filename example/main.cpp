@@ -12,9 +12,6 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
-//#include <GL/gl.h>
-//#include <GL/glx.h>
-//#include <GL/glu.h>
 
 #include "ball.h"
 #include "physics.h"
@@ -76,7 +73,8 @@ void init_rendering(int width, int height) {
   
   SDL_Init(SDL_INIT_VIDEO);
   
-  win = SDL_CreateWindow("Hello World", posX, posY, width, height, SDL_WINDOW_OPENGL);
+  win = SDL_CreateWindow("Hello World", posX, posY, width, height,
+                         SDL_WINDOW_OPENGL);
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
   SDL_GL_SetAttribute(
@@ -104,6 +102,37 @@ GLuint create_shader(const char* shader, GLenum shader_type) {
   return s;
 }
 
+void initialize_universe(cubez::Universe* uni) {
+  cubez::init(uni);
+
+  // Create the "main".
+  cubez::create_program(kMainProgram); 
+  
+  {
+    cubez::EventPolicy policy;
+    cubez::create_event(kMainProgram, kRender, policy);
+  }
+
+  {
+    physics::Settings settings;
+    physics::initialize(settings);
+  }
+
+  {
+    player::Settings settings;
+    player::initialize(settings);
+  }
+
+  {
+    ball::initialize();
+    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp");
+  }
+
+  {
+    logging::initialize();
+  }
+}
+
 int main(int, char* []) {
   init_rendering(800, 600);
 
@@ -125,32 +154,7 @@ int main(int, char* []) {
 
   // Create and initialize the game engine.
   cubez::Universe uni;
-  cubez::init(&uni);
-
-  // Create the "main".
-  cubez::create_program(kMainProgram); 
-  
-  cubez::EventPolicy policy;
-  cubez::create_event(kMainProgram, kRender, policy);
-
-  {
-    physics::Settings settings;
-    physics::initialize(settings);
-  }
-
-  {
-    player::Settings settings;
-    player::initialize(settings);
-  }
-
-  {
-    ball::initialize();
-    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp");
-  }
-
-  {
-    logging::initialize();
-  }
+  initialize_universe(&uni);
 
   cubez::Collection* c = physics::get_collection();
   GLuint points_buffer;
@@ -252,7 +256,8 @@ int main(int, char* []) {
     update_timer.step();
 
     render_timer.start();
-    glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr,
+                 GL_DYNAMIC_DRAW);
     glBufferSubData(
         GL_ARRAY_BUFFER, 0,
         c->count(c) * c->values.size,

@@ -33,7 +33,16 @@ do{ if (!(expr)) exit(exit_code); } while (0)
 #define ASSERT_NOT_NULL(var) \
 DEBUG_ASSERT((var) != nullptr, ::cubez::Status::Code::NULL_POINTER)
 
+#define ERROR cerr
+#define INFO cout
+#define LOG(to, str) std::to << (str)
+
 #else
+
+#define ERROR cerr
+#define INFO cout
+#define LOG(to, str) do{} while(0)
+
 #define DEBUG_ASSERT(expr, exit_code) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
 #define ASSERT_NOT_NULL(var) do {} while(0)

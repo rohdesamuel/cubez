@@ -18,6 +18,8 @@ all:
 	#
 	# Now building libcubez...
 	# Current version is $(VERSION)
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(LIB_DIR)
 	g++ -c -fPIC -fno-exceptions -I$(INC_DIR) $(SRC_DIR)/*.cpp -Wall -Wextra -Werror -std=c++14 -O3 -lSDL2 -lGLEW -lGL -lGLU -fopenmp
 	g++ -shared -fPIC -fno-exceptions -Wl,-soname,libcubez.so.$(MAJOR_VERSION) -o $(LIB_DIR)/libcubez.so.$(VERSION) *.o -lc
 	@ln -f -r -s $(LIB_DIR)/libcubez.so.$(VERSION) $(LIB_DIR)/libcubez.so.$(MAJOR_VERSION)
@@ -31,6 +33,11 @@ debug:
 	@ln -f -r -s $(LIB_DIR)/libcubez.so.$(VERSION) $(LIB_DIR)/libcubez.so
 	@mv *.o obj/
 
+install:
+	cp $(LIB_DIR)/libcubez.so.$(VERSION) /usr/lib/libcubez.so
+	cp $(LIB_DIR)/libcubez.so.$(VERSION) /usr/lib/libcubez.so.$(MAJOR_VERSION)
+
 clean:
-	@rm $(LIB_DIR)/*
-	@rm $(OBJ_DIR)/*
+	rm $(LIB_DIR)/*
+	rm $(OBJ_DIR)/*
+	rm /usr/lib/libcubez.so*
