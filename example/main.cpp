@@ -18,6 +18,7 @@
 #include "player.h"
 #include "log.h"
 #include "shader.h"
+#include "render.h"
 
 #include <thread>
 #include <unordered_map>
@@ -109,8 +110,7 @@ void initialize_universe(cubez::Universe* uni) {
   cubez::create_program(kMainProgram); 
   
   {
-    cubez::EventPolicy policy;
-    cubez::create_event(kMainProgram, kRender, policy);
+    render::initialize();
   }
 
   {
@@ -273,8 +273,10 @@ int main(int, char* []) {
     glDisableVertexAttribArray(0);
 
     texture_program.use();
-    ball::render();
-    cubez::flush_events(kMainProgram, kRender);
+    render::RenderEvent e;
+    e.frame = frame;
+    e.ftimestamp_us = Timer::now() - start_time;
+    render::present(&e);
 
     {
       GLenum error = glGetError();

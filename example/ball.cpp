@@ -34,10 +34,8 @@ std::atomic_int next_id;
 const char vertex_shader[] = "";
 const char fragment_shader[] = "";
 
-GLuint vs, fs;
 GLuint shader_program;
 GLuint tex_quad;
-
 
 void initialize() {
   // Initialize collections.
@@ -151,7 +149,7 @@ void initialize() {
     insert_channel = open_channel(kMainProgram, kInsert);
   }
   {
-    cubez::subscribe_to(kMainProgram, kRender, render_pipeline);
+    //cubez::subscribe_to(kMainProgram, kRender, render_pipeline);
     render_channel = open_channel(kMainProgram, kRender);
   }
 
@@ -207,16 +205,12 @@ cubez::Id create(glm::vec3 pos, glm::vec3 vel, const std::string& file) {
   Object obj;
   obj.texture_id = load_texture(file);
   obj.physics_id = physics::create(pos, vel);
-  obj.vao_id = 0;
+  obj.render_id = 0;
   el.value = obj;
   *(Objects::Element*)msg->data = el;
   cubez::send_message(msg);
 
   return new_id;
-}
-
-void render() {
-  cubez::send_message(cubez::new_message(render_channel));
 }
 
 }  // namespace ball
