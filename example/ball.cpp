@@ -1,8 +1,13 @@
 #include "ball.h"
 
 #include "physics.h"
+#include "render.h"
+#include "shader.h"
 
 #include <atomic>
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
 
 using cubez::Channel;
@@ -37,7 +42,7 @@ const char fragment_shader[] = "";
 GLuint shader_program;
 GLuint tex_quad;
 
-void initialize() {
+void initialize(const Settings& settings) {
   // Initialize collections.
   {
     std::cout << "Intializing ball collections\n";
@@ -86,54 +91,50 @@ void initialize() {
     render_pipeline = cubez::add_pipeline(kMainProgram, kCollection, kCollection);
     cubez::add_source(render_pipeline,
         (std::string(kMainProgram) + std::string("/") + std::string(physics::kCollection)).c_str());
+    cubez::add_source(render_pipeline,
+        (std::string(kMainProgram) + std::string("/") + std::string(render::kCollection)).c_str());
 
     render_pipeline->transform = nullptr;
-    render_pipeline->callback = [](Pipeline*, Frame*, const cubez::Collections* sources,
-                                                         const cubez::Collections*) {
+    render_pipeline->callback = [](
+        Pipeline*, Frame*,
+        const cubez::Collections* sources,
+        const cubez::Collections*) {
+
       cubez::Collection* ball_c = sources->collection[0];
       cubez::Collection* physics_c = sources->collection[1];
-
-      /*
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, texture1);
-      glUniform1i(glGetUniformLocation(ourShader.Program, "ourTexture1"), 0);
-
-      glBindVertexArray(VAO);
-      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-      glBindVertexArray(0);  
-      */
-
+      cubez::Collection* render_c = sources->collection[2];
 
       uint64_t size = ball_c->count(ball_c);
       for (uint64_t i = 0; i < size; ++i) {
         Objects::Value& ball =
           *(Objects::Value*)ball_c->accessor(ball_c, cubez::IndexedBy::OFFSET, &i);
 
-        physics::Objects::Value& pv = *(physics::Objects::Value*)physics_c->accessor(
-            physics_c, cubez::IndexedBy::KEY, &ball.physics_id);
+        physics::Objects::Value& pv =
+            *(physics::Objects::Value*)physics_c->accessor(physics_c,
+                cubez::IndexedBy::KEY, &ball.physics_id);
 
-        glActiveTexture(GL_TEXTURE1);
+        RenderInfo& render_info = *(RenderInfo*)render_c->accessor(
+            render_c, cubez::IndexedBy::KEY, &ball.render_id);
+
+        glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
+        glBindVertexArray(render_info.vao);
+        ShaderProgram shaders(render_info.shader_program);
+        shaders.use();
+
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ball.texture_id);
-        glEnable(GL_TEXTURE_2D);
-        glBegin(GL_TRIANGLES);
-        glTexCoord2f(0.0f,0.0f);
-        glVertex3f( 0.0f, 0.1f, 0.0f);
-        glTexCoord2f(1.0f,0.0f);
-        glVertex3f(-0.1f,-0.1f, 0.0f);
-        glTexCoord2f(0.0f,1.0f);
-        glVertex3f( 1.0f,-0.2f, 0.0f);
-        glEnd();
-        glDisable(GL_TEXTURE_2D);
+        
+        glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
+        glm::mat4 mvp = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
+        glm::vec3 p = pv.p;
+        p = p + glm::vec3{1.0f, 1.0f, 0.0f};
+        p.x *= 4.0f;
+        p.y *= 3.0f;
 
-        glBegin(GL_LINES);
-        glColor3f(1.0f,0.0f,0.0f);
-        glVertex3f(pv.p.x, pv.p.y, 0.0f);
-        glVertex3f(pv.p.x + 0.1f, pv.p.y, 0.0f);
-
-        glColor3f(0.0f,1.0f,0.0f);
-        glVertex3f(pv.p.x, pv.p.y, 0.0f);
-        glVertex3f(pv.p.x, pv.p.y + 0.1f, 0.0f);
-        glEnd();
+        mvp = glm::translate(mvp, p);
+        glUniformMatrix4fv(glGetUniformLocation(
+              shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
       }
     };
     cubez::enable_pipeline(render_pipeline, policy);
@@ -148,13 +149,46 @@ void initialize() {
     cubez::subscribe_to(kMainProgram, kInsert, insert_pipeline);
     insert_channel = open_channel(kMainProgram, kInsert);
   }
+
   {
-    //cubez::subscribe_to(kMainProgram, kRender, render_pipeline);
-    render_channel = open_channel(kMainProgram, kRender);
+    cubez::subscribe_to(kMainProgram, kRender, render_pipeline);
   }
 
   // Initialize rendering items.
   {
+    RenderInfo render_info;
+
+    GLfloat vertices[] = {
+       0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+       0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
+      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+
+      -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
+       0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+    };
+
+    glGenVertexArrays(1, &render_info.vao);
+    glBindVertexArray(render_info.vao);
+
+    glGenBuffers(1, &render_info.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    ShaderProgram shaders(settings.vs, settings.fs);
+    shaders.use();
+
+    GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
+    glEnableVertexAttribArray(inPos);
+    glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
+                          5 * sizeof(float), 0);
+
+    GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
+    glEnableVertexAttribArray(inTexCoord);
+    glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
+                          5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    render_info.shader_program = shaders.id();
   }
 
   std::cout << "Finished initializing ball\n";
@@ -165,7 +199,8 @@ uint32_t load_texture(const std::string& file) {
 
   // Load the image from the file into SDL's surface representation
   SDL_Surface* surf = SDL_LoadBMP(file.c_str());
-  if (!surf) { //If failed, say why and don't continue loading the texture
+
+  if (!surf) {
     std::cout << "Could not load texture " << file << std::endl;
   }
   glGenTextures(1, &texture);
@@ -181,7 +216,10 @@ uint32_t load_texture(const std::string& file) {
   return texture;
 }
 
-cubez::Id create(glm::vec3 pos, glm::vec3 vel, const std::string& file) {
+cubez::Id create(glm::vec3 pos, glm::vec3 vel,
+    const std::string& tex,
+    const std::string& vs,
+    const std::string& fs) {
   cubez::Id new_id = next_id;
   ++next_id;
 
@@ -190,22 +228,44 @@ cubez::Id create(glm::vec3 pos, glm::vec3 vel, const std::string& file) {
   el.indexed_by = cubez::IndexedBy::KEY;
   el.key = new_id;
 
+  RenderInfo render_info;
 
-  /*
   GLfloat vertices[] = {
-     // Positions         // Colors           // Texture Coords
-     0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // Top Right
-     0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // Bottom Right
-    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // Bottom Left
-    -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // Top Left 
-  };*/
+     0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+     0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
+    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
 
+    -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
+     0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+  };
 
+  glGenVertexArrays(1, &render_info.vao);
+  glBindVertexArray(render_info.vao);
+
+  glGenBuffers(1, &render_info.vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  ShaderProgram shaders(vs, fs);
+  shaders.use();
+
+  GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
+  glEnableVertexAttribArray(inPos);
+  glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
+                        5 * sizeof(float), 0);
+
+  GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
+  glEnableVertexAttribArray(inTexCoord);
+  glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
+                        5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+  render_info.shader_program = shaders.id();
 
   Object obj;
-  obj.texture_id = load_texture(file);
+  obj.texture_id = load_texture(tex);
   obj.physics_id = physics::create(pos, vel);
-  obj.render_id = 0;
+  obj.render_id = render::create(&render_info);
   el.value = obj;
   *(Objects::Element*)msg->data = el;
   cubez::send_message(msg);

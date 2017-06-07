@@ -46,12 +46,18 @@ class ShaderProgram {
     glDeleteShader(f);
   }
 
+  ShaderProgram(GLuint program) : program_(program) {}
+
   ~ShaderProgram() {
     glDeleteProgram(program_);
   }
 
   void use() {
     glUseProgram(program_);
+  }
+
+  GLuint id() {
+    return program_;
   }
 };
 

@@ -35,7 +35,7 @@ DEBUG_ASSERT((var) != nullptr, ::cubez::Status::Code::NULL_POINTER)
 
 #define ERROR cerr
 #define INFO cout
-#define LOG(to, str) std::to << (str)
+#define LOG(to, str) std::to << str
 
 #else
 

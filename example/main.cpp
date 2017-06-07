@@ -23,47 +23,55 @@
 #include <thread>
 #include <unordered_map>
 
-const char tex_vs[] =
-    "attribute vec3 Position; "
-    "attribute vec2 TexCoord; "
-    "attribute vec4 Color; "
-    " "
-    "varying vec4 vColor; "
-    "varying vec2 vTexCoord; "
-    "void main() { "
-    "  vColor = Color; "
-    "  vTexCoord = TexCoord; "
-    "  gl_Position = vec4(Position, 1.0); "
-    "}";
+const char tex_vs[] = R"(
+attribute vec3 inPos; 
+attribute vec2 inTexCoord; 
 
-const char tex_fs[] =
-    "uniform sampler2D u_texture; "
-    ""
-    "varying vec4 vColor; "
-    "varying vec2 vTexCoord; "
-    " "
-    "void main() { "
-    "  vec4 texColor = texture2D(u_texture, vTexCoord); "
-    "  texColor.rgb = 1.0 - texColor.rgb; "
-    "  gl_FragColor = vColor * texColor; "
-    "}";
+uniform mat4 uMvp;
 
-const char simple_vs[] =
-    "#version 130\n"
-    "in vec3 vp;"
-    "out vec2 tex;"
-    "void main() {"
-    "  gl_Position = vec4(vp, 1.0);"
-    "  tex = vec2(vp.x, vp.y);"
-    "}";
+varying vec2 vTexCoord; 
 
-const char simple_fs[] =
-    "#version 130\n"
-    "in vec2 tex;"
-    "out vec4 frag_color;"
-    "void main() {"
-    "  frag_color = vec4(1.0, 1.0, 0.0, 1.0);"
-    "}";
+void main() { 
+  vTexCoord = inTexCoord; 
+  gl_Position = uMvp * vec4(inPos, 1.0); 
+}
+)";
+
+const char tex_fs[] = R"(
+uniform sampler2D uTexture; 
+
+varying vec2 vTexCoord; 
+ 
+void main() { 
+  vec4 texColor = texture2D(uTexture, vTexCoord); 
+  gl_FragColor = texColor; 
+}
+)";
+
+const char simple_vs[] = R"(
+#version 130
+
+in vec3 inPos;
+in vec3 inCol;
+
+out vec3 vCol;
+
+void main() {
+  vCol = inCol;
+  gl_Position = vec4(inPos, 1.0);
+}
+)";
+
+const char simple_fs[] = R"(
+#version 130
+
+in vec3 vCol;
+out vec4 frag_color;
+
+void main() {
+  frag_color = vec4(vCol, 1.0);
+}
+)";
 
 SDL_Window *win = nullptr;
 SDL_Renderer *renderer = nullptr;
@@ -124,8 +132,13 @@ void initialize_universe(cubez::Universe* uni) {
   }
 
   {
-    ball::initialize();
-    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp");
+    ball::Settings settings;
+    settings.texture = "ball.bmp";
+    settings.vs = tex_vs;
+    settings.fs = tex_fs;
+
+    ball::initialize(settings);
+    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp", tex_vs, tex_fs);
   }
 
   {
@@ -148,14 +161,15 @@ int main(int, char* []) {
   SDL_RenderClear(renderer);
   SDL_GL_SwapWindow(win);
 
-  ShaderProgram texture_program(tex_vs, tex_fs);
-  ShaderProgram simple_program(simple_vs, simple_fs);
-  simple_program.use();
+  //ShaderProgram texture_program(tex_vs, tex_fs);
+  //ShaderProgram simple_program(simple_vs, simple_fs);
+  //simple_program.use();
 
   // Create and initialize the game engine.
   cubez::Universe uni;
   initialize_universe(&uni);
 
+  /*
   cubez::Collection* c = physics::get_collection();
   GLuint points_buffer;
   glGenBuffers(1, &points_buffer);
@@ -164,6 +178,7 @@ int main(int, char* []) {
       GL_ARRAY_BUFFER,
       c->count(c) * c->values.size,
       c->values.data(c), GL_DYNAMIC_DRAW);
+      */
 
   cubez::start();
   int frame = 0;
@@ -180,6 +195,7 @@ int main(int, char* []) {
   double accumulator = 0.0;
 
   std::unordered_map<char, bool> pressed_keys;
+  cubez::loop();
   while (1) {
     fps_timer.start();
 
@@ -237,14 +253,14 @@ int main(int, char* []) {
       if (pressed_keys[' ']) {
         glm::vec3 p{
           2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-            2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-            0
+          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
+          0
         };
 
         glm::vec3 v{
           ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-            ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-            0
+          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
+          0
         };
         physics::create(p, v);
       }
@@ -256,23 +272,24 @@ int main(int, char* []) {
     update_timer.step();
 
     render_timer.start();
-    glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr,
+    /*glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr,
                  GL_DYNAMIC_DRAW);
     glBufferSubData(
         GL_ARRAY_BUFFER, 0,
         c->count(c) * c->values.size,
-        c->values.data(c));
+        c->values.data(c));*/
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    simple_program.use();
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
-    glDrawArrays(GL_POINTS, 0, c->count(c));
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableVertexAttribArray(0);
+    //simple_program.use();
+    //GLint inPosAttrib = glGetAttribLocation(simple_program.id(), "inPos");
+    //glEnableVertexAttribArray(inPosAttrib);
+    //glVertexAttribPointer(inPosAttrib, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
+    //glDrawArrays(GL_POINTS, 0, c->count(c));
+    //glDisableClientState(GL_VERTEX_ARRAY);
+    //glDisableVertexAttribArray(inPosAttrib);
 
-    texture_program.use();
+    //texture_program.use();
     render::RenderEvent e;
     e.frame = frame;
     e.ftimestamp_us = Timer::now() - start_time;
