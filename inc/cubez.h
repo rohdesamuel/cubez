@@ -54,10 +54,6 @@ struct Args {
   uint8_t count;
 };
 
-Arg* get_arg(struct Frame* frame, const char* name);
-Arg* new_arg(struct Frame* frame, const char* name, size_t size);
-Arg* set_arg(struct Frame* frame, const char* name, void* data, size_t size);
-
 typedef bool (*Select)(struct Pipeline* pipeline, struct Frame*);
 typedef void (*Transform)(struct Pipeline* pipeline, struct Frame*);
 typedef void (*Callback)(struct Pipeline* pipeline, struct Frame*,
@@ -152,7 +148,12 @@ Status::Code run_program(Id program);
 Id create_program(const char* name);
 
 // Pipelines.
+
+// Adds a pipeline to the specified program.
+//
+// A pipeline can have multiple sources. 
 struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
+
 struct Pipeline* copy_pipeline(struct Pipeline* pipeline, const char* dest);
 
 Status::Code remove_pipeline(struct Pipeline* pipeline);
@@ -160,8 +161,6 @@ Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
 Status::Code disable_pipeline(struct Pipeline* pipeline);
 
 Status::Code add_source(struct Pipeline*, const char* collection);
-Status::Code add_sink(struct Pipeline*, const char* collection);
-Status::Code add_keys(struct Pipeline*, uint8_t count, ...);
 
 // Collections.
 Collection* add_collection(const char* program, const char* name);

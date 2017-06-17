@@ -354,62 +354,35 @@ class PipelineImpl {
     }
   }
 
-  /*
-  void run_m_to_n() {
-    Stack stack;
-    std::unordered_map<uint8_t*, std::vector<uint8_t*>> joined;
+  void run_m_to_1(Frame* f) {
+    Collection* source = sources_[0];
+    Collection* sink = sinks_[0];
+    const uint64_t count = source->count(source);
+    const uint8_t* keys = source->keys.data(source);
+    const uint8_t* values = source->values.data(source);
 
-    // Naive Hash-Join implementation.
-    uint64_t min_count = std::numeric_limits<uint64_t>::max();
-    Collection* min_collection = nullptr;
-    for (Collection* c : sources_) {
-      if (c->count(c) < min_count) {
-        min_collection = c;
+    if (f) {
+      for(uint64_t i = 0; i < count; ++i) {
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, f);
+        pipeline_->transform(pipeline_, f);
+        sink->mutate(sink, &f->mutation);
       }
-    }
+    } else {
+      for(uint64_t i = 0; i < count; ++i) {
+        DECLARE_FRAME(frame);
 
-    {
-      uint8_t* keys = min_collection->keys.data + min_collection->keys.offset;
-      uint8_t* values = min_collection->values.data + min_collection->values.offset;
-      for(uint64_t i = 0; i < min_count; ++i) {
-        joined[keys].push_back(values);
-
-        keys += min_collection->keys.size;
-        values += min_collection->values.size;
-      }
-    }
-
-    for (Collection* c : sources_) {
-      if (c == min_collection) continue;
-      if (c == sources_.back()) continue;
-
-      uint8_t* keys = min_collection->keys.data + min_collection->keys.offset;
-      uint8_t* values = min_collection->values.data + min_collection->values.offset;
-      for(uint64_t i = 0; i < min_count; ++i) {
-        joined[keys].push_back(values);
-
-        keys += c->keys.size;
-        values += c->values.size;
-      }
-    }
-
-    {
-      Collection* c = sources_.back();
-      uint8_t* keys = c->keys.data + c->keys.offset;
-      uint8_t* values = c->values.data + c->values.offset;
-      for(uint64_t i = 0; i < min_count; ++i) {
-        auto joined_values = joined[keys];
-        joined_values.push_back(values);
-
-        if (joined_values.size() == sources_.size()) {
-        }
-
-        keys += c->keys.size;
-        values += c->values.size;
+        source->copy(
+            keys + source->keys.offset + i * source->keys.size,
+            values + source->values.offset + i * source->values.size,
+            i, &frame);
+        pipeline_->transform(pipeline_, &frame);
+        sink->mutate(sink, &frame.mutation);
       }
     }
   }
-  */
 };
 
 class MessageQueue {
