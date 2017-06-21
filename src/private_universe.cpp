@@ -2,8 +2,6 @@
 
 #include <algorithm>
 
-namespace cubez {
-
 typedef Runner::State RunState;
 
 void Runner::wait_until(const std::vector<State>& allowed) {
@@ -253,5 +251,3 @@ void PrivateUniverse::unsubscribe_from(struct qbSubscription* subscription) {
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   programs_.to_impl(p)->unsubscribe_from(subscription);
 }
-
-}  // namespace cubez

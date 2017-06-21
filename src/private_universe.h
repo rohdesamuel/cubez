@@ -35,8 +35,6 @@ constexpr uint32_t MAX_ARG_COUNT = 8;
 constexpr uint32_t MAX_ARG_SIZE = 128;
 constexpr uint32_t MUTATION_ARENA_SIZE = 512;
 
-namespace cubez {
-
 namespace {
 
 void init_frame(qbFrame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
@@ -52,9 +50,6 @@ void init_frame(qbFrame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_A
 }
 
 }  // namespace
-
-const static char NAMESPACE_DELIMETER = '/';
-const static uint8_t MAX_ARG_COUNT = 16;
 
 class Runner {
  public:
@@ -171,12 +166,12 @@ class CollectionRegistry {
     return c;
   }
 
-  std::unordered_map<qbId, Table<std::string, qbCollection*>> collections_;
+  std::unordered_map<qbId, cubez::Table<std::string, qbCollection*>> collections_;
 };
 
 class FrameImpl {
  public:
-  FrameImpl(Stack* stack): stack_(stack) {}
+  FrameImpl(cubez::Stack* stack): stack_(stack) {}
 
   static FrameImpl* from_raw(qbFrame* f) { return (FrameImpl*)f->self; }
 
@@ -216,7 +211,7 @@ class FrameImpl {
   }
 
  private:
-  Stack* stack_;
+  cubez::Stack* stack_;
   std::unordered_map<const char*, qbArg*> args_;
 };
 
@@ -624,7 +619,7 @@ class EventRegistry {
 
 class ProgramImpl {
  private:
-   typedef Table<qbCollection*, std::set<qbSystem*>> Mutators;
+   typedef cubez::Table<qbCollection*, std::set<qbSystem*>> Mutators;
  public:
   ProgramImpl(qbProgram* program)
       : program_(program),
@@ -837,7 +832,7 @@ class ProgramRegistry {
     return p;
   }
 
-  Table<std::string, qbProgram*> programs_;
+  cubez::Table<std::string, qbProgram*> programs_;
 };
 
 class PrivateUniverse {
@@ -893,7 +888,5 @@ class PrivateUniverse {
 
   Runner runner_;
 };
-
-}  // namespace cubez
 
 #endif  // PRIVATE_UNIVERSE__H

@@ -3,9 +3,6 @@
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
-namespace cubez {
-
-
 static qbUniverse* universe_ = nullptr;
 
 qbResult qb_init(qbUniverse* u) {
@@ -111,6 +108,3 @@ struct qbSubscription* qb_subscribe_to(
 void qb_unsubscribe_from(struct qbSubscription* subscription) {
   AS_PRIVATE(unsubscribe_from(subscription));
 }
-
-
-}  // namespace cubez
