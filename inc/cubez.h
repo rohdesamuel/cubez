@@ -5,8 +5,8 @@
 * file 'LICENSE.txt', which is part of this source code package.
 */
 
-#ifndef RADIANCE__H
-#define RADIANCE__H
+#ifndef CUBEZ__H
+#define CUBEZ__H
 
 #include "common.h"
 #include "universe.h"
@@ -192,8 +192,12 @@ struct qbCollection* qb_create_collection_table(size_t key_size,
                                                 size_t value_size);
 
 qbResult qb_free_collection(struct qbCollection* collection);
-qbResult qb_share_collection(/*const char* program*/ const char* source, const char* dest);
-qbResult qb_copy_collection(/*const char* program*/ const char* source, const char* dest);
+qbResult qb_share_collection(
+    const char* source_program, const char* source_collection,
+    const char* dest_program, const char* dest_collection);
+qbResult qb_copy_collection(
+    const char* source_program, const char* source_collection,
+    const char* dest_program, const char* dest_collection);
 
 
 ///////////////////////////////////////////////////////////
@@ -249,7 +253,7 @@ qbId qb_create_event(const char* program, const char* event, qbEventPolicy polic
 qbResult qb_flush_events(const char* program, const char* event);
 
 struct qbMessage* qb_alloc_message(struct qbChannel* channel);
-qbResult qb_send_message(qbMessage* e);
+void qb_send_message(qbMessage* e);
 
 struct qbChannel* qb_open_channel(const char* program, const char* event);
 void qb_close_channel(struct qbChannel* channel);
@@ -262,4 +266,4 @@ void qb_unsubscribe_from(struct qbSubscription* subscription);
 
 END_EXTERN_C
 
-#endif  // #ifndef RADIANCE__H
+#endif  // #ifndef CUBEZ__H

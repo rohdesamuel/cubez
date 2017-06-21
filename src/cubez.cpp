@@ -6,123 +6,109 @@
 namespace cubez {
 
 
-static Universe* universe_ = nullptr;
+static qbUniverse* universe_ = nullptr;
 
-Universe* universe() {
-  return universe_;
-}
-
-Status::Code init(Universe* u) {
+qbResult qb_init(qbUniverse* u) {
   universe_ = u;
   universe_->self = new PrivateUniverse();
 
   return AS_PRIVATE(init());
 }
 
-Status::Code start() {
+qbResult qb_start() {
   return AS_PRIVATE(start());
 }
 
-Status::Code stop() {
-  Status::Code ret = AS_PRIVATE(stop());
+qbResult qb_stop() {
+  qbResult ret = AS_PRIVATE(stop());
   universe_ = nullptr;
   return ret;
 }
 
-Status::Code loop() {
+qbResult qb_loop() {
   return AS_PRIVATE(loop());
 }
 
-Id create_program(const char* name) {
+qbId qb_create_program(const char* name) {
   return AS_PRIVATE(create_program(name));
 }
 
-Status::Code run_program(Id program) {
+qbResult qb_run_program(qbId program) {
   return AS_PRIVATE(run_program(program));
 }
 
-struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink) {
-  return AS_PRIVATE(add_pipeline(program, source, sink));
+struct qbSystem* qb_alloc_system(const char* program, const char* source, const char* sink) {
+  return AS_PRIVATE(alloc_system(program, source, sink));
 }
 
-struct Pipeline* copy_pipeline(struct Pipeline* pipeline, const char* dest) {
-  return AS_PRIVATE(copy_pipeline(pipeline, dest));
+struct qbSystem* qb_copy_system(struct qbSystem* system, const char* dest) {
+  return AS_PRIVATE(copy_system(system, dest));
 }
 
-Status::Code remove_pipeline(struct Pipeline* pipeline) {
-  return AS_PRIVATE(remove_pipeline(pipeline));
+qbResult qb_free_system(struct qbSystem* system) {
+  return AS_PRIVATE(free_system(system));
 }
 
-Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy) {
-  return AS_PRIVATE(enable_pipeline(pipeline, policy));
+qbResult qb_enable_system(struct qbSystem* system, qbExecutionPolicy policy) {
+  return AS_PRIVATE(enable_system(system, policy));
 }
 
-Status::Code disable_pipeline(struct Pipeline* pipeline) {
-  return AS_PRIVATE(disable_pipeline(pipeline));
+qbResult qb_disable_system(struct qbSystem* system) {
+  return AS_PRIVATE(disable_system(system));
 }
 
-Collection* add_collection(const char* program, const char* name) {
-  return AS_PRIVATE(add_collection(program, name));
+qbCollection* qb_alloc_collection(const char* program, const char* name) {
+  return AS_PRIVATE(alloc_collection(program, name));
 }
 
-Status::Code add_source(Pipeline* pipeline, const char* source) {
-  return AS_PRIVATE(add_source(pipeline, source));
+qbResult qb_add_source(qbSystem* system, const char* source) {
+  return AS_PRIVATE(add_source(system, source));
 }
 
-Status::Code add_sink(Pipeline* pipeline, const char* sink) {
-  return AS_PRIVATE(add_sink(pipeline, sink));
+qbResult qb_share_collection(
+      const char* source_program, const char* source_collection,
+      const char* dest_program, const char* dest_collection) {
+  return AS_PRIVATE(share_collection(source_program, source_collection,
+                                     dest_program, dest_collection));
 }
 
-Status::Code share_collection(const char* source, const char* dest) {
-  return AS_PRIVATE(share_collection(source, dest));
+qbResult qb_copy_collection(
+      const char* source_program, const char* source_collection,
+      const char* dest_program, const char* dest_collection) {
+  return AS_PRIVATE(copy_collection(source_program, source_collection,
+                                    dest_program, dest_collection));
 }
 
-Status::Code copy_collection(const char* source, const char* dest) {
-  return AS_PRIVATE(copy_collection(source, dest));
-}
-
-Arg* get_arg(Frame* frame, const char* name) {
-  return FrameImpl::get_arg(frame, name);
-}
-
-Arg* new_arg(Frame* frame, const char* name, size_t size) {
-  return FrameImpl::new_arg(frame, name, size);
-}
-
-Arg* set_arg(Frame* frame, const char* name, void* data, size_t size) {
-  return FrameImpl::set_arg(frame, name, data, size);
-}
-
-Id create_event(const char* program, const char* event, EventPolicy policy) { 
+qbId qb_create_event(const char* program, const char* event, qbEventPolicy policy) { 
   return AS_PRIVATE(create_event(program, event, policy));
 }
 
-Status::Code flush_events(const char* program, const char* event) {
+qbResult qb_flush_events(const char* program, const char* event) {
   return AS_PRIVATE(flush_events(program, event));
 }
 
-Message* new_message(struct Channel* c) {
-  return ChannelImpl::to_impl(c)->new_message();
+struct qbMessage* qb_alloc_message(struct qbChannel* c) {
+  return ChannelImpl::to_impl(c)->alloc_message();
 }
 
-void send_message(Message* m) {
+void qb_send_message(qbMessage* m) {
   ChannelImpl::to_impl(m->channel)->send_message(m);
 }
 
-struct Channel* open_channel(const char* program, const char* event) {
+struct qbChannel* qb_open_channel(const char* program, const char* event) {
   return AS_PRIVATE(open_channel(program, event));
 }
 
-void close_channel(struct Channel* channel) {
+void qb_close_channel(struct qbChannel* channel) {
   AS_PRIVATE(close_channel(channel));
 }
 
-struct Subscription* subscribe_to(
-    const char* program, const char* event, struct Pipeline* pipeline) {
-  return AS_PRIVATE(subscribe_to(program, event, pipeline));
+struct qbSubscription* qb_subscribe_to(
+    const char* program, const char* event, struct qbSystem* system) {
+  return AS_PRIVATE(subscribe_to(program, event, system));
 }
 
-void unsubscribe_from(struct Subscription* subscription) {
+void qb_unsubscribe_from(struct qbSubscription* subscription) {
   AS_PRIVATE(unsubscribe_from(subscription));
 }
 

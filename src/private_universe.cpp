@@ -2,12 +2,6 @@
 
 #include <algorithm>
 
-namespace {
-  std::string form_path(const char* program, const char* resource) {
-    return std::string{program} + cubez::NAMESPACE_DELIMETER + std::string{resource};
-  }
-}  // namespace
-
 namespace cubez {
 
 typedef Runner::State RunState;
@@ -20,54 +14,54 @@ void Runner::wait_until(std::vector<State>&& allowed) {
   while (std::find(allowed.begin(), allowed.end(), state_) == allowed.end());
 }
 
-Status::Code Runner::transition(
+qbResult Runner::transition(
     State allowed, State next) {
   return transition(std::vector<State>{allowed}, next);
 }
 
 
 #ifdef __ENGINE_DEBUG__
-Status::Code Runner::transition(const std::vector<State>& allowed, State next) {
+qbResult Runner::transition(const std::vector<State>& allowed, State next) {
   std::lock_guard<std::mutex> lock(state_change_);
-  if (assert_in_state(allowed) == Status::OK) {
+  if (assert_in_state(allowed) == QB_OK) {
     state_ = next;
-    return Status::OK;
+    return QB_OK;
   }
   state_ = State::ERROR;
-  return Status::BAD_RUN_STATE;
+  return QB_ERROR_BAD_RUN_STATE;
 }
 
-Status::Code Runner::transition(
+qbResult Runner::transition(
     std::vector<State>&& allowed, State next) {
   std::lock_guard<std::mutex> lock(state_change_);
-  if (assert_in_state(std::move(allowed)) == Status::OK) {
+  if (assert_in_state(std::move(allowed)) == QB_OK) {
     state_ = next;
-    return Status::OK;
+    return QB_OK;
   }
   state_ = State::ERROR;
-  return Status::BAD_RUN_STATE;
+  return QB_ERROR_BAD_RUN_STATE;
 }
 #else
-Status::Code Runner::transition(const std::vector<State>&, State next) {
+qbResult Runner::transition(const std::vector<State>&, State next) {
   std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
-  return Status::OK;
+  return QB_OK;
 }
-Status::Code Runner::transition(std::vector<State>&&, State next) {
+qbResult Runner::transition(std::vector<State>&&, State next) {
   std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
-  return Status::OK;
+  return QB_OK;
 }
 #endif
 
 
-Status::Code Runner::assert_in_state(State allowed) {
+qbResult Runner::assert_in_state(State allowed) {
   return assert_in_state(std::vector<State>{allowed});
 }
 
-Status::Code Runner::assert_in_state(const std::vector<State>& allowed) {
+qbResult Runner::assert_in_state(const std::vector<State>& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
-    return Status::OK;
+    return QB_OK;
   }
   LOG(ERROR, "Runner is in bad state: " << (int)state_ << "\nAllowed to be in { ");
   DEBUG_OP(
@@ -76,12 +70,12 @@ Status::Code Runner::assert_in_state(const std::vector<State>& allowed) {
       });
   LOG(ERROR, "}\n");
   
-  return Status::BAD_RUN_STATE;
+  return QB_ERROR_BAD_RUN_STATE;
 }
 
-Status::Code Runner::assert_in_state(std::vector<State>&& allowed) {
+qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
-    return Status::OK;
+    return QB_OK;
   }
   LOG(ERROR, "Runner is in bad state: " << (int)state_ << "\nAllowed to be in { ");
   
@@ -91,7 +85,7 @@ Status::Code Runner::assert_in_state(std::vector<State>&& allowed) {
       });
   LOG(ERROR, "}\n");
   
-  return Status::BAD_RUN_STATE;
+  return QB_ERROR_BAD_RUN_STATE;
 }
 
 PrivateUniverse::PrivateUniverse() {
@@ -101,15 +95,15 @@ PrivateUniverse::PrivateUniverse() {
 
 PrivateUniverse::~PrivateUniverse() {}
 
-Status::Code PrivateUniverse::init() {
+qbResult PrivateUniverse::init() {
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 
-Status::Code PrivateUniverse::start() {
+qbResult PrivateUniverse::start() {
   return runner_.transition(RunState::INITIALIZED, RunState::STARTED);
 }
 
-Status::Code PrivateUniverse::loop() {
+qbResult PrivateUniverse::loop() {
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
   programs_.run();
@@ -117,140 +111,146 @@ Status::Code PrivateUniverse::loop() {
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
 
-Status::Code PrivateUniverse::stop() {
+qbResult PrivateUniverse::stop() {
   return runner_.transition({RunState::RUNNING, RunState::UNKNOWN}, RunState::STOPPED);
 }
 
-Id PrivateUniverse::create_program(const char* name) {
+qbId PrivateUniverse::create_program(const char* name) {
   return programs_.create_program(name); 
 }
 
-Status::Code PrivateUniverse::run_program(Id program) {
+qbResult PrivateUniverse::run_program(qbId program) {
   return programs_.run_program(program); 
 }
 
-struct Pipeline* PrivateUniverse::add_pipeline(
+struct qbSystem* PrivateUniverse::alloc_system(
     const char* program, const char* source, const char* sink) {
-  Program* p = programs_.get_program(program);
+  qbProgram* p = programs_.get_program(program);
   if (!p) {
     return nullptr;
   }
 
-  Collection* src = source ? collections_.get(form_path(program, source).data()) : nullptr;
-  Collection* snk = sink ? collections_.get(form_path(program, sink).data()) : nullptr;
+  qbCollection* src = source ? collections_.get(p->id, source) : nullptr;
+  qbCollection* snk = sink ? collections_.get(p->id, sink) : nullptr;
 
-  return programs_.to_impl(p)->add_pipeline(src, snk);
+  return programs_.to_impl(p)->alloc_system(src, snk);
 }
 
-Status::Code PrivateUniverse::remove_pipeline(struct Pipeline* pipeline) {
-  ASSERT_NOT_NULL(pipeline);
+qbResult PrivateUniverse::free_system(struct qbSystem* system) {
+  ASSERT_NOT_NULL(system);
 
-  Program* p = programs_.get_program(pipeline->program);
+  qbProgram* p = programs_.get_program(system->program);
   ASSERT_NOT_NULL(p);
 
   ProgramImpl* program = programs_.to_impl(p);
-  return program->remove_pipeline(pipeline);
+  return program->free_system(system);
 }
 
-struct Pipeline* PrivateUniverse::copy_pipeline(
-    struct Pipeline*, const char*) {
+struct qbSystem* PrivateUniverse::copy_system(
+    struct qbSystem*, const char*) {
   return nullptr;
 }
 
-Status::Code PrivateUniverse::enable_pipeline(
-    struct Pipeline* pipeline, ExecutionPolicy policy) {
-  ASSERT_NOT_NULL(pipeline);
+qbResult PrivateUniverse::enable_system(
+    struct qbSystem* system, qbExecutionPolicy policy) {
+  ASSERT_NOT_NULL(system);
 
-  Program* p = programs_.get_program(pipeline->program);
+  qbProgram* p = programs_.get_program(system->program);
   ASSERT_NOT_NULL(p);
 
   ProgramImpl* program = programs_.to_impl(p);
-  return program->enable_pipeline(pipeline, policy);
+  return program->enable_system(system, policy);
 }
 
-Status::Code PrivateUniverse::disable_pipeline(struct Pipeline* pipeline) {
-  ASSERT_NOT_NULL(pipeline);
+qbResult PrivateUniverse::disable_system(struct qbSystem* system) {
+  ASSERT_NOT_NULL(system);
 
-  Program* p = programs_.get_program(pipeline->program);
+  qbProgram* p = programs_.get_program(system->program);
   ASSERT_NOT_NULL(p);
 
   ProgramImpl* program = programs_.to_impl(p);
-  return program->disable_pipeline(pipeline);
+  return program->disable_system(system);
 }
 
-Collection* PrivateUniverse::add_collection(const char* program, const char* name) {
-  return collections_.add(program, name);
+qbCollection* PrivateUniverse::alloc_collection(const char* program, const char* name) {
+  qbProgram* p = programs_.get_program(program);
+  ASSERT_NOT_NULL(p);
+
+  return collections_.alloc(p->id, name);
 }
 
-Status::Code PrivateUniverse::add_source(Pipeline* pipeline, const char* source) {
-  Program* p = programs_.get_program(pipeline->program);
+qbResult PrivateUniverse::add_source(qbSystem* system, const char* source) {
+  qbProgram* p = programs_.get_program(system->program);
   if (!p) {
-    return Status::NULL_POINTER;
+    return QB_ERROR_NULL_POINTER;
   }
 
-  Collection* src = collections_.get(source);
-  return programs_.to_impl(p)->add_source(pipeline, src);
+  qbCollection* src = collections_.get(p->id, source);
+  return programs_.to_impl(p)->add_source(system, src);
 }
 
-Status::Code PrivateUniverse::add_sink(Pipeline* pipeline, const char* sink) {
-  Program* p = programs_.get_program(pipeline->program);
-  if (!p) {
-    return Status::NULL_POINTER;
+qbResult PrivateUniverse::share_collection(
+      const char* source_program, const char* source_collection,
+      const char* dest_program, const char* dest_collection) {
+  qbProgram* src = programs_.get_program(source_program);
+  if (!src) {
+    return QB_ERROR_NULL_POINTER;
+  }
+  qbProgram* dst = programs_.get_program(dest_program);
+  if (!dst) {
+    return QB_ERROR_NULL_POINTER;
   }
 
-  Collection* snk = collections_.get(sink);
-  return programs_.to_impl(p)->add_source(pipeline, snk);
+  return collections_.share(src->id, source_collection,
+                            dst->id, dest_collection);
 }
 
-Status::Code PrivateUniverse::share_collection(const char* source, const char* dest) {
-  return collections_.share(source, dest);
+qbResult PrivateUniverse::copy_collection(const char*, const char*,
+                                          const char*, const char*) {
+  return QB_OK;
 }
 
-Status::Code PrivateUniverse::copy_collection(const char*, const char*) {
-  return Status::OK;
-}
-
-Id PrivateUniverse::create_event(const char* program, const char* event, EventPolicy policy) {
-  Program* p = programs_.get_program(program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+qbId PrivateUniverse::create_event(const char* program, const char* event, qbEventPolicy policy) {
+  qbProgram* p = programs_.get_program(program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   return programs_.to_impl(p)->create_event(event, policy);
 }
 
-Status::Code PrivateUniverse::flush_events(const char* program, const char* event) {
-  Status::Code err = runner_.assert_in_state(RunState::RUNNING);
-  if (err != Status::OK) {
+qbResult PrivateUniverse::flush_events(const char* program, const char* event) {
+  qbResult err = runner_.assert_in_state(RunState::RUNNING);
+  if (err != QB_OK) {
     return err;
   }
 
-  Program* p = programs_.get_program(program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+  qbProgram* p = programs_.get_program(program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   programs_.to_impl(p)->flush_events(event);
 
-  return Status::OK;
+  return QB_OK;
 }
 
-struct Channel* PrivateUniverse::open_channel(const char* program, const char* event) {
-  Program* p = programs_.get_program(program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+struct qbChannel* PrivateUniverse::open_channel(const char* program, const char* event) {
+  qbProgram* p = programs_.get_program(program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   return programs_.to_impl(p)->open_channel(event);
 }
 
-void PrivateUniverse::close_channel(struct Channel* channel) {
-  Program* p = programs_.get_program(channel->program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+void PrivateUniverse::close_channel(struct qbChannel* channel) {
+  qbProgram* p = programs_.get_program(channel->program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   programs_.to_impl(p)->close_channel(channel);
 }
 
-struct Subscription* PrivateUniverse::subscribe_to(
-    const char* program, const char* event, struct Pipeline* pipeline) {
-  Program* p = programs_.get_program(program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
-  return programs_.to_impl(p)->subscribe_to(event, pipeline);
+struct qbSubscription* PrivateUniverse::subscribe_to(
+    const char* program, const char* event, struct qbSystem* system) {
+  qbProgram* p = programs_.get_program(program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
+  return programs_.to_impl(p)->subscribe_to(event, system);
 }
 
-void PrivateUniverse::unsubscribe_from(struct Subscription* subscription) {
-  Program* p = programs_.get_program(subscription->program);
-  DEBUG_ASSERT(p, Status::Code::NULL_POINTER);
+void PrivateUniverse::unsubscribe_from(struct qbSubscription* subscription) {
+  qbProgram* p = programs_.get_program(subscription->program);
+  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   programs_.to_impl(p)->unsubscribe_from(subscription);
 }
 

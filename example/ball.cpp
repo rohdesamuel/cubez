@@ -83,10 +83,8 @@ void initialize(const Settings& settings) {
     policy.trigger = qbTrigger::EVENT;
 
     render_system = qb_alloc_system(kMainProgram, kCollection, kCollection);
-    qb_add_source(render_system,
-        (std::string(kMainProgram) + std::string("/") + std::string(physics::kCollection)).c_str());
-    qb_add_source(render_system,
-        (std::string(kMainProgram) + std::string("/") + std::string(render::kCollection)).c_str());
+    qb_add_source(render_system, physics::kCollection);
+    qb_add_source(render_system, render::kCollection);
 
     render_system->transform = nullptr;
     render_system->callback = [](

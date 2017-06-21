@@ -23,12 +23,12 @@ using moodycamel::ConcurrentQueue;
 
 #define DECLARE_FRAME_ARENAS() \
     thread_local static uint8_t MUTATION_ARENA[MUTATION_ARENA_SIZE]; \
-    thread_local static uint8_t ARGS_ARENA[MAX_ARG_COUNT * sizeof(Arg)]; \
+    thread_local static uint8_t ARGS_ARENA[MAX_ARG_COUNT * sizeof(qbArg)]; \
     thread_local static uint8_t STACK_ARENA[MAX_ARG_COUNT][MAX_ARG_SIZE]
 
 #define DECLARE_FRAME(var) \
     DECLARE_FRAME_ARENAS(); \
-    Frame var; \
+    qbFrame var; \
     init_frame(&var, ARGS_ARENA, STACK_ARENA, MUTATION_ARENA);
 
 constexpr uint32_t MAX_ARG_COUNT = 8;
@@ -39,15 +39,15 @@ namespace cubez {
 
 namespace {
 
-void init_frame(Frame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
+void init_frame(qbFrame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
                 uint8_t* mutation_arena) {
-  frame->args.arg = (Arg*)args_arena;
+  frame->args.arg = (qbArg*)args_arena;
   frame->args.count = 0;
   for (uint32_t i = 0; i < MAX_ARG_COUNT; ++i) {
     frame->args.arg[i].data = (void*)(stack_arena + MAX_ARG_SIZE * i);
     frame->args.arg[i].size = MAX_ARG_SIZE;
   }
-  frame->mutation.mutate_by = MutateBy::UNKNOWN;
+  frame->mutation.mutate_by = qbMutateBy::UNKNOWN;
   frame->mutation.element = mutation_arena;
 }
 
@@ -57,7 +57,6 @@ const static char NAMESPACE_DELIMETER = '/';
 const static uint8_t MAX_ARG_COUNT = 16;
 
 class Runner {
-
  public:
   enum class State {
     ERROR = -10,
@@ -96,12 +95,12 @@ class Runner {
   void wait_until(const std::vector<State>& allowed);
   void wait_until(std::vector<State>&& allowed);
 
-  Status::Code transition(State allowed, State next);
-  Status::Code transition(const std::vector<State>& allowed, State next);
-  Status::Code transition(std::vector<State>&& allowed, State next);
-  Status::Code assert_in_state(State allowed);
-  Status::Code assert_in_state(const std::vector<State>& allowed);
-  Status::Code assert_in_state(std::vector<State>&& allowed);
+  qbResult transition(State allowed, State next);
+  qbResult transition(const std::vector<State>& allowed, State next);
+  qbResult transition(std::vector<State>&& allowed, State next);
+  qbResult assert_in_state(State allowed);
+  qbResult assert_in_state(const std::vector<State>& allowed);
+  qbResult assert_in_state(std::vector<State>&& allowed);
 
  private:
   std::mutex state_change_;
@@ -110,76 +109,78 @@ class Runner {
 
 class CollectionImpl {
  private:
-  Collection* collection_;
+  qbCollection* collection_;
 
  public:
-  CollectionImpl(Collection* collection) : collection_(collection) {}
+  CollectionImpl(qbCollection* collection) : collection_(collection) {}
 
-  inline Collection* collection() {
+  inline qbCollection* collection() {
     return collection_;
   }
 };
 
 class CollectionRegistry {
  public:
-  Collection* add(const char* program, const char* collection) {
-    std::string name = std::string(program) + NAMESPACE_DELIMETER + std::string(collection);
-    Collection* ret = nullptr;
-    if (collections_.find(name) == -1) {
-      Handle id = collections_.insert(name, nullptr);
+  qbCollection* alloc(qbId program, const char* collection) {
+    auto& collections = collections_[program];
+
+    qbCollection* ret = nullptr;
+    if (collections.find(collection) == -1) {
+      qbHandle id = collections.insert(collection, nullptr);
       ret = new_collection(id, collection);
-      collections_[id] = ret;
+      collections[id] = ret;
     }
     return ret;
   }
 
-  Status::Code share(const char* source, const char* dest) {
-    Handle src = collections_.find(source);
-    Handle dst = collections_.find(dest);
+  qbResult share(qbId source_program, const char* source_collection,
+                 qbId dest_program, const char* dest_collection) {
+    auto& source = collections_[source_program];
+    auto& destination = collections_[dest_program];
+
+    qbHandle src = source.find(source_collection);
+    qbHandle dst = destination.find(dest_collection);
     if (src != -1 && dst == -1) {
-      collections_.insert(dest, collections_[src]);
-      return Status::OK;
+      destination.insert(dest_collection, source[src]);
+      return QB_OK;
     }
-    return Status::ALREADY_EXISTS;
+    return QB_ERROR_ALREADY_EXISTS;
   }
 
-  Collection* get(const char* name) {
-    Collection* ret = nullptr;
-    Handle id;
-    if ((id = collections_.find(name)) != -1) {
-      ret = collections_[id];
+  qbCollection* get(qbId program, const char* collection) {
+    auto& collections = collections_[program];
+
+    qbCollection* ret = nullptr;
+    qbHandle id;
+    if ((id = collections.find(collection)) != -1) {
+      ret = collections[id];
     }
     return ret;
   }
 
-  Collection* get(const char* program, const char* collection) {
-    std::string name = std::string(program) + NAMESPACE_DELIMETER + std::string(collection);
-    return get(name.data());
-  }
-
-  inline static CollectionImpl* to_impl(Collection* c) {
+  inline static CollectionImpl* to_impl(qbCollection* c) {
     return (CollectionImpl*)c->self;
   }
 
  private:
-  Collection* new_collection(Id id, const char* name) {
-    Collection* c = (Collection*)calloc(1, sizeof(Collection));
-    *(Id*)(&c->id) = id;
+  qbCollection* new_collection(qbId id, const char* name) {
+    qbCollection* c = (qbCollection*)calloc(1, sizeof(qbCollection));
+    *(qbId*)(&c->id) = id;
     *(char**)(&c->name) = (char*)name;
     *(void**)(&c->self) = new CollectionImpl(c);
     return c;
   }
 
-  Table<std::string, Collection*> collections_;
+  std::unordered_map<qbId, Table<std::string, qbCollection*>> collections_;
 };
 
 class FrameImpl {
  public:
   FrameImpl(Stack* stack): stack_(stack) {}
 
-  static FrameImpl* from_raw(Frame* f) { return (FrameImpl*)f->self; }
+  static FrameImpl* from_raw(qbFrame* f) { return (FrameImpl*)f->self; }
 
-  static Arg* get_arg(Frame* frame, const char* name) {
+  static qbArg* get_arg(qbFrame* frame, const char* name) {
     FrameImpl* self = from_raw(frame);
     auto it = self->args_.find(name);
     if (it == self->args_.end()) {
@@ -188,26 +189,26 @@ class FrameImpl {
     return it->second;
   }
 
-  static Arg* new_arg(Frame* frame, const char* name, size_t size) {
+  static qbArg* new_arg(qbFrame* frame, const char* name, size_t size) {
     if (frame->args.count >= MAX_ARG_COUNT) {
       return nullptr;
     }
 
-    Arg* ret = get_arg(frame, name);
+    qbArg* ret = get_arg(frame, name);
     if (ret) {
       return ret;
     }
 
     FrameImpl* self = from_raw(frame);
-    Arg* arg = &frame->args.arg[frame->args.count++];
+    qbArg* arg = &frame->args.arg[frame->args.count++];
     arg->data = self->stack_->alloc(size);
     arg->size = size;
     self->args_[name] = arg;
     return arg;
   }
 
-  static Arg* set_arg(Frame* frame, const char* name, void* data, size_t size) {
-    Arg* ret = new_arg(frame, name, size);
+  static qbArg* set_arg(qbFrame* frame, const char* name, void* data, size_t size) {
+    qbArg* ret = new_arg(frame, name, size);
     if (ret) {
       memcpy(ret->data, data, size);
     }
@@ -216,25 +217,25 @@ class FrameImpl {
 
  private:
   Stack* stack_;
-  std::unordered_map<const char*, Arg*> args_;
+  std::unordered_map<const char*, qbArg*> args_;
 };
 
-class PipelineImpl {
+class SystemImpl {
  private:
-  Pipeline* pipeline_;
-  std::vector<Collection*> sources_;
-  std::vector<Collection*> sinks_;
+  qbSystem* system_;
+  std::vector<qbCollection*> sources_;
+  std::vector<qbCollection*> sinks_;
 
  public:
-  PipelineImpl(Pipeline* pipeline) : pipeline_(pipeline) {}
+  SystemImpl(qbSystem* system) : system_(system) {}
   
-  void add_source(Collection* source) {
+  void add_source(qbCollection* source) {
     if (source) {
       sources_.push_back(source);
     }
   }
 
-  void add_sink(Collection* sink) {
+  void add_sink(qbCollection* sink) {
     if (sink) {
       if (std::find(sinks_.begin(), sinks_.end(), sink) == sinks_.end()) {
         sinks_.push_back(sink);
@@ -242,10 +243,10 @@ class PipelineImpl {
     }
   }
 
-  void run(Frame* frame) {
+  void run(qbFrame* frame) {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
-    if (pipeline_->transform) {
+    if (system_->transform) {
       if (source_size == 0 && sink_size == 0) {
         run_0_to_0(frame);
       } else if (source_size == 1 && sink_size == 1) {
@@ -257,47 +258,47 @@ class PipelineImpl {
       }
     }
 
-    if (pipeline_->callback) {
-      Collections sources;
+    if (system_->callback) {
+      qbCollections sources;
       sources.count = sources_.size();
       sources.collection = sources_.data();
 
-      Collections sinks;
+      qbCollections sinks;
       sinks.count = sinks_.size();
       sinks.collection = sinks_.data();
 
       if (frame) {
-        pipeline_->callback(pipeline_, frame, &sources, &sinks);
+        system_->callback(system_, frame, &sources, &sinks);
       } else {
         DECLARE_FRAME(static_frame);
-        pipeline_->callback(pipeline_, &static_frame, &sources, &sinks);
+        system_->callback(system_, &static_frame, &sources, &sinks);
       }
     }
   }
 
-  void run_0_to_0(Frame* f) {
+  void run_0_to_0(qbFrame* f) {
     if (f) {
-      pipeline_->transform(pipeline_, f);
+      system_->transform(system_, f);
     } else {
       DECLARE_FRAME(frame);
-      pipeline_->transform(pipeline_, &frame);
+      system_->transform(system_, &frame);
     }
   }
 
-  void run_0_to_1(Frame* f) {
-    Collection* sink = sinks_[0];
+  void run_0_to_1(qbFrame* f) {
+    qbCollection* sink = sinks_[0];
     if (f) {
-      pipeline_->transform(pipeline_, f);
+      system_->transform(system_, f);
       sink->mutate(sink, &f->mutation);
     } else {
       DECLARE_FRAME(frame);
-      pipeline_->transform(pipeline_, &frame);
+      system_->transform(system_, &frame);
       sink->mutate(sink, &frame.mutation);
     }
   }
 
-  void run_1_to_0(Frame* f) {
-    Collection* source = sources_[0];
+  void run_1_to_0(qbFrame* f) {
+    qbCollection* source = sources_[0];
     uint64_t count = source->count(source);
     uint8_t* keys = source->keys.data(source);
     uint8_t* values = source->values.data(source);
@@ -308,7 +309,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, f);
-        pipeline_->transform(pipeline_, f);
+        system_->transform(system_, f);
       }
     } else {
       for(uint64_t i = 0; i < count; ++i) {
@@ -318,14 +319,14 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, &frame);
-        pipeline_->transform(pipeline_, &frame);
+        system_->transform(system_, &frame);
       }
     }
   }
 
-  void run_1_to_1(Frame* f) {
-    Collection* source = sources_[0];
-    Collection* sink = sinks_[0];
+  void run_1_to_1(qbFrame* f) {
+    qbCollection* source = sources_[0];
+    qbCollection* sink = sinks_[0];
     const uint64_t count = source->count(source);
     const uint8_t* keys = source->keys.data(source);
     const uint8_t* values = source->values.data(source);
@@ -337,7 +338,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, f);
-        pipeline_->transform(pipeline_, f);
+        system_->transform(system_, f);
         sink->mutate(sink, &f->mutation);
       }
     } else {
@@ -348,15 +349,15 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, &frame);
-        pipeline_->transform(pipeline_, &frame);
+        system_->transform(system_, &frame);
         sink->mutate(sink, &frame.mutation);
       }
     }
   }
 
-  void run_m_to_1(Frame* f) {
-    Collection* source = sources_[0];
-    Collection* sink = sinks_[0];
+  void run_m_to_1(qbFrame* f) {
+    qbCollection* source = sources_[0];
+    qbCollection* sink = sinks_[0];
     const uint64_t count = source->count(source);
     const uint8_t* keys = source->keys.data(source);
     const uint8_t* values = source->values.data(source);
@@ -367,7 +368,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, f);
-        pipeline_->transform(pipeline_, f);
+        system_->transform(system_, f);
         sink->mutate(sink, &f->mutation);
       }
     } else {
@@ -378,7 +379,7 @@ class PipelineImpl {
             keys + source->keys.offset + i * source->keys.size,
             values + source->values.offset + i * source->values.size,
             i, &frame);
-        pipeline_->transform(pipeline_, &frame);
+        system_->transform(system_, &frame);
         sink->mutate(sink, &frame.mutation);
       }
     }
@@ -390,43 +391,43 @@ class MessageQueue {
   MessageQueue(size_t size = 1) : size_(size) {
     // Start count is arbitrarily choosen.
     for (int i = 0; i < 16; ++i) {
-      free_mem_.enqueue(new_message(nullptr));
+      free_mem_.enqueue(alloc_message(nullptr));
     }
   }
 
   // Thread-safe.
-  Message* new_message(Channel* c) {
-    Message* ret = nullptr;
+  qbMessage* alloc_message(qbChannel* c) {
+    qbMessage* ret = nullptr;
     if (!free_mem_.try_dequeue(ret)) {
       ret = new_mem(c);
     }
-    DEBUG_ASSERT(ret, Status::Code::NULL_POINTER);
+    DEBUG_ASSERT(ret, QB_ERROR_NULL_POINTER);
     ret->channel = c;
     ret->size = size_;
     return ret;
   }
 
   // Thread-safe.
-  void free_message(Message* message) {
+  void free_message(qbMessage* message) {
     free_mem_.enqueue(message);
   }
 
-  void send_message(Message* message) {
+  void send_message(qbMessage* message) {
     message_queue_.enqueue(message);
   }
 
-  void add_handler(Pipeline* p) {
+  void add_handler(qbSystem* p) {
     handlers_[p->id] = p;
   }
 
-  void remove_handler(Id id) {
+  void remove_handler(qbId id) {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
     handlers_.erase(id);
   }
 
   void flush() {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
-    Message* msg = nullptr;
+    qbMessage* msg = nullptr;
     int max_events = message_queue_.size_approx();
     for (int i = 0; i < max_events; ++i) {
       DECLARE_FRAME(frame);
@@ -436,7 +437,7 @@ class MessageQueue {
       frame.message = *msg;
 
       for (const auto& handler : handlers_) {
-        ((PipelineImpl*)(handler.second->self))->run(&frame);
+        ((SystemImpl*)(handler.second->self))->run(&frame);
       }
 
       free_message(msg);
@@ -444,54 +445,54 @@ class MessageQueue {
   }
 
  private:
-  Message* new_mem(Channel* c) {
-    Message* ret = (Message*)(malloc(sizeof(Message) + size_));
+  qbMessage* new_mem(qbChannel* c) {
+    qbMessage* ret = (qbMessage*)(malloc(sizeof(qbMessage) + size_));
     ret->channel = c;
-    ret->data = (uint8_t*)ret + sizeof(Message);
+    ret->data = (uint8_t*)ret + sizeof(qbMessage);
     ret->size = size_;
     return ret;
   }
 
   std::mutex handlers_mu_;
-  std::unordered_map<Id, Pipeline*> handlers_;
-  moodycamel::ConcurrentQueue<Message*> message_queue_;
-  moodycamel::ConcurrentQueue<Message*> free_mem_;
+  std::unordered_map<qbId, qbSystem*> handlers_;
+  moodycamel::ConcurrentQueue<qbMessage*> message_queue_;
+  moodycamel::ConcurrentQueue<qbMessage*> free_mem_;
   size_t size_;
 };
 
 class ChannelImpl {
  public:
-  ChannelImpl(Channel* self, MessageQueue* message_queue)
+  ChannelImpl(qbChannel* self, MessageQueue* message_queue)
       : self_(self),
         message_queue_(message_queue) {}
 
-  static ChannelImpl* to_impl(Channel* c) {
+  static ChannelImpl* to_impl(qbChannel* c) {
     return (ChannelImpl*)c->self;
   }
 
   // Thread-safe.
-  Message* new_message() {
-    return message_queue_->new_message(self_);
+  qbMessage* alloc_message() {
+    return message_queue_->alloc_message(self_);
   }
 
   // Thread-safe.
-  void send_message(Message* message) {
+  void send_message(qbMessage* message) {
     message_queue_->send_message(message);
   }
 
  private:
-  Channel* self_;
+  qbChannel* self_;
   MessageQueue* message_queue_;
 };
 
 class EventRegistry {
  public:
-  EventRegistry(Id program): program_(program), event_id_(0) { }
+  EventRegistry(qbId program): program_(program), event_id_(0) { }
 
   // Thread-safe.
-  Id create_event(const char* event, EventPolicy policy) {
+  qbId create_event(const char* event, qbEventPolicy policy) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    Id event_id;
+    qbId event_id;
     auto it = event_name_.find(event);
     if (it == event_name_.end()) {
       event_id = event_id_++;
@@ -504,33 +505,33 @@ class EventRegistry {
   }
 
   // Thread-safe.
-  Subscription* subscribe(const char* event, Pipeline* pipeline) {
+  qbSubscription* subscribe(const char* event, qbSystem* system) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    Subscription* ret = nullptr;
-    Id event_id = find_event(event);
+    qbSubscription* ret = nullptr;
+    qbId event_id = find_event(event);
     if (event_id != -1) {
-      events_[event_id]->add_handler(pipeline); 
-      ret = new_subscription(event_id, pipeline->id);
+      events_[event_id]->add_handler(system); 
+      ret = new_subscription(event_id, system->id);
     }
 
     return ret;
   }
 
   // Thread-safe.
-  void unsubscribe(Subscription* s) {
+  void unsubscribe(qbSubscription* s) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    events_[s->event]->remove_handler(s->pipeline);
+    events_[s->event]->remove_handler(s->system);
   }
 
   // Thread-safe.
-  Channel* open_channel(const char* event) {
-    Channel* ret = nullptr;
+  qbChannel* open_channel(const char* event) {
+    qbChannel* ret = nullptr;
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    Id event_id = find_event(event);
+    qbId event_id = find_event(event);
     if (event_id != -1) {
-      ret = (Channel*)malloc(sizeof(Channel));
-      *(Id*)(&ret->program) = program_;
-      *(Id*)(&ret->event) = event_id;
+      ret = (qbChannel*)malloc(sizeof(qbChannel));
+      *(qbId*)(&ret->program) = program_;
+      *(qbId*)(&ret->event) = event_id;
       ret->self = new ChannelImpl(ret, events_[event_id]);
     }
 
@@ -538,7 +539,7 @@ class EventRegistry {
   }
 
   // Thread-safe.
-  void close_channel(Channel* channel) {
+  void close_channel(qbChannel* channel) {
     delete (ChannelImpl*)channel->self;
     free(channel);
   }
@@ -550,7 +551,7 @@ class EventRegistry {
   }
 
   void flush(const char* event) {
-    Id e = find_event(event);
+    qbId e = find_event(event);
     if (e == -1) {
       return;
     }
@@ -560,8 +561,8 @@ class EventRegistry {
 
  private:
   // Requires state_mutex_.
-  Id find_event(const char* event) {
-    Id ret = -1;
+  qbId find_event(const char* event) {
+    qbId ret = -1;
     auto it = event_name_.find(event);
     if (it != event_name_.end()) {
       ret = it->second;
@@ -569,125 +570,125 @@ class EventRegistry {
     return ret;
   }
 
-  Subscription* new_subscription(Id event, Id pipeline) {
-    Subscription* ret = (Subscription*)malloc(sizeof(Subscription));
-    *(Id*)(&ret->program) = program_;
-    *(Id*)(&ret->event) = event;
-    *(Id*)(&ret->pipeline) = pipeline;
+  qbSubscription* new_subscription(qbId event, qbId system) {
+    qbSubscription* ret = (qbSubscription*)malloc(sizeof(qbSubscription));
+    *(qbId*)(&ret->program) = program_;
+    *(qbId*)(&ret->event) = event;
+    *(qbId*)(&ret->system) = system;
     return ret;
   }
 
-  void free_subscription(Subscription* subscription) {
+  void free_subscription(qbSubscription* subscription) {
     free(subscription);
   }
 
-  Id program_;
-  Id event_id_;
+  qbId program_;
+  qbId event_id_;
   std::mutex state_mutex_;
-  std::unordered_map<std::string, Id> event_name_;
-  std::unordered_map<Id, MessageQueue*> events_; 
+  std::unordered_map<std::string, qbId> event_name_;
+  std::unordered_map<qbId, MessageQueue*> events_; 
 };
 
 /*
  *  Sent to:
- *    Subscribed Pipelines in a Program
- *    Program/ Pipeline (to change running state)
+ *    Subscribed qbSystems in a qbProgram
+ *    qbProgram/ qbSystem (to change running state)
  *  Effect:
  *    None (read-only)
- *    Change Program/ Pipeline state
+ *    Change qbProgram/ qbSystem state
  *  Lifetime:
  *    Destroyed when read once
- *    Destroyed after Pipelines loop
+ *    Destroyed after qbSystems loop
  *  Callback:
  *    Yes
  *    No
  *
- *  Trigger:
- *    Sent To: Program or Pipeline
+ *  qbTrigger:
+ *    Sent To: qbProgram or qbSystem
  *    Effect: Change running state
  *    Lifetime: Destroyed when read once
  *    Callback: Available
  *
  *  Event:
- *    Sent To: Program or subscribed Pipelines
+ *    Sent To: qbProgram or subscribed qbSystems
  *    Effect: Change (non-running) state
- *    Lifetime: Destroyed after Pipelines loop
+ *    Lifetime: Destroyed after qbSystems loop
  *    Callback: Yes
  *    
- *  Message:
- *    Sent To: Program or subscribed Pipelines
+ *  qbMessage:
+ *    Sent To: qbProgram or subscribed qbSystems
  *    Effect: None (read-only)
- *    Lifetime: Destroyed after Pipelines loop
+ *    Lifetime: Destroyed after qbSystems loop
  *    Callback: No
  */
 
 class ProgramImpl {
  private:
-   typedef Table<Collection*, std::set<Pipeline*>> Mutators;
+   typedef Table<qbCollection*, std::set<qbSystem*>> Mutators;
  public:
-  ProgramImpl(Program* program)
+  ProgramImpl(qbProgram* program)
       : program_(program),
         events_(program->id) {}
 
-  Pipeline* add_pipeline(Collection* source, Collection* sink) {
-    Pipeline* pipeline = new_pipeline(pipelines_.size());
-    pipelines_.push_back(pipeline);
+  qbSystem* alloc_system(qbCollection* source, qbCollection* sink) {
+    qbSystem* system = new_system(systems_.size());
+    systems_.push_back(system);
 
     if (source) {
-      add_source(pipeline, source);
+      add_source(system, source);
     }
 
     if (sink) {
-      add_sink(pipeline, sink);
+      add_sink(system, sink);
     }
 
-    return pipeline;
+    return system;
   }
 
-  Status::Code remove_pipeline(struct Pipeline* pipeline) {
-    return disable_pipeline(pipeline);
+  qbResult free_system(struct qbSystem* system) {
+    return disable_system(system);
   }
 
-  Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy) {
-    disable_pipeline(pipeline);
+  qbResult enable_system(struct qbSystem* system, qbExecutionPolicy policy) {
+    disable_system(system);
 
-    if (policy.trigger == Trigger::LOOP) {
-      loop_pipelines_.push_back(pipeline);
-      std::sort(loop_pipelines_.begin(), loop_pipelines_.end());
-    } else if (policy.trigger == Trigger::EVENT) {
-      event_pipelines_.insert(pipeline);
+    if (policy.trigger == qbTrigger::LOOP) {
+      loop_systems_.push_back(system);
+      std::sort(loop_systems_.begin(), loop_systems_.end());
+    } else if (policy.trigger == qbTrigger::EVENT) {
+      event_systems_.insert(system);
     } else {
-      return Status::UNKNOWN_TRIGGER_POLICY;
+      return QB_ERROR_UNKNOWN_TRIGGER_POLICY;
     }
 
-    return Status::OK;
+    return QB_OK;
   }
 
-  Status::Code disable_pipeline(struct Pipeline* pipeline) {
-    auto found = std::find(loop_pipelines_.begin(), loop_pipelines_.end(), pipeline);
-    if (found != loop_pipelines_.end()) {
-      loop_pipelines_.erase(found);
+  qbResult disable_system(struct qbSystem* system) {
+    auto found = std::find(loop_systems_.begin(), loop_systems_.end(), system);
+    if (found != loop_systems_.end()) {
+      loop_systems_.erase(found);
     } else {
-      event_pipelines_.erase(pipeline);
+      event_systems_.erase(system);
     }
-    return Status::OK;
+    return QB_OK;
   }
 
-  Status::Code add_source(Pipeline* pipeline, Collection* source) {
-    ((PipelineImpl*)(pipeline->self))->add_source(source);
-    return add_pipeline_to_collection(pipeline, source, &readers_);
+  qbResult add_source(qbSystem* system, qbCollection* source) {
+    ((SystemImpl*)(system->self))->add_source(source);
+    return add_system_to_collection(system, source, &readers_);
   }
 
-  Status::Code add_sink(Pipeline* pipeline, Collection* sink) {
-    ((PipelineImpl*)(pipeline->self))->add_sink(sink);
-    return add_pipeline_to_collection(pipeline, sink, &writers_);
+  qbResult add_sink(qbSystem* system, qbCollection* sink) {
+    ((SystemImpl*)(system->self))->add_sink(sink);
+    return add_system_to_collection(system, sink, &writers_);
   }
 
-  bool contains_pipeline(Pipeline* pipeline) {
-    return std::find(pipelines_.begin(), pipelines_.end(), pipeline) != pipelines_.end();
+  bool contains_system(qbSystem* system) {
+    return std::find(systems_.begin(), systems_.end(), system) != systems_.end();
   }
 
-  Id create_event(const char* event, EventPolicy policy) {
+  qbId create_event(const char* event, qbEventPolicy policy) {
     return events_.create_event(event, policy);
   }
 
@@ -699,118 +700,118 @@ class ProgramImpl {
     }
   }
 
-  Channel* open_channel(const char* event) {
+  qbChannel* open_channel(const char* event) {
     return events_.open_channel(event);
   }
 
-  void close_channel(Channel* channel) {
+  void close_channel(qbChannel* channel) {
     events_.close_channel(channel);
   }
 
-  struct Subscription* subscribe_to(const char* event,
-                                    struct Pipeline* pipeline) {
-    return events_.subscribe(event, pipeline);
+  struct qbSubscription* subscribe_to(const char* event,
+                                    struct qbSystem* system) {
+    return events_.subscribe(event, system);
   }
 
-  void unsubscribe_from(struct Subscription* subscription) {
+  void unsubscribe_from(struct qbSubscription* subscription) {
     events_.unsubscribe(subscription);
   }
 
   void run() {
     events_.flush_all();
-    for(Pipeline* p : loop_pipelines_) {
-      ((PipelineImpl*)p->self)->run(nullptr);
+    for(qbSystem* p : loop_systems_) {
+      ((SystemImpl*)p->self)->run(nullptr);
     }
   }
 
  private:
-  Pipeline* new_pipeline(Id id) {
-    Pipeline* p = (Pipeline*)calloc(1, sizeof(Pipeline));
-    *(Id*)(&p->id) = id;
-    *(Id*)(&p->program) = program_->id;
-    p->self = new PipelineImpl(p);
+  qbSystem* new_system(qbId id) {
+    qbSystem* p = (qbSystem*)calloc(1, sizeof(qbSystem));
+    *(qbId*)(&p->id) = id;
+    *(qbId*)(&p->program) = program_->id;
+    p->self = new SystemImpl(p);
     return p;
   }
 
-  Status::Code add_pipeline_to_collection(
-      Pipeline* pipeline, Collection* collection, Mutators* table) {
-    if (!pipeline || !collection || !table) {
-      return Status::NULL_POINTER;
+  qbResult add_system_to_collection(
+      qbSystem* system, qbCollection* collection, Mutators* table) {
+    if (!system || !collection || !table) {
+      return QB_ERROR_NULL_POINTER;
     }
 
-    if (!contains_pipeline(pipeline)) {
-      return Status::DOES_NOT_EXIST;
+    if (!contains_system(system)) {
+      return QB_ERROR_DOES_NOT_EXIST;
     }
 
-    Handle handle = table->find(collection);
+    qbHandle handle = table->find(collection);
     if (handle == -1) {
       handle = table->insert(collection, {});
     }
 
-    std::set<Pipeline*>& pipelines = (*table)[handle];
+    std::set<qbSystem*>& systems = (*table)[handle];
 
-    if (pipelines.find(pipeline) == pipelines.end()) {
-      pipelines.insert(pipeline);
+    if (systems.find(system) == systems.end()) {
+      systems.insert(system);
     } else {
-      return Status::ALREADY_EXISTS;
+      return QB_ERROR_ALREADY_EXISTS;
     }
 
-    return Status::OK;
+    return QB_OK;
   }
 
-  Program* program_;
+  qbProgram* program_;
   Mutators writers_;
   Mutators readers_;
 
   EventRegistry events_;
-  std::vector<Pipeline*> pipelines_;
-  std::vector<Pipeline*> loop_pipelines_;
-  std::set<Pipeline*> event_pipelines_;
+  std::vector<qbSystem*> systems_;
+  std::vector<qbSystem*> loop_systems_;
+  std::set<qbSystem*> event_systems_;
 };
 
 class ProgramRegistry {
  public:
-  Id create_program(const char* program) {
-    Id id = programs_.find(program);
+  qbId create_program(const char* program) {
+    qbId id = programs_.find(program);
     if (id == -1) {
       id = programs_.insert(program, nullptr);
-      Program* p = new_program(id, program);
+      qbProgram* p = new_program(id, program);
       programs_[id] = p;
     }
     return id;
   }
 
-  Id detach_program(const char*) {
+  qbId detach_program(const char*) {
     return -1;
   }
 
-  Id join_program(const char*) {
+  qbId join_program(const char*) {
     return -1;
   }
 
-  Status::Code add_source(Pipeline* pipeline, Collection* collection) {
-    Program* p = programs_[pipeline->program];
-    return to_impl(p)->add_source(pipeline, collection);
+  qbResult add_source(qbSystem* system, qbCollection* collection) {
+    qbProgram* p = programs_[system->program];
+    return to_impl(p)->add_source(system, collection);
   }
 
-  Status::Code add_sink(Pipeline* pipeline, Collection* collection) {
-    Program* p = programs_[pipeline->program];
-    return to_impl(p)->add_sink(pipeline, collection);
+  qbResult add_sink(qbSystem* system, qbCollection* collection) {
+    qbProgram* p = programs_[system->program];
+    return to_impl(p)->add_sink(system, collection);
   }
 
-  Program* get_program(const char* program) {
-    Handle id = programs_.find(program);
+  qbProgram* get_program(const char* program) {
+    qbHandle id = programs_.find(program);
     if (id == -1) {
       return nullptr;
     }
     return programs_[id];
   }
 
-  Program* get_program(Id id) {
+  qbProgram* get_program(qbId id) {
     return programs_[id];
   }
 
-  inline ProgramImpl* to_impl(Program* p) {
+  inline ProgramImpl* to_impl(qbProgram* p) {
     return (ProgramImpl*)(p->self);
   }
 
@@ -821,22 +822,22 @@ class ProgramRegistry {
     }
   }
 
-  Status::Code run_program(Id program) {
+  qbResult run_program(qbId program) {
     ProgramImpl* p = (ProgramImpl*)programs_[program]->self;
     p->run();
-    return Status::Code::OK;
+    return QB_OK;
   }
 
  private:
-  Program* new_program(Id id, const char* name) {
-    Program* p = (Program*)calloc(1, sizeof(Program));
-    *(Id*)(&p->id) = id;
+  qbProgram* new_program(qbId id, const char* name) {
+    qbProgram* p = (qbProgram*)calloc(1, sizeof(qbProgram));
+    *(qbId*)(&p->id) = id;
     *(char**)(&p->name) = (char*)name;
     p->self = new ProgramImpl{p};
     return p;
   }
 
-  Table<std::string, Program*> programs_;
+  Table<std::string, qbProgram*> programs_;
 };
 
 class PrivateUniverse {
@@ -844,42 +845,47 @@ class PrivateUniverse {
   PrivateUniverse();
   ~PrivateUniverse();
 
-  Status::Code init();
-  Status::Code start();
-  Status::Code stop();
-  Status::Code loop();
+  qbResult init();
+  qbResult start();
+  qbResult stop();
+  qbResult loop();
 
-  Id create_program(const char* name);
-  Status::Code run_program(Id program);
+  qbId create_program(const char* name);
+  qbResult run_program(qbId program);
 
-  // Pipeline manipulation.
-  struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
-  struct Pipeline* copy_pipeline(struct Pipeline* pipeline, const char* dest);
-  Status::Code remove_pipeline(struct Pipeline* pipeline);
+  // qbSystem manipulation.
+  struct qbSystem* alloc_system(const char* program, const char* source, const char* sink);
+  struct qbSystem* copy_system(struct qbSystem* system, const char* dest);
+  qbResult free_system(struct qbSystem* system);
 
-  Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
-  Status::Code disable_pipeline(struct Pipeline* pipeline);
+  qbResult enable_system(struct qbSystem* system, qbExecutionPolicy policy);
+  qbResult disable_system(struct qbSystem* system);
 
-  // Collection manipulation.
-  Collection* add_collection(const char* program, const char* collection);
+  // qbCollection manipulation.
+  qbCollection* alloc_collection(const char* program, const char* collection);
 
-  Status::Code add_source(Pipeline*, const char* collection);
-  Status::Code add_sink(Pipeline*, const char* collection);
+  qbResult add_source(qbSystem*, const char* collection);
+  qbResult add_sink(qbSystem*, const char* collection);
 
-  Status::Code share_collection(const char* source, const char* dest);
-  Status::Code copy_collection(const char* source, const char* dest);
+  qbResult share_collection(
+      const char* source_program, const char* source_collection,
+      const char* dest_program, const char* dest_collection);
+
+  qbResult copy_collection(
+      const char* source_program, const char* source_collection,
+      const char* dest_program, const char* dest_collection);
 
   // Events.
-  Id create_event(const char* program, const char* event, EventPolicy policy);
+  qbId create_event(const char* program, const char* event, qbEventPolicy policy);
 
-  Status::Code flush_events(const char* program, const char* event);
+  qbResult flush_events(const char* program, const char* event);
 
-  struct Channel* open_channel(const char* program, const char* event);
-  void close_channel(struct Channel* channel);
+  struct qbChannel* open_channel(const char* program, const char* event);
+  void close_channel(struct qbChannel* channel);
 
-  struct Subscription* subscribe_to(
-      const char* program, const char* event, struct Pipeline* pipeline);
-  void unsubscribe_from(struct Subscription* subscription);
+  struct qbSubscription* subscribe_to(
+      const char* program, const char* event, struct qbSystem* system);
+  void unsubscribe_from(struct qbSubscription* subscription);
 
  private:
   CollectionRegistry collections_;
