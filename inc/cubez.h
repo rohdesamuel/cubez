@@ -13,9 +13,66 @@
 
 BEGIN_EXTERN_C
 
+///////////////////////////////////////////////////////////
+//////////////////////  Flow Control  /////////////////////
+///////////////////////////////////////////////////////////
+
 // Holds the game engine state.
 struct qbUniverse {
   void* self;
+};
+
+struct qbProgram {
+  const qbId id;
+  const char* name;
+  const void* self;
+};
+
+qbResult qb_init(struct qbUniverse* universe);
+qbResult qb_start();
+qbResult qb_stop();
+qbResult qb_loop();
+qbResult qb_run_program(qbId program);
+
+qbId qb_create_program(const char* name);
+
+///////////////////////////////////////////////////////////
+////////////////////////  Systems  ////////////////////////
+///////////////////////////////////////////////////////////
+
+const int16_t QB_MAX_PRIORITY = 0x7FFF;
+const int16_t QB_MIN_PRIORITY = 0x8001;
+
+enum class qbTrigger {
+  LOOP = 0,
+  EVENT,
+};
+
+struct qbExecutionPolicy {
+  // OPTIONAL.
+  // Priority of execution.
+  int16_t priority;
+
+  // REQUIRED.
+  // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
+  // to only fire during an event.
+  qbTrigger trigger;
+};
+
+typedef bool (*qbSelect)(struct qbSystem* system, struct qbFrame*);
+typedef void (*qbTransform)(struct qbSystem* system, struct qbFrame*);
+typedef void (*qbCallback)(struct qbSystem* system, struct qbFrame*,
+                           const struct qbCollections* sources,
+                           const struct qbCollections* sinks);
+
+struct qbArg {
+  void* data;
+  size_t size;
+};
+
+struct qbArgs {
+  qbArg* arg;
+  uint8_t count;
 };
 
 struct qbElement {
@@ -43,58 +100,20 @@ struct qbMutation {
   void* element;
 };
 
-struct qbArg {
+struct qbMessage {
+  struct qbChannel* channel;
   void* data;
+
   size_t size;
 };
 
-struct qbArgs {
-  qbArg* arg;
-  uint8_t count;
-};
-
-enum class qbTrigger {
-  LOOP = 0,
-  EVENT,
-};
-
-const int16_t QB_MAX_PRIORITY = 0x7FFF;
-const int16_t QB_MIN_PRIORITY = 0x8001;
-
-struct qbExecutionPolicy {
-  // OPTIONAL.
-  // Priority of execution.
-  int16_t priority;
-
-  // REQUIRED.
-  // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
-  // to only fire during an event.
-  qbTrigger trigger;
-};
-
-struct qbProgram {
-  const qbId id;
-  const char* name;
+struct qbFrame {
   const void* self;
+  qbArgs args;
+
+  qbMutation mutation;
+  qbMessage message;
 };
-
-qbResult qb_init(struct qbUniverse* universe);
-qbResult qb_start();
-qbResult qb_stop();
-qbResult qb_loop();
-qbResult qb_run_program(qbId program);
-
-qbId qb_create_program(const char* name);
-
-///////////////////////////////////////////////////////////
-////////////////////////  Systems  ////////////////////////
-///////////////////////////////////////////////////////////
-
-typedef bool (*qbSelect)(struct qbSystem* system, struct qbFrame*);
-typedef void (*qbTransform)(struct qbSystem* system, struct qbFrame*);
-typedef void (*qbCallback)(struct qbSystem* system, struct qbFrame*,
-                         const struct qbCollections* sources,
-                         const struct qbCollections* sinks);
 
 struct qbSystem {
   const qbId id;
@@ -203,31 +222,6 @@ qbResult qb_copy_collection(
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
 ///////////////////////////////////////////////////////////
-
-struct qbMessage {
-  struct qbChannel* channel;
-  void* data;
-
-  size_t size;
-};
-
-struct qbKey {
-  void* data;
-  size_t size;
-};
-
-struct qbKeys {
-  uint8_t count;
-  struct qbKey* key;
-};
-
-struct qbFrame {
-  const void* self;
-  qbArgs args;
-
-  qbMutation mutation;
-  qbMessage message;
-};
 
 struct qbChannel {
   const qbId program;
