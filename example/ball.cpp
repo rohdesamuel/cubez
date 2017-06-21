@@ -10,12 +10,6 @@
 #include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
 
-using cubez::Channel;
-using cubez::Frame;
-using cubez::Pipeline;
-using cubez::send_message;
-using cubez::open_channel;
-
 namespace ball {
 
 // Event names
@@ -23,15 +17,15 @@ const char kInsert[] = "ball_insert";
 
 // Collections
 Objects::Table* objects;
-cubez::Collection* objects_collection;
+qbCollection* objects_collection;
 
 // Channels
-Channel* insert_channel;
-Channel* render_channel;
+qbChannel* insert_channel;
+qbChannel* render_channel;
 
-// Pipelines
-Pipeline* insert_pipeline;
-Pipeline* render_pipeline;
+// Systems
+qbSystem* insert_system;
+qbSystem* render_system;
 
 // State
 std::atomic_int next_id;
@@ -47,7 +41,7 @@ void initialize(const Settings& settings) {
   {
     std::cout << "Intializing ball collections\n";
     objects = new Objects::Table();
-    objects_collection = cubez::add_collection(kMainProgram, kCollection);
+    objects_collection = qb_alloc_collection(kMainProgram, kCollection);
     objects_collection->collection = objects;
 
     objects_collection->accessor = Objects::Table::default_accessor;
@@ -64,57 +58,57 @@ void initialize(const Settings& settings) {
     objects_collection->values.offset = 0;
   }
 
-  // Initialize pipelines.
+  // Initialize systems.
   {
-    std::cout << "Intializing ball pipelines\n";
-    cubez::ExecutionPolicy policy;
-    policy.priority = cubez::MIN_PRIORITY;
-    policy.trigger = cubez::Trigger::EVENT;
+    std::cout << "Intializing ball systems\n";
+    qbExecutionPolicy policy;
+    policy.priority = QB_MIN_PRIORITY;
+    policy.trigger = qbTrigger::EVENT;
 
-    insert_pipeline = cubez::add_pipeline(kMainProgram, nullptr, kCollection);
-    insert_pipeline->transform = [](Pipeline*, Frame* f) {
+    insert_system = qb_alloc_system(kMainProgram, nullptr, kCollection);
+    insert_system->transform = [](qbSystem*, qbFrame* f) {
       std::cout << "insert ball\n";
-      cubez::Mutation* mutation = &f->mutation;
-      mutation->mutate_by = cubez::MutateBy::INSERT;
+      qbMutation* mutation = &f->mutation;
+      mutation->mutate_by = qbMutateBy::INSERT;
       Objects::Element* msg = (Objects::Element*)f->message.data;
       Objects::Element* el =
         (Objects::Element*)(mutation->element);
       *el = *msg;
     };
-    cubez::enable_pipeline(insert_pipeline, policy);
+    qb_enable_system(insert_system, policy);
   }
   {
-    cubez::ExecutionPolicy policy;
+    qbExecutionPolicy policy;
     policy.priority = 0;
-    policy.trigger = cubez::Trigger::EVENT;
+    policy.trigger = qbTrigger::EVENT;
 
-    render_pipeline = cubez::add_pipeline(kMainProgram, kCollection, kCollection);
-    cubez::add_source(render_pipeline,
+    render_system = qb_alloc_system(kMainProgram, kCollection, kCollection);
+    qb_add_source(render_system,
         (std::string(kMainProgram) + std::string("/") + std::string(physics::kCollection)).c_str());
-    cubez::add_source(render_pipeline,
+    qb_add_source(render_system,
         (std::string(kMainProgram) + std::string("/") + std::string(render::kCollection)).c_str());
 
-    render_pipeline->transform = nullptr;
-    render_pipeline->callback = [](
-        Pipeline*, Frame*,
-        const cubez::Collections* sources,
-        const cubez::Collections*) {
+    render_system->transform = nullptr;
+    render_system->callback = [](
+        qbSystem*, qbFrame*,
+        const qbCollections* sources,
+        const qbCollections*) {
 
-      cubez::Collection* ball_c = sources->collection[0];
-      cubez::Collection* physics_c = sources->collection[1];
-      cubez::Collection* render_c = sources->collection[2];
+      qbCollection* ball_c = sources->collection[0];
+      qbCollection* physics_c = sources->collection[1];
+      qbCollection* render_c = sources->collection[2];
 
       uint64_t size = ball_c->count(ball_c);
       for (uint64_t i = 0; i < size; ++i) {
         Objects::Value& ball =
-          *(Objects::Value*)ball_c->accessor(ball_c, cubez::IndexedBy::OFFSET, &i);
+          *(Objects::Value*)ball_c->accessor(ball_c, qbIndexedBy::OFFSET, &i);
 
         physics::Objects::Value& pv =
             *(physics::Objects::Value*)physics_c->accessor(physics_c,
-                cubez::IndexedBy::KEY, &ball.physics_id);
+                qbIndexedBy::KEY, &ball.physics_id);
 
         RenderInfo& render_info = *(RenderInfo*)render_c->accessor(
-            render_c, cubez::IndexedBy::KEY, &ball.render_id);
+            render_c, qbIndexedBy::KEY, &ball.render_id);
 
         glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
         glBindVertexArray(render_info.vao);
@@ -137,21 +131,21 @@ void initialize(const Settings& settings) {
         glDrawArrays(GL_TRIANGLES, 0, 6);
       }
     };
-    cubez::enable_pipeline(render_pipeline, policy);
+    qb_enable_system(render_system, policy);
   }
 
   // Initialize events.
   {
     std::cout << "Intializing ball events\n";
-    cubez::EventPolicy policy;
+    qbEventPolicy policy;
     policy.size = sizeof(Objects::Element);
-    cubez::create_event(kMainProgram, kInsert, policy);
-    cubez::subscribe_to(kMainProgram, kInsert, insert_pipeline);
-    insert_channel = open_channel(kMainProgram, kInsert);
+    qb_create_event(kMainProgram, kInsert, policy);
+    qb_subscribe_to(kMainProgram, kInsert, insert_system);
+    insert_channel = qb_open_channel(kMainProgram, kInsert);
   }
 
   {
-    cubez::subscribe_to(kMainProgram, kRender, render_pipeline);
+    qb_subscribe_to(kMainProgram, kRender, render_system);
   }
 
   // Initialize rendering items.
@@ -216,16 +210,16 @@ uint32_t load_texture(const std::string& file) {
   return texture;
 }
 
-cubez::Id create(glm::vec3 pos, glm::vec3 vel,
+qbId create(glm::vec3 pos, glm::vec3 vel,
     const std::string& tex,
     const std::string& vs,
     const std::string& fs) {
-  cubez::Id new_id = next_id;
+  qbId new_id = next_id;
   ++next_id;
 
-  cubez::Message* msg = cubez::new_message(insert_channel);
+  qbMessage* msg = qb_alloc_message(insert_channel);
   Objects::Element el;
-  el.indexed_by = cubez::IndexedBy::KEY;
+  el.indexed_by = qbIndexedBy::KEY;
   el.key = new_id;
 
   RenderInfo render_info;
@@ -268,7 +262,7 @@ cubez::Id create(glm::vec3 pos, glm::vec3 vel,
   obj.render_id = render::create(&render_info);
   el.value = obj;
   *(Objects::Element*)msg->data = el;
-  cubez::send_message(msg);
+  qb_send_message(msg);
 
   return new_id;
 }

@@ -2,11 +2,6 @@
 
 #include "physics.h"
 
-using cubez::Channel;
-using cubez::Pipeline;
-using cubez::send_message;
-using cubez::open_channel;
-
 namespace player {
 
 // Event names
@@ -16,13 +11,13 @@ const char kMove[] = "player_insert";
 Object* player;
 
 // Channels
-Channel* move_channel;
+qbChannel* move_channel;
 
-// Pipelines
-Pipeline* move_pipeline;
+// Systems
+qbSystem* move_system;
 
 // State
-cubez::Id physics_id;
+qbId physics_id;
 
 void initialize(const Settings& settings) {
   player = new Object;

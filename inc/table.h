@@ -25,16 +25,17 @@ namespace cubez
 
 template<typename Key_, typename Value_>
 struct BaseElement {
-  IndexedBy indexed_by;
+  qbIndexedBy indexed_by;
   union {
-    Offset offset;
-    Handle handle;
+    qbOffset offset;
+    qbHandle handle;
     Key_ key;
   };
   Value_ value;
 };
 
-template <typename Key_, typename Value_, typename Allocator_ = std::allocator<Value_>>
+template <typename Key_, typename Value_,
+          typename Allocator_ = std::allocator<Value_>>
 class Table {
 public:
   typedef Key_ Key;
@@ -47,10 +48,10 @@ public:
 
   // For fast lookup if you have the handle to an entity.
   typedef std::vector<uint64_t> Handles;
-  typedef std::vector<Handle> FreeHandles;
+  typedef std::vector<qbHandle> FreeHandles;
 
   // For fast lookup by Entity Id.
-  typedef std::map<Key, Handle> Index;
+  typedef std::map<Key, qbHandle> Index;
 
   Table() {}
 
@@ -60,8 +61,8 @@ public:
     }
   }
 
-  Handle insert(Key&& key, Value&& value) {
-    Handle handle = make_handle();
+  qbHandle insert(Key&& key, Value&& value) {
+    qbHandle handle = make_handle();
 
     index_[key] = handle;
 
@@ -70,8 +71,8 @@ public:
     return handle;
   }
 
-  Handle insert(Key&& key, const Value& value) {
-    Handle handle = make_handle();
+  qbHandle insert(Key&& key, const Value& value) {
+    qbHandle handle = make_handle();
 
     index_[key] = handle;
 
@@ -80,8 +81,8 @@ public:
     return handle;
   }
 
-  Handle insert(const Key& key, const Value& value) {
-    Handle handle = make_handle();
+  qbHandle insert(const Key& key, const Value& value) {
+    qbHandle handle = make_handle();
 
     index_[key] = handle;
 
@@ -90,8 +91,8 @@ public:
     return handle;
   }
 
-  Handle insert(const Key& key, Value&& value) {
-    Handle handle = make_handle();
+  qbHandle insert(const Key& key, Value&& value) {
+    qbHandle handle = make_handle();
 
     index_[key] = handle;
 
@@ -100,15 +101,15 @@ public:
     return handle;
   }
 
-  Value& operator[](Handle handle) {
+  Value& operator[](qbHandle handle) {
     return values[handles_[handle]];
   }
 
-  const Value& operator[](Handle handle) const {
+  const Value& operator[](qbHandle handle) const {
     return values[handles_[handle]];
   }
 
-  Handle find(Key&& key) const {
+  qbHandle find(Key&& key) const {
     typename Index::const_iterator it = index_.find(key);
     if (it != index_.end()) {
       return it->second;
@@ -116,7 +117,7 @@ public:
     return -1;
   }
 
-  Handle find(const Key& key) const {
+  qbHandle find(const Key& key) const {
     typename Index::const_iterator it = index_.find(key);
     if (it != index_.end()) {
       return it->second;
@@ -144,13 +145,13 @@ public:
     return values.size();
   }
 
-  int64_t remove(Handle handle) {
-    Handle h_from = handle;
+  int64_t remove(qbHandle handle) {
+    qbHandle h_from = handle;
     uint64_t& i_from = handles_[h_from];
     Key& k_from = keys[i_from];
 
     Key& k_to = keys.back();
-    Handle h_to = index_[k_to];
+    qbHandle h_to = index_[k_to];
     uint64_t& i_to = handles_[h_to];
 
     Value& c_from = values[i_from];
@@ -166,17 +167,17 @@ public:
     return 0;
   }
 
-  static void* default_accessor(Collection* c, IndexedBy indexed_by,
+  static void* default_accessor(qbCollection* c, qbIndexedBy indexed_by,
                                 const void* index) {
     Table* t = (Table*)c->collection;
-    if (indexed_by == IndexedBy::KEY) {
+    if (indexed_by == qbIndexedBy::KEY) {
       const Key_* key = (const Key_*)index;
       return &(*t)[t->find(*key)];
-    } else if (indexed_by == IndexedBy::HANDLE) {
-      const Handle* handle = (const Handle*)index;
+    } else if (indexed_by == qbIndexedBy::HANDLE) {
+      const qbHandle* handle = (const qbHandle*)index;
       return &(*t)[*handle];
-    } else if (indexed_by == IndexedBy::OFFSET) {
-      return &t->value(*(Offset*)index);
+    } else if (indexed_by == qbIndexedBy::OFFSET) {
+      return &t->value(*(qbOffset*)index);
     }
     return nullptr;
   }
@@ -184,34 +185,34 @@ public:
   static void default_copy(const uint8_t* /* key */,
                            const uint8_t* value,
                            uint64_t offset,
-                           cubez::Frame* f) {
-    cubez::Mutation* mutation = &f->mutation;
-    mutation->mutate_by = cubez::MutateBy::UPDATE;
+                           qbFrame* f) {
+    qbMutation* mutation = &f->mutation;
+    mutation->mutate_by = qbMutateBy::UPDATE;
     Element* el = (Element*)(mutation->element);
     el->offset = offset;
     new (&el->value) Value(*(Value*)(value) );
   }
 
-  static void default_mutate(cubez::Collection* c,
-                             const cubez::Mutation* m) {
+  static void default_mutate(qbCollection* c,
+                             const qbMutation* m) {
       Table* t = (Table*)c->collection;
       Element* el = (Element*)(m->element);
-      if (m->mutate_by == cubez::MutateBy::UPDATE) {
+      if (m->mutate_by == qbMutateBy::UPDATE) {
         t->values[el->offset] = std::move(el->value); 
-      } else if (m->mutate_by == cubez::MutateBy::INSERT) {
+      } else if (m->mutate_by == qbMutateBy::INSERT) {
         t->insert(std::move(el->key), std::move(el->value));
       }
   }
 
-  static uint64_t default_count(cubez::Collection* c) {
+  static uint64_t default_count(qbCollection* c) {
     return ((Table*)c->collection)->size();
   }
 
-  static uint8_t* default_keys(cubez::Collection* c) {
+  static uint8_t* default_keys(qbCollection* c) {
     return (uint8_t*)((Table*)c->collection)->keys.data();
   };
 
-  static uint8_t* default_values(cubez::Collection* c) {
+  static uint8_t* default_values(qbCollection* c) {
     return (uint8_t*)((Table*)c->collection)->values.data();
   };
 
@@ -219,9 +220,9 @@ public:
   Values values;
 
 private:
-  Handle make_handle() {
+  qbHandle make_handle() {
     if (free_handles_.size()) {
-      Handle h = free_handles_.back();
+      qbHandle h = free_handles_.back();
       free_handles_.pop_back();
       return h;
     }
@@ -229,7 +230,7 @@ private:
     return handles_.back();
   }
 
-  void release_handle(Handle h) {
+  void release_handle(qbHandle h) {
     free_handles_.push_back(h);
   }
 
@@ -246,15 +247,15 @@ public:
 
   View(Table* table) : table_(table) {}
 
-  inline const typename Table::Value& operator[](Handle handle) const {
+  inline const typename Table::Value& operator[](qbHandle handle) const {
     return table_->operator[](handle);
   }
 
-  inline Handle find(typename Table::Key&& key) const {
+  inline qbHandle find(typename Table::Key&& key) const {
     return table_->find(std::move(key));
   }
 
-  inline Handle find(const typename Table::Key& key) const {
+  inline qbHandle find(const typename Table::Key& key) const {
     return table_->find(key);
   }
 

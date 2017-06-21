@@ -7,26 +7,20 @@
 
 namespace render {
 
-using cubez::Channel;
-using cubez::Frame;
-using cubez::Pipeline;
-using cubez::send_message;
-using cubez::open_channel;
-
 // Event names
 const char kInsert[] = "render_insert";
 
 
 // Collections
 Objects::Table* objects;
-cubez::Collection* objects_collection;
+qbCollection* objects_collection;
 
 // Channels
-Channel* insert_channel;
-Channel* render_channel;
+qbChannel* insert_channel;
+qbChannel* render_channel;
 
-// Pipelines
-Pipeline* insert_pipeline;
+// Systems
+qbSystem* insert_system;
 
 // State
 std::atomic_int next_id;
@@ -36,7 +30,7 @@ void initialize() {
   {
     std::cout << "Intializing render collections\n";
     objects = new Objects::Table();
-    objects_collection = cubez::add_collection(kMainProgram, kCollection);
+    objects_collection = qb_alloc_collection(kMainProgram, kCollection);
     objects_collection->collection = objects;
 
     objects_collection->accessor = Objects::Table::default_accessor;
@@ -53,67 +47,67 @@ void initialize() {
     objects_collection->values.offset = 0;
   }
 
-  // Initialize pipelines.
+  // Initialize systems.
   {
-    std::cout << "Intializing render pipelines\n";
-    cubez::ExecutionPolicy policy;
-    policy.priority = cubez::MIN_PRIORITY;
-    policy.trigger = cubez::Trigger::EVENT;
+    std::cout << "Intializing render systems\n";
+    qbExecutionPolicy policy;
+    policy.priority = QB_MIN_PRIORITY;
+    policy.trigger = qbTrigger::EVENT;
 
-    insert_pipeline = cubez::add_pipeline(kMainProgram, nullptr, kCollection);
-    insert_pipeline->transform = [](Pipeline*, Frame* f) {
+    insert_system = qb_alloc_system(kMainProgram, nullptr, kCollection);
+    insert_system->transform = [](qbSystem*, qbFrame* f) {
       std::cout << "insert render info\n";
-      cubez::Mutation* mutation = &f->mutation;
-      mutation->mutate_by = cubez::MutateBy::INSERT;
+      qbMutation* mutation = &f->mutation;
+      mutation->mutate_by = qbMutateBy::INSERT;
       Objects::Element* msg = (Objects::Element*)f->message.data;
       Objects::Element* el =
         (Objects::Element*)(mutation->element);
       *el = *msg;
     };
-    cubez::enable_pipeline(insert_pipeline, policy);
-    cubez::disable_pipeline(insert_pipeline);
+    qb_enable_system(insert_system, policy);
+    qb_disable_system(insert_system);
   }
 
   // Initialize events.
   {
     std::cout << "Intializing render events\n";
-    cubez::EventPolicy policy;
+    qbEventPolicy policy;
     policy.size = sizeof(Objects::Element);
-    cubez::create_event(kMainProgram, kInsert, policy);
-    cubez::subscribe_to(kMainProgram, kInsert, insert_pipeline);
-    insert_channel = open_channel(kMainProgram, kInsert);
+    qb_create_event(kMainProgram, kInsert, policy);
+    qb_subscribe_to(kMainProgram, kInsert, insert_system);
+    insert_channel = qb_open_channel(kMainProgram, kInsert);
   }
 
   {
-    cubez::EventPolicy policy;
+    qbEventPolicy policy;
     policy.size = sizeof(RenderEvent);
-    cubez::create_event(kMainProgram, kRender, policy);
-    render_channel = open_channel(kMainProgram, kRender);
+    qb_create_event(kMainProgram, kRender, policy);
+    render_channel = qb_open_channel(kMainProgram, kRender);
   }
 
   std::cout << "Finished initializing render\n";
 }
 
 void present(RenderEvent* event) {
-  cubez::Message* m = cubez::new_message(render_channel);
+  qbMessage* m = qb_alloc_message(render_channel);
   *(RenderEvent*)m->data = *event;
   
-  cubez::send_message(m);
-  cubez::flush_events(kMainProgram, kRender);
+  qb_send_message(m);
+  qb_flush_events(kMainProgram, kRender);
 }
 
-cubez::Id create(Object* render_info) {
-  cubez::Id new_id = next_id;
+qbId create(Object* render_info) {
+  qbId new_id = next_id;
   ++next_id;
 
-  cubez::Message* msg = cubez::new_message(insert_channel);
+  qbMessage* msg = qb_alloc_message(insert_channel);
   Objects::Element el;
-  el.indexed_by = cubez::IndexedBy::KEY;
+  el.indexed_by = qbIndexedBy::KEY;
   el.key = new_id;
 
   el.value = *render_info;
   *(Objects::Element*)msg->data = el;
-  cubez::send_message(msg);
+  qb_send_message(msg);
 
   return new_id;
 }

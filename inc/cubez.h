@@ -11,20 +11,19 @@
 #include "common.h"
 #include "universe.h"
 
-#define CONST_P(type) const type* const 
-
 BEGIN_EXTERN_C
 
-#ifdef __cplusplus
-namespace cubez {
-#endif
+// Holds the game engine state.
+struct qbUniverse {
+  void* self;
+};
 
-struct Element {
+struct qbElement {
   uint8_t* data;
   size_t size;
 };
 
-enum class MutateBy {
+enum class qbMutateBy {
   UNKNOWN = 0,
   INSERT,
   UPDATE,
@@ -32,77 +31,37 @@ enum class MutateBy {
   INSERT_OR_UPDATE,
 };
 
-enum class IndexedBy {
+enum class qbIndexedBy {
   UNKNOWN = 0,
   OFFSET,
   HANDLE,
   KEY
 };
 
-struct Mutation {
-  MutateBy mutate_by;
+struct qbMutation {
+  qbMutateBy mutate_by;
   void* element;
 };
 
-struct Arg {
+struct qbArg {
   void* data;
   size_t size;
 };
 
-struct Args {
-  Arg* arg;
+struct qbArgs {
+  qbArg* arg;
   uint8_t count;
 };
 
-typedef bool (*Select)(struct Pipeline* pipeline, struct Frame*);
-typedef void (*Transform)(struct Pipeline* pipeline, struct Frame*);
-typedef void (*Callback)(struct Pipeline* pipeline, struct Frame*,
-                         const struct Collections* sources,
-                         const struct Collections* sinks);
-
-typedef void (*Mutate)(struct Collection*, const struct Mutation*);
-typedef void (*Copy)(const uint8_t* key, const uint8_t* value, uint64_t index, struct Frame*);
-typedef uint64_t (*Count)(struct Collection*);
-typedef uint8_t* (*Data)(struct Collection*);
-typedef void* (*Accessor)(struct Collection*, IndexedBy indexed_by, const void* index);
-
-struct Iterator {
-  Data data;
-  uint32_t offset;
-  size_t size;
-};
-
-struct Collection {
-  const Id id;
-  const char* name;
-  const void* self;
-
-  void* collection;
-
-  Accessor accessor;
-
-  Iterator keys;
-  Iterator values;
-  
-  Copy copy;
-  Mutate mutate;
-  Count count;
-};
-
-struct Collections {
-  uint64_t count;
-  struct Collection** collection;
-};
-
-enum class Trigger {
+enum class qbTrigger {
   LOOP = 0,
   EVENT,
 };
 
-const int16_t MAX_PRIORITY = 0x7FFF;
-const int16_t MIN_PRIORITY = 0x8001;
+const int16_t QB_MAX_PRIORITY = 0x7FFF;
+const int16_t QB_MIN_PRIORITY = 0x8001;
 
-struct ExecutionPolicy {
+struct qbExecutionPolicy {
   // OPTIONAL.
   // Priority of execution.
   int16_t priority;
@@ -110,12 +69,36 @@ struct ExecutionPolicy {
   // REQUIRED.
   // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
   // to only fire during an event.
-  Trigger trigger;
+  qbTrigger trigger;
 };
 
-struct Pipeline {
-  const Id id;
-  const Id program;
+struct qbProgram {
+  const qbId id;
+  const char* name;
+  const void* self;
+};
+
+qbResult qb_init(struct qbUniverse* universe);
+qbResult qb_start();
+qbResult qb_stop();
+qbResult qb_loop();
+qbResult qb_run_program(qbId program);
+
+qbId qb_create_program(const char* name);
+
+///////////////////////////////////////////////////////////
+////////////////////////  Systems  ////////////////////////
+///////////////////////////////////////////////////////////
+
+typedef bool (*qbSelect)(struct qbSystem* system, struct qbFrame*);
+typedef void (*qbTransform)(struct qbSystem* system, struct qbFrame*);
+typedef void (*qbCallback)(struct qbSystem* system, struct qbFrame*,
+                         const struct qbCollections* sources,
+                         const struct qbCollections* sinks);
+
+struct qbSystem {
+  const qbId id;
+  const qbId program;
   const void* self;
 
   // OPTIONAL.
@@ -124,110 +107,158 @@ struct Pipeline {
 
   // OPTIONAL.
   // If defined, will run for each object in collection.
-  Transform transform;
+  qbTransform transform;
 
   // OPTIONAL.
   // If defined, will run after all objects have been processed with
   // 'transform'.
-  Callback callback;
+  qbCallback callback;
 };
 
-struct Program {
-  const Id id;
+// Allocates and adds a system to the specified program. System is enabled for
+// execution by default.
+// Thread-safe:
+// Idempotent:
+struct qbSystem* qb_alloc_system(const char* program, const char* source,
+                                  const char* sink);
+
+// Free a system.
+// Thread-safe:
+// Idempotent:
+qbResult qb_free_system(struct qbSystem* system);
+
+// Copies a system and its configuration to a different program.
+struct qbSystem* qb_copy_system(struct qbSystem* source_system,
+                                const char* destination_program);
+
+qbResult qb_enable_system(struct qbSystem* system, qbExecutionPolicy policy);
+qbResult qb_disable_system(struct qbSystem* system);
+
+qbResult qb_add_source(struct qbSystem*, const char* collection);
+
+///////////////////////////////////////////////////////////
+//////////////////////  Collections  //////////////////////
+///////////////////////////////////////////////////////////
+
+typedef void (*qbMutate)(struct qbCollection*, const struct qbMutation*);
+typedef void (*qbCopy)(const uint8_t* key, const uint8_t* value, uint64_t index,
+                       struct qbFrame*);
+typedef uint64_t (*qbCount)(struct qbCollection*);
+typedef uint8_t* (*qbData)(struct qbCollection*);
+typedef void* (*qbAccessor)(struct qbCollection*, qbIndexedBy indexed_by,
+                            const void* index);
+
+struct qbIterator {
+  qbData data;
+  uint32_t offset;
+  size_t size;
+};
+
+struct qbCollection {
+  const qbId id;
   const char* name;
   const void* self;
+
+  // REQUIRED.
+  void* collection;
+
+  // REQUIRED.
+  qbAccessor accessor;
+
+  // REQUIRED.
+  qbIterator keys;
+
+  // REQUIRED.
+  qbIterator values;
+  
+  // REQUIRED.
+  qbCopy copy;
+
+  // REQUIRED.
+  qbMutate mutate;
+
+  // REQUIRED.
+  qbCount count;
 };
 
+struct qbCollections {
+  uint64_t count;
+  struct qbCollection** collection;
+};
 
-Status::Code init(struct Universe* universe);
-Status::Code start();
-Status::Code stop();
-Status::Code loop();
-Status::Code run_program(Id program);
+struct qbCollection* qb_alloc_collection(const char* program, const char* name);
+struct qbCollection* qb_create_collection_pool(size_t value_size);
+struct qbCollection* qb_create_collection_table(size_t key_size,
+                                                size_t value_size);
 
-Id create_program(const char* name);
+qbResult qb_free_collection(struct qbCollection* collection);
+qbResult qb_share_collection(/*const char* program*/ const char* source, const char* dest);
+qbResult qb_copy_collection(/*const char* program*/ const char* source, const char* dest);
 
-// Pipelines.
 
-// Adds a pipeline to the specified program.
-//
-// A pipeline can have multiple sources. 
-struct Pipeline* add_pipeline(const char* program, const char* source, const char* sink);
+///////////////////////////////////////////////////////////
+//////////////////  Events and Messaging  /////////////////
+///////////////////////////////////////////////////////////
 
-struct Pipeline* copy_pipeline(struct Pipeline* pipeline, const char* dest);
-
-Status::Code remove_pipeline(struct Pipeline* pipeline);
-Status::Code enable_pipeline(struct Pipeline* pipeline, ExecutionPolicy policy);
-Status::Code disable_pipeline(struct Pipeline* pipeline);
-
-Status::Code add_source(struct Pipeline*, const char* collection);
-
-// Collections.
-Collection* add_collection(const char* program, const char* name);
-Status::Code share_collection(/*const char* program*/ const char* source, const char* dest);
-Status::Code copy_collection(/*const char* program*/ const char* source, const char* dest);
-
-struct Message {
-  struct Channel* channel;
+struct qbMessage {
+  struct qbChannel* channel;
   void* data;
 
   size_t size;
 };
 
-struct Key {
+struct qbKey {
   void* data;
   size_t size;
 };
 
-struct Keys {
+struct qbKeys {
   uint8_t count;
-  struct Key* key;
+  struct qbKey* key;
 };
 
-struct Frame {
+struct qbFrame {
   const void* self;
-  Args args;
+  qbArgs args;
 
-  Mutation mutation;
-  Message message;
+  qbMutation mutation;
+  qbMessage message;
 };
 
-struct Channel {
-  const Id program;
-  const Id event;
+struct qbChannel {
+  const qbId program;
+  const qbId event;
   void* self;
 };
 
-struct Subscription {
-  const Id program;
-  const Id event;
-  const Id pipeline;
+struct qbSubscription {
+  const qbId program;
+  const qbId event;
+  const qbId system;
 };
 
-struct EventPolicy {
+struct qbEventPolicy {
   size_t size;
 };
 
 // Thread-safe.
-Id create_event(const char* program, const char* event, EventPolicy policy);
+qbId qb_create_event(const char* program, const char* event, qbEventPolicy policy);
 
 // Flush events from program. If event if null, flush all events from program.
 // Engine must not be in the LOOPING run state.
-Status::Code flush_events(const char* program, const char* event);
+qbResult qb_flush_events(const char* program, const char* event);
 
-Message* new_message(struct Channel* channel);
-void send_message(Message* e);
+struct qbMessage* qb_alloc_message(struct qbChannel* channel);
+qbResult qb_send_message(qbMessage* e);
 
-struct Channel* open_channel(const char* program, const char* event);
-void close_channel(struct Channel* channel);
+struct qbChannel* qb_open_channel(const char* program, const char* event);
+void qb_close_channel(struct qbChannel* channel);
 
-struct Subscription* subscribe_to(
-    const char* program, const char* event, struct Pipeline* pipeline);
-void unsubscribe_from(struct Subscription* subscription);
-
-#ifdef __cplusplus
-}  // namespace cubez
-#endif
+// Subscribe a system to receive messages from an event.
+struct qbSubscription* qb_subscribe_to(const char* program, const char* event,
+                                       struct qbSystem* system);
+// Ubsubscribe a system from receiving events.
+void qb_unsubscribe_from(struct qbSubscription* subscription);
 
 END_EXTERN_C
 

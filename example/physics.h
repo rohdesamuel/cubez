@@ -25,7 +25,7 @@ struct Object {
 };
 
 struct Impulse {
-  cubez::Id key;
+  qbId key;
   glm::vec3 p;
 };
 
@@ -34,13 +34,13 @@ struct Settings {
   float friction = 0.0f;
 };
 
-typedef cubez::Schema<cubez::Id, Object> Objects;
+typedef cubez::Schema<qbId, Object> Objects;
 
 void initialize(const Settings& settings);
-cubez::Id create(glm::vec3 pos, glm::vec3 vel);
+qbId create(glm::vec3 pos, glm::vec3 vel);
 void send_impulse(Objects::Key key, glm::vec3 p);
 
-cubez::Collection* get_collection();
+qbCollection* get_collection();
 
 }
 

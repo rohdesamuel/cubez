@@ -49,7 +49,7 @@ public:
       top_ = new_top;
     }
 
-    DEBUG_ASSERT(ret, Status::Code::MEMORY_OUT_OF_BOUNDS);
+    DEBUG_ASSERT(ret, QB_ERROR_MEMORY_OUT_OF_BOUNDS);
     return ret;
   }
 

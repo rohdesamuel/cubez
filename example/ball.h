@@ -21,16 +21,16 @@ struct Settings {
 
 struct Object {
   uint32_t texture_id;
-  cubez::Id physics_id;
-  cubez::Id render_id;
-  cubez::Id shader_progam;
+  qbId physics_id;
+  qbId render_id;
+  qbId shader_progam;
 };
 
 typedef cubez::Schema<uint32_t, Object> Objects;
 
 void initialize(const Settings& settings);
 
-cubez::Id create(glm::vec3 pos, glm::vec3 vel,  const std::string& tex,
+qbId create(glm::vec3 pos, glm::vec3 vel,  const std::string& tex,
                  const std::string& vs, const std::string& fs);
 
 }  // namespace ball

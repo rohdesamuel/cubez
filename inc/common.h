@@ -31,7 +31,7 @@ do{ if (!(expr)) exit(exit_code); } while (0)
 #define DEBUG_OP(expr) do{ expr; } while(0)
 
 #define ASSERT_NOT_NULL(var) \
-DEBUG_ASSERT((var) != nullptr, ::cubez::Status::Code::NULL_POINTER)
+DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #define ERROR cerr
 #define INFO cout
@@ -52,13 +52,9 @@ DEBUG_ASSERT((var) != nullptr, ::cubez::Status::Code::NULL_POINTER)
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C }
-#endif  // ifdef __cplusplus
-
 #include <cstdint>
 using std::size_t;
-
-namespace cubez
-{
+#endif  // ifdef __cplusplus
 
 #if (defined __WIN32__ || defined __CYGWIN32__ || defined _WIN32 || defined _WIN64 || defined _MSC_VER)
 #define __COMPILE_AS_WINDOWS__
@@ -66,56 +62,25 @@ namespace cubez
 #define __COMPILE_AS_LINUX__
 #endif
 
-#define CACHE_LINE_SIZE 64
-#ifdef __COMPILE_AS_LINUX__
-#define __CACHE_ALIGNED__ __attribute__((aligned(64)))
+typedef int64_t qbHandle;
+typedef int64_t qbOffset;
+typedef int64_t qbId;
 
-template<typename T>
-struct __CACHE_ALIGNED__ CacheAlligned {
-  T data;
+// Cubez engine success codes.
+enum qbResult {
+  QB_OK = 0,
+  QB_UNKNOWN = 1,
+  QB_ERROR_MEMORY_LEAK = -1,
+  QB_ERROR_MEMORY_OUT_OF_BOUNDS = -2,
+  QB_ERROR_OUT_OF_MEMORY = -3,
+  QB_ERROR_NULL_POINTER = -4,
+  QB_ERROR_UNKNOWN_INDEXED_BY_VALUE = -5,
+  QB_ERROR_INCOMPATIBLE_DATA_TYPES = -6,
+  QB_ERROR_FAILED_INITIALIZATION = -7,
+  QB_ERROR_BAD_RUN_STATE = -8,
+  QB_ERROR_DOES_NOT_EXIST = -9,
+  QB_ERROR_ALREADY_EXISTS = -10,
+  QB_ERROR_UNKNOWN_TRIGGER_POLICY = -11,
 };
-#elif defined __COMPILE_AS_WINDOWS__
-#define __CACHE_ALIGNED__ __declspec(align(CACHE_LINE_SIZE))
-template<typename T>
-struct __CACHE_ALIGNED__ CacheAlligned {
-  T data;
-};
-#endif
-
-typedef int64_t Handle;
-typedef int64_t Offset;
-typedef int64_t Id;
-
-struct Status {
-  enum Code {
-    UNKNOWN = -1,
-    OK = 0,
-    MEMORY_LEAK,
-    MEMORY_OUT_OF_BOUNDS,
-    OUT_OF_MEMORY,
-    NULL_POINTER,
-    UNKNOWN_INDEXED_BY_VALUE,
-    INCOMPATIBLE_DATA_TYPES,
-    FAILED_INITIALIZATION,
-    BAD_RUN_STATE,
-    DOES_NOT_EXIST,
-    ALREADY_EXISTS,
-    UNKNOWN_TRIGGER_POLICY,
-  };
-
-  Status(Code code=Code::OK, const char* message=""):
-      code(code),
-      message(message) { }
-
-
-  Code code;
-  const char* message;
-
-  operator bool() {
-    return code == Code::OK;
-  }
-};
-
-}  // namespace cubez
 
 #endif

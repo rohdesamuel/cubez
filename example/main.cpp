@@ -111,11 +111,11 @@ GLuint create_shader(const char* shader, GLenum shader_type) {
   return s;
 }
 
-void initialize_universe(cubez::Universe* uni) {
-  cubez::init(uni);
+void initialize_universe(qbUniverse* uni) {
+  qb_init(uni);
 
   // Create the "main".
-  cubez::create_program(kMainProgram); 
+  qb_create_program(kMainProgram); 
   
   {
     render::initialize();
@@ -138,7 +138,9 @@ void initialize_universe(cubez::Universe* uni) {
     settings.fs = tex_fs;
 
     ball::initialize(settings);
-    ball::create({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, "ball.bmp", tex_vs, tex_fs);
+    ball::create({0.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f},
+                 "ball.bmp", tex_vs, tex_fs);
   }
 
   {
@@ -166,11 +168,11 @@ int main(int, char* []) {
   //simple_program.use();
 
   // Create and initialize the game engine.
-  cubez::Universe uni;
+  qbUniverse uni;
   initialize_universe(&uni);
 
   /*
-  cubez::Collection* c = physics::get_collection();
+  qbCollection* c = physics::get_collection();
   GLuint points_buffer;
   glGenBuffers(1, &points_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, points_buffer);
@@ -180,7 +182,7 @@ int main(int, char* []) {
       c->values.data(c), GL_DYNAMIC_DRAW);
       */
 
-  cubez::start();
+  qb_start();
   int frame = 0;
   WindowTimer fps_timer(50);
   WindowTimer update_timer(50);
@@ -195,7 +197,7 @@ int main(int, char* []) {
   double accumulator = 0.0;
 
   std::unordered_map<char, bool> pressed_keys;
-  cubez::loop();
+  qb_loop();
   while (1) {
     fps_timer.start();
 
@@ -214,7 +216,7 @@ int main(int, char* []) {
             SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
             SDL_Quit();
-            cubez::stop();
+            qb_stop();
             exit(0);
           } else {
             SDL_Keycode key = e.key.keysym.sym;
@@ -264,7 +266,7 @@ int main(int, char* []) {
         };
         physics::create(p, v);
       }
-      cubez::loop();
+      qb_loop();
       accumulator -= dt;
       t += dt;
     }

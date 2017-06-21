@@ -27,7 +27,7 @@ struct RenderEvent {
 typedef cubez::Schema<uint32_t, Object> Objects;
 
 void initialize();
-cubez::Id create(Object* render_info);
+qbId create(Object* render_info);
 
 void present(RenderEvent* event);
 
