@@ -9,7 +9,6 @@
 #define CUBEZ__H
 
 #include "common.h"
-#include "universe.h"
 
 BEGIN_EXTERN_C
 

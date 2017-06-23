@@ -91,24 +91,18 @@ void init_rendering(int width, int height) {
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   
   SDL_GL_CreateContext(win);
-}
 
-GLuint create_shader(const char* shader, GLenum shader_type) {
-  GLuint s = glCreateShader(shader_type);
-  glShaderSource(s, 1, &shader, nullptr);
-  glCompileShader(s);
-  GLint success = 0;
-  glGetShaderiv(s, GL_COMPILE_STATUS, &success);
-  if (success == GL_FALSE) {
-    GLint log_size = 0;
-    glGetShaderiv(s, GL_INFO_LOG_LENGTH, &log_size);
-    char* error = new char[log_size];
-
-    glGetShaderInfoLog(s, log_size, &log_size, error);
-    std::cout << "Error in shader compilation: " << error << std::endl;
-    delete[] error;
+  glewExperimental = GL_TRUE;
+  GLenum glewError = glewInit();
+  if (glewError != 0) {
+    std::cout << "Failed to intialize Glew\n"
+      << "Error code: " << glewError;
+    exit(1);
   }
-  return s;
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+  SDL_GL_SwapWindow(win);
 }
 
 void initialize_universe(qbUniverse* uni) {
@@ -151,36 +145,9 @@ void initialize_universe(qbUniverse* uni) {
 int main(int, char* []) {
   init_rendering(800, 600);
 
-  glewExperimental = GL_TRUE;
-  GLenum glewError = glewInit();
-  if (glewError != 0) {
-    std::cout << "Failed to intialize Glew\n"
-      << "Error code: " << glewError;
-    return 1;
-  }
-
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-  SDL_RenderClear(renderer);
-  SDL_GL_SwapWindow(win);
-
-  //ShaderProgram texture_program(tex_vs, tex_fs);
-  //ShaderProgram simple_program(simple_vs, simple_fs);
-  //simple_program.use();
-
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
-
-  /*
-  qbCollection* c = physics::get_collection();
-  GLuint points_buffer;
-  glGenBuffers(1, &points_buffer);
-  glBindBuffer(GL_ARRAY_BUFFER, points_buffer);
-  glBufferData(
-      GL_ARRAY_BUFFER,
-      c->count(c) * c->values.size,
-      c->values.data(c), GL_DYNAMIC_DRAW);
-      */
 
   qb_start();
   int frame = 0;
@@ -274,24 +241,9 @@ int main(int, char* []) {
     update_timer.step();
 
     render_timer.start();
-    /*glBufferData(GL_ARRAY_BUFFER, c->count(c) * c->values.size, nullptr,
-                 GL_DYNAMIC_DRAW);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0,
-        c->count(c) * c->values.size,
-        c->values.data(c));*/
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    //simple_program.use();
-    //GLint inPosAttrib = glGetAttribLocation(simple_program.id(), "inPos");
-    //glEnableVertexAttribArray(inPosAttrib);
-    //glVertexAttribPointer(inPosAttrib, 3, GL_FLOAT, GL_FALSE, c->values.size, 0);
-    //glDrawArrays(GL_POINTS, 0, c->count(c));
-    //glDisableClientState(GL_VERTEX_ARRAY);
-    //glDisableVertexAttribArray(inPosAttrib);
-
-    //texture_program.use();
     render::RenderEvent e;
     e.frame = frame;
     e.ftimestamp_us = Timer::now() - start_time;
