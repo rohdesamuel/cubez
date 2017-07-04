@@ -16,24 +16,41 @@ BEGIN_EXTERN_C
 //////////////////////  Flow Control  /////////////////////
 ///////////////////////////////////////////////////////////
 
-// Holds the game engine state.
+// Holds the game engine state
 struct qbUniverse {
   void* self;
-};
-
-struct qbProgram {
-  const qbId id;
-  const char* name;
-  const void* self;
 };
 
 qbResult qb_init(struct qbUniverse* universe);
 qbResult qb_start();
 qbResult qb_stop();
 qbResult qb_loop();
-qbResult qb_run_program(qbId program);
 
+// A program is a structure that holds all encapsulated state. This includes
+// collections, systems, events, and subscriptions. Programs can only talk to
+// each other through messages. Programs can access each other's collections
+// only after it has been shared.
+struct qbProgram {
+  const qbId id;
+  const char* name;
+  const void* self;
+};
+
+// Arguments:
+//   name The program name to refer to
+//
+// Returns:
+//   A unique Id
 qbId qb_create_program(const char* name);
+
+// Runs a particular program flushing its events and running all of its systems
+//
+// Arguments:
+//   program The program Id to flush
+//
+// Returns:
+//   QB_OK on success
+qbResult qb_run_program(qbId program);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -48,13 +65,13 @@ enum class qbTrigger {
 };
 
 struct qbExecutionPolicy {
-  // OPTIONAL.
-  // Priority of execution.
+  // OPTIONAL
+  // Priority of execution
   int16_t priority;
 
-  // REQUIRED.
+  // REQUIRED
   // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
-  // to only fire during an event.
+  // to only fire during an event
   qbTrigger trigger;
 };
 
@@ -96,6 +113,9 @@ enum class qbIndexedBy {
 
 struct qbMutation {
   qbMutateBy mutate_by;
+  
+  // REQUIRED
+  // Pointer to a piece of memory to be passed 
   void* element;
 };
 
@@ -119,40 +139,82 @@ struct qbSystem {
   const qbId program;
   const void* self;
 
-  // OPTIONAL.
-  // Pointer to user-defined state.
+  // OPTIONAL
+  // Pointer to user-defined state
   void* state;
 
-  // OPTIONAL.
-  // If defined, will run for each object in collection.
+  // OPTIONAL
+  // If defined, will run for each object in collection
   qbTransform transform;
 
-  // OPTIONAL.
+  // OPTIONAL
   // If defined, will run after all objects have been processed with
-  // 'transform'.
+  // 'transform'
   qbCallback callback;
 };
 
-// Allocates and adds a system to the specified program. System is enabled for
-// execution by default.
-// Thread-safe:
-// Idempotent:
+// Allocate, take ownership,  and add a system to the specified program. System
+// is enabled for execution by default
+//
+// Arguments:
+//   program The program name to attach this system to
+//   source The collection name to read from
+//   sink The collection name to write to
+//
+// Returns:
+//   The allocated system
 struct qbSystem* qb_alloc_system(const char* program, const char* source,
                                   const char* sink);
 
-// Free a system.
-// Thread-safe:
-// Idempotent:
+// Relinquish ownership to engine and free it
+//
+// Arguments:
+//   system The system to free
+//
+// Returns:
+//   QB_OK on success
 qbResult qb_free_system(struct qbSystem* system);
 
-// Copies a system and its configuration to a different program.
+// Copies a system and its configuration to a different program
+//
+// Arguments:
+//   source_system The system to copy
+//   destination_program The program to copy the system to
+//
+// Returns:
+//   Pointer to newly allocated system
 struct qbSystem* qb_copy_system(struct qbSystem* source_system,
                                 const char* destination_program);
 
+// Enable a system to run.
+//
+// Arguments:
+//   system The system to enable
+//   policy The new policy to set
+//
+// Returns:
+//   QB_OK on success
 qbResult qb_enable_system(struct qbSystem* system, qbExecutionPolicy policy);
+
+// Disable a system from running
+//
+// Arguments:
+//   system The system to disable
+//
+// Returns:
+//   QB_OK on success
 qbResult qb_disable_system(struct qbSystem* system);
 
-qbResult qb_add_source(struct qbSystem*, const char* collection);
+// Adds a collection for a system to read from. The collection must be in the
+// same program as the system.
+//
+// Arguments:
+//   system The system to add a collection to
+//   collection The collection name to add
+//
+// Returns:
+//   QB_OK on success
+qbResult qb_add_source(struct qbSystem* system, const char* collection);
 
 ///////////////////////////////////////////////////////////
 //////////////////////  Collections  //////////////////////
@@ -167,9 +229,17 @@ typedef void* (*qbAccessor)(struct qbCollection*, qbIndexedBy indexed_by,
                             const void* index);
 
 struct qbIterator {
+  // REQUIRED
+  // Function that returns the data to iterate over
   qbData data;
-  uint32_t offset;
+
+  // REQUIRED
+  // Size of step when iterating over data
   size_t size;
+
+  // OPTIONAL
+  // Offset into data to start iterating from. Default 0
+  uint32_t offset;
 };
 
 struct qbCollection {
@@ -177,25 +247,25 @@ struct qbCollection {
   const char* name;
   const void* self;
 
-  // REQUIRED.
+  // REQUIRED
   void* collection;
 
-  // REQUIRED.
+  // REQUIRED
   qbAccessor accessor;
 
-  // REQUIRED.
+  // REQUIRED
   qbIterator keys;
 
-  // REQUIRED.
+  // REQUIRED
   qbIterator values;
   
-  // REQUIRED.
+  // REQUIRED
   qbCopy copy;
 
-  // REQUIRED.
+  // REQUIRED
   qbMutate mutate;
 
-  // REQUIRED.
+  // REQUIRED
   qbCount count;
 };
 
@@ -205,9 +275,6 @@ struct qbCollections {
 };
 
 struct qbCollection* qb_alloc_collection(const char* program, const char* name);
-struct qbCollection* qb_create_collection_pool(size_t value_size);
-struct qbCollection* qb_create_collection_table(size_t key_size,
-                                                size_t value_size);
 
 qbResult qb_free_collection(struct qbCollection* collection);
 qbResult qb_share_collection(
@@ -238,7 +305,7 @@ struct qbEventPolicy {
   size_t size;
 };
 
-// Thread-safe.
+// Thread-safe
 qbId qb_create_event(const char* program, const char* event, qbEventPolicy policy);
 
 // Flush events from program. If event if null, flush all events from program.
@@ -251,10 +318,10 @@ void qb_send_message(qbMessage* e);
 struct qbChannel* qb_open_channel(const char* program, const char* event);
 void qb_close_channel(struct qbChannel* channel);
 
-// Subscribe a system to receive messages from an event.
+// Subscribe a system to receive messages from an event
 struct qbSubscription* qb_subscribe_to(const char* program, const char* event,
                                        struct qbSystem* system);
-// Ubsubscribe a system from receiving events.
+// Ubsubscribe a system from receiving events
 void qb_unsubscribe_from(struct qbSubscription* subscription);
 
 END_EXTERN_C

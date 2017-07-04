@@ -1,10 +1,11 @@
 #ifndef PRIVATE_UNIVERSE__H
 #define PRIVATE_UNIVERSE__H
 
+#include "concurrentqueue.h"
 #include "cubez.h"
 #include "table.h"
+#include "thread_pool.h"
 #include "stack_memory.h"
-#include "concurrentqueue.h"
 
 #include <algorithm>
 #include <cstring>
@@ -19,8 +20,6 @@
 
 #define LOG_VAR(var) std::cout << #var << " = " << var << std::endl
 
-using moodycamel::ConcurrentQueue;
-
 #define DECLARE_FRAME_ARENAS() \
     thread_local static uint8_t MUTATION_ARENA[MUTATION_ARENA_SIZE]; \
     thread_local static uint8_t ARGS_ARENA[MAX_ARG_COUNT * sizeof(qbArg)]; \
@@ -30,6 +29,8 @@ using moodycamel::ConcurrentQueue;
     DECLARE_FRAME_ARENAS(); \
     qbFrame var; \
     init_frame(&var, ARGS_ARENA, STACK_ARENA, MUTATION_ARENA);
+
+using moodycamel::ConcurrentQueue;
 
 constexpr uint32_t MAX_ARG_COUNT = 8;
 constexpr uint32_t MAX_ARG_SIZE = 128;
@@ -766,6 +767,9 @@ class ProgramImpl {
 
 class ProgramRegistry {
  public:
+  ProgramRegistry() :
+      program_threads_(std::thread::hardware_concurrency()) {}
+
   qbId create_program(const char* program) {
     qbId id = programs_.find(program);
     if (id == -1) {
@@ -815,6 +819,18 @@ class ProgramRegistry {
       ProgramImpl* p = (ProgramImpl*)programs_.values[i]->self;
       p->run();
     }
+
+    /*
+    std::vector<std::future<void>> programs;
+    for (uint64_t i = 0; i < programs_.size(); ++i) {
+      ProgramImpl* p = (ProgramImpl*)programs_.values[i]->self;
+      programs.push_back(program_threads_.enqueue(
+              [p]() { p->run(); }));
+    }
+
+    for (auto& p : programs) {
+      p.wait();
+    }*/
   }
 
   qbResult run_program(qbId program) {
@@ -833,6 +849,7 @@ class ProgramRegistry {
   }
 
   cubez::Table<std::string, qbProgram*> programs_;
+  ThreadPool program_threads_;
 };
 
 class PrivateUniverse {

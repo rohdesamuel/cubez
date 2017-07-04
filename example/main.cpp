@@ -1,7 +1,6 @@
 #define __ENGINE_DEBUG__
 #include "inc/cubez.h"
 #include "inc/table.h"
-#include "inc/stack_memory.h"
 #include "inc/schema.h"
 #include "inc/timer.h"
 

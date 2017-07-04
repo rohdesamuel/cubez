@@ -90,8 +90,8 @@ void initialize(const Settings&) {
 
     collision_system = qb_alloc_system(kMainProgram, physics::kCollection, physics::kCollection);
     collision_system->transform = nullptr;
-    collision_system->callback = [](qbSystem*, qbFrame*, const qbCollections*,
-                                                         const qbCollections* sinks) {
+    collision_system->callback = [](
+        qbSystem*, qbFrame*, const qbCollections*, const qbCollections* sinks) {
       qbCollection* from = sinks->collection[0];
       uint64_t size = from->count(from);
       for (uint64_t i = 0; i < size; ++i) {
