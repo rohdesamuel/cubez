@@ -1,4 +1,5 @@
 // Taken from https://github.com/progschj/ThreadPool
+// This work has been modified from its original source.
 
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H

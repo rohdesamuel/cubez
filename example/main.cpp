@@ -274,7 +274,8 @@ int main(int, char* []) {
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
 
-    if (trigger % period == 0 && prev_trigger != trigger) {
+    //if (trigger % period == 0 && prev_trigger != trigger) {
+    if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

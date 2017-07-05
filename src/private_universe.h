@@ -765,27 +765,74 @@ class ProgramImpl {
   std::set<qbSystem*> event_systems_;
 };
 
+class ProgramThread {
+ public:
+  ProgramThread(qbProgram* program) :
+      program_(program), is_running_(false) {} 
+
+  ~ProgramThread() {
+    release();
+  }
+
+  void run() {
+    is_running_ = true;
+    thread_.reset(new std::thread([this]() {
+      while(is_running_) {
+        ((ProgramImpl*)program_->self)->run();
+      }
+    }));
+  }
+  
+  qbProgram* release() {
+    if (is_running_) {
+      is_running_ = false;
+      thread_->join();
+      thread_.reset();
+    }
+    return program_;
+  }
+
+ private:
+  qbProgram* program_;
+  std::unique_ptr<std::thread> thread_;
+  std::atomic_bool is_running_;
+};
+
 class ProgramRegistry {
  public:
   ProgramRegistry() :
       program_threads_(std::thread::hardware_concurrency()) {}
 
   qbId create_program(const char* program) {
-    qbId id = programs_.find(program);
-    if (id == -1) {
-      id = programs_.insert(program, nullptr);
-      qbProgram* p = new_program(id, program);
-      programs_[id] = p;
-    }
+    std::hash<std::string> hasher;
+    qbId id = hasher(program);
+
+    DEBUG_OP(
+      auto it = programs_.find(id);
+      if (it != programs_.end()) {
+        return -1;
+      }
+    );
+
+    qbProgram* p = new_program(id, program);
+    programs_[id] = p;
     return id;
   }
 
-  qbId detach_program(const char*) {
-    return -1;
+  qbResult detach_program(qbId program) {
+    qbProgram* to_detach = get_program(program);
+    std::unique_ptr<ProgramThread> program_thread(
+        new ProgramThread(to_detach));
+    program_thread->run();
+    detached_[program] = std::move(program_thread);
+    programs_.erase(programs_.find(program));
+    return QB_OK;
   }
 
-  qbId join_program(const char*) {
-    return -1;
+  qbResult join_program(qbId program) {
+    programs_[program] = detached_.find(program)->second->release();
+    detached_.erase(detached_.find(program));
+    return QB_OK;
   }
 
   qbResult add_source(qbSystem* system, qbCollection* collection) {
@@ -799,7 +846,8 @@ class ProgramRegistry {
   }
 
   qbProgram* get_program(const char* program) {
-    qbHandle id = programs_.find(program);
+    std::hash<std::string> hasher;
+    qbId id = hasher(program);
     if (id == -1) {
       return nullptr;
     }
@@ -815,22 +863,23 @@ class ProgramRegistry {
   }
 
   void run() {
-    for (uint64_t i = 0; i < programs_.size(); ++i) {
-      ProgramImpl* p = (ProgramImpl*)programs_.values[i]->self;
-      p->run();
-    }
+    if (programs_.size() == 1) {
+      for (auto& program : programs_) {
+        ((ProgramImpl*)program.second->self)->run();
+      }
+    } else {
+      std::vector<std::future<void>> programs;
 
-    /*
-    std::vector<std::future<void>> programs;
-    for (uint64_t i = 0; i < programs_.size(); ++i) {
-      ProgramImpl* p = (ProgramImpl*)programs_.values[i]->self;
-      programs.push_back(program_threads_.enqueue(
-              [p]() { p->run(); }));
-    }
+      for (auto& program : programs_) {
+        ProgramImpl* p = (ProgramImpl*)program.second->self;
+        programs.push_back(program_threads_.enqueue(
+                [p]() { p->run(); }));
+      }
 
-    for (auto& p : programs) {
-      p.wait();
-    }*/
+      for (auto& p : programs) {
+        p.wait();
+      }
+    }
   }
 
   qbResult run_program(qbId program) {
@@ -848,7 +897,8 @@ class ProgramRegistry {
     return p;
   }
 
-  cubez::Table<std::string, qbProgram*> programs_;
+  std::unordered_map<size_t, qbProgram*> programs_;
+  std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;
 };
 
@@ -864,6 +914,8 @@ class PrivateUniverse {
 
   qbId create_program(const char* name);
   qbResult run_program(qbId program);
+  qbResult detach_program(qbId program);
+  qbResult join_program(qbId program);
 
   // qbSystem manipulation.
   struct qbSystem* alloc_system(const char* program, const char* source, const char* sink);

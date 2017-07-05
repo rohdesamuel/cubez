@@ -34,6 +34,14 @@ qbResult qb_run_program(qbId program) {
   return AS_PRIVATE(run_program(program));
 }
 
+qbResult qb_detach_program(qbId program) {
+  return AS_PRIVATE(detach_program(program));
+}
+
+qbResult qb_join_program(qbId program) {
+  return AS_PRIVATE(join_program(program));
+}
+
 struct qbSystem* qb_alloc_system(const char* program, const char* source, const char* sink) {
   return AS_PRIVATE(alloc_system(program, source, sink));
 }

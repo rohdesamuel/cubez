@@ -121,6 +121,14 @@ qbResult PrivateUniverse::run_program(qbId program) {
   return programs_.run_program(program); 
 }
 
+qbResult PrivateUniverse::detach_program(qbId program) {
+  return programs_.detach_program(program);
+}
+
+qbResult PrivateUniverse::join_program(qbId program) {
+  return programs_.join_program(program);
+}
+
 struct qbSystem* PrivateUniverse::alloc_system(
     const char* program, const char* source, const char* sink) {
   qbProgram* p = programs_.get_program(program);

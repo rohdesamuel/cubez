@@ -1,6 +1,8 @@
 #include "log.h"
 #include <iostream>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 namespace logging {
 
@@ -12,9 +14,11 @@ char kWriteEvent[] = "write";
 
 qbChannel* std_out;
 
+qbId program_id;
+
 void initialize() {
   // Create a separate program/system to handle stdout.
-  qb_create_program(kStdout);
+  program_id = qb_create_program(kStdout);
   qbSystem* out = qb_alloc_system(kStdout, nullptr, nullptr);
   out->transform = +[](qbSystem*, qbFrame* f) {
     std::cout << (char*)(f->message.data);
@@ -35,6 +39,8 @@ void initialize() {
 
   // Open channel to start writing.
   std_out = qb_open_channel(kStdout, kWriteEvent);
+
+  qb_detach_program(program_id);
 }
 
 void out(const std::string& s) {

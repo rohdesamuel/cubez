@@ -52,6 +52,25 @@ qbId qb_create_program(const char* name);
 //   QB_OK on success
 qbResult qb_run_program(qbId program);
 
+// Detaches a program from the main game loop. This starts an asynchronous
+// thread.
+//
+// Arguments:
+//   program The program Id to detach
+//
+// Returns:
+//   QB_OK on success
+qbResult qb_detach_program(qbId program);
+
+// Joins a program with the main game loop.
+//
+// Arguments:
+//   program The program Id to join
+//
+// Returns:
+//   QB_OK on success
+qbResult qb_join_program(qbId program);
+
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
 ///////////////////////////////////////////////////////////
@@ -306,7 +325,8 @@ struct qbEventPolicy {
 };
 
 // Thread-safe
-qbId qb_create_event(const char* program, const char* event, qbEventPolicy policy);
+qbId qb_create_event(const char* program, const char* event,
+                     qbEventPolicy policy);
 
 // Flush events from program. If event if null, flush all events from program.
 // Engine must not be in the LOOPING run state.
