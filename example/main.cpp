@@ -279,7 +279,8 @@ int main(int, char* []) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +
-          + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total) + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
+          + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total)
+          + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
           + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
           + "Render FPS: " + std::to_string(1e9 / render_timer.get_avg_elapsed_ns()) + "\n"
           + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"

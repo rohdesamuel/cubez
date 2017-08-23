@@ -50,11 +50,11 @@ void initialize(const Settings& settings) {
     objects_collection->count = Objects::Table::default_count;
 
     objects_collection->keys.data = Objects::Table::default_keys;
-    objects_collection->keys.size = sizeof(Objects::Key);
+    objects_collection->keys.stride = sizeof(Objects::Key);
     objects_collection->keys.offset = 0;
 
     objects_collection->values.data = Objects::Table::default_values;
-    objects_collection->values.size = sizeof(Objects::Value);
+    objects_collection->values.stride = sizeof(Objects::Value);
     objects_collection->values.offset = 0;
   }
 

@@ -1,8 +1,12 @@
+#include "physics.h"
 #include "render.h"
+#include "shader.h"
 
 #include "constants.h"
 
 #include <atomic>
+#include <glm/gtc/matrix_transform.hpp>
+#include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
 
 namespace render {
@@ -14,6 +18,15 @@ const char kInsert[] = "render_insert";
 // Collections
 Objects::Table* objects;
 qbCollection* objects_collection;
+
+Renderables::Table* renderables;
+qbCollection* renderables_collection;
+
+Materials::Table* materials;
+qbCollection* materials_collection;
+
+Meshes::Table* meshes;
+qbCollection* meshes_collection;
 
 // Channels
 qbChannel* insert_channel;
@@ -29,22 +42,23 @@ void initialize() {
   // Initialize collections.
   {
     std::cout << "Intializing render collections\n";
-    objects = new Objects::Table();
-    objects_collection = qb_alloc_collection(kMainProgram, kCollection);
-    objects_collection->collection = objects;
-
-    objects_collection->accessor = Objects::Table::default_accessor;
-    objects_collection->copy = Objects::Table::default_copy;
-    objects_collection->mutate = Objects::Table::default_mutate;
-    objects_collection->count = Objects::Table::default_count;
-
-    objects_collection->keys.data = Objects::Table::default_keys;
-    objects_collection->keys.size = sizeof(Objects::Key);
-    objects_collection->keys.offset = 0;
-
-    objects_collection->values.data = Objects::Table::default_values;
-    objects_collection->values.size = sizeof(Objects::Value);
-    objects_collection->values.offset = 0;
+    objects_collection = Objects::Table::new_collection(kMainProgram, kCollection);
+    objects = (Objects::Table*)objects_collection->collection;
+  }
+  {
+    std::cout << "Intializing renderables collection\n";
+    renderables_collection = Renderables::Table::new_collection(kMainProgram, kRenderables);
+    renderables = (Renderables::Table*)renderables_collection->collection;
+  }
+  {
+    std::cout << "Intializing meshes collection\n";
+    meshes_collection = Meshes::Table::new_collection(kMainProgram, kMeshes);
+    meshes = (Meshes::Table*)meshes_collection->collection;
+  }
+  {
+    std::cout << "Intializing materials collection\n";
+    materials_collection = Materials::Table::new_collection(kMainProgram, kMaterials);
+    materials = (Materials::Table*)materials_collection->collection;
   }
 
   // Initialize systems.
@@ -88,12 +102,65 @@ void initialize() {
   std::cout << "Finished initializing render\n";
 }
 
+void render_event(struct qbSystem*, struct qbFrame*,
+                  const struct qbCollections* sources,
+                  const struct qbCollections*) {
+  qbCollection* renderables = sources->collection[0];
+  qbCollection* materials = sources->collection[1];
+  qbCollection* transforms = sources->collection[2];
+  qbCollection* meshes = sources->collection[3];
+
+  uint64_t count = renderables->count(renderables);
+  for (uint64_t i = 0; i < count; ++i) {
+    Renderable* obj = (Renderable*)renderables->accessor(
+        renderables, qbIndexedBy::OFFSET, &i);
+    Material* material = (Material*)materials->accessor(
+        materials, qbIndexedBy::HANDLE, &obj->material_id);
+    Mesh* mesh = (Mesh*)meshes->accessor(
+        meshes, qbIndexedBy::HANDLE, &obj->mesh_id);
+    std::set<qbHandle>* transforms_v = &obj->transform_ids;
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+    glBindVertexArray(mesh->vao);
+
+    ShaderProgram shaders(material->shader_id);
+    shaders.use();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, material->texture_id);
+    glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
+    for (const qbHandle handle : *transforms_v) {
+      physics::Object& transform = *(physics::Object*)transforms->accessor(
+          transforms, qbIndexedBy::HANDLE, &handle);
+
+      glm::mat4 mvp = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
+      glm::vec3 p = transform.p;
+      p = p + glm::vec3{1.0f, 1.0f, 0.0f};
+      p.x *= 4.0f;
+      p.y *= 3.0f;
+
+      mvp = glm::translate(mvp, p);
+      glUniformMatrix4fv(glGetUniformLocation(
+            shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
+      glDrawArrays(GL_TRIANGLES, 0, mesh->count);
+    }
+  }
+}
+
 void present(RenderEvent* event) {
   qbMessage* m = qb_alloc_message(render_channel);
   *(RenderEvent*)m->data = *event;
   
   qb_send_message(m);
   qb_flush_events(kMainProgram, kRender);
+}
+
+qbHandle insert(const Material&, const Mesh&, const std::set<qbHandle>&) {
+  return 0;
+}
+
+qbId add_transform(qbId, qbHandle) {
+  return 0;
 }
 
 qbId create(Object* render_info) {

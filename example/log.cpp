@@ -1,8 +1,6 @@
 #include "log.h"
 #include <iostream>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 
 namespace logging {
 

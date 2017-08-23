@@ -100,6 +100,10 @@ void qb_send_message(qbMessage* m) {
   ChannelImpl::to_impl(m->channel)->send_message(m);
 }
 
+void qb_send_message_sync(qbMessage* m) {
+  ChannelImpl::to_impl(m->channel)->send_message_sync(m);
+}
+
 struct qbChannel* qb_open_channel(const char* program, const char* event) {
   return AS_PRIVATE(open_channel(program, event));
 }

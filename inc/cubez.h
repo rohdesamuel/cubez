@@ -110,11 +110,6 @@ struct qbArgs {
   uint8_t count;
 };
 
-struct qbElement {
-  uint8_t* data;
-  size_t size;
-};
-
 enum class qbMutateBy {
   UNKNOWN = 0,
   INSERT,
@@ -130,7 +125,15 @@ enum class qbIndexedBy {
   KEY
 };
 
+struct qbElement {
+  void* index;
+  void* value;
+
+  qbIndexedBy indexed_by;
+};
+
 struct qbMutation {
+  // REQUIRED
   qbMutateBy mutate_by;
   
   // REQUIRED
@@ -139,9 +142,10 @@ struct qbMutation {
 };
 
 struct qbMessage {
+  // What channel this message belongs to.
   struct qbChannel* channel;
-  void* data;
 
+  void* data;
   size_t size;
 };
 
@@ -254,7 +258,7 @@ struct qbIterator {
 
   // REQUIRED
   // Size of step when iterating over data
-  size_t size;
+  size_t stride;
 
   // OPTIONAL
   // Offset into data to start iterating from. Default 0
@@ -334,6 +338,7 @@ qbResult qb_flush_events(const char* program, const char* event);
 
 struct qbMessage* qb_alloc_message(struct qbChannel* channel);
 void qb_send_message(qbMessage* e);
+void qb_send_message_sync(qbMessage* e);
 
 struct qbChannel* qb_open_channel(const char* program, const char* event);
 void qb_close_channel(struct qbChannel* channel);

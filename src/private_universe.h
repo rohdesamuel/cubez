@@ -302,8 +302,8 @@ class SystemImpl {
     if (f) {
       for(uint64_t i = 0; i < count; ++i) {
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, f);
         system_->transform(system_, f);
       }
@@ -312,8 +312,8 @@ class SystemImpl {
         DECLARE_FRAME(frame);
 
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, &frame);
         system_->transform(system_, &frame);
       }
@@ -331,8 +331,8 @@ class SystemImpl {
     if (f) {
       for(uint64_t i = 0; i < count; ++i) {
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, f);
         system_->transform(system_, f);
         sink->mutate(sink, &f->mutation);
@@ -342,8 +342,8 @@ class SystemImpl {
         DECLARE_FRAME(frame);
 
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, &frame);
         system_->transform(system_, &frame);
         sink->mutate(sink, &frame.mutation);
@@ -361,8 +361,8 @@ class SystemImpl {
     if (f) {
       for(uint64_t i = 0; i < count; ++i) {
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, f);
         system_->transform(system_, f);
         sink->mutate(sink, &f->mutation);
@@ -372,8 +372,8 @@ class SystemImpl {
         DECLARE_FRAME(frame);
 
         source->copy(
-            keys + source->keys.offset + i * source->keys.size,
-            values + source->values.offset + i * source->values.size,
+            keys + source->keys.offset + i * source->keys.stride,
+            values + source->values.offset + i * source->values.stride,
             i, &frame);
         system_->transform(system_, &frame);
         sink->mutate(sink, &frame.mutation);
@@ -410,6 +410,17 @@ class MessageQueue {
 
   void send_message(qbMessage* message) {
     message_queue_.enqueue(message);
+  }
+
+  void send_message_sync(qbMessage* message) {
+    DECLARE_FRAME(frame);
+    frame.message = *message;
+
+    for (const auto& handler : handlers_) {
+      ((SystemImpl*)(handler.second->self))->run(&frame);
+    }
+
+    free_message(message);
   }
 
   void add_handler(qbSystem* p) {
@@ -474,6 +485,10 @@ class ChannelImpl {
   // Thread-safe.
   void send_message(qbMessage* message) {
     message_queue_->send_message(message);
+  }
+
+  void send_message_sync(qbMessage* message) {
+    message_queue_->send_message_sync(message);
   }
 
  private:

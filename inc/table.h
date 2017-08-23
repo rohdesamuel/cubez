@@ -167,6 +167,28 @@ public:
     return 0;
   }
 
+  static qbCollection* new_collection(const std::string& program,
+                                      const std::string& collection) {
+
+    qbCollection* c = qb_alloc_collection(program.data(), collection.data());
+    c->collection = new Table();
+
+    c->accessor = default_accessor;
+    c->copy = default_copy;
+    c->mutate = default_mutate;
+    c->count = default_count;
+
+    c->keys.data = default_keys;
+    c->keys.stride = sizeof(Key);
+    c->keys.offset = 0;
+
+    c->values.data = default_values;
+    c->values.stride = sizeof(Value);
+    c->values.offset = 0;
+
+    return c;
+  }
+
   static void* default_accessor(qbCollection* c, qbIndexedBy indexed_by,
                                 const void* index) {
     Table* t = (Table*)c->collection;
