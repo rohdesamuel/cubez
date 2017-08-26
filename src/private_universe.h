@@ -27,7 +27,9 @@
 
 #define DECLARE_FRAME(var) \
     DECLARE_FRAME_ARENAS(); \
-    qbFrame var; \
+    uint8_t VAR_ARENA [sizeof(qbFrame)] = {0}; \
+    qbFrame* VAR_ARENA_PTR = (qbFrame*)(&VAR_ARENA); \
+    qbFrame& var = *VAR_ARENA_PTR; \
     init_frame(&var, ARGS_ARENA, STACK_ARENA, MUTATION_ARENA);
 
 using moodycamel::ConcurrentQueue;
@@ -47,7 +49,7 @@ void init_frame(qbFrame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_A
     frame->args.arg[i].size = MAX_ARG_SIZE;
   }
   frame->mutation.mutate_by = qbMutateBy::UNKNOWN;
-  frame->mutation.element = mutation_arena;
+  *(void**)(&frame->mutation.element) = mutation_arena;
 }
 
 }  // namespace
@@ -414,7 +416,8 @@ class MessageQueue {
 
   void send_message_sync(qbMessage* message) {
     DECLARE_FRAME(frame);
-    frame.message = *message;
+
+    memcpy(&frame.message, message, sizeof(qbMessage));
 
     for (const auto& handler : handlers_) {
       ((SystemImpl*)(handler.second->self))->run(&frame);
@@ -441,7 +444,7 @@ class MessageQueue {
       if (!message_queue_.try_dequeue(msg)) {
         break;
       }
-      frame.message = *msg;
+      memcpy(&frame.message, msg, sizeof(qbMessage));
 
       for (const auto& handler : handlers_) {
         ((SystemImpl*)(handler.second->self))->run(&frame);
@@ -455,7 +458,7 @@ class MessageQueue {
   qbMessage* new_mem(qbChannel* c) {
     qbMessage* ret = (qbMessage*)(malloc(sizeof(qbMessage) + size_));
     ret->channel = c;
-    ret->data = (uint8_t*)ret + sizeof(qbMessage);
+    *(void**)(&ret->data) = (uint8_t*)ret + sizeof(qbMessage);
     ret->size = size_;
     return ret;
   }

@@ -195,6 +195,16 @@ qbResult PrivateUniverse::add_source(qbSystem* system, const char* source) {
   return programs_.to_impl(p)->add_source(system, src);
 }
 
+qbResult PrivateUniverse::add_sink(qbSystem* system, const char* sink) {
+  qbProgram* p = programs_.get_program(system->program);
+  if (!p) {
+    return QB_ERROR_NULL_POINTER;
+  }
+
+  qbCollection* src = collections_.get(p->id, sink);
+  return programs_.to_impl(p)->add_sink(system, src);
+}
+
 qbResult PrivateUniverse::share_collection(
       const char* source_program, const char* source_collection,
       const char* dest_program, const char* dest_collection) {

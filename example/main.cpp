@@ -109,14 +109,17 @@ void initialize_universe(qbUniverse* uni) {
 
   // Create the "main".
   qb_create_program(kMainProgram); 
-  
   {
-    render::initialize();
+    logging::initialize();
   }
 
   {
     physics::Settings settings;
     physics::initialize(settings);
+  }
+  
+  {
+    render::initialize();
   }
 
   {
@@ -134,10 +137,6 @@ void initialize_universe(qbUniverse* uni) {
     ball::create({0.0f, 0.0f, 0.0f},
                  {0.0f, 0.0f, 0.0f},
                  "ball.bmp", tex_vs, tex_fs);
-  }
-
-  {
-    logging::initialize();
   }
 }
 

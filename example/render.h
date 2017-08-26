@@ -27,8 +27,8 @@ struct Object {
 };
 
 struct Renderable {
-  unsigned int material_id;
-  unsigned int mesh_id;
+  qbId material_id;
+  qbId mesh_id;
   std::set<qbId> transform_ids;
 };
 
@@ -58,7 +58,9 @@ typedef cubez::Schema<uint32_t, Material> Materials;
 typedef cubez::Schema<uint32_t, Mesh> Meshes;
 
 void initialize();
-qbId create(Object* render_info);
+qbId create(const Material& material,
+            const Mesh& mesh,
+            qbId transform_id);
 
 void render(qbId material, qbId mesg);
 

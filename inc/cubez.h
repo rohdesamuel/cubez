@@ -138,14 +138,14 @@ struct qbMutation {
   
   // REQUIRED
   // Pointer to a piece of memory to be passed 
-  void* element;
+  void* const element;
 };
 
 struct qbMessage {
   // What channel this message belongs to.
   struct qbChannel* channel;
 
-  void* data;
+  void* const data;
   size_t size;
 };
 
@@ -238,6 +238,17 @@ qbResult qb_disable_system(struct qbSystem* system);
 // Returns:
 //   QB_OK on success
 qbResult qb_add_source(struct qbSystem* system, const char* collection);
+
+// Adds a collection for a system to write to. The collection must be in the
+// same program as the system.
+//
+// Arguments:
+//   system The system to add a collection to
+//   collection The collection name to add
+//
+// Returns:
+//   QB_OK on success
+qbResult qb_add_sink(struct qbSystem* system, const char* collection);
 
 ///////////////////////////////////////////////////////////
 //////////////////////  Collections  //////////////////////
@@ -336,8 +347,12 @@ qbId qb_create_event(const char* program, const char* event,
 // Engine must not be in the LOOPING run state.
 qbResult qb_flush_events(const char* program, const char* event);
 
+// Thread-safe.
 struct qbMessage* qb_alloc_message(struct qbChannel* channel);
+
+// Thread-safe.
 void qb_send_message(qbMessage* e);
+
 void qb_send_message_sync(qbMessage* e);
 
 struct qbChannel* qb_open_channel(const char* program, const char* event);

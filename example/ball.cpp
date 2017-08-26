@@ -38,6 +38,7 @@ GLuint tex_quad;
 
 void initialize(const Settings& settings) {
   // Initialize collections.
+  next_id = 0;
   {
     std::cout << "Intializing ball collections\n";
     objects = new Objects::Table();
@@ -130,6 +131,7 @@ void initialize(const Settings& settings) {
       }
     };
     qb_enable_system(render_system, policy);
+    qb_disable_system(render_system);
   }
 
   // Initialize events.
@@ -143,7 +145,7 @@ void initialize(const Settings& settings) {
   }
 
   {
-    qb_subscribe_to(kMainProgram, kRender, render_system);
+    //qb_subscribe_to(kMainProgram, kRender, render_system);
   }
 
   // Initialize rendering items.
@@ -257,7 +259,16 @@ qbId create(glm::vec3 pos, glm::vec3 vel,
   Object obj;
   obj.texture_id = load_texture(tex);
   obj.physics_id = physics::create(pos, vel);
-  obj.render_id = render::create(&render_info);
+  render::Material material;
+  material.shader_id = shaders.id();
+  material.texture_id = obj.texture_id;
+
+  render::Mesh mesh;
+  mesh.vao = render_info.vao;
+  mesh.vbo = render_info.vbo;
+  mesh.count = 6;
+
+  obj.render_id = render::create(material, mesh, obj.physics_id);
   el.value = obj;
   *(Objects::Element*)msg->data = el;
   qb_send_message(msg);

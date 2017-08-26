@@ -70,6 +70,10 @@ qbResult qb_add_source(qbSystem* system, const char* source) {
   return AS_PRIVATE(add_source(system, source));
 }
 
+qbResult qb_add_sink(qbSystem* system, const char* sink) {
+  return AS_PRIVATE(add_sink(system, sink));
+}
+
 qbResult qb_share_collection(
       const char* source_program, const char* source_collection,
       const char* dest_program, const char* dest_collection) {
