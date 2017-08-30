@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 const char tex_vs[] = R"(
+#version 130
 attribute vec3 inPos; 
 attribute vec2 inTexCoord; 
 
@@ -37,6 +38,7 @@ void main() {
 )";
 
 const char tex_fs[] = R"(
+#version 130
 uniform sampler2D uTexture; 
 
 varying vec2 vTexCoord; 
@@ -48,7 +50,7 @@ void main() {
 )";
 
 const char simple_vs[] = R"(
-#version 130
+#version 200
 
 in vec3 inPos;
 in vec3 inCol;
@@ -73,7 +75,6 @@ void main() {
 )";
 
 SDL_Window *win = nullptr;
-SDL_Renderer *renderer = nullptr;
 SDL_GLContext *context = nullptr;
 
 void init_rendering(int width, int height) {
@@ -81,14 +82,18 @@ void init_rendering(int width, int height) {
   
   SDL_Init(SDL_INIT_VIDEO);
   
-  win = SDL_CreateWindow("Hello World", posX, posY, width, height,
-                         SDL_WINDOW_OPENGL);
-  renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+  // Request an OpenGL 4.5 context
+  SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
 
   SDL_GL_SetAttribute(
       SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-  
+
+  win = SDL_CreateWindow("Hello World", posX, posY, width, height,
+                         SDL_WINDOW_OPENGL);
+
   SDL_GL_CreateContext(win);
 
   glewExperimental = GL_TRUE;
@@ -99,8 +104,6 @@ void init_rendering(int width, int height) {
     exit(1);
   }
 
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-  SDL_RenderClear(renderer);
   SDL_GL_SwapWindow(win);
 }
 
@@ -134,18 +137,21 @@ void initialize_universe(qbUniverse* uni) {
     settings.fs = tex_fs;
 
     ball::initialize(settings);
-    ball::create({0.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f},
-                 "ball.bmp", tex_vs, tex_fs);
+    ball::create({0.0f, 1.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({1.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
   }
 }
 
 int main(int, char* []) {
   init_rendering(800, 600);
+  std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
+
 
   qb_start();
   int frame = 0;
@@ -178,7 +184,6 @@ int main(int, char* []) {
       if (SDL_PollEvent(&e)) {
         if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
           if (e.key.keysym.sym == SDLK_ESCAPE) {
-            SDL_DestroyRenderer(renderer);
             SDL_DestroyWindow(win);
             SDL_Quit();
             qb_stop();
@@ -229,7 +234,7 @@ int main(int, char* []) {
           ((float)(rand() % 1000) / 100000.0f) - 0.005f,
           0
         };
-        physics::create(p, v);
+        ball::create(p, v);
       }
       qb_loop();
       accumulator -= dt;
@@ -273,8 +278,8 @@ int main(int, char* []) {
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
 
-    //if (trigger % period == 0 && prev_trigger != trigger) {
-    if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+    if (trigger % period == 0 && prev_trigger != trigger) {
+    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

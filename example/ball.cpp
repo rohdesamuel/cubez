@@ -3,6 +3,7 @@
 #include "physics.h"
 #include "render.h"
 #include "shader.h"
+#include "inc/timer.h"
 
 #include <atomic>
 
@@ -21,20 +22,42 @@ qbCollection* objects_collection;
 
 // Channels
 qbChannel* insert_channel;
-qbChannel* render_channel;
 
 // Systems
 qbSystem* insert_system;
-qbSystem* render_system;
 
 // State
 std::atomic_int next_id;
+qbId render_id;
 
 const char vertex_shader[] = "";
 const char fragment_shader[] = "";
 
 GLuint shader_program;
 GLuint tex_quad;
+
+uint32_t load_texture(const std::string& file) {
+  uint32_t texture;
+
+  // Load the image from the file into SDL's surface representation
+  SDL_Surface* surf = SDL_LoadBMP(file.c_str());
+
+  if (!surf) {
+    std::cout << "Could not load texture " << file << std::endl;
+  }
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  SDL_FreeSurface(surf);
+
+  return texture;
+}
+
 
 void initialize(const Settings& settings) {
   // Initialize collections.
@@ -78,61 +101,6 @@ void initialize(const Settings& settings) {
     };
     qb_enable_system(insert_system, policy);
   }
-  {
-    qbExecutionPolicy policy;
-    policy.priority = 0;
-    policy.trigger = qbTrigger::EVENT;
-
-    render_system = qb_alloc_system(kMainProgram, kCollection, kCollection);
-    qb_add_source(render_system, physics::kCollection);
-    qb_add_source(render_system, render::kCollection);
-
-    render_system->transform = nullptr;
-    render_system->callback = [](
-        qbSystem*, qbFrame*,
-        const qbCollections* sources,
-        const qbCollections*) {
-
-      qbCollection* ball_c = sources->collection[0];
-      qbCollection* physics_c = sources->collection[1];
-      qbCollection* render_c = sources->collection[2];
-
-      uint64_t size = ball_c->count(ball_c);
-      for (uint64_t i = 0; i < size; ++i) {
-        Objects::Value& ball =
-          *(Objects::Value*)ball_c->accessor(ball_c, qbIndexedBy::OFFSET, &i);
-
-        physics::Objects::Value& pv =
-            *(physics::Objects::Value*)physics_c->accessor(physics_c,
-                qbIndexedBy::KEY, &ball.physics_id);
-
-        RenderInfo& render_info = *(RenderInfo*)render_c->accessor(
-            render_c, qbIndexedBy::KEY, &ball.render_id);
-
-        glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
-        glBindVertexArray(render_info.vao);
-        ShaderProgram shaders(render_info.shader_program);
-        shaders.use();
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, ball.texture_id);
-        
-        glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
-        glm::mat4 mvp = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
-        glm::vec3 p = pv.p;
-        p = p + glm::vec3{1.0f, 1.0f, 0.0f};
-        p.x *= 4.0f;
-        p.y *= 3.0f;
-
-        mvp = glm::translate(mvp, p);
-        glUniformMatrix4fv(glGetUniformLocation(
-              shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-      }
-    };
-    qb_enable_system(render_system, policy);
-    qb_disable_system(render_system);
-  }
 
   // Initialize events.
   {
@@ -145,28 +113,24 @@ void initialize(const Settings& settings) {
   }
 
   {
-    //qb_subscribe_to(kMainProgram, kRender, render_system);
-  }
-
-  // Initialize rendering items.
-  {
-    RenderInfo render_info;
-
+    std::cout << "Initialize ball textures and shaders\n";
+    render::Mesh mesh;
+    mesh.count = 6;
     GLfloat vertices[] = {
-       0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-       0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
+      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+      0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
       -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
 
       -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
-       0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
+      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
       -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
     };
 
-    glGenVertexArrays(1, &render_info.vao);
-    glBindVertexArray(render_info.vao);
+    glGenVertexArrays(1, &mesh.vao);
+    glBindVertexArray(mesh.vao);
 
-    glGenBuffers(1, &render_info.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
+    glGenBuffers(1, &mesh.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     ShaderProgram shaders(settings.vs, settings.fs);
@@ -175,45 +139,24 @@ void initialize(const Settings& settings) {
     GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
     glEnableVertexAttribArray(inPos);
     glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
-                          5 * sizeof(float), 0);
+        5 * sizeof(float), 0);
 
     GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
     glEnableVertexAttribArray(inTexCoord);
     glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
-                          5 * sizeof(float), (void*)(3 * sizeof(float)));
+        5 * sizeof(float), (void*)(3 * sizeof(float)));
 
-    render_info.shader_program = shaders.id();
+    render::Material material;
+    material.shader_id = shaders.id();
+    material.texture_id = load_texture(settings.texture);
+
+    render_id = render::create(material, mesh);
   }
 
   std::cout << "Finished initializing ball\n";
 }
 
-uint32_t load_texture(const std::string& file) {
-  uint32_t texture;
-
-  // Load the image from the file into SDL's surface representation
-  SDL_Surface* surf = SDL_LoadBMP(file.c_str());
-
-  if (!surf) {
-    std::cout << "Could not load texture " << file << std::endl;
-  }
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  SDL_FreeSurface(surf);
-
-  return texture;
-}
-
-qbId create(glm::vec3 pos, glm::vec3 vel,
-    const std::string& tex,
-    const std::string& vs,
-    const std::string& fs) {
+qbId create(glm::vec3 pos, glm::vec3 vel) {
   qbId new_id = next_id;
   ++next_id;
 
@@ -222,55 +165,16 @@ qbId create(glm::vec3 pos, glm::vec3 vel,
   el.indexed_by = qbIndexedBy::KEY;
   el.key = new_id;
 
-  RenderInfo render_info;
-
-  GLfloat vertices[] = {
-     0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-     0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
-    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
-
-    -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
-     0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
-  };
-
-  glGenVertexArrays(1, &render_info.vao);
-  glBindVertexArray(render_info.vao);
-
-  glGenBuffers(1, &render_info.vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, render_info.vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-  ShaderProgram shaders(vs, fs);
-  shaders.use();
-
-  GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
-  glEnableVertexAttribArray(inPos);
-  glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
-                        5 * sizeof(float), 0);
-
-  GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
-  glEnableVertexAttribArray(inTexCoord);
-  glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
-                        5 * sizeof(float), (void*)(3 * sizeof(float)));
-
-  render_info.shader_program = shaders.id();
 
   Object obj;
-  obj.texture_id = load_texture(tex);
   obj.physics_id = physics::create(pos, vel);
-  render::Material material;
-  material.shader_id = shaders.id();
-  material.texture_id = obj.texture_id;
+  obj.render_id = render_id;
 
-  render::Mesh mesh;
-  mesh.vao = render_info.vao;
-  mesh.vbo = render_info.vbo;
-  mesh.count = 6;
-
-  obj.render_id = render::create(material, mesh, obj.physics_id);
   el.value = obj;
   *(Objects::Element*)msg->data = el;
+
+  render::add_transform(render_id, obj.physics_id);
+
   qb_send_message(msg);
 
   return new_id;

@@ -13,12 +13,10 @@ namespace render {
 
 // Event names
 const char kInsert[] = "render_insert";
+const char kTransformInsert[] = "render_transform_insert";
 
 
 // Collections
-Objects::Table* objects;
-qbCollection* objects_collection;
-
 Renderables::Table* renderables;
 qbCollection* renderables_collection;
 
@@ -30,14 +28,30 @@ qbCollection* meshes_collection;
 
 // Channels
 qbChannel* insert_channel;
+qbChannel* insert_transform_channel;
 qbChannel* render_channel;
 
 // Systems
 qbSystem* insert_system;
+qbSystem* insert_transform_system;
 qbSystem* render_system;
 
 // State
 std::atomic_int next_id;
+
+struct InsertEvent {
+  qbId material_id;
+  qbId mesh_id;
+  qbId renderable_id;
+
+  Material material;
+  Mesh mesh;
+};
+
+struct InsertTransformEvent {
+  qbId renderable_id;
+  qbId transform_id;
+};
 
 void render_event(struct qbSystem*, struct qbFrame*,
                   const struct qbCollections* sources,
@@ -56,22 +70,23 @@ void render_event(struct qbSystem*, struct qbFrame*,
         materials, qbIndexedBy::KEY, &obj->material_id);
     Mesh* mesh = (Mesh*)meshes->accessor(
         meshes, qbIndexedBy::KEY, &obj->mesh_id);
-    const std::set<qbHandle>& transforms_v = obj->transform_ids;
+    const std::set<qbId>& transforms_v = obj->transform_ids;
 
     glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
     glBindVertexArray(mesh->vao);
 
     ShaderProgram shaders(material->shader_id);
-    shaders.use();
+    //shaders.use();
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, material->texture_id);
     glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
+    glm::mat4 ortho = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
     for (const qbId id : transforms_v) {
       physics::Object& transform = *(physics::Object*)transforms->accessor(
           transforms, qbIndexedBy::KEY, &id);
 
-      glm::mat4 mvp = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
+      glm::mat4 mvp = ortho;
       glm::vec3 p = transform.p;
       p = p + glm::vec3{1.0f, 1.0f, 0.0f};
       p.x *= 4.0f;
@@ -93,18 +108,7 @@ void present(RenderEvent* event) {
   qb_flush_events(kMainProgram, kRender);
 }
 
-
-struct InsertEvent {
-  qbId material_id;
-  qbId mesh_id;
-  qbId renderable_id;
-  qbId transform_id;
-
-  Material material;
-  Mesh mesh;
-};
-
-qbId create(const Material& material, const Mesh& mesh, qbId transform_id) {
+qbId create(const Material& material, const Mesh& mesh) {
   qbId new_id = next_id++;
 
   qbMessage* m = qb_alloc_message(insert_channel);
@@ -113,7 +117,6 @@ qbId create(const Material& material, const Mesh& mesh, qbId transform_id) {
   event.material_id = new_id;
   event.mesh_id = new_id;
   event.renderable_id = new_id;
-  event.transform_id = transform_id;
 
   event.material = material;
   event.mesh = mesh;
@@ -141,7 +144,6 @@ void insert_event(struct qbSystem*, struct qbFrame* frame,
     e->indexed_by = qbIndexedBy::KEY;
 
     frame->mutation.mutate_by = qbMutateBy::INSERT;
-    std::cout << frame << std::endl;
     materials->mutate(materials, &frame->mutation);
   }
 
@@ -159,6 +161,27 @@ void insert_event(struct qbSystem*, struct qbFrame* frame,
     Renderable r;
     r.material_id = event->material_id;
     r.mesh_id = event->mesh_id;
+
+    Renderables::Element* e = (Renderables::Element*)frame->mutation.element;
+    e->key = event->renderable_id;
+    e->value = std::move(r);
+    e->indexed_by = qbIndexedBy::KEY;
+
+    frame->mutation.mutate_by = qbMutateBy::INSERT;
+    renderables->mutate(renderables, &frame->mutation);
+  }
+}
+
+void insert_transform_event(struct qbSystem*, struct qbFrame* frame,
+                  const struct qbCollections*,
+                  const struct qbCollections* sinks) {
+  qbCollection* renderables = sinks->collection[0];
+
+  InsertTransformEvent* event = (InsertTransformEvent*)frame->message.data;
+  frame->mutation.mutate_by = qbMutateBy::UPDATE;
+
+  {
+    Renderable r = *(Renderable*)renderables->accessor(renderables, qbIndexedBy::KEY, &event->renderable_id);
     r.transform_ids.insert(event->transform_id);
 
     Renderables::Element* e = (Renderables::Element*)frame->mutation.element;
@@ -171,18 +194,21 @@ void insert_event(struct qbSystem*, struct qbFrame* frame,
   }
 }
 
-qbId add_transform(qbId, qbHandle) {
-  return 0;
+void add_transform(qbId renderable_id, qbId transform_id) {
+  qbMessage* m = qb_alloc_message(insert_transform_channel);
+
+  InsertTransformEvent event;
+  event.renderable_id = renderable_id;
+  event.transform_id = transform_id;
+
+  *(InsertTransformEvent*)m->data = event;
+
+  qb_send_message(m);
 }
 
 void initialize() {
   // Initialize collections.
   next_id = 0;
-  {
-    std::cout << "Intializing render collections\n";
-    objects_collection = Objects::Table::new_collection(kMainProgram, kCollection);
-    objects = (Objects::Table*)objects_collection->collection;
-  }
   {
     std::cout << "Intializing renderables collection\n";
     renderables_collection = Renderables::Table::new_collection(kMainProgram, kRenderables);
@@ -219,6 +245,17 @@ void initialize() {
     policy.priority = QB_MIN_PRIORITY;
     policy.trigger = qbTrigger::EVENT;
 
+    insert_transform_system = qb_alloc_system(kMainProgram, nullptr, kRenderables);
+
+    insert_transform_system->callback = insert_transform_event;
+    qb_enable_system(insert_transform_system, policy);
+  }
+
+  {
+    qbExecutionPolicy policy;
+    policy.priority = QB_MIN_PRIORITY;
+    policy.trigger = qbTrigger::EVENT;
+
     render_system = qb_alloc_system(kMainProgram, kRenderables, nullptr);
     qb_add_source(render_system, kMaterials);
     qb_add_source(render_system, kMeshes);
@@ -236,6 +273,14 @@ void initialize() {
     qb_create_event(kMainProgram, kInsert, policy);
     qb_subscribe_to(kMainProgram, kInsert, insert_system);
     insert_channel = qb_open_channel(kMainProgram, kInsert);
+  }
+
+  {
+    qbEventPolicy policy;
+    policy.size = sizeof(InsertTransformEvent);
+    qb_create_event(kMainProgram, kTransformInsert, policy);
+    qb_subscribe_to(kMainProgram, kTransformInsert, insert_transform_system);
+    insert_transform_channel = qb_open_channel(kMainProgram, kTransformInsert);
   }
 
   {

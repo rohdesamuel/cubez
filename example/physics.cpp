@@ -119,7 +119,6 @@ void initialize(const Settings&) {
       }
     };
     qb_enable_system(collision_system, policy);
-    //qb_disable_system(collision_system);
   }
   {
     qbExecutionPolicy policy;

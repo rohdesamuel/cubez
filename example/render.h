@@ -15,16 +15,9 @@
 
 namespace render {
 
-const char kCollection[] = "render_objects";
 const char kRenderables[] = "renderables";
 const char kMaterials[] = "materials";
 const char kMeshes[] = "meshes";
-
-struct Object {
-  unsigned int shader_program;
-  unsigned int vbo;
-  unsigned int vao;
-};
 
 struct Renderable {
   qbId material_id;
@@ -51,23 +44,20 @@ struct RenderEvent {
   uint64_t ftimestamp_us;
 };
 
-typedef cubez::Schema<uint32_t, Object> Objects;
-
 typedef cubez::Schema<uint32_t, Renderable> Renderables;
 typedef cubez::Schema<uint32_t, Material> Materials;
 typedef cubez::Schema<uint32_t, Mesh> Meshes;
 
 void initialize();
 qbId create(const Material& material,
-            const Mesh& mesh,
-            qbId transform_id);
+            const Mesh& mesh);
+
+void add_transform(qbId renderable_id, qbId transform_id);
 
 void render(qbId material, qbId mesg);
 
 void present(RenderEvent* event);
 
 }  // namespace render
-
-typedef render::Object RenderInfo;
 
 #endif
