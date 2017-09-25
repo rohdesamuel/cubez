@@ -52,6 +52,8 @@ void initialize();
 qbId create(const Material& material,
             const Mesh& mesh);
 
+uint32_t load_texture(const std::string& file);
+
 void add_transform(qbId renderable_id, qbId transform_id);
 
 void render(qbId material, qbId mesg);

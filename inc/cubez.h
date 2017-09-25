@@ -176,12 +176,14 @@ struct qbSystem {
   qbCallback callback;
 };
 
-// Allocate, take ownership,  and add a system to the specified program. System
+// Allocate, take ownership, and add a system to the specified program. System
 // is enabled for execution by default
 //
 // Arguments:
 //   program The program name to attach this system to
-//   source The collection name to read from
+//   source The collection name to read from. If there are multiple sources,
+//          this collection's key will be used to query all sources added with
+//          qb_add_source.
 //   sink The collection name to write to
 //
 // Returns:
@@ -259,12 +261,24 @@ typedef void (*qbCopy)(const uint8_t* key, const uint8_t* value, uint64_t index,
                        struct qbFrame*);
 typedef uint64_t (*qbCount)(struct qbCollection*);
 typedef uint8_t* (*qbData)(struct qbCollection*);
-typedef void* (*qbAccessor)(struct qbCollection*, qbIndexedBy indexed_by,
-                            const void* index);
+typedef void* (*qbValueByOffset)(struct qbCollection*, uint64_t offset);
+typedef void* (*qbValueByHandle)(struct qbCollection*, qbHandle handle);
+typedef void* (*qbValueByKey)(struct qbCollection*, void* key);
+
+struct qbAccessor {
+  // REQUIRED
+  qbValueByOffset offset;
+
+  // REQUIRED
+  qbValueByHandle handle;
+
+  // REQUIRED
+  qbValueByKey key;
+};
 
 struct qbIterator {
   // REQUIRED
-  // Function that returns the data to iterate over
+  // Function that returns the beginning of the data to iterate over
   qbData data;
 
   // REQUIRED
@@ -317,6 +331,34 @@ qbResult qb_share_collection(
 qbResult qb_copy_collection(
     const char* source_program, const char* source_collection,
     const char* dest_program, const char* dest_collection);
+
+///////////////////////////////////////////////////////////
+/////////////////////  Type Management  ///////////////////
+///////////////////////////////////////////////////////////
+
+struct qbEntity {
+  const qbId id;
+  const char* name;
+  const void* self;
+};
+
+struct qbInstance {
+  const qbId id;
+  const qbId collection;
+  void* const data;
+};
+
+// 
+qbId qb_define_entity(const char* program, const char* name,
+                      struct qbEntity* entity);
+
+qbResult qb_add_collection(struct qbEntity* entity,
+                           struct qbCollection* collection);
+
+qbResult qb_create_entity(struct qbEntity* entity, uint32_t count,
+                          qbInstance created[]);
+
+
 
 
 ///////////////////////////////////////////////////////////

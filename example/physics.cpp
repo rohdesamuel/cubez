@@ -29,22 +29,10 @@ std::atomic_int next_id;
 void initialize(const Settings&) {
   // Initialize collections.
   {
-    objects = new Objects::Table();
-    objects_collection = qb_alloc_collection(kMainProgram, kCollection);
-    objects_collection->collection = objects;
-
-    objects_collection->accessor = Objects::Table::default_accessor;
-    objects_collection->copy = Objects::Table::default_copy;
-    objects_collection->mutate = Objects::Table::default_mutate;
-    objects_collection->count = Objects::Table::default_count;
-
-    objects_collection->keys.data = Objects::Table::default_keys;
-    objects_collection->keys.stride = sizeof(Objects::Key);
-    objects_collection->keys.offset = 0;
-
-    objects_collection->values.data = Objects::Table::default_values;
-    objects_collection->values.stride = sizeof(Objects::Value);
-    objects_collection->values.offset = 0;
+    std::cout << "Initializing physics collections\n";
+    objects_collection = Objects::Table::new_collection(kMainProgram,
+                                                        kCollection);
+    objects = (typename Objects::Table*)objects_collection->collection;
   }
 
   // Initialize systems.
@@ -97,9 +85,9 @@ void initialize(const Settings&) {
       for (uint64_t i = 0; i < size; ++i) {
         for (uint64_t j = i + 1; j < size; ++j) {
           physics::Objects::Value& a =
-              *(physics::Objects::Value*)from->accessor(from, qbIndexedBy::OFFSET, &i);
+              *(physics::Objects::Value*)from->accessor.offset(from, i);
           physics::Objects::Value& b =
-              *(physics::Objects::Value*)from->accessor(from, qbIndexedBy::OFFSET, &j);
+              *(physics::Objects::Value*)from->accessor.offset(from, j);
 
           glm::vec3 r = a.p - b.p;
           if (glm::abs(r.x) <= 0.0001f && glm::abs(r.y) <= 0.0001f) {
@@ -131,7 +119,7 @@ void initialize(const Settings&) {
                                                      const qbCollections* sinks) {
       qbCollection* from = sinks->collection[0];
       Impulse* impulse = (Impulse*)f->message.data;
-      Objects::Value* value = (Objects::Value*)from->accessor(from, qbIndexedBy::KEY, &impulse->key);
+      Objects::Value* value = (Objects::Value*)from->accessor.key(from, &impulse->key);
       value->v += impulse->p;
     };
     qb_enable_system(impulse_system, policy);

@@ -64,12 +64,12 @@ void render_event(struct qbSystem*, struct qbFrame*,
   uint64_t count = renderables->count(renderables);
 
   for (uint64_t i = 0; i < count; ++i) {
-    Renderable* obj = (Renderable*)renderables->accessor(
-        renderables, qbIndexedBy::OFFSET, &i);
-    Material* material = (Material*)materials->accessor(
-        materials, qbIndexedBy::KEY, &obj->material_id);
-    Mesh* mesh = (Mesh*)meshes->accessor(
-        meshes, qbIndexedBy::KEY, &obj->mesh_id);
+    Renderable* obj = (Renderable*)renderables->accessor.offset(
+        renderables, i);
+    Material* material = (Material*)materials->accessor.key(
+        materials, &obj->material_id);
+    Mesh* mesh = (Mesh*)meshes->accessor.key(
+        meshes, &obj->mesh_id);
     const std::set<qbId>& transforms_v = obj->transform_ids;
 
     glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
@@ -82,9 +82,9 @@ void render_event(struct qbSystem*, struct qbFrame*,
     glBindTexture(GL_TEXTURE_2D, material->texture_id);
     glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
     glm::mat4 ortho = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
-    for (const qbId id : transforms_v) {
-      physics::Object& transform = *(physics::Object*)transforms->accessor(
-          transforms, qbIndexedBy::KEY, &id);
+    for (qbId id : transforms_v) {
+      physics::Object& transform = *(physics::Object*)transforms->accessor.key(
+          transforms, &id);
 
       glm::mat4 mvp = ortho;
       glm::vec3 p = transform.p;
@@ -181,7 +181,8 @@ void insert_transform_event(struct qbSystem*, struct qbFrame* frame,
   frame->mutation.mutate_by = qbMutateBy::UPDATE;
 
   {
-    Renderable r = *(Renderable*)renderables->accessor(renderables, qbIndexedBy::KEY, &event->renderable_id);
+    Renderable r = *(Renderable*)renderables->accessor.key(renderables,
+                                                       &event->renderable_id);
     r.transform_ids.insert(event->transform_id);
 
     Renderables::Element* e = (Renderables::Element*)frame->mutation.element;

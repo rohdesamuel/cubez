@@ -18,12 +18,13 @@
 #include "log.h"
 #include "shader.h"
 #include "render.h"
+#include "generic.h"
 
 #include <thread>
 #include <unordered_map>
 
 const char tex_vs[] = R"(
-#version 130
+#version 330 core
 attribute vec3 inPos; 
 attribute vec2 inTexCoord; 
 
@@ -38,7 +39,7 @@ void main() {
 )";
 
 const char tex_fs[] = R"(
-#version 130
+#version 330 core
 uniform sampler2D uTexture; 
 
 varying vec2 vTexCoord; 
@@ -77,6 +78,14 @@ void main() {
 SDL_Window *win = nullptr;
 SDL_GLContext *context = nullptr;
 
+void check_for_gl_errors() {
+  GLenum error = glGetError();
+  if (error) {
+    const GLubyte* error_str = gluErrorString(error);
+    std::cout << "Error(" << error << "): " << error_str << std::endl;
+  }
+}
+
 void init_rendering(int width, int height) {
   int posX = 100, posY = 100;
   
@@ -84,8 +93,8 @@ void init_rendering(int width, int height) {
   
   // Request an OpenGL 4.5 context
   SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
   SDL_GL_SetAttribute(
       SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -103,6 +112,9 @@ void init_rendering(int width, int height) {
       << "Error code: " << glewError;
     exit(1);
   }
+  // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
+  // that error here and carry on.
+  glGetError();
 
   SDL_GL_SwapWindow(win);
 }
@@ -123,6 +135,7 @@ void initialize_universe(qbUniverse* uni) {
   
   {
     render::initialize();
+    check_for_gl_errors();
   }
 
   {
@@ -141,6 +154,15 @@ void initialize_universe(qbUniverse* uni) {
                  {0.0f, 0.0f, 0.0f});
     ball::create({1.0f, 0.0f, 0.0f},
                  {0.0f, 0.0f, 0.0f});
+    check_for_gl_errors();
+  }
+
+  {
+    //Generic<Generic<int>, Generic<int>>::initialize(kMainProgram, "void");
+    //Generic<void, Generic<int>, Generic<int>>::create(1, 1);
+    //Generic<int, Generic<float>, Generic<int>>::initialize(kMainProgram, "intint");
+    //Generic<int, Generic<float>, Generic<int>>::create(1, qbId(2), 3);
+    //Generic<int, Generic<int>, Generic<int>>::create({1}, {2}, {3});
   }
 }
 
@@ -252,13 +274,7 @@ int main(int, char* []) {
     e.ftimestamp_us = Timer::now() - start_time;
     render::present(&e);
 
-    {
-      GLenum error = glGetError();
-      if (error) {
-        const GLubyte* error_str = gluErrorString(error);
-        std::cout << "Error(" << error << "): " << error_str << std::endl;
-      }
-    }
+    check_for_gl_errors();
 
     SDL_GL_SwapWindow(win);
 
@@ -285,8 +301,8 @@ int main(int, char* []) {
           "Frame " + std::to_string(frame) + "\n" +
           + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total)
           + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
-          + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
           + "Render FPS: " + std::to_string(1e9 / render_timer.get_avg_elapsed_ns()) + "\n"
+          + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
           + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
           + "Accum: " + std::to_string(accumulator) + "\n\n");
     }

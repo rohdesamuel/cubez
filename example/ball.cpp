@@ -30,12 +30,6 @@ qbSystem* insert_system;
 std::atomic_int next_id;
 qbId render_id;
 
-const char vertex_shader[] = "";
-const char fragment_shader[] = "";
-
-GLuint shader_program;
-GLuint tex_quad;
-
 uint32_t load_texture(const std::string& file) {
   uint32_t texture;
 
@@ -64,22 +58,9 @@ void initialize(const Settings& settings) {
   next_id = 0;
   {
     std::cout << "Intializing ball collections\n";
-    objects = new Objects::Table();
-    objects_collection = qb_alloc_collection(kMainProgram, kCollection);
-    objects_collection->collection = objects;
-
-    objects_collection->accessor = Objects::Table::default_accessor;
-    objects_collection->copy = Objects::Table::default_copy;
-    objects_collection->mutate = Objects::Table::default_mutate;
-    objects_collection->count = Objects::Table::default_count;
-
-    objects_collection->keys.data = Objects::Table::default_keys;
-    objects_collection->keys.stride = sizeof(Objects::Key);
-    objects_collection->keys.offset = 0;
-
-    objects_collection->values.data = Objects::Table::default_values;
-    objects_collection->values.stride = sizeof(Objects::Value);
-    objects_collection->values.offset = 0;
+    objects_collection = Objects::Table::new_collection(kMainProgram,
+                                                        kCollection);
+    objects = (typename Objects::Table*)objects_collection->collection;
   }
 
   // Initialize systems.

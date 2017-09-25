@@ -361,7 +361,11 @@ class SystemImpl {
     const uint8_t* values = source->values.data(source);
 
     if (f) {
-      for(uint64_t i = 0; i < count; ++i) {
+      for (uint64_t i = 0; i < count; ++i) {
+        for (size_t j = 1; j < sources_.size(); ++j) {
+          void* key = alloca(source->values.stride);
+          source->accessor.key(source, key); 
+        }
         source->copy(
             keys + source->keys.offset + i * source->keys.stride,
             values + source->values.offset + i * source->values.stride,
@@ -370,7 +374,7 @@ class SystemImpl {
         sink->mutate(sink, &f->mutation);
       }
     } else {
-      for(uint64_t i = 0; i < count; ++i) {
+      for (uint64_t i = 0; i < count; ++i) {
         DECLARE_FRAME(frame);
 
         source->copy(

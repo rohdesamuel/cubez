@@ -173,7 +173,10 @@ public:
     qbCollection* c = qb_alloc_collection(program.data(), collection.data());
     c->collection = new Table();
 
-    c->accessor = default_accessor;
+    c->accessor.offset = default_access_by_offset;
+    c->accessor.handle = default_access_by_handle;
+    c->accessor.key = default_access_by_key;
+
     c->copy = default_copy;
     c->mutate = default_mutate;
     c->count = default_count;
@@ -189,19 +192,19 @@ public:
     return c;
   }
 
-  static void* default_accessor(qbCollection* c, qbIndexedBy indexed_by,
-                                const void* index) {
+  static void* default_access_by_offset(qbCollection* c, uint64_t offset) {
     Table* t = (Table*)c->collection;
-    if (indexed_by == qbIndexedBy::KEY) {
-      const Key_* key = (const Key_*)index;
-      return &(*t)[t->find(*key)];
-    } else if (indexed_by == qbIndexedBy::HANDLE) {
-      const qbHandle* handle = (const qbHandle*)index;
-      return &(*t)[*handle];
-    } else if (indexed_by == qbIndexedBy::OFFSET) {
-      return &t->value(*(qbOffset*)index);
-    }
-    return nullptr;
+    return &t->value(offset);
+  }
+
+  static void* default_access_by_handle(qbCollection* c, qbHandle handle) {
+    Table* t = (Table*)c->collection;
+    return &(*t)[handle];
+  }
+
+  static void* default_access_by_key(qbCollection* c, void* key) {
+    Table* t = (Table*)c->collection;
+    return &(*t)[t->find(*(const Key_*)key)];
   }
 
   static void default_copy(const uint8_t* /* key */,
