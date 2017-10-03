@@ -17,24 +17,19 @@ const char kTransformInsert[] = "render_transform_insert";
 
 
 // Collections
-Renderables::Table* renderables;
-qbCollection* renderables_collection;
-
-Materials::Table* materials;
-qbCollection* materials_collection;
-
-Meshes::Table* meshes;
-qbCollection* meshes_collection;
+qbComponent renderables;
+qbComponent materials;
+qbComponent meshes;
 
 // Channels
-qbChannel* insert_channel;
-qbChannel* insert_transform_channel;
-qbChannel* render_channel;
+qbEvent insert_event;
+qbEvent insert_transform_event;
+qbEvent render_event;
 
 // Systems
-qbSystem* insert_system;
-qbSystem* insert_transform_system;
-qbSystem* render_system;
+qbSystem insert_system;
+qbSystem insert_transform_system;
+qbSystem render_system;
 
 // State
 std::atomic_int next_id;
@@ -53,59 +48,45 @@ struct InsertTransformEvent {
   qbId transform_id;
 };
 
-void render_event(struct qbSystem*, struct qbFrame*,
-                  const struct qbCollections* sources,
-                  const struct qbCollections*) {
-  qbCollection* renderables = sources->collection[0];
-  qbCollection* materials = sources->collection[1];
-  qbCollection* meshes = sources->collection[2];
-  qbCollection* transforms = sources->collection[3];
+void render_event_handler(qbSystem, qbElement* elements,
+                          qbCollectionInterface* collections) {
+  qbCollectionInterface* transforms = &collections[0];
 
-  uint64_t count = renderables->count(renderables);
+  Renderable* obj = (Renderable*)elements[0].value;
+  Material* material = (Material*)elements[1].value;
+  Mesh* mesh = (Mesh*)elements[2].value;
+  const std::set<qbId>& transforms_v = obj->transform_ids;
 
-  for (uint64_t i = 0; i < count; ++i) {
-    Renderable* obj = (Renderable*)renderables->accessor.offset(
-        renderables, i);
-    Material* material = (Material*)materials->accessor.key(
-        materials, &obj->material_id);
-    Mesh* mesh = (Mesh*)meshes->accessor.key(
-        meshes, &obj->mesh_id);
-    const std::set<qbId>& transforms_v = obj->transform_ids;
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+  glBindVertexArray(mesh->vao);
 
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-    glBindVertexArray(mesh->vao);
+  ShaderProgram shaders(material->shader_id);
+  //shaders.use();
 
-    ShaderProgram shaders(material->shader_id);
-    //shaders.use();
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, material->texture_id);
+  glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
+  glm::mat4 ortho = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
+  for (qbId id : transforms_v) {
+    physics::Transform& transform = *(physics::Transform*)transforms->by_key(
+        transforms, &id);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, material->texture_id);
-    glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
-    glm::mat4 ortho = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
-    for (qbId id : transforms_v) {
-      physics::Object& transform = *(physics::Object*)transforms->accessor.key(
-          transforms, &id);
+    glm::mat4 mvp = ortho;
+    glm::vec3 p = transform.p;
+    p = p + glm::vec3{1.0f, 1.0f, 0.0f};
+    p.x *= 4.0f;
+    p.y *= 3.0f;
 
-      glm::mat4 mvp = ortho;
-      glm::vec3 p = transform.p;
-      p = p + glm::vec3{1.0f, 1.0f, 0.0f};
-      p.x *= 4.0f;
-      p.y *= 3.0f;
-
-      mvp = glm::translate(mvp, p);
-      glUniformMatrix4fv(glGetUniformLocation(
-            shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
-      glDrawArrays(GL_TRIANGLES, 0, mesh->count);
-    }
+    mvp = glm::translate(mvp, p);
+    glUniformMatrix4fv(glGetUniformLocation(
+          shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
+    glDrawArrays(GL_TRIANGLES, 0, mesh->count);
   }
 }
 
 void present(RenderEvent* event) {
-  qbMessage* m = qb_alloc_message(render_channel);
-  *(RenderEvent*)m->data = *event;
-  
-  qb_send_message(m);
-  qb_flush_events(kMainProgram, kRender);
+  qb_event_send(render_event, event);
+  qb_event_flush(render_event);
 }
 
 qbId create(const Material& material, const Mesh& mesh) {
@@ -127,34 +108,24 @@ qbId create(const Material& material, const Mesh& mesh) {
   return new_id;
 }
 
-void insert_event(struct qbSystem*, struct qbFrame* frame,
-                  const struct qbCollections*,
-                  const struct qbCollections* sinks) {
-  qbCollection* renderables = sinks->collection[0];
-  qbCollection* materials = sinks->collection[1];
-  qbCollection* meshes = sinks->collection[2];
+void insert_event(qbSystem, void* message, qbCollectionInterface* collections) {
+  qbCollectionInterface* renderables = &collections[0];
+  qbCollectionInterface* materials = &collections[1];
+  qbCollectionInterface* meshes = &collections[2];
 
-  InsertEvent* event = (InsertEvent*)frame->message.data;
-  frame->mutation.mutate_by = qbMutateBy::INSERT;
-
+  InsertEvent* event = (InsertEvent*)message;
   {
-    Materials::Element* e = (Materials::Element*)frame->mutation.element;
-    e->key = event->material_id;
-    e->value = std::move(event->material);
-    e->indexed_by = qbIndexedBy::KEY;
-
-    frame->mutation.mutate_by = qbMutateBy::INSERT;
-    materials->mutate(materials, &frame->mutation);
+    qbElement element;
+    element.key = &event->material_id;
+    element.value = &event->material;
+    materials->insert(materials, &element);
   }
 
   {
-    Meshes::Element* e = (Meshes::Element*)frame->mutation.element;
-    e->key = event->mesh_id;
-    e->value = std::move(event->mesh);
-    e->indexed_by = qbIndexedBy::KEY;
-
-    frame->mutation.mutate_by = qbMutateBy::INSERT;
-    meshes->mutate(meshes, &frame->mutation);
+    qbElement element;
+    element.key = &event->mesh_id;
+    element.value = &event->mesh;
+    meshes->insert(meshes, &element);
   }
 
   {
@@ -162,49 +133,35 @@ void insert_event(struct qbSystem*, struct qbFrame* frame,
     r.material_id = event->material_id;
     r.mesh_id = event->mesh_id;
 
-    Renderables::Element* e = (Renderables::Element*)frame->mutation.element;
-    e->key = event->renderable_id;
-    e->value = std::move(r);
-    e->indexed_by = qbIndexedBy::KEY;
-
-    frame->mutation.mutate_by = qbMutateBy::INSERT;
-    renderables->mutate(renderables, &frame->mutation);
+    qbElement element;
+    element.key = &event->renderable_id;
+    element.value = &r;
+    renderables->insert(renderables, &element);
   }
 }
 
-void insert_transform_event(struct qbSystem*, struct qbFrame* frame,
-                  const struct qbCollections*,
-                  const struct qbCollections* sinks) {
-  qbCollection* renderables = sinks->collection[0];
+void insert_transform_event(qbSystem, void* message, qbCollectionInterface* collections) {
+  qbCollectionInterface* renderables = &collections[0];
 
-  InsertTransformEvent* event = (InsertTransformEvent*)frame->message.data;
-  frame->mutation.mutate_by = qbMutateBy::UPDATE;
+  InsertTransformEvent* event = (InsertTransformEvent*)message;
 
-  {
-    Renderable r = *(Renderable*)renderables->accessor.key(renderables,
-                                                       &event->renderable_id);
-    r.transform_ids.insert(event->transform_id);
+  Renderable r = *(Renderable*)renderables->by_key(renderables,
+                                                   &event->renderable_id);
+  r.transform_ids.insert(event->transform_id);
 
-    Renderables::Element* e = (Renderables::Element*)frame->mutation.element;
-    e->key = event->renderable_id;
-    e->value = std::move(r);
-    e->indexed_by = qbIndexedBy::KEY;
+  qbElement element;
+  element.key = &event->renderable_id;
+  element.value = &r;
 
-    frame->mutation.mutate_by = qbMutateBy::INSERT;
-    renderables->mutate(renderables, &frame->mutation);
-  }
+  renderables->insert(renderables, &element);
 }
 
 void add_transform(qbId renderable_id, qbId transform_id) {
-  qbMessage* m = qb_alloc_message(insert_transform_channel);
-
   InsertTransformEvent event;
   event.renderable_id = renderable_id;
   event.transform_id = transform_id;
 
-  *(InsertTransformEvent*)m->data = event;
-
-  qb_send_message(m);
+  qb_event_send(inter_event, &m);
 }
 
 void initialize() {
@@ -212,58 +169,90 @@ void initialize() {
   next_id = 0;
   {
     std::cout << "Intializing renderables collection\n";
-    renderables_collection = Renderables::Table::new_collection(kMainProgram, kRenderables);
-    renderables = (Renderables::Table*)renderables_collection->collection;
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setprogram(&attr, kMainProgram);
+    qb_componentattr_setdatasize(&attr, sizeof(Renderable));
+
+    qb_component_create(&renderables, "renderables", attr);
+    qb_componentattr_destroy(&attr);
   }
   {
     std::cout << "Intializing meshes collection\n";
-    meshes_collection = Meshes::Table::new_collection(kMainProgram, kMeshes);
-    meshes = (Meshes::Table*)meshes_collection->collection;
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setprogram(&attr, kMainProgram);
+    qb_componentattr_setdatasize(&attr, sizeof(Mesh));
+
+    qb_component_create(&meshes, "meshes", attr);
+    qb_componentattr_destroy(&attr);
   }
   {
     std::cout << "Intializing materials collection\n";
-    materials_collection = Materials::Table::new_collection(kMainProgram, kMaterials);
-    materials = (Materials::Table*)materials_collection->collection;
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setprogram(&attr, kMainProgram);
+    qb_componentattr_setdatasize(&attr, sizeof(Material));
+
+    qb_component_create(&materials, "materials", attr);
+    qb_componentattr_destroy(&attr);
   }
 
   // Initialize systems.
   {
     std::cout << "Intializing render systems\n";
-    qbExecutionPolicy policy;
-    policy.priority = QB_MIN_PRIORITY;
-    policy.trigger = qbTrigger::EVENT;
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_setprogram(&attr, kMainProgram);
+    qb_systemattr_settrigger(&attr, qbTrigger::EVENT);
+    qb_systemattr_setpriority(&attr, QB_MIN_PRIORITY);
+    qb_systemattr_addsink(&attr, renderables);
+    qb_systemattr_addsink(&attr, materials);
+    qb_systemattr_addsink(&attr, meshes);
+    qb_systemattr_setfunction(&attr, insert_event);
 
-    insert_system = qb_alloc_system(kMainProgram, nullptr, kRenderables);
-    qb_add_sink(insert_system, kMaterials);
-    qb_add_sink(insert_system, kMeshes);
-
-    insert_system->callback = insert_event;
-    qb_enable_system(insert_system, policy);
+    qb_system_create(&insert_system, attr);
   }
 
   {
+    qbSystemCreateInfo info;
+    info.program = kMainProgram;
+
     qbExecutionPolicy policy;
     policy.priority = QB_MIN_PRIORITY;
     policy.trigger = qbTrigger::EVENT;
+    info.policy = policy;
 
-    insert_transform_system = qb_alloc_system(kMainProgram, nullptr, kRenderables);
+    qbCollection* sinks[] = { renderables };
+    info.sources.collection = nullptr;
+    info.sinks.collection = sinks;
+    info.sinks.count = 1;
+    
+    info.transform = nullptr;
+    info.callback = insert_transform_event;
 
-    insert_transform_system->callback = insert_transform_event;
-    qb_enable_system(insert_transform_system, policy);
+    qb_alloc_system(&info, &insert_transform_system);
   }
 
   {
+    qbSystemCreateInfo info;
+    info.program = kMainProgram;
+
     qbExecutionPolicy policy;
     policy.priority = QB_MIN_PRIORITY;
     policy.trigger = qbTrigger::EVENT;
+    info.policy = policy;
 
-    render_system = qb_alloc_system(kMainProgram, kRenderables, nullptr);
-    qb_add_source(render_system, kMaterials);
-    qb_add_source(render_system, kMeshes);
-    qb_add_source(render_system, physics::kCollection); // transforms
-
-    render_system->callback = render_event;
-    qb_enable_system(render_system, policy);
+    qbCollection* sources[] = {renderables,
+                               materials,
+                               meshes,
+                               physics::get_collection()};
+    info.sources.collection = sources;
+    info.sources.count = 4;
+    info.sinks.collection = nullptr;
+    info.transform = nullptr;
+    info.callback = render_event;
+    qb_alloc_system(&info, &render_system);
   }
 
   // Initialize events.

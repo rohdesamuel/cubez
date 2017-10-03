@@ -10,6 +10,7 @@ char kStdout[] = "stdout";
 
 char kWriteEvent[] = "write";
 
+qbSystem* system_out;
 qbChannel* std_out;
 
 qbId program_id;
@@ -17,15 +18,20 @@ qbId program_id;
 void initialize() {
   // Create a separate program/system to handle stdout.
   program_id = qb_create_program(kStdout);
-  qbSystem* out = qb_alloc_system(kStdout, nullptr, nullptr);
-  out->transform = +[](qbSystem*, qbFrame* f) {
+
+  qbSystemCreateInfo info;
+  info.program = kStdout;
+  info.policy.priority = QB_MAX_PRIORITY;
+  info.policy.trigger = qbTrigger::EVENT;
+  info.callback = nullptr;
+  info.transform = +[](qbSystem*, qbFrame* f) {
     std::cout << (char*)(f->message.data);
   };
-  out->callback = nullptr;
-  qbExecutionPolicy policy;
-  policy.priority = QB_MAX_PRIORITY;
-  policy.trigger = qbTrigger::EVENT;
-  qb_enable_system(out, policy);
+
+  info.sources.collection = nullptr;
+  info.sinks.collection = nullptr;
+
+  qb_alloc_system(&info, &system_out);
   
   // Create an event to write to stdout with max buffer of 256 chars.
   qbEventPolicy event_policy;
@@ -33,7 +39,7 @@ void initialize() {
   qb_create_event(kStdout, kWriteEvent, event_policy);
 
   // Subcsribe system handler to stdout.
-  qb_subscribe_to(kStdout, kWriteEvent, out);
+  qb_subscribe_to(kStdout, kWriteEvent, system_out);
 
   // Open channel to start writing.
   std_out = qb_open_channel(kStdout, kWriteEvent);

@@ -66,21 +66,29 @@ void initialize(const Settings& settings) {
   // Initialize systems.
   {
     std::cout << "Intializing ball systems\n";
-    qbExecutionPolicy policy;
-    policy.priority = QB_MIN_PRIORITY;
-    policy.trigger = qbTrigger::EVENT;
+    qbSystemCreateInfo info;
+    info.program = kMainProgram;
+    info.policy.priority = QB_MIN_PRIORITY;
+    info.policy.trigger = qbTrigger::EVENT;
 
-    insert_system = qb_alloc_system(kMainProgram, nullptr, kCollection);
-    insert_system->transform = [](qbSystem*, qbFrame* f) {
-      std::cout << "insert ball\n";
+    info.sources.collection = nullptr;
+    info.sources.count = 0;
+
+    qbCollection* sinks[] = { objects_collection };
+    info.sinks.collection = sinks;
+    info.sinks.count = 1;
+    info.transform = [](qbSystem*, qbFrame* f) {
       qbMutation* mutation = &f->mutation;
       mutation->mutate_by = qbMutateBy::INSERT;
       Objects::Element* msg = (Objects::Element*)f->message.data;
-      Objects::Element* el =
-        (Objects::Element*)(mutation->element);
-      *el = *msg;
+      *(Objects::Key*)mutation->element.key = msg->key;
+      *(Objects::Value*)mutation->element.value = msg->value;
+
+      std::cout << "inserted ball\n";
     };
-    qb_enable_system(insert_system, policy);
+    info.callback = nullptr;
+
+    qb_alloc_system(&info, &insert_system);
   }
 
   // Initialize events.

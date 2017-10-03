@@ -129,20 +129,19 @@ qbResult PrivateUniverse::join_program(qbId program) {
   return programs_.join_program(program);
 }
 
-struct qbSystem* PrivateUniverse::alloc_system(
-    const char* program, const char* source, const char* sink) {
-  qbProgram* p = programs_.get_program(program);
+qbResult PrivateUniverse::system_create(qbSystem_** system, 
+                                        const qbSystemAttr_& attr) {
+  qbProgram* p = programs_.get_program(attr.program);
   if (!p) {
-    return nullptr;
+    return qbResult::QB_UNKNOWN;
   }
 
-  qbCollection* src = source ? collections_.get(p->id, source) : nullptr;
-  qbCollection* snk = sink ? collections_.get(p->id, sink) : nullptr;
+  *system = programs_.to_impl(p)->create_system(attr);
 
-  return programs_.to_impl(p)->alloc_system(src, snk);
+  return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::free_system(struct qbSystem* system) {
+qbResult PrivateUniverse::free_system(qbSystem_* system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
@@ -152,23 +151,22 @@ qbResult PrivateUniverse::free_system(struct qbSystem* system) {
   return program->free_system(system);
 }
 
-struct qbSystem* PrivateUniverse::copy_system(
-    struct qbSystem*, const char*) {
+qbSystem_* PrivateUniverse::copy_system(
+    qbSystem_*, const char*) {
   return nullptr;
 }
 
-qbResult PrivateUniverse::enable_system(
-    struct qbSystem* system, qbExecutionPolicy policy) {
+qbResult PrivateUniverse::enable_system(qbSystem_* system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
   ASSERT_NOT_NULL(p);
 
   ProgramImpl* program = programs_.to_impl(p);
-  return program->enable_system(system, policy);
+  return program->enable_system(system);
 }
 
-qbResult PrivateUniverse::disable_system(struct qbSystem* system) {
+qbResult PrivateUniverse::disable_system(qbSystem_* system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
@@ -178,33 +176,29 @@ qbResult PrivateUniverse::disable_system(struct qbSystem* system) {
   return program->disable_system(system);
 }
 
-qbCollection* PrivateUniverse::alloc_collection(const char* program, const char* name) {
-  qbProgram* p = programs_.get_program(program);
+
+qbResult PrivateUniverse::collection_create(qbCollection* collection,
+                                            const char* name,
+                                            qbCollectionAttr attr) {
+  qbProgram* p = programs_.get_program(attr->program);
   ASSERT_NOT_NULL(p);
-
-  return collections_.alloc(p->id, name);
+  *collection = collections_.alloc(p->id, name);
+  return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::add_source(qbSystem* system, const char* source) {
-  qbProgram* p = programs_.get_program(system->program);
-  if (!p) {
-    return QB_ERROR_NULL_POINTER;
-  }
-
-  qbCollection* src = collections_.get(p->id, source);
-  return programs_.to_impl(p)->add_source(system, src);
+qbResult PrivateUniverse::collection_share(qbCollection, qbProgram) {
+	return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::add_sink(qbSystem* system, const char* sink) {
-  qbProgram* p = programs_.get_program(system->program);
-  if (!p) {
-    return QB_ERROR_NULL_POINTER;
-  }
-
-  qbCollection* src = collections_.get(p->id, sink);
-  return programs_.to_impl(p)->add_sink(system, src);
+qbResult PrivateUniverse::collection_copy(qbCollection, qbProgram) {
+	return qbResult::QB_OK;
 }
 
+qbResult PrivateUniverse::collection_destroy(qbCollection*) {
+	return qbResult::QB_OK;
+}
+
+#if 0
 qbResult PrivateUniverse::share_collection(
       const char* source_program, const char* source_collection,
       const char* dest_program, const char* dest_collection) {
@@ -225,47 +219,69 @@ qbResult PrivateUniverse::copy_collection(const char*, const char*,
                                           const char*, const char*) {
   return QB_OK;
 }
+#endif
 
-qbId PrivateUniverse::create_event(const char* program, const char* event, qbEventPolicy policy) {
-  qbProgram* p = programs_.get_program(program);
+qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
+  qbProgram* p = programs_.get_program(attr->program);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  return programs_.to_impl(p)->create_event(event, policy);
+  return programs_.to_impl(p)->create_event(event, attr);
 }
 
-qbResult PrivateUniverse::flush_events(const char* program, const char* event) {
+qbResult PrivateUniverse::event_destroy(qbEvent*) {
+	return qbResult::QB_OK;
+}
+
+qbResult PrivateUniverse::event_flush(qbEvent event) {
   qbResult err = runner_.assert_in_state(RunState::RUNNING);
   if (err != QB_OK) {
     return err;
   }
 
-  qbProgram* p = programs_.get_program(program);
+  qbProgram* p = programs_.get_program(event->program);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
   programs_.to_impl(p)->flush_events(event);
-
-  return QB_OK;
+	return qbResult::QB_OK;
 }
 
-struct qbChannel* PrivateUniverse::open_channel(const char* program, const char* event) {
-  qbProgram* p = programs_.get_program(program);
+qbResult PrivateUniverse::event_flushall(qbProgram program) {
+  qbResult err = runner_.assert_in_state(RunState::RUNNING);
+  if (err != QB_OK) {
+    return err;
+  }
+
+  qbProgram* p = programs_.get_program(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  return programs_.to_impl(p)->open_channel(event);
+  programs_.to_impl(p)->flush_all_events();
+	return qbResult::QB_OK;
 }
 
-void PrivateUniverse::close_channel(struct qbChannel* channel) {
-  qbProgram* p = programs_.get_program(channel->program);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  programs_.to_impl(p)->close_channel(channel);
+qbResult PrivateUniverse::event_subscribe(qbEvent event, qbSystem system) {
+  qbProgram* p = programs_.get_program(event->program);
+  programs_.to_impl(p)->subscribe_to(event, system);
+	return qbResult::QB_OK;
 }
 
-struct qbSubscription* PrivateUniverse::subscribe_to(
-    const char* program, const char* event, struct qbSystem* system) {
-  qbProgram* p = programs_.get_program(program);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  return programs_.to_impl(p)->subscribe_to(event, system);
+qbResult PrivateUniverse::event_unsubscribe(qbEvent event, qbSystem system) {
+  qbProgram* p = programs_.get_program(event->program);
+  programs_.to_impl(p)->unsubscribe_from(event, system);
+	return qbResult::QB_OK;
 }
 
-void PrivateUniverse::unsubscribe_from(struct qbSubscription* subscription) {
-  qbProgram* p = programs_.get_program(subscription->program);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  programs_.to_impl(p)->unsubscribe_from(subscription);
+qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
+  return ((Channel*)event->channel)->send_message(message);
+}
+
+qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
+  return ((Channel*)event->channel)->send_message(message);
+}
+
+qbResult PrivateUniverse::entity_create(qbEntity_** entity, const qbEntityAttr_& attr) {
+  if (runner_.state() == Runner::State::LOOPING) {
+    return entities_.create_entityasync(entity, attr);
+  }
+  return entities_.create_entity(entity, attr);
+}
+
+qbResult PrivateUniverse::component_create(qbComponent_** component, qbComponentAttr_* attr) {
+  return components_.create_component(component, attr);
 }

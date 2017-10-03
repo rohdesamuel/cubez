@@ -168,76 +168,66 @@ public:
   }
 
   static qbCollection* new_collection(const std::string& program,
-                                      const std::string& collection) {
+                                      const std::string& name) {
+    qbCollectionAttr attr;
+    qb_collectionattr_create(&attr);
+    qb_collectionattr_setprogram(&attr, program.c_str());
+    qb_collectionattr_setimplementation(&attr, new Table);
+    qb_collectionattr_setcount(&attr, default_count);
+    qb_collectionattr_setupdate(&attr, default_update);
+    qb_collectionattr_setinsert(&attr, default_insert);
+    qb_collectionattr_setaccessors(&attr, default_access_by_offset,
+                                   default_access_by_key,
+                                   default_access_by_handle);
+    qb_collectionattr_setkeyiterator(&attr, default_keys, sizeof(Key), 0);
+    qb_collectionattr_setvalueiterator(&attr, default_values, sizeof(Value), 0);
+    qb_collectionattr_setcount(&attr, default_count);
 
-    qbCollection* c = qb_alloc_collection(program.data(), collection.data());
-    c->collection = new Table();
+    qbCollection collection;
+    qb_collection_create(&collection, name.c_str(), attr);
 
-    c->accessor.offset = default_access_by_offset;
-    c->accessor.handle = default_access_by_handle;
-    c->accessor.key = default_access_by_key;
-
-    c->copy = default_copy;
-    c->mutate = default_mutate;
-    c->count = default_count;
-
-    c->keys.data = default_keys;
-    c->keys.stride = sizeof(Key);
-    c->keys.offset = 0;
-
-    c->values.data = default_values;
-    c->values.stride = sizeof(Value);
-    c->values.offset = 0;
-
-    return c;
+    qb_collectionattr_destroy(&attr);
+    return collection;
   }
 
-  static void* default_access_by_offset(qbCollection* c, uint64_t offset) {
+  static void* default_access_by_offset(qbCollectionInterface* c, uint64_t offset) {
     Table* t = (Table*)c->collection;
     return &t->value(offset);
   }
 
-  static void* default_access_by_handle(qbCollection* c, qbHandle handle) {
+  static void* default_access_by_handle(qbCollectionInterface* c, qbHandle handle) {
     Table* t = (Table*)c->collection;
     return &(*t)[handle];
   }
 
-  static void* default_access_by_key(qbCollection* c, void* key) {
+  static void* default_access_by_key(qbCollectionInterface* c, void* key) {
     Table* t = (Table*)c->collection;
-    return &(*t)[t->find(*(const Key_*)key)];
+    qbHandle found = t->find(*(const Key*)key);
+    if (found >= 0) {
+      return &(*t)[found];
+    }
+    return nullptr;
   }
 
-  static void default_copy(const uint8_t* /* key */,
-                           const uint8_t* value,
-                           uint64_t offset,
-                           qbFrame* f) {
-    qbMutation* mutation = &f->mutation;
-    mutation->mutate_by = qbMutateBy::UPDATE;
-    Element* el = (Element*)(mutation->element);
-    el->offset = offset;
-    new (&el->value) Value(*(Value*)(value) );
+  static void default_update(qbCollectionInterface* c, qbElement* el) {
+    Table* t = (Table*)c->collection;
+    t->values[el->offset] = std::move(*(Value*)el->value); 
   }
 
-  static void default_mutate(qbCollection* c,
-                             const qbMutation* m) {
-      Table* t = (Table*)c->collection;
-      Element* el = (Element*)(m->element);
-      if (m->mutate_by == qbMutateBy::UPDATE) {
-        t->values[el->offset] = std::move(el->value); 
-      } else if (m->mutate_by == qbMutateBy::INSERT) {
-        t->insert(std::move(el->key), std::move(el->value));
-      }
+  static qbHandle default_insert(qbCollectionInterface* c, qbElement* el) {
+    Table* t = (Table*)c->collection;
+    return t->insert(std::move(*(Key*)el->key), std::move(*(Value*)el->value));
   }
 
-  static uint64_t default_count(qbCollection* c) {
+  static uint64_t default_count(qbCollectionInterface* c) {
     return ((Table*)c->collection)->size();
   }
 
-  static uint8_t* default_keys(qbCollection* c) {
+  static uint8_t* default_keys(qbCollectionInterface* c) {
     return (uint8_t*)((Table*)c->collection)->keys.data();
   };
 
-  static uint8_t* default_values(qbCollection* c) {
+  static uint8_t* default_values(qbCollectionInterface* c) {
     return (uint8_t*)((Table*)c->collection)->values.data();
   };
 
@@ -246,11 +236,14 @@ public:
 
 private:
   qbHandle make_handle() {
-    if (free_handles_.size()) {
+    // Use reusable stale handles first.
+    if (!free_handles_.empty()) {
       qbHandle h = free_handles_.back();
       free_handles_.pop_back();
       return h;
     }
+
+    // Otherwise make a new handle.
     handles_.push_back(handles_.size());
     return handles_.back();
   }

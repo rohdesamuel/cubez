@@ -10,89 +10,70 @@ const char kImpulse[] = "physics_impulse";
 const char kCollision[] = "physics_collision";
 
 // Collections
-Objects::Table* objects;
-qbCollection* objects_collection;
+qbComponent objects;
 
 // Channels
-qbChannel* insert_channel;
-qbChannel* impulse_channel;
+qbEvent impulse_event;
 
 // Systems
-qbSystem* impulse_system;
-qbSystem* collision_system;
-qbSystem* move_system;
-qbSystem* insert_system;
-
-// State
-std::atomic_int next_id;
+qbSystem impulse_system;
+qbSystem collision_system;
+qbSystem move_system;
 
 void initialize(const Settings&) {
   // Initialize collections.
   {
     std::cout << "Initializing physics collections\n";
-    objects_collection = Objects::Table::new_collection(kMainProgram,
-                                                        kCollection);
-    objects = (typename Objects::Table*)objects_collection->collection;
+
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setprogram(&attr, kMainProgram);
+    qb_componentattr_setdatasize(&attr, sizeof(physics::Transform));
+
+    qbComponent objects;
+    qb_component_create(&objects, "transforms", attr);
   }
 
-  // Initialize systems.
   {
-    qbExecutionPolicy policy;
-    policy.priority = QB_MIN_PRIORITY;
-    policy.trigger = qbTrigger::EVENT;
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_setprogram(&attr, kMainProgram);
+    qb_systemattr_setpriority(&attr, QB_MIN_PRIORITY);
+    qb_systemattr_addsource(&attr, objects);
+    qb_systemattr_addsink(&attr, objects);
+    qb_systemattr_setfunction(&attr,
+        [](qbSystem, qbElement* elements, qbCollectionInterface* collections) {
+          Transform* particle = (Transform*)elements[0].value;
+          particle->p += particle->v;
+          if (particle->p.x >  1.0f) { particle->p.x =  0.98f; particle->v.x *= -0.98; }
+          if (particle->p.x < -1.0f) { particle->p.x = -0.98f; particle->v.x *= -0.98; }
+          if (particle->p.y >  1.0f) { particle->p.y =  0.98f; particle->v.y *= -0.98; }
+          if (particle->p.y < -1.0f) { particle->p.y = -0.98f; particle->v.y *= -0.98; }
 
-    insert_system = qb_alloc_system(kMainProgram, nullptr, physics::kCollection);
-    insert_system->transform = [](qbSystem*, qbFrame* f) {
-      qbMutation* mutation = &f->mutation;
-      mutation->mutate_by = qbMutateBy::INSERT;
-      Objects::Element* msg = (Objects::Element*)f->message.data;
-      Objects::Element* el =
-        (Objects::Element*)(mutation->element);
-      *el = *msg;
-    };
-    qb_enable_system(insert_system, policy);
+          collections[0].update(&collections[0], &elements[0]);
+        });
+    qb_system_create(&move_system, attr);
+    qb_systemattr_destroy(&attr);
   }
   {
-    qbExecutionPolicy policy;
-    policy.priority = QB_MIN_PRIORITY;
-    policy.trigger = qbTrigger::LOOP;
-
-    move_system = qb_alloc_system(kMainProgram, physics::kCollection, physics::kCollection);
-    move_system->transform = [](qbSystem*, qbFrame* f) {
-      Objects::Element* el = (Objects::Element*)f->mutation.element;
-
-      //el->value.v.y -= 0.00001f;
-      //el->value.v *= 0.99f;
-      el->value.p += el->value.v;
-      if (el->value.p.x >  1.0f) { el->value.p.x =  0.98f; el->value.v.x *= -0.98; }
-      if (el->value.p.x < -1.0f) { el->value.p.x = -0.98f; el->value.v.x *= -0.98; }
-      if (el->value.p.y >  1.0f) { el->value.p.y =  0.98f; el->value.v.y *= -0.98; }
-      if (el->value.p.y < -1.0f) { el->value.p.y = -0.98f; el->value.v.y *= -0.98; }
-    };
-    qb_enable_system(move_system, policy);
-  }
-  {
-    qbExecutionPolicy policy;
-    policy.priority = 0;
-    policy.trigger = qbTrigger::LOOP;
-
-    collision_system = qb_alloc_system(kMainProgram, physics::kCollection, physics::kCollection);
-    collision_system->transform = nullptr;
-    collision_system->callback = [](
-        qbSystem*, qbFrame*, const qbCollections*, const qbCollections* sinks) {
-      qbCollection* from = sinks->collection[0];
-      uint64_t size = from->count(from);
-      for (uint64_t i = 0; i < size; ++i) {
-        for (uint64_t j = i + 1; j < size; ++j) {
-          physics::Objects::Value& a =
-              *(physics::Objects::Value*)from->accessor.offset(from, i);
-          physics::Objects::Value& b =
-              *(physics::Objects::Value*)from->accessor.offset(from, j);
-
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_setprogram(&attr, kMainProgram);
+    qb_systemattr_setpriority(&attr, 0);
+    qb_systemattr_addsource(&attr, objects);
+    qb_systemattr_addsource(&attr, objects);
+    qb_systemattr_addsink(&attr, objects);
+    qb_systemattr_setjoin(&attr, qbComponentJoin::QB_JOIN_CROSS);
+    qb_systemattr_setfunction(&attr,
+        [](qbSystem, qbElement* elements, qbCollectionInterface* sinks) {
+          qbCollectionInterface* transforms = &sinks[0];
+          Transform& a = *(Transform*)elements[0].value;
+          Transform& b = *(Transform*)elements[1].value;
           glm::vec3 r = a.p - b.p;
           if (glm::abs(r.x) <= 0.0001f && glm::abs(r.y) <= 0.0001f) {
-            continue;
+            return;
           }
+
           glm::vec3 n = glm::normalize(r);
           float d = glm::length(r);
 
@@ -103,71 +84,50 @@ void initialize(const Settings&) {
             a.v = a.v - (p * n);// * 0.15f;
             b.v = b.v + (p * n);// * 0.15f;
           }
-        }
-      }
-    };
-    qb_enable_system(collision_system, policy);
+
+          transforms->update(transforms, &elements[0]);
+          transforms->update(transforms, &elements[1]);
+        });
+
+    qb_system_create(&collision_system, attr);
   }
   {
-    qbExecutionPolicy policy;
-    policy.priority = QB_MIN_PRIORITY;
-    policy.trigger = qbTrigger::EVENT;
-
-    impulse_system = qb_alloc_system(kMainProgram, nullptr, physics::kCollection);
-    impulse_system->transform = nullptr;
-    impulse_system->callback = [](qbSystem*, qbFrame* f, const qbCollections*,
-                                                     const qbCollections* sinks) {
-      qbCollection* from = sinks->collection[0];
-      Impulse* impulse = (Impulse*)f->message.data;
-      Objects::Value* value = (Objects::Value*)from->accessor.key(from, &impulse->key);
-      value->v += impulse->p;
-    };
-    qb_enable_system(impulse_system, policy);
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_setprogram(&attr, kMainProgram);
+    qb_systemattr_setpriority(&attr, QB_MIN_PRIORITY);
+    qb_systemattr_settrigger(&attr, qbTrigger::EVENT);
+    qb_systemattr_addsink(&attr, objects);
+    qb_systemattr_setcallback(&attr,
+        [](qbSystem, void* message, qbCollectionInterface* collections) {
+          qbCollectionInterface* from = &collections[0];
+          Impulse* impulse = (Impulse*)message;
+          Transform* transform = (Transform*)from->by_key(from, &impulse->key);
+          transform->v += impulse->p;
+        });
+    qb_system_create(&impulse_system, attr);
+    qb_systemattr_destroy(&attr);
   }
 
   // Initialize events.
   {
-    qbEventPolicy policy;
-    policy.size = sizeof(Objects::Element);
-    qb_create_event(kMainProgram, kInsert, policy);
-    qb_subscribe_to(kMainProgram, kInsert, insert_system);
-    insert_channel = qb_open_channel(kMainProgram, kInsert);
-  }
-  {
-    qbEventPolicy policy;
-    policy.size = sizeof(Impulse);
-    qb_create_event(kMainProgram, kImpulse, policy);
-    qb_subscribe_to(kMainProgram, kImpulse, impulse_system);
-    impulse_channel = qb_open_channel(kMainProgram, kImpulse);
+    qbEventAttr attr;
+    qb_eventattr_create(&attr);
+    qb_eventattr_setprogram(&attr, kMainProgram);
+    qb_eventattr_setmessagesize(&attr, sizeof(Impulse));
+    qb_event_create(&impulse_event, attr);
+    qb_event_subscribe(impulse_event, impulse_system);
+    qb_eventattr_destroy(&attr);
   }
 }
 
-qbId create(glm::vec3 pos, glm::vec3 vel) {
-    qbId new_id = next_id;
-    ++next_id;
-
-    qbMessage* msg = qb_alloc_message(insert_channel);
-    Objects::Element el;
-    el.indexed_by = qbIndexedBy::KEY;
-    el.key = new_id;
-    el.value = {pos, vel};
-    *(Objects::Element*)msg->data = el;
-    qb_send_message(msg);
-
-    return new_id;
+void send_impulse(qbId key, glm::vec3 p) {
+  Impulse message{key, p};
+  qb_event_send(impulse_event, &message);
 }
 
-void send_impulse(Objects::Key key, glm::vec3 p) {
-  qbMessage* msg = qb_alloc_message(impulse_channel);
-  Impulse j;
-  j.key = key;
-  j.p = p;
-  *(Impulse*)msg->data = j;
-  qb_send_message(msg);
-}
-
-qbCollection* get_collection() {
-  return objects_collection;
+qbComponent component() {
+  return objects;
 }
 
 }  // namespace physics

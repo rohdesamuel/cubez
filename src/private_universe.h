@@ -2,7 +2,9 @@
 #define PRIVATE_UNIVERSE__H
 
 #include "concurrentqueue.h"
+#include "component.h"
 #include "cubez.h"
+#include "defs.h"
 #include "table.h"
 #include "thread_pool.h"
 #include "stack_memory.h"
@@ -20,39 +22,7 @@
 
 #define LOG_VAR(var) std::cout << #var << " = " << var << std::endl
 
-#define DECLARE_FRAME_ARENAS() \
-    thread_local static uint8_t MUTATION_ARENA[MUTATION_ARENA_SIZE]; \
-    thread_local static uint8_t ARGS_ARENA[MAX_ARG_COUNT * sizeof(qbArg)]; \
-    thread_local static uint8_t STACK_ARENA[MAX_ARG_COUNT][MAX_ARG_SIZE]
-
-#define DECLARE_FRAME(var) \
-    DECLARE_FRAME_ARENAS(); \
-    uint8_t VAR_ARENA [sizeof(qbFrame)] = {0}; \
-    qbFrame* VAR_ARENA_PTR = (qbFrame*)(&VAR_ARENA); \
-    qbFrame& var = *VAR_ARENA_PTR; \
-    init_frame(&var, ARGS_ARENA, STACK_ARENA, MUTATION_ARENA);
-
 using moodycamel::ConcurrentQueue;
-
-constexpr uint32_t MAX_ARG_COUNT = 8;
-constexpr uint32_t MAX_ARG_SIZE = 128;
-constexpr uint32_t MUTATION_ARENA_SIZE = 512;
-
-namespace {
-
-void init_frame(qbFrame* frame, uint8_t* args_arena, uint8_t stack_arena[][MAX_ARG_SIZE],
-                uint8_t* mutation_arena) {
-  frame->args.arg = (qbArg*)args_arena;
-  frame->args.count = 0;
-  for (uint32_t i = 0; i < MAX_ARG_COUNT; ++i) {
-    frame->args.arg[i].data = (void*)(stack_arena + MAX_ARG_SIZE * i);
-    frame->args.arg[i].size = MAX_ARG_SIZE;
-  }
-  frame->mutation.mutate_by = qbMutateBy::UNKNOWN;
-  *(void**)(&frame->mutation.element) = mutation_arena;
-}
-
-}  // namespace
 
 class Runner {
  public:
@@ -100,29 +70,21 @@ class Runner {
   qbResult assert_in_state(const std::vector<State>& allowed);
   qbResult assert_in_state(std::vector<State>&& allowed);
 
+  State state() const {
+    return state_;
+  }
+
  private:
   std::mutex state_change_;
   volatile State state_;
 };
 
-class CollectionImpl {
- private:
-  qbCollection* collection_;
-
- public:
-  CollectionImpl(qbCollection* collection) : collection_(collection) {}
-
-  inline qbCollection* collection() {
-    return collection_;
-  }
-};
-
 class CollectionRegistry {
  public:
-  qbCollection* alloc(qbId program, const char* collection) {
+  qbCollection alloc(qbId program, const char* collection) {
     auto& collections = collections_[program];
 
-    qbCollection* ret = nullptr;
+    qbCollection ret = nullptr;
     if (collections.find(collection) == -1) {
       qbHandle id = collections.insert(collection, nullptr);
       ret = new_collection(id, collection);
@@ -145,10 +107,10 @@ class CollectionRegistry {
     return QB_ERROR_ALREADY_EXISTS;
   }
 
-  qbCollection* get(qbId program, const char* collection) {
+  qbCollection get(qbId program, const char* collection) {
     auto& collections = collections_[program];
 
-    qbCollection* ret = nullptr;
+    qbCollection ret = nullptr;
     qbHandle id;
     if ((id = collections.find(collection)) != -1) {
       ret = collections[id];
@@ -156,241 +118,259 @@ class CollectionRegistry {
     return ret;
   }
 
-  inline static CollectionImpl* to_impl(qbCollection* c) {
-    return (CollectionImpl*)c->self;
-  }
-
  private:
-  qbCollection* new_collection(qbId id, const char* name) {
-    qbCollection* c = (qbCollection*)calloc(1, sizeof(qbCollection));
+  qbCollection new_collection(qbId id, const char* name) {
+    qbCollection c = (qbCollection)calloc(1, sizeof(qbCollection_));
     *(qbId*)(&c->id) = id;
     *(char**)(&c->name) = (char*)name;
-    *(void**)(&c->self) = new CollectionImpl(c);
     return c;
   }
 
-  std::unordered_map<qbId, cubez::Table<std::string, qbCollection*>> collections_;
-};
-
-class FrameImpl {
- public:
-  FrameImpl(cubez::Stack* stack): stack_(stack) {}
-
-  static FrameImpl* from_raw(qbFrame* f) { return (FrameImpl*)f->self; }
-
-  static qbArg* get_arg(qbFrame* frame, const char* name) {
-    FrameImpl* self = from_raw(frame);
-    auto it = self->args_.find(name);
-    if (it == self->args_.end()) {
-      return nullptr;
-    }
-    return it->second;
-  }
-
-  static qbArg* new_arg(qbFrame* frame, const char* name, size_t size) {
-    if (frame->args.count >= MAX_ARG_COUNT) {
-      return nullptr;
-    }
-
-    qbArg* ret = get_arg(frame, name);
-    if (ret) {
-      return ret;
-    }
-
-    FrameImpl* self = from_raw(frame);
-    qbArg* arg = &frame->args.arg[frame->args.count++];
-    arg->data = self->stack_->alloc(size);
-    arg->size = size;
-    self->args_[name] = arg;
-    return arg;
-  }
-
-  static qbArg* set_arg(qbFrame* frame, const char* name, void* data, size_t size) {
-    qbArg* ret = new_arg(frame, name, size);
-    if (ret) {
-      memcpy(ret->data, data, size);
-    }
-    return ret;
-  }
-
- private:
-  cubez::Stack* stack_;
-  std::unordered_map<const char*, qbArg*> args_;
+  std::unordered_map<qbId, cubez::Table<std::string, qbCollection>> collections_;
 };
 
 class SystemImpl {
  private:
-  qbSystem* system_;
-  std::vector<qbCollection*> sources_;
-  std::vector<qbCollection*> sinks_;
+  qbSystem_* system_;
+  std::vector<qbCollection> sources_;
+  std::vector<qbCollection> sinks_;
+  std::vector<qbCollectionInterface> interfaces_;
+
+  qbComponentJoin join_;
+  void* user_state_;
+
+  std::vector<qbElement> elements_;
+  void* element_values_;
+  void* element_keys_;
+
+  qbTransform transform_;
+  qbCallback callback_;
 
  public:
-  SystemImpl(qbSystem* system) : system_(system) {}
+  SystemImpl(const qbSystemAttr_& attr, qbSystem_* system) :
+    system_(system), join_(attr.join), user_state_(attr.state),
+    transform_(attr.transform),
+    callback_(attr.callback) {
+    size_t key_size = 0;
+    size_t value_size = 0;
+    for(auto* component : attr.sinks) {
+      sinks_.push_back(component->impl);
+      interfaces_.push_back(component->impl->interface);
+    }
+    for(auto* component : attr.sources) {
+      key_size += component->impl->keys.stride;
+      value_size += component->impl->values.stride;
+      sources_.push_back(component->impl);
+    }
+
+    element_values_ = malloc(value_size);
+    element_keys_ = malloc(key_size);
+
+    size_t key_index = 0;
+    size_t value_index = 0;
+    for(auto* source : sources_) {
+      qbElement element;
+      element.value = (uint8_t*)element_values_ + value_index;
+      element.key = (uint8_t*)element_keys_ + key_index;
+      elements_.push_back(element);
+
+      key_index += source->keys.stride;
+      value_index += source->values.stride;
+    }
+  }
+
+  static SystemImpl* from_raw(qbSystem_* system) {
+    return (SystemImpl*)((char*)system + sizeof(qbSystem_));
+  }
   
-  void add_source(qbCollection* source) {
-    if (source) {
-      sources_.push_back(source);
-    }
-  }
-
-  void add_sink(qbCollection* sink) {
-    if (sink) {
-      if (std::find(sinks_.begin(), sinks_.end(), sink) == sinks_.end()) {
-        sinks_.push_back(sink);
-      }
-    }
-  }
-
   void run(qbFrame* frame) {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
-    if (system_->transform) {
+    if (transform_) {
       if (source_size == 0 && sink_size == 0) {
         run_0_to_0(frame);
-      } else if (source_size == 1 && sink_size == 1) {
-        run_1_to_1(frame);
       } else if (source_size == 1 && sink_size == 0) {
         run_1_to_0(frame);
-      } else if (source_size == 0 && sink_size == 1) {
-        run_0_to_1(frame);
+      } else if (source_size == 1 && sink_size > 0) {
+        run_1_to_n(frame);
+      } else if (source_size > 1 && sink_size > 0) {
+        run_m_to_n(frame);
+      } else if (source_size == 0 && sink_size > 0) {
+        run_0_to_n(frame);
+      } else if (source_size == 1 && sink_size > 0) {
+        run_1_to_n(frame);
       }
     }
 
-    if (system_->callback) {
-      qbCollections sources;
-      sources.count = sources_.size();
-      sources.collection = sources_.data();
-
-      qbCollections sinks;
-      sinks.count = sinks_.size();
-      sinks.collection = sinks_.data();
-
-      if (frame) {
-        system_->callback(system_, frame, &sources, &sinks);
-      } else {
-        DECLARE_FRAME(static_frame);
-        system_->callback(system_, &static_frame, &sources, &sinks);
-      }
+    if (callback_) {
+      callback_(system_, frame->message, interfaces_.data());
     }
   }
 
-  void run_0_to_0(qbFrame* f) {
-    if (f) {
-      system_->transform(system_, f);
-    } else {
-      DECLARE_FRAME(frame);
-      system_->transform(system_, &frame);
+  void run_0_to_0(qbFrame*) {
+    transform_(system_, elements_.data(), interfaces_.data());
+  }
+
+  void copy_to_element(qbCollection c, void* k, void* v, uint64_t offset,
+                        qbElement* element) {
+    memcpy(element->key, k, c->keys.stride);
+    memcpy(element->value, v, c->values.stride);
+    element->offset = offset;
+  }
+
+  void run_1_to_0(qbFrame*) {
+    qbCollection source = sources_[0];
+    uint64_t count = source->count(&source->interface);
+    uint8_t* keys = source->keys.data(&source->interface);
+    uint8_t* values = source->values.data(&source->interface);
+
+    for(uint64_t i = 0; i < count; ++i) {
+      copy_to_element(source, 
+          (void*)(keys + source->keys.offset + i * source->keys.stride),
+          (void*)(values + source->values.offset + i * source->values.stride),
+          i, &elements_.front());
+      transform_(system_, elements_.data(), nullptr);
     }
   }
 
-  void run_0_to_1(qbFrame* f) {
-    qbCollection* sink = sinks_[0];
-    if (f) {
-      system_->transform(system_, f);
-      sink->mutate(sink, &f->mutation);
-    } else {
-      DECLARE_FRAME(frame);
-      system_->transform(system_, &frame);
-      sink->mutate(sink, &frame.mutation);
+  void run_0_to_n(qbFrame*) {
+    transform_(system_, nullptr, interfaces_.data());
+  }
+
+  void run_1_to_n(qbFrame*) {
+    qbCollection source = sources_[0];
+    const uint64_t count = source->count(&source->interface);
+    const uint8_t* keys = source->keys.data(&source->interface);
+    const uint8_t* values = source->values.data(&source->interface);
+    for(uint64_t i = 0; i < count; ++i) {
+      copy_to_element(source, 
+          (void*)(keys + source->keys.offset + i * source->keys.stride),
+          (void*)(values + source->values.offset + i * source->values.stride),
+          i, &elements_.front());
+      transform_(system_, elements_.data(), interfaces_.data());
     }
   }
 
-  void run_1_to_0(qbFrame* f) {
-    qbCollection* source = sources_[0];
-    uint64_t count = source->count(source);
-    uint8_t* keys = source->keys.data(source);
-    uint8_t* values = source->values.data(source);
-
-    if (f) {
-      for(uint64_t i = 0; i < count; ++i) {
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, f);
-        system_->transform(system_, f);
-      }
-    } else {
-      for(uint64_t i = 0; i < count; ++i) {
-        DECLARE_FRAME(frame);
-
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, &frame);
-        system_->transform(system_, &frame);
-      }
-    }
-  }
-
-  void run_1_to_1(qbFrame* f) {
-    qbCollection* source = sources_[0];
-    qbCollection* sink = sinks_[0];
-    const uint64_t count = source->count(source);
-    const uint8_t* keys = source->keys.data(source);
-    const uint8_t* values = source->values.data(source);
-
-//#pragma omp parallel for
-    if (f) {
-      for(uint64_t i = 0; i < count; ++i) {
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, f);
-        system_->transform(system_, f);
-        sink->mutate(sink, &f->mutation);
-      }
-    } else {
-      for(uint64_t i = 0; i < count; ++i) {
-        DECLARE_FRAME(frame);
-
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, &frame);
-        system_->transform(system_, &frame);
-        sink->mutate(sink, &frame.mutation);
-      }
-    }
-  }
-
-  void run_m_to_1(qbFrame* f) {
-    qbCollection* source = sources_[0];
-    qbCollection* sink = sinks_[0];
-    const uint64_t count = source->count(source);
-    const uint8_t* keys = source->keys.data(source);
-    const uint8_t* values = source->values.data(source);
-
-    if (f) {
-      for (uint64_t i = 0; i < count; ++i) {
-        for (size_t j = 1; j < sources_.size(); ++j) {
-          void* key = alloca(source->values.stride);
-          source->accessor.key(source, key); 
+  void run_m_to_n(qbFrame*) {
+    qbCollection source = sources_[0];
+    switch(join_) {
+      case qbComponentJoin::QB_JOIN_INNER: {
+        uint64_t min = 0xFFFFFFFFFFFFFFFF;
+        for (size_t i = 0; i < sources_.size(); ++i) {
+          qbCollection src = sources_[i];
+          uint64_t maybe_min = src->count(&src->interface);
+          if (maybe_min < min) {
+            min = maybe_min;
+            source = src;
+          }
         }
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, f);
-        system_->transform(system_, f);
-        sink->mutate(sink, &f->mutation);
-      }
-    } else {
-      for (uint64_t i = 0; i < count; ++i) {
-        DECLARE_FRAME(frame);
+      } break;
+      case qbComponentJoin::QB_JOIN_OUTER: {
+        uint64_t max = 0;
+        for (size_t i = 0; i < sources_.size(); ++i) {
+          qbCollection src = sources_[i];
+          uint64_t maybe_max = src->count(&src->interface);
+          if (maybe_max > max) {
+            max = maybe_max;
+            source = src;
+          }
+        }
+      } break;
+      case qbComponentJoin::QB_JOIN_CROSS: {
+        uint64_t* max_counts =
+            (uint64_t*)alloca(sizeof(uint64_t) * sources_.size());
+        uint64_t* indices =
+            (uint64_t*)alloca(sizeof(uint64_t) * sources_.size());
+        uint8_t** keys = (uint8_t**)alloca(sizeof(uint8_t*) * sources_.size());
+        uint8_t** values = (uint8_t**)alloca(sizeof(uint8_t*) * sources_.size());
 
-        source->copy(
-            keys + source->keys.offset + i * source->keys.stride,
-            values + source->values.offset + i * source->values.stride,
-            i, &frame);
-        system_->transform(system_, &frame);
-        sink->mutate(sink, &frame.mutation);
-      }
+        memset(indices, 0, sizeof(uint64_t) * sources_.size());
+        uint32_t indices_to_inc = 1;
+        uint32_t max_index = 1 << sources_.size();
+        for (size_t i = 0; i < sources_.size(); ++i) {
+          keys[i] = sources_[i]->keys.data(&sources_[i]->interface);
+          values[i] = sources_[i]->values.data(&sources_[i]->interface);
+          max_counts[i] = sources_[i]->count(&sources_[i]->interface);
+        }
+
+        while (indices_to_inc < max_index) {
+          bool reached_max = false;
+          size_t max_src = 0;
+          for (size_t i = 0; i < sources_.size(); ++i) {
+            qbCollection src = sources_[i];
+            void* k =
+                (void*)(keys[i] + src->keys.offset + i * src->keys.stride);
+            void* v =
+                (void*)(values[i] + src->values.offset + i * src->values.stride);
+            copy_to_element(src, k, v, indices[i], &elements_[i]);
+
+            indices[i] += (1 << i) & indices_to_inc;
+            reached_max |= indices[i] == max_counts[i];
+            if (reached_max) {
+              max_src = i;
+            }
+          }
+
+          if (reached_max) {
+            ++indices_to_inc;
+            indices[max_src] = 0;
+          }
+          transform_(system_, elements_.data(), interfaces_.data());
+        }
+      } return;
+    }
+
+    const uint64_t count = source->count(&source->interface);
+    const uint8_t* keys = source->keys.data(&source->interface);
+    switch(join_) {
+      case qbComponentJoin::QB_JOIN_INNER: {
+        for(uint64_t i = 0; i < count; ++i) {
+          void* k =
+              (void*)(keys + source->keys.offset + i * source->keys.stride);
+
+          bool should_continue = false;
+          for (size_t j = 0; j < sinks_.size(); ++j) {
+            qbCollection c = sinks_[j];
+            void* v = c->interface.by_key(&c->interface, k);
+            if (!v) {
+              should_continue = true;
+              break;
+            }
+            copy_to_element(c, k, v, i, &elements_[j]);
+          }
+          if (should_continue) continue;
+
+          transform_(system_, elements_.data(), interfaces_.data());
+        }
+      } break;
+      case qbComponentJoin::QB_JOIN_OUTER: {
+        for(uint64_t i = 0; i < count; ++i) {
+          void* k =
+              (void*)(keys + source->keys.offset + i * source->keys.stride);
+
+          for (size_t j = 0; j < sinks_.size(); ++j) {
+            qbCollection c = sinks_[j];
+            void* v = c->interface.by_key(&c->interface, k);
+            if (v) {
+              copy_to_element(c, k, v, i, &elements_[j]);
+            } else {
+              elements_[j].key = nullptr;
+              elements_[j].value = nullptr;
+              elements_[j].offset = -1;
+            }
+          }
+          transform_(system_, elements_.data(), interfaces_.data());
+        }
+      } break;
+      default:
+        break;
     }
   }
 };
 
-class MessageQueue {
+class Channel {
  public:
-  MessageQueue(size_t size = 1) : size_(size) {
+  Channel(size_t size = 1) : size_(size) {
     // Start count is arbitrarily choosen.
     for (int i = 0; i < 16; ++i) {
       free_mem_.enqueue(alloc_message(nullptr));
@@ -398,60 +378,57 @@ class MessageQueue {
   }
 
   // Thread-safe.
-  qbMessage* alloc_message(qbChannel* c) {
-    qbMessage* ret = nullptr;
+  void* alloc_message(void* initial_val) {
+    void* ret = nullptr;
     if (!free_mem_.try_dequeue(ret)) {
-      ret = new_mem(c);
+      ret = new_mem();
     }
     DEBUG_ASSERT(ret, QB_ERROR_NULL_POINTER);
-    ret->channel = c;
-    ret->size = size_;
+    if (initial_val) {
+      memmove(ret, initial_val, size_);
+    }
     return ret;
   }
 
-  // Thread-safe.
-  void free_message(qbMessage* message) {
-    free_mem_.enqueue(message);
-  }
-
-  void send_message(qbMessage* message) {
+  qbResult send_message(void* message) {
     message_queue_.enqueue(message);
+    return qbResult::QB_OK;
   }
 
-  void send_message_sync(qbMessage* message) {
-    DECLARE_FRAME(frame);
-
-    memcpy(&frame.message, message, sizeof(qbMessage));
-
+  qbResult send_message_sync(void* message) {
+    qbFrame frame;
+    frame.message = message;
     for (const auto& handler : handlers_) {
-      ((SystemImpl*)(handler.second->self))->run(&frame);
+      (SystemImpl::from_raw(handler))->run(&frame);
     }
 
     free_message(message);
+    return qbResult::QB_OK;
   }
 
-  void add_handler(qbSystem* p) {
-    handlers_[p->id] = p;
+  void add_handler(qbSystem s) {
+    handlers_.insert(s);
   }
 
-  void remove_handler(qbId id) {
+  void remove_handler(qbSystem s) {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
-    handlers_.erase(id);
+    handlers_.erase(s);
   }
 
   void flush() {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
-    qbMessage* msg = nullptr;
+    void* msg = nullptr;
     int max_events = message_queue_.size_approx();
     for (int i = 0; i < max_events; ++i) {
-      DECLARE_FRAME(frame);
       if (!message_queue_.try_dequeue(msg)) {
         break;
       }
-      memcpy(&frame.message, msg, sizeof(qbMessage));
 
+
+      qbFrame frame;
+      frame.message = msg;
       for (const auto& handler : handlers_) {
-        ((SystemImpl*)(handler.second->self))->run(&frame);
+        SystemImpl::from_raw(handler)->run(&frame);
       }
 
       free_message(msg);
@@ -459,48 +436,20 @@ class MessageQueue {
   }
 
  private:
-  qbMessage* new_mem(qbChannel* c) {
-    qbMessage* ret = (qbMessage*)(malloc(sizeof(qbMessage) + size_));
-    ret->channel = c;
-    *(void**)(&ret->data) = (uint8_t*)ret + sizeof(qbMessage);
-    ret->size = size_;
-    return ret;
+  // Thread-safe.
+  void free_message(void* message) {
+    free_mem_.enqueue(message);
+  }
+
+  void* new_mem() {
+    return calloc(1, size_);
   }
 
   std::mutex handlers_mu_;
-  std::unordered_map<qbId, qbSystem*> handlers_;
-  moodycamel::ConcurrentQueue<qbMessage*> message_queue_;
-  moodycamel::ConcurrentQueue<qbMessage*> free_mem_;
+  std::set<qbSystem> handlers_;
+  moodycamel::ConcurrentQueue<void*> message_queue_;
+  moodycamel::ConcurrentQueue<void*> free_mem_;
   size_t size_;
-};
-
-class ChannelImpl {
- public:
-  ChannelImpl(qbChannel* self, MessageQueue* message_queue)
-      : self_(self),
-        message_queue_(message_queue) {}
-
-  static ChannelImpl* to_impl(qbChannel* c) {
-    return (ChannelImpl*)c->self;
-  }
-
-  // Thread-safe.
-  qbMessage* alloc_message() {
-    return message_queue_->alloc_message(self_);
-  }
-
-  // Thread-safe.
-  void send_message(qbMessage* message) {
-    message_queue_->send_message(message);
-  }
-
-  void send_message_sync(qbMessage* message) {
-    message_queue_->send_message_sync(message);
-  }
-
- private:
-  qbChannel* self_;
-  MessageQueue* message_queue_;
 };
 
 class EventRegistry {
@@ -508,58 +457,24 @@ class EventRegistry {
   EventRegistry(qbId program): program_(program), event_id_(0) { }
 
   // Thread-safe.
-  qbId create_event(const char* event, qbEventPolicy policy) {
+  qbResult create_event(qbEvent* event, qbEventAttr attr) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    qbId event_id;
-    auto it = event_name_.find(event);
-    if (it == event_name_.end()) {
-      event_id = event_id_++;
-      event_name_[event] = event_id;
-    } else {
-      event_id = it->second;
-    }
-    events_[event_id] = new MessageQueue(policy.size);
-    return event_id;
+    qbId event_id = event_id_++;
+    events_[event_id] = new Channel(attr->message_size);
+    alloc_event(event_id, event, events_[event_id]);
+    return qbResult::QB_OK;
   }
 
   // Thread-safe.
-  qbSubscription* subscribe(const char* event, qbSystem* system) {
+  void subscribe(qbEvent event, qbSystem system) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    qbSubscription* ret = nullptr;
-    qbId event_id = find_event(event);
-    if (event_id != -1) {
-      events_[event_id]->add_handler(system); 
-      ret = new_subscription(event_id, system->id);
-    }
-
-    return ret;
+    find_event(event)->add_handler(system);
   }
 
   // Thread-safe.
-  void unsubscribe(qbSubscription* s) {
+  void unsubscribe(qbEvent event, qbSystem system) {
     std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    events_[s->event]->remove_handler(s->system);
-  }
-
-  // Thread-safe.
-  qbChannel* open_channel(const char* event) {
-    qbChannel* ret = nullptr;
-    std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-    qbId event_id = find_event(event);
-    if (event_id != -1) {
-      ret = (qbChannel*)malloc(sizeof(qbChannel));
-      *(qbId*)(&ret->program) = program_;
-      *(qbId*)(&ret->event) = event_id;
-      ret->self = new ChannelImpl(ret, events_[event_id]);
-    }
-
-    return ret;
-  }
-
-  // Thread-safe.
-  void close_channel(qbChannel* channel) {
-    delete (ChannelImpl*)channel->self;
-    free(channel);
+    find_event(event)->remove_handler(system);
   }
 
   void flush_all() {
@@ -568,43 +483,33 @@ class EventRegistry {
     }
   }
 
-  void flush(const char* event) {
-    qbId e = find_event(event);
-    if (e == -1) {
-      return;
+  void flush(qbEvent event) {
+    Channel* queue = find_event(event);
+    if (queue) {
+      queue->flush();
     }
-
-    events_[e]->flush();
   }
 
  private:
+  void alloc_event(qbId id, qbEvent* event, Channel* channel) {
+    *event = (qbEvent)calloc(1, sizeof(qbEvent_));
+    *(qbId*)(*event)->id = id;
+    (*event)->channel = channel;
+  }
+
   // Requires state_mutex_.
-  qbId find_event(const char* event) {
-    qbId ret = -1;
-    auto it = event_name_.find(event);
-    if (it != event_name_.end()) {
-      ret = it->second;
+  Channel* find_event(qbEvent event) {
+    auto it = events_.find(event->id);
+    if (it != events_.end()) {
+      return it->second;
     }
-    return ret;
-  }
-
-  qbSubscription* new_subscription(qbId event, qbId system) {
-    qbSubscription* ret = (qbSubscription*)malloc(sizeof(qbSubscription));
-    *(qbId*)(&ret->program) = program_;
-    *(qbId*)(&ret->event) = event;
-    *(qbId*)(&ret->system) = system;
-    return ret;
-  }
-
-  void free_subscription(qbSubscription* subscription) {
-    free(subscription);
+    return nullptr;
   }
 
   qbId program_;
   qbId event_id_;
   std::mutex state_mutex_;
-  std::unordered_map<std::string, qbId> event_name_;
-  std::unordered_map<qbId, MessageQueue*> events_; 
+  std::unordered_map<qbId, Channel*> events_; 
 };
 
 /*
@@ -642,38 +547,31 @@ class EventRegistry {
 
 class ProgramImpl {
  private:
-   typedef cubez::Table<qbCollection*, std::set<qbSystem*>> Mutators;
+   typedef cubez::Table<qbCollection, std::set<qbSystem_*>> Mutators;
  public:
   ProgramImpl(qbProgram* program)
       : program_(program),
         events_(program->id) {}
 
-  qbSystem* alloc_system(qbCollection* source, qbCollection* sink) {
-    qbSystem* system = new_system(systems_.size());
+  qbSystem_* create_system(const qbSystemAttr_& attr) {
+    qbSystem_* system = new_system(systems_.size(), attr);
     systems_.push_back(system);
 
-    if (source) {
-      add_source(system, source);
-    }
-
-    if (sink) {
-      add_sink(system, sink);
-    }
-
+    enable_system(system);
     return system;
   }
 
-  qbResult free_system(struct qbSystem* system) {
+  qbResult free_system(qbSystem_* system) {
     return disable_system(system);
   }
 
-  qbResult enable_system(struct qbSystem* system, qbExecutionPolicy policy) {
+  qbResult enable_system(qbSystem_* system) {
     disable_system(system);
 
-    if (policy.trigger == qbTrigger::LOOP) {
+    if (system->policy.trigger == qbTrigger::LOOP) {
       loop_systems_.push_back(system);
       std::sort(loop_systems_.begin(), loop_systems_.end());
-    } else if (policy.trigger == qbTrigger::EVENT) {
+    } else if (system->policy.trigger == qbTrigger::EVENT) {
       event_systems_.insert(system);
     } else {
       return QB_ERROR_UNKNOWN_TRIGGER_POLICY;
@@ -682,7 +580,7 @@ class ProgramImpl {
     return QB_OK;
   }
 
-  qbResult disable_system(struct qbSystem* system) {
+  qbResult disable_system(qbSystem_* system) {
     auto found = std::find(loop_systems_.begin(), loop_systems_.end(), system);
     if (found != loop_systems_.end()) {
       loop_systems_.erase(found);
@@ -692,67 +590,53 @@ class ProgramImpl {
     return QB_OK;
   }
 
-  qbResult add_source(qbSystem* system, qbCollection* source) {
-    ((SystemImpl*)(system->self))->add_source(source);
-    return add_system_to_collection(system, source, &readers_);
-  }
-
-  qbResult add_sink(qbSystem* system, qbCollection* sink) {
-    ((SystemImpl*)(system->self))->add_sink(sink);
-    return add_system_to_collection(system, sink, &writers_);
-  }
-
-  bool contains_system(qbSystem* system) {
+  bool contains_system(qbSystem_* system) {
     return std::find(systems_.begin(), systems_.end(), system) != systems_.end();
   }
 
-  qbId create_event(const char* event, qbEventPolicy policy) {
-    return events_.create_event(event, policy);
+  qbResult create_event(qbEvent* event, qbEventAttr attr) {
+    return events_.create_event(event, attr);
   }
 
-  void flush_events(const char* event) {
-    if (!event) {
-      events_.flush_all();
-    } else {
-      events_.flush(event);
-    }
+  void flush_events(qbEvent event) {
+    events_.flush(event);
   }
 
-  qbChannel* open_channel(const char* event) {
-    return events_.open_channel(event);
+  void flush_all_events() {
+    events_.flush_all();
   }
 
-  void close_channel(qbChannel* channel) {
-    events_.close_channel(channel);
+  void subscribe_to(qbEvent event, qbSystem system) {
+    events_.subscribe(event, system);
   }
 
-  struct qbSubscription* subscribe_to(const char* event,
-                                    struct qbSystem* system) {
-    return events_.subscribe(event, system);
-  }
-
-  void unsubscribe_from(struct qbSubscription* subscription) {
-    events_.unsubscribe(subscription);
+  void unsubscribe_from(qbEvent event, qbSystem system) {
+    events_.unsubscribe(event, system);
   }
 
   void run() {
     events_.flush_all();
-    for(qbSystem* p : loop_systems_) {
-      ((SystemImpl*)p->self)->run(nullptr);
+    for(qbSystem_* p : loop_systems_) {
+      SystemImpl::from_raw(p)->run(nullptr);
     }
   }
 
  private:
-  qbSystem* new_system(qbId id) {
-    qbSystem* p = (qbSystem*)calloc(1, sizeof(qbSystem));
+  qbSystem_* new_system(qbId id, const qbSystemAttr_& attr) {
+    qbSystem_* p = (qbSystem_*)calloc(1, sizeof(qbSystem_) + sizeof(SystemImpl));
     *(qbId*)(&p->id) = id;
     *(qbId*)(&p->program) = program_->id;
-    p->self = new SystemImpl(p);
+    p->policy.trigger = attr.trigger;
+    p->policy.priority = attr.priority;
+
+    SystemImpl* impl = SystemImpl::from_raw(p);
+    new (impl) SystemImpl(attr, p);
+
     return p;
   }
 
   qbResult add_system_to_collection(
-      qbSystem* system, qbCollection* collection, Mutators* table) {
+      qbSystem_* system, qbCollection collection, Mutators* table) {
     if (!system || !collection || !table) {
       return QB_ERROR_NULL_POINTER;
     }
@@ -766,7 +650,7 @@ class ProgramImpl {
       handle = table->insert(collection, {});
     }
 
-    std::set<qbSystem*>& systems = (*table)[handle];
+    std::set<qbSystem_*>& systems = (*table)[handle];
 
     if (systems.find(system) == systems.end()) {
       systems.insert(system);
@@ -782,9 +666,9 @@ class ProgramImpl {
   Mutators readers_;
 
   EventRegistry events_;
-  std::vector<qbSystem*> systems_;
-  std::vector<qbSystem*> loop_systems_;
-  std::set<qbSystem*> event_systems_;
+  std::vector<qbSystem_*> systems_;
+  std::vector<qbSystem_*> loop_systems_;
+  std::set<qbSystem_*> event_systems_;
 };
 
 class ProgramThread {
@@ -857,16 +741,6 @@ class ProgramRegistry {
     return QB_OK;
   }
 
-  qbResult add_source(qbSystem* system, qbCollection* collection) {
-    qbProgram* p = programs_[system->program];
-    return to_impl(p)->add_source(system, collection);
-  }
-
-  qbResult add_sink(qbSystem* system, qbCollection* collection) {
-    qbProgram* p = programs_[system->program];
-    return to_impl(p)->add_sink(system, collection);
-  }
-
   qbProgram* get_program(const char* program) {
     std::hash<std::string> hasher;
     qbId id = hasher(program);
@@ -924,6 +798,91 @@ class ProgramRegistry {
   ThreadPool program_threads_;
 };
 
+struct ComponentInstance {
+  qbId component_id;
+  qbHandle instance_handle;
+};
+
+class ComponentRegistry {
+ public:
+  ComponentRegistry() : id_(0) {}
+
+  qbResult create_component(qbComponent_** component, qbComponentAttr_* attr) {
+    new_component(component, attr);
+    components_[(*component)->id] = *component;
+    return qbResult::QB_OK;
+  }
+
+  static qbHandle create_component_instance(
+      qbComponent_* component, qbId entity_id, const void* value) {
+    qbElement element;
+    element.key = &entity_id;
+    element.value = (void*)value;
+    return component->impl->interface.insert(&component->impl->interface, &element);
+  }
+
+ private:
+  qbResult new_component(qbComponent_** component, qbComponentAttr_* attr) {
+    *component = (qbComponent_*)calloc(1, sizeof(qbComponent_));
+    *(qbId*)(&(*component)->id) = id_++;
+    if (attr->impl) {
+      (*component)->impl = attr->impl;
+    } else {
+      (*component)->impl = Component::new_collection(attr->program,
+                                                     attr->name,
+                                                     attr->data_size);
+    }
+    (*component)->data_size = attr->data_size;
+    return qbResult::QB_OK;
+  }
+
+  std::unordered_map<qbId, qbComponent_*> components_;
+  std::atomic_long id_;
+};
+
+class EntityRegistry {
+ public:
+  EntityRegistry() : id_(0) {}
+
+  qbResult create_entityasync(qbEntity_** entity, const qbEntityAttr_& attr) {
+    new_entity(entity);
+    add_components(*entity, attr);
+
+    return qbResult::QB_OK;
+  }
+
+  qbResult create_entity(qbEntity_** entity, const qbEntityAttr_& attr) {
+    new_entity(entity);
+    add_components(*entity, attr);
+
+    return qbResult::QB_OK;
+  }
+
+  void add_components(qbEntity_* entity, const qbEntityAttr_& attr) {
+    std::vector<ComponentInstance> instances;
+    for (const auto instance : attr.component_list) {
+      qbComponent_* component = instance.component;
+
+      instances.push_back({
+          component->id,
+          ComponentRegistry::create_component_instance(component, entity->id,
+                                                       instance.data)
+        });
+    }
+    entities_[entity->id] = instances;
+  }
+
+ private:
+  qbResult new_entity(qbEntity_** entity) {
+    *entity = (qbEntity)calloc(1, sizeof(qbEntity));
+    *(qbId*)(&(*entity)->id) = id_++;
+    return qbResult::QB_OK;
+  }
+
+  std::unordered_map<qbId, std::vector<ComponentInstance>> entities_;
+  std::atomic_long id_;
+};
+
 class PrivateUniverse {
  public:
   PrivateUniverse();
@@ -940,42 +899,47 @@ class PrivateUniverse {
   qbResult join_program(qbId program);
 
   // qbSystem manipulation.
-  struct qbSystem* alloc_system(const char* program, const char* source, const char* sink);
-  struct qbSystem* copy_system(struct qbSystem* system, const char* dest);
-  qbResult free_system(struct qbSystem* system);
+  qbResult system_create(qbSystem_** system, const qbSystemAttr_& attr);
 
-  qbResult enable_system(struct qbSystem* system, qbExecutionPolicy policy);
-  qbResult disable_system(struct qbSystem* system);
+  qbResult alloc_system(const struct qbSystemCreateInfo* create_info,
+                        qbSystem_** system);
+  qbSystem_* copy_system(qbSystem_* system, const char* dest);
+  qbResult free_system(qbSystem_* system);
+
+  qbResult enable_system(qbSystem_* system);
+  qbResult disable_system(qbSystem_* system);
 
   // qbCollection manipulation.
-  qbCollection* alloc_collection(const char* program, const char* collection);
-
-  qbResult add_source(qbSystem*, const char* collection);
-  qbResult add_sink(qbSystem*, const char* collection);
-
-  qbResult share_collection(
-      const char* source_program, const char* source_collection,
-      const char* dest_program, const char* dest_collection);
-
-  qbResult copy_collection(
-      const char* source_program, const char* source_collection,
-      const char* dest_program, const char* dest_collection);
+  qbResult collection_create(qbCollection* collection, const char* name,  
+                             qbCollectionAttr attr);
+  qbResult collection_share(qbCollection collection, qbProgram destination);
+  qbResult collection_copy(qbCollection collection, qbProgram destination);
+  qbResult collection_destroy(qbCollection* collection);
 
   // Events.
-  qbId create_event(const char* program, const char* event, qbEventPolicy policy);
+  qbResult event_create(qbEvent* event, qbEventAttr attr);
+  qbResult event_destroy(qbEvent* event);
 
-  qbResult flush_events(const char* program, const char* event);
+  qbResult event_flush(qbEvent event);
+  qbResult event_flushall(qbProgram event);
 
-  struct qbChannel* open_channel(const char* program, const char* event);
-  void close_channel(struct qbChannel* channel);
+  qbResult event_subscribe(qbEvent event, qbSystem system);
+  qbResult event_unsubscribe(qbEvent event, qbSystem system);
 
-  struct qbSubscription* subscribe_to(
-      const char* program, const char* event, struct qbSystem* system);
-  void unsubscribe_from(struct qbSubscription* subscription);
+  qbResult event_send(qbEvent event, void* message);
+  qbResult event_sendsync(qbEvent event, void* message);
+
+  // Entity manipulation.
+  qbResult entity_create(qbEntity_** entity, const qbEntityAttr_& attr);
+
+  // Component manipulation.
+  qbResult component_create(qbComponent_** component, qbComponentAttr_* attr);
 
  private:
   CollectionRegistry collections_;
   ProgramRegistry programs_;
+  EntityRegistry entities_;
+  ComponentRegistry components_;
 
   Runner runner_;
 };

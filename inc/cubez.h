@@ -71,6 +71,68 @@ qbResult qb_detach_program(qbId program);
 //   QB_OK on success
 qbResult qb_join_program(qbId program);
 
+typedef struct qbEntityId_* qbEntityId;
+typedef struct qbEntity_* qbEntity;
+
+typedef struct qbEntityAttr_* qbEntityAttr;
+typedef struct qbComponent_* qbComponent;
+typedef struct qbComponentAttr_* qbComponentAttr;
+typedef struct qbSystem_* qbSystem;
+typedef struct qbSystemAttr_* qbSystemAttr;
+
+typedef struct qbCollectionAttr_* qbCollectionAttr;
+typedef struct qbCollection_* qbCollection;
+
+///////////////////////////////////////////////////////////
+//////////////////////  Collections  //////////////////////
+///////////////////////////////////////////////////////////
+struct qbElement {
+  void* key;
+  void* value;
+
+  qbOffset offset;
+};
+
+struct qbCollectionInterface;
+
+typedef void (*qbUpdate)(qbCollectionInterface*, qbElement* element);
+typedef qbHandle (*qbInsert)(qbCollectionInterface*, qbElement* element);
+typedef uint64_t (*qbCount)(qbCollectionInterface*);
+typedef uint8_t* (*qbData)(qbCollectionInterface*);
+typedef void* (*qbValueByOffset)(qbCollectionInterface*, uint64_t offset);
+typedef void* (*qbValueByHandle)(qbCollectionInterface*, qbHandle handle);
+typedef void* (*qbValueByKey)(qbCollectionInterface*, void* key);
+
+struct qbCollectionInterface {
+  void* collection;
+
+  qbInsert insert;
+  qbUpdate update;
+
+  qbValueByOffset by_offset;
+  qbValueByKey by_key;
+  qbValueByHandle by_handle;
+};
+
+qbResult qb_collectionattr_create(qbCollectionAttr* attr);
+qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
+qbResult qb_collectionattr_setprogram(qbCollectionAttr* attr, const char* program);
+qbResult qb_collectionattr_setaccessors(qbCollectionAttr* attr, qbValueByOffset,
+                                        qbValueByKey, qbValueByHandle);
+qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr* attr, qbData,
+                                          size_t stride, uint32_t offset);
+qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr* attr, qbData,
+                                          size_t stride, uint32_t offset);
+qbResult qb_collectionattr_setupdate(qbCollectionAttr* attr, qbUpdate);
+qbResult qb_collectionattr_setinsert(qbCollectionAttr* attr, qbInsert);
+qbResult qb_collectionattr_setcount(qbCollectionAttr* attr, qbCount);
+qbResult qb_collectionattr_setimplementation(qbCollectionAttr* attr, void* impl);
+
+qbResult qb_collection_create(qbCollection* collection, const char* name, qbCollectionAttr attr);
+qbResult qb_collection_share(qbCollection collection, qbProgram destination);
+qbResult qb_collection_copy(qbCollection collection, qbProgram destination);
+qbResult qb_collection_destroy(qbCollection* collection);
+
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
 ///////////////////////////////////////////////////////////
@@ -83,22 +145,12 @@ enum class qbTrigger {
   EVENT,
 };
 
-struct qbExecutionPolicy {
-  // OPTIONAL
-  // Priority of execution
-  int16_t priority;
 
-  // REQUIRED
-  // Trigger::LOOP will cause execution in mane game loop. Use Trigger::EVENT
-  // to only fire during an event
-  qbTrigger trigger;
-};
+typedef void (*qbTransform)(qbSystem system, qbElement* elements,
+                            qbCollectionInterface* collections);
 
-typedef bool (*qbSelect)(struct qbSystem* system, struct qbFrame*);
-typedef void (*qbTransform)(struct qbSystem* system, struct qbFrame*);
-typedef void (*qbCallback)(struct qbSystem* system, struct qbFrame*,
-                           const struct qbCollections* sources,
-                           const struct qbCollections* sinks);
+typedef void (*qbCallback)(qbSystem system, void* message,
+                           qbCollectionInterface* collections);
 
 struct qbArg {
   void* data;
@@ -125,57 +177,6 @@ enum class qbIndexedBy {
   KEY
 };
 
-struct qbElement {
-  void* index;
-  void* value;
-
-  qbIndexedBy indexed_by;
-};
-
-struct qbMutation {
-  // REQUIRED
-  qbMutateBy mutate_by;
-  
-  // REQUIRED
-  // Pointer to a piece of memory to be passed 
-  void* const element;
-};
-
-struct qbMessage {
-  // What channel this message belongs to.
-  struct qbChannel* channel;
-
-  void* const data;
-  size_t size;
-};
-
-struct qbFrame {
-  const void* self;
-  qbArgs args;
-
-  qbMutation mutation;
-  qbMessage message;
-};
-
-struct qbSystem {
-  const qbId id;
-  const qbId program;
-  const void* self;
-
-  // OPTIONAL
-  // Pointer to user-defined state
-  void* state;
-
-  // OPTIONAL
-  // If defined, will run for each object in collection
-  qbTransform transform;
-
-  // OPTIONAL
-  // If defined, will run after all objects have been processed with
-  // 'transform'
-  qbCallback callback;
-};
-
 // Allocate, take ownership, and add a system to the specified program. System
 // is enabled for execution by default
 //
@@ -188,8 +189,6 @@ struct qbSystem {
 //
 // Returns:
 //   The allocated system
-struct qbSystem* qb_alloc_system(const char* program, const char* source,
-                                  const char* sink);
 
 // Relinquish ownership to engine and free it
 //
@@ -198,7 +197,6 @@ struct qbSystem* qb_alloc_system(const char* program, const char* source,
 //
 // Returns:
 //   QB_OK on success
-qbResult qb_free_system(struct qbSystem* system);
 
 // Copies a system and its configuration to a different program
 //
@@ -208,8 +206,6 @@ qbResult qb_free_system(struct qbSystem* system);
 //
 // Returns:
 //   Pointer to newly allocated system
-struct qbSystem* qb_copy_system(struct qbSystem* source_system,
-                                const char* destination_program);
 
 // Enable a system to run.
 //
@@ -219,7 +215,6 @@ struct qbSystem* qb_copy_system(struct qbSystem* source_system,
 //
 // Returns:
 //   QB_OK on success
-qbResult qb_enable_system(struct qbSystem* system, qbExecutionPolicy policy);
 
 // Disable a system from running
 //
@@ -228,136 +223,56 @@ qbResult qb_enable_system(struct qbSystem* system, qbExecutionPolicy policy);
 //
 // Returns:
 //   QB_OK on success
-qbResult qb_disable_system(struct qbSystem* system);
-
-// Adds a collection for a system to read from. The collection must be in the
-// same program as the system.
-//
-// Arguments:
-//   system The system to add a collection to
-//   collection The collection name to add
-//
-// Returns:
-//   QB_OK on success
-qbResult qb_add_source(struct qbSystem* system, const char* collection);
-
-// Adds a collection for a system to write to. The collection must be in the
-// same program as the system.
-//
-// Arguments:
-//   system The system to add a collection to
-//   collection The collection name to add
-//
-// Returns:
-//   QB_OK on success
-qbResult qb_add_sink(struct qbSystem* system, const char* collection);
-
-///////////////////////////////////////////////////////////
-//////////////////////  Collections  //////////////////////
-///////////////////////////////////////////////////////////
-
-typedef void (*qbMutate)(struct qbCollection*, const struct qbMutation*);
-typedef void (*qbCopy)(const uint8_t* key, const uint8_t* value, uint64_t index,
-                       struct qbFrame*);
-typedef uint64_t (*qbCount)(struct qbCollection*);
-typedef uint8_t* (*qbData)(struct qbCollection*);
-typedef void* (*qbValueByOffset)(struct qbCollection*, uint64_t offset);
-typedef void* (*qbValueByHandle)(struct qbCollection*, qbHandle handle);
-typedef void* (*qbValueByKey)(struct qbCollection*, void* key);
-
-struct qbAccessor {
-  // REQUIRED
-  qbValueByOffset offset;
-
-  // REQUIRED
-  qbValueByHandle handle;
-
-  // REQUIRED
-  qbValueByKey key;
-};
-
-struct qbIterator {
-  // REQUIRED
-  // Function that returns the beginning of the data to iterate over
-  qbData data;
-
-  // REQUIRED
-  // Size of step when iterating over data
-  size_t stride;
-
-  // OPTIONAL
-  // Offset into data to start iterating from. Default 0
-  uint32_t offset;
-};
-
-struct qbCollection {
-  const qbId id;
-  const char* name;
-  const void* self;
-
-  // REQUIRED
-  void* collection;
-
-  // REQUIRED
-  qbAccessor accessor;
-
-  // REQUIRED
-  qbIterator keys;
-
-  // REQUIRED
-  qbIterator values;
-  
-  // REQUIRED
-  qbCopy copy;
-
-  // REQUIRED
-  qbMutate mutate;
-
-  // REQUIRED
-  qbCount count;
-};
-
-struct qbCollections {
-  uint64_t count;
-  struct qbCollection** collection;
-};
-
-struct qbCollection* qb_alloc_collection(const char* program, const char* name);
-
-qbResult qb_free_collection(struct qbCollection* collection);
-qbResult qb_share_collection(
-    const char* source_program, const char* source_collection,
-    const char* dest_program, const char* dest_collection);
-qbResult qb_copy_collection(
-    const char* source_program, const char* source_collection,
-    const char* dest_program, const char* dest_collection);
+//qbResult qb_disable_system(qbSystem system);
 
 ///////////////////////////////////////////////////////////
 /////////////////////  Type Management  ///////////////////
 ///////////////////////////////////////////////////////////
 
-struct qbEntity {
-  const qbId id;
-  const char* name;
-  const void* self;
+
+qbResult qb_componentattr_create(qbComponentAttr* attr);
+qbResult qb_componentattr_destroy(qbComponentAttr* attr);
+qbResult qb_componentattr_setdatasize(qbComponentAttr* attr, size_t size);
+qbResult qb_componentattr_setprogram(qbComponentAttr* attr, const char* program);
+qbResult qb_componentattr_setimplementation(qbComponentAttr* attr,
+                                            qbCollection* collection);
+
+qbResult qb_component_create(qbComponent* component, const char* name, qbComponentAttr attr);
+qbResult qb_component_destroy(qbComponent* component);
+
+qbResult qb_entityattr_create(qbEntityAttr* attr);
+qbResult qb_entityattr_destroy(qbEntityAttr* attr);
+
+qbResult qb_entityattr_addcomponent(qbEntityAttr* attr, qbComponent component,
+                                    void* instance_data);
+
+qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
+
+qbResult qb_entity_destroy(qbEntity* entity);
+
+enum qbComponentJoin {
+  QB_JOIN_INNER = 0,
+  QB_JOIN_OUTER,
+  QB_JOIN_CROSS,
 };
 
-struct qbInstance {
-  const qbId id;
-  const qbId collection;
-  void* const data;
-};
+qbResult qb_systemattr_create(qbSystemAttr* attr);
+qbResult qb_systemattr_destroy(qbSystemAttr* attr);
+qbResult qb_systemattr_setprogram(qbSystemAttr* attr, const char* program);
+qbResult qb_systemattr_addsource(qbSystemAttr* attr, qbComponent component);
+qbResult qb_systemattr_addsink(qbSystemAttr* attr, qbComponent component);
+qbResult qb_systemattr_setfunction(qbSystemAttr* attr, qbTransform transform);
+qbResult qb_systemattr_setcallback(qbSystemAttr* attr, qbCallback callback);
 
-// 
-qbId qb_define_entity(const char* program, const char* name,
-                      struct qbEntity* entity);
+qbResult qb_systemattr_settrigger(qbSystemAttr* attr, qbTrigger trigger);
+qbResult qb_systemattr_setpriority(qbSystemAttr* attr, int16_t priority);
+qbResult qb_systemattr_setjoin(qbSystemAttr* attr, qbComponentJoin join);
+qbResult qb_systemattr_setuserstate(qbSystemAttr* attr, void* state);
 
-qbResult qb_add_collection(struct qbEntity* entity,
-                           struct qbCollection* collection);
-
-qbResult qb_create_entity(struct qbEntity* entity, uint32_t count,
-                          qbInstance created[]);
-
+qbResult qb_system_create(qbSystem* system, qbSystemAttr attr);
+qbResult qb_system_enable(qbSystem* system);
+qbResult qb_system_disable(qbSystem* system);
+qbResult qb_system_destroy(qbSystem* system);
 
 
 
@@ -365,46 +280,28 @@ qbResult qb_create_entity(struct qbEntity* entity, uint32_t count,
 //////////////////  Events and Messaging  /////////////////
 ///////////////////////////////////////////////////////////
 
-struct qbChannel {
-  const qbId program;
-  const qbId event;
-  void* self;
-};
+typedef struct qbEventAttr_* qbEventAttr;
+typedef struct qbEvent_* qbEvent;
 
-struct qbSubscription {
-  const qbId program;
-  const qbId event;
-  const qbId system;
-};
-
-struct qbEventPolicy {
-  size_t size;
-};
+qbResult qb_eventattr_create(qbEventAttr* attr);
+qbResult qb_eventattr_destroy(qbEventAttr* attr);
+qbResult qb_eventattr_setprogram(qbEventAttr* attr, const char* program);
+qbResult qb_eventattr_setmessagesize(qbEventAttr* attr, size_t size);
 
 // Thread-safe
-qbId qb_create_event(const char* program, const char* event,
-                     qbEventPolicy policy);
+qbResult qb_event_create(qbEvent* event, qbEventAttr attr);
+qbResult qb_event_destroy(qbEvent* event);
 
 // Flush events from program. If event if null, flush all events from program.
 // Engine must not be in the LOOPING run state.
-qbResult qb_flush_events(const char* program, const char* event);
+qbResult qb_event_flush(qbEvent event);
+qbResult qb_event_flushall(qbProgram program);
+qbResult qb_event_subscribe(qbEvent event, qbSystem system);
+qbResult qb_event_unsubscribe(qbEvent event, qbSystem system);
 
 // Thread-safe.
-struct qbMessage* qb_alloc_message(struct qbChannel* channel);
-
-// Thread-safe.
-void qb_send_message(qbMessage* e);
-
-void qb_send_message_sync(qbMessage* e);
-
-struct qbChannel* qb_open_channel(const char* program, const char* event);
-void qb_close_channel(struct qbChannel* channel);
-
-// Subscribe a system to receive messages from an event
-struct qbSubscription* qb_subscribe_to(const char* program, const char* event,
-                                       struct qbSystem* system);
-// Ubsubscribe a system from receiving events
-void qb_unsubscribe_from(struct qbSubscription* subscription);
+qbResult qb_event_send(qbEvent event, void* message);
+qbResult qb_event_sendsync(qbEvent event, void* message);
 
 END_EXTERN_C
 

@@ -124,6 +124,7 @@ void initialize_universe(qbUniverse* uni) {
 
   // Create the "main".
   qb_create_program(kMainProgram); 
+#if 0
   {
     logging::initialize();
   }
@@ -150,25 +151,55 @@ void initialize_universe(qbUniverse* uni) {
     settings.fs = tex_fs;
 
     ball::initialize(settings);
+    /*
     ball::create({0.0f, 1.0f, 0.0f},
                  {0.0f, 0.0f, 0.0f});
     ball::create({1.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
+                 {0.0f, 0.0f, 0.0f});*/
     check_for_gl_errors();
   }
+#endif
 
   {
+    qbComponent transforms;
+    {
+      std::cout << "Initialize transforms component\n";
+      qbComponentAttr attr;
+      qb_componentattr_create(&attr);
+      qb_componentattr_setprogram(&attr, kMainProgram);
+      qb_componentattr_setdatasize(&attr, sizeof(physics::Transform));
+
+      std::cout << "Creating transforms component\n";
+      qb_component_create(&transforms, "transforms", attr);
+    }
+
+    qbEntity transform;
+    {
+      std::cout << "Initialize transform entity\n";
+      qbEntityAttr attr;
+      qb_entityattr_create(&attr);
+
+      physics::Transform t{{0.0f, 0.0f, 0.0f}, {0.1f, 0.0f, 0.0f}};
+      qb_entityattr_addcomponent(&attr, transforms, &t);
+
+      for (int i = 0; i < 32; ++i) {
+        std::cout << "entity: " << i << std::endl;
+        qb_entity_create(&transform, attr);
+      }
+    }
+
     //Generic<Generic<int>, Generic<int>>::initialize(kMainProgram, "void");
     //Generic<void, Generic<int>, Generic<int>>::create(1, 1);
     //Generic<int, Generic<float>, Generic<int>>::initialize(kMainProgram, "intint");
     //Generic<int, Generic<float>, Generic<int>>::create(1, qbId(2), 3);
     //Generic<int, Generic<int>, Generic<int>>::create({1}, {2}, {3});
   }
+  std::exit(0);
 }
 
 int main(int, char* []) {
-  init_rendering(800, 600);
-  std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
+  //init_rendering(800, 600);
+  //std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   // Create and initialize the game engine.
   qbUniverse uni;
