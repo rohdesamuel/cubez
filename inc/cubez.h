@@ -152,31 +152,6 @@ typedef void (*qbTransform)(qbSystem system, qbElement* elements,
 typedef void (*qbCallback)(qbSystem system, void* message,
                            qbCollectionInterface* collections);
 
-struct qbArg {
-  void* data;
-  size_t size;
-};
-
-struct qbArgs {
-  qbArg* arg;
-  uint8_t count;
-};
-
-enum class qbMutateBy {
-  UNKNOWN = 0,
-  INSERT,
-  UPDATE,
-  REMOVE,
-  INSERT_OR_UPDATE,
-};
-
-enum class qbIndexedBy {
-  UNKNOWN = 0,
-  OFFSET,
-  HANDLE,
-  KEY
-};
-
 // Allocate, take ownership, and add a system to the specified program. System
 // is enabled for execution by default
 //

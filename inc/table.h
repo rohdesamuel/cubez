@@ -23,25 +23,12 @@
 namespace cubez
 {
 
-template<typename Key_, typename Value_>
-struct BaseElement {
-  qbIndexedBy indexed_by;
-  union {
-    qbOffset offset;
-    qbHandle handle;
-    Key_ key;
-  };
-  Value_ value;
-};
-
 template <typename Key_, typename Value_,
           typename Allocator_ = std::allocator<Value_>>
 class Table {
 public:
   typedef Key_ Key;
   typedef Value_ Value;
-
-  typedef BaseElement<Key, Value> Element;
 
   typedef std::vector<Key> Keys;
   typedef std::vector<Value> Values;
@@ -261,7 +248,6 @@ template <typename Table_>
 class View {
 public:
   typedef Table_ Table;
-  typedef BaseElement<typename Table::Key, const typename Table::Value&> Element;
 
   View(Table* table) : table_(table) {}
 

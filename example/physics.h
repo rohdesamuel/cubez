@@ -5,7 +5,6 @@
 #include "generic.h"
 
 #include "inc/cubez.h"
-#include "inc/schema.h"
 
 #include <glm/glm.hpp>
 

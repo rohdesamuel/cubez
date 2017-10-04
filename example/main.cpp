@@ -17,7 +17,6 @@
 #include "player.h"
 #include "log.h"
 #include "shader.h"
-#include "render.h"
 #include "generic.h"
 
 #include <thread>
@@ -300,10 +299,12 @@ int main(int, char* []) {
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    /*
     render::RenderEvent e;
     e.frame = frame;
     e.ftimestamp_us = Timer::now() - start_time;
     render::present(&e);
+    */
 
     check_for_gl_errors();
 

@@ -10,8 +10,6 @@
 #include <SDL2/SDL.h>
 
 #include "inc/cubez.h"
-#include "inc/schema.h"
-#include "inc/pool.h"
 
 namespace render {
 
@@ -44,13 +42,11 @@ struct RenderEvent {
   uint64_t ftimestamp_us;
 };
 
-typedef cubez::Schema<uint32_t, Renderable> Renderables;
-typedef cubez::Schema<uint32_t, Material> Materials;
-typedef cubez::Schema<uint32_t, Mesh> Meshes;
-
 void initialize();
 qbId create(const Material& material,
             const Mesh& mesh);
+
+qbComponent component();
 
 uint32_t load_texture(const std::string& file);
 
