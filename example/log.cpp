@@ -8,8 +8,6 @@ const int MAX_CHARS = 256;
 
 char kStdout[] = "stdout";
 
-char kWriteEvent[] = "write";
-
 qbSystem system_out;
 qbEvent std_out;
 
@@ -22,10 +20,10 @@ void initialize() {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_setprogram(&attr, kStdout);
-    qb_systemattr_setcallback(&attr,
-        [](qbSystem, void* message, qbCollectionInterface*) {
-        std::cout << (char*)(message);
+    qb_systemattr_setprogram(attr, kStdout);
+    qb_systemattr_setcallback(attr,
+        [](qbCollectionInterface*, qbFrame*) {
+          //std::cout << (char*)(f->event) << std::endl;
         });
     qb_system_create(&system_out, attr);
     qb_systemattr_destroy(&attr);
@@ -34,8 +32,8 @@ void initialize() {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setprogram(&attr, kStdout);
-    qb_eventattr_setmessagesize(&attr, MAX_CHARS);
+    qb_eventattr_setprogram(attr, kStdout);
+    qb_eventattr_setmessagesize(attr, MAX_CHARS);
     qb_event_create(&std_out, attr);
     qb_event_subscribe(std_out, system_out);
     qb_eventattr_destroy(&attr);

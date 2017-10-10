@@ -38,8 +38,7 @@ struct qbIterator {
 
 struct qbCollection_ {
   const qbId id;
-  const char* name;
-  const void* self;
+  const qbId program_id;
 
   qbIterator keys;
   qbIterator values;
@@ -104,6 +103,7 @@ struct qbExecutionPolicy_ {
 struct qbSystem_ {
   const qbId id;
   const qbId program;
+  void* user_state;
   qbExecutionPolicy_ policy;
 };
 
@@ -131,10 +131,6 @@ struct qbEvent_ {
   const qbId id;
   const qbId program;
   void* channel;
-};
-
-struct qbFrame {
-  void* message;
 };
 
 #endif

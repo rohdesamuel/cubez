@@ -158,20 +158,20 @@ public:
                                       const std::string& name) {
     qbCollectionAttr attr;
     qb_collectionattr_create(&attr);
-    qb_collectionattr_setprogram(&attr, program.c_str());
-    qb_collectionattr_setimplementation(&attr, new Table);
-    qb_collectionattr_setcount(&attr, default_count);
-    qb_collectionattr_setupdate(&attr, default_update);
-    qb_collectionattr_setinsert(&attr, default_insert);
-    qb_collectionattr_setaccessors(&attr, default_access_by_offset,
+    qb_collectionattr_setprogram(attr, program.c_str());
+    qb_collectionattr_setimplementation(attr, new Table);
+    qb_collectionattr_setcount(attr, default_count);
+    qb_collectionattr_setupdate(attr, default_update);
+    qb_collectionattr_setinsert(attr, default_insert);
+    qb_collectionattr_setaccessors(attr, default_access_by_offset,
                                    default_access_by_key,
                                    default_access_by_handle);
-    qb_collectionattr_setkeyiterator(&attr, default_keys, sizeof(Key), 0);
-    qb_collectionattr_setvalueiterator(&attr, default_values, sizeof(Value), 0);
-    qb_collectionattr_setcount(&attr, default_count);
+    qb_collectionattr_setkeyiterator(attr, default_keys, sizeof(Key), 0);
+    qb_collectionattr_setvalueiterator(attr, default_values, sizeof(Value), 0);
+    qb_collectionattr_setcount(attr, default_count);
 
     qbCollection collection;
-    qb_collection_create(&collection, name.c_str(), attr);
+    qb_collection_create(&collection, attr);
 
     qb_collectionattr_destroy(&attr);
     return collection;

@@ -13,15 +13,7 @@
 
 namespace render {
 
-const char kRenderables[] = "renderables";
-const char kMaterials[] = "materials";
-const char kMeshes[] = "meshes";
-
-struct Renderable {
-  qbId material_id;
-  qbId mesh_id;
-  std::set<qbId> transform_ids;
-};
+typedef struct qbRenderable_* qbRenderable;
 
 struct Material {
   glm::vec4 color;
@@ -43,8 +35,7 @@ struct RenderEvent {
 };
 
 void initialize();
-qbId create(const Material& material,
-            const Mesh& mesh);
+qbRenderable create(const Material& material, const Mesh& mesh);
 
 qbComponent component();
 

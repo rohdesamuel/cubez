@@ -71,15 +71,12 @@ qbResult qb_detach_program(qbId program);
 //   QB_OK on success
 qbResult qb_join_program(qbId program);
 
-typedef struct qbEntityId_* qbEntityId;
 typedef struct qbEntity_* qbEntity;
-
 typedef struct qbEntityAttr_* qbEntityAttr;
 typedef struct qbComponent_* qbComponent;
 typedef struct qbComponentAttr_* qbComponentAttr;
 typedef struct qbSystem_* qbSystem;
 typedef struct qbSystemAttr_* qbSystemAttr;
-
 typedef struct qbCollectionAttr_* qbCollectionAttr;
 typedef struct qbCollection_* qbCollection;
 
@@ -93,6 +90,7 @@ struct qbElement {
   qbOffset offset;
 };
 
+struct qbConstCollectionInterface;
 struct qbCollectionInterface;
 
 typedef void (*qbUpdate)(qbCollectionInterface*, qbElement* element);
@@ -116,22 +114,21 @@ struct qbCollectionInterface {
 
 qbResult qb_collectionattr_create(qbCollectionAttr* attr);
 qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
-qbResult qb_collectionattr_setprogram(qbCollectionAttr* attr, const char* program);
-qbResult qb_collectionattr_setaccessors(qbCollectionAttr* attr, qbValueByOffset,
+qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
+qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
                                         qbValueByKey, qbValueByHandle);
-qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr* attr, qbData,
+qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
                                           size_t stride, uint32_t offset);
-qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr* attr, qbData,
+qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
                                           size_t stride, uint32_t offset);
-qbResult qb_collectionattr_setupdate(qbCollectionAttr* attr, qbUpdate);
-qbResult qb_collectionattr_setinsert(qbCollectionAttr* attr, qbInsert);
-qbResult qb_collectionattr_setcount(qbCollectionAttr* attr, qbCount);
-qbResult qb_collectionattr_setimplementation(qbCollectionAttr* attr, void* impl);
+qbResult qb_collectionattr_setupdate(qbCollectionAttr attr, qbUpdate);
+qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
+qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);
+qbResult qb_collectionattr_setimplementation(qbCollectionAttr attr, void* impl);
 
-qbResult qb_collection_create(qbCollection* collection, const char* name, qbCollectionAttr attr);
-qbResult qb_collection_share(qbCollection collection, qbProgram destination);
-qbResult qb_collection_copy(qbCollection collection, qbProgram destination);
+qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr);
 qbResult qb_collection_destroy(qbCollection* collection);
+qbResult qb_collection_share(qbCollection collection, qbProgram destination);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -145,12 +142,19 @@ enum class qbTrigger {
   EVENT,
 };
 
+struct qbFrame {
+  void* event;
+  void* state;
+};
 
-typedef void (*qbTransform)(qbSystem system, qbElement* elements,
-                            qbCollectionInterface* collections);
+typedef bool (*qbRunCondition)(qbCollectionInterface* sources,
+                               qbCollectionInterface* sinks,
+                               qbFrame* frame);
 
-typedef void (*qbCallback)(qbSystem system, void* message,
-                           qbCollectionInterface* collections);
+typedef void (*qbTransform)(qbElement* elements,
+                            qbCollectionInterface* sinks, qbFrame* frame);
+
+typedef void (*qbCallback)(qbCollectionInterface* sinks, qbFrame* frame);
 
 // Allocate, take ownership, and add a system to the specified program. System
 // is enabled for execution by default
@@ -207,47 +211,50 @@ typedef void (*qbCallback)(qbSystem system, void* message,
 
 qbResult qb_componentattr_create(qbComponentAttr* attr);
 qbResult qb_componentattr_destroy(qbComponentAttr* attr);
-qbResult qb_componentattr_setdatasize(qbComponentAttr* attr, size_t size);
-qbResult qb_componentattr_setprogram(qbComponentAttr* attr, const char* program);
-qbResult qb_componentattr_setimplementation(qbComponentAttr* attr,
+qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t size);
+#define qb_componentattr_setdatatype(attr, type) \
+    qb_componentattr_setdatasize(attr, sizeof(type))
+
+qbResult qb_componentattr_setprogram(qbComponentAttr attr, const char* program);
+qbResult qb_componentattr_setimplementation(qbComponentAttr attr,
                                             qbCollection* collection);
 
-qbResult qb_component_create(qbComponent* component, const char* name, qbComponentAttr attr);
+qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 qbResult qb_component_destroy(qbComponent* component);
 
 qbResult qb_entityattr_create(qbEntityAttr* attr);
 qbResult qb_entityattr_destroy(qbEntityAttr* attr);
 
-qbResult qb_entityattr_addcomponent(qbEntityAttr* attr, qbComponent component,
+qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
                                     void* instance_data);
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
-
 qbResult qb_entity_destroy(qbEntity* entity);
+qbResult qb_entity_getid(qbEntity entity, qbId* id);
 
 enum qbComponentJoin {
   QB_JOIN_INNER = 0,
-  QB_JOIN_OUTER,
+  QB_JOIN_LEFT,
   QB_JOIN_CROSS,
 };
 
 qbResult qb_systemattr_create(qbSystemAttr* attr);
 qbResult qb_systemattr_destroy(qbSystemAttr* attr);
-qbResult qb_systemattr_setprogram(qbSystemAttr* attr, const char* program);
-qbResult qb_systemattr_addsource(qbSystemAttr* attr, qbComponent component);
-qbResult qb_systemattr_addsink(qbSystemAttr* attr, qbComponent component);
-qbResult qb_systemattr_setfunction(qbSystemAttr* attr, qbTransform transform);
-qbResult qb_systemattr_setcallback(qbSystemAttr* attr, qbCallback callback);
+qbResult qb_systemattr_setprogram(qbSystemAttr attr, const char* program);
+qbResult qb_systemattr_addsource(qbSystemAttr attr, qbComponent component);
+qbResult qb_systemattr_addsink(qbSystemAttr attr, qbComponent component);
+qbResult qb_systemattr_setfunction(qbSystemAttr attr, qbTransform transform);
+qbResult qb_systemattr_setcallback(qbSystemAttr attr, qbCallback callback);
 
-qbResult qb_systemattr_settrigger(qbSystemAttr* attr, qbTrigger trigger);
-qbResult qb_systemattr_setpriority(qbSystemAttr* attr, int16_t priority);
-qbResult qb_systemattr_setjoin(qbSystemAttr* attr, qbComponentJoin join);
-qbResult qb_systemattr_setuserstate(qbSystemAttr* attr, void* state);
+qbResult qb_systemattr_settrigger(qbSystemAttr attr, qbTrigger trigger);
+qbResult qb_systemattr_setpriority(qbSystemAttr attr, int16_t priority);
+qbResult qb_systemattr_setjoin(qbSystemAttr attr, qbComponentJoin join);
+qbResult qb_systemattr_setuserstate(qbSystemAttr attr, void* state);
 
 qbResult qb_system_create(qbSystem* system, qbSystemAttr attr);
-qbResult qb_system_enable(qbSystem* system);
-qbResult qb_system_disable(qbSystem* system);
 qbResult qb_system_destroy(qbSystem* system);
+qbResult qb_system_enable(qbSystem system);
+qbResult qb_system_disable(qbSystem system);
 
 
 
@@ -260,8 +267,10 @@ typedef struct qbEvent_* qbEvent;
 
 qbResult qb_eventattr_create(qbEventAttr* attr);
 qbResult qb_eventattr_destroy(qbEventAttr* attr);
-qbResult qb_eventattr_setprogram(qbEventAttr* attr, const char* program);
-qbResult qb_eventattr_setmessagesize(qbEventAttr* attr, size_t size);
+qbResult qb_eventattr_setprogram(qbEventAttr attr, const char* program);
+qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
+#define qb_eventattr_setmessagetype(attr, type) \
+    qb_eventattr_setmessagesize(attr, sizeof(type))
 
 // Thread-safe
 qbResult qb_event_create(qbEvent* event, qbEventAttr attr);

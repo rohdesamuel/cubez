@@ -2,17 +2,10 @@
 #define PLAYER__H
 
 #include "inc/cubez.h"
-#include "inc/schema.h"
 
 #include <glm/glm.hpp>
 
 namespace player {
-
-const char kCollection[] = "player";
-
-struct Object {
-  glm::vec3 color;
-};
 
 struct Settings {
   glm::vec3 start_pos;
@@ -29,3 +22,4 @@ void move_down(float speed);
 }  // namespace player
 
 #endif  // PLAYER__H
+

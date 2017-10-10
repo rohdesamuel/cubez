@@ -1,7 +1,6 @@
 #define __ENGINE_DEBUG__
 #include "inc/cubez.h"
 #include "inc/table.h"
-#include "inc/schema.h"
 #include "inc/timer.h"
 
 #define GL3_PROTOTYPES 1
@@ -16,6 +15,7 @@
 #include "physics.h"
 #include "player.h"
 #include "log.h"
+#include "render.h"
 #include "shader.h"
 #include "generic.h"
 
@@ -90,7 +90,7 @@ void init_rendering(int width, int height) {
   
   SDL_Init(SDL_INIT_VIDEO);
   
-  // Request an OpenGL 4.5 context
+  // Request an OpenGL 3.3 context
   SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -123,7 +123,6 @@ void initialize_universe(qbUniverse* uni) {
 
   // Create the "main".
   qb_create_program(kMainProgram); 
-#if 0
   {
     logging::initialize();
   }
@@ -139,8 +138,8 @@ void initialize_universe(qbUniverse* uni) {
   }
 
   {
-    player::Settings settings;
-    player::initialize(settings);
+    //player::Settings settings;
+    //player::initialize(settings);
   }
 
   {
@@ -150,15 +149,15 @@ void initialize_universe(qbUniverse* uni) {
     settings.fs = tex_fs;
 
     ball::initialize(settings);
-    /*
+
     ball::create({0.0f, 1.0f, 0.0f},
                  {0.0f, 0.0f, 0.0f});
     ball::create({1.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});*/
+                 {0.0f, 0.0f, 0.0f});
     check_for_gl_errors();
   }
-#endif
 
+#if 0
   {
     qbComponent transforms;
     {
@@ -193,17 +192,20 @@ void initialize_universe(qbUniverse* uni) {
     //Generic<int, Generic<float>, Generic<int>>::create(1, qbId(2), 3);
     //Generic<int, Generic<int>, Generic<int>>::create({1}, {2}, {3});
   }
-  std::exit(0);
+#endif
 }
 
 int main(int, char* []) {
-  //init_rendering(800, 600);
-  //std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
+  init_rendering(800, 600);
+  std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
 
+  std::cout << "here\n";
+  std::cout << "here\n";
+  std::cout << "here\n";
 
   qb_start();
   int frame = 0;
@@ -258,6 +260,7 @@ int main(int, char* []) {
         }
       }
 
+      /*
       if (pressed_keys['w']) {
         player::move_up(0.0001f);
       }
@@ -272,7 +275,7 @@ int main(int, char* []) {
 
       if (pressed_keys['d']) {
         player::move_right(0.0001f);
-      }
+      }*/
 
       if (pressed_keys[' ']) {
         glm::vec3 p{

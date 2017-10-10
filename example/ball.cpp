@@ -14,7 +14,7 @@
 namespace ball {
 
 // State
-qbId render_id;
+  render::qbRenderable render_state;
 
 uint32_t load_texture(const std::string& file) {
   uint32_t texture;
@@ -79,7 +79,7 @@ void initialize(const Settings& settings) {
     material.shader_id = shaders.id();
     material.texture_id = load_texture(settings.texture);
 
-    render_id = render::create(material, mesh);
+    render_state = render::create(material, mesh);
   }
 
   std::cout << "Finished initializing ball\n";
@@ -90,8 +90,12 @@ void create(glm::vec3 pos, glm::vec3 vel) {
   qb_entityattr_create(&attr);
 
   physics::Transform t{pos, vel};
-  qb_entityattr_addcomponent(&attr, physics::component(), &t);
-  qb_entityattr_addcomponent(&attr, render::component(), nullptr);
+  qb_entityattr_addcomponent(attr, physics::component(), &t);
+  qb_entityattr_addcomponent(attr, render::component(), render_state);
+
+  qbEntity entity;
+  qb_entity_create(&entity, attr);
+  qb_entityattr_destroy(&attr);
 }
 
 }  // namespace ball

@@ -11,8 +11,6 @@
 namespace physics {
 
 
-const char kCollection[] = "physics_objects";
-
 struct Material {
   float mass;
   

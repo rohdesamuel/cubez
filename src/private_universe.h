@@ -81,60 +81,53 @@ class Runner {
 
 class CollectionRegistry {
  public:
-  qbCollection alloc(qbId program, const char* collection) {
-    auto& collections = collections_[program];
+   CollectionRegistry(): id_(0) {}
 
-    qbCollection ret = nullptr;
-    if (collections.find(collection) == -1) {
-      qbHandle id = collections.insert(collection, nullptr);
-      ret = new_collection(id, collection);
-      collections[id] = ret;
-    }
+  qbCollection alloc(qbId program, qbCollectionAttr attr) {
+    qbId id = id_++;
+    qbCollection ret = new_collection(id, program, attr);
+    collections_[program][id] = ret;
     return ret;
   }
 
-  qbResult share(qbId source_program, const char* source_collection,
-                 qbId dest_program, const char* dest_collection) {
-    auto& source = collections_[source_program];
-    auto& destination = collections_[dest_program];
+  qbResult share(qbCollection collection, qbId program) {
+    auto& destination = collections_[program];
 
-    qbHandle src = source.find(source_collection);
-    qbHandle dst = destination.find(dest_collection);
-    if (src != -1 && dst == -1) {
-      destination.insert(dest_collection, source[src]);
+    if (destination.find(collection->id) == destination.end()) {
+      destination[collection->id] = collection;
       return QB_OK;
     }
     return QB_ERROR_ALREADY_EXISTS;
   }
 
-  qbCollection get(qbId program, const char* collection) {
-    auto& collections = collections_[program];
-
-    qbCollection ret = nullptr;
-    qbHandle id;
-    if ((id = collections.find(collection)) != -1) {
-      ret = collections[id];
-    }
-    return ret;
-  }
-
  private:
-  qbCollection new_collection(qbId id, const char* name) {
+  qbCollection new_collection(qbId id, qbId program, qbCollectionAttr attr) {
     qbCollection c = (qbCollection)calloc(1, sizeof(qbCollection_));
     *(qbId*)(&c->id) = id;
-    *(char**)(&c->name) = (char*)name;
+    *(qbId*)(&c->program_id) = program;
+    c->interface.insert = attr->insert;
+    c->interface.update = attr->update;
+    c->interface.by_key = attr->accessor.key;
+    c->interface.by_handle = attr->accessor.handle;
+    c->interface.by_offset = attr->accessor.offset;
+    c->interface.collection = attr->collection;
+    c->count = attr->count;
+    c->keys = attr->keys;
+    c->values = attr->values;
     return c;
   }
 
-  std::unordered_map<qbId, cubez::Table<std::string, qbCollection>> collections_;
+  std::atomic_long id_;
+  std::unordered_map<qbId, std::unordered_map<qbId, qbCollection>> collections_;
 };
 
 class SystemImpl {
  private:
-  qbSystem_* system_;
+  qbSystem system_;
   std::vector<qbCollection> sources_;
   std::vector<qbCollection> sinks_;
-  std::vector<qbCollectionInterface> interfaces_;
+  std::vector<qbCollectionInterface> source_interfaces_;
+  std::vector<qbCollectionInterface> sink_interfaces_;
 
   qbComponentJoin join_;
   void* user_state_;
@@ -143,11 +136,12 @@ class SystemImpl {
   void* element_values_;
   void* element_keys_;
 
+  qbRunCondition run_condition_;
   qbTransform transform_;
   qbCallback callback_;
 
  public:
-  SystemImpl(const qbSystemAttr_& attr, qbSystem_* system) :
+  SystemImpl(const qbSystemAttr_& attr, qbSystem system) :
     system_(system), join_(attr.join), user_state_(attr.state),
     transform_(attr.transform),
     callback_(attr.callback) {
@@ -155,12 +149,13 @@ class SystemImpl {
     size_t value_size = 0;
     for(auto* component : attr.sinks) {
       sinks_.push_back(component->impl);
-      interfaces_.push_back(component->impl->interface);
+      sink_interfaces_.push_back(component->impl->interface);
     }
     for(auto* component : attr.sources) {
       key_size += component->impl->keys.stride;
       value_size += component->impl->values.stride;
       sources_.push_back(component->impl);
+      source_interfaces_.push_back(component->impl->interface);
     }
 
     element_values_ = malloc(value_size);
@@ -179,36 +174,44 @@ class SystemImpl {
     }
   }
 
-  static SystemImpl* from_raw(qbSystem_* system) {
-    return (SystemImpl*)((char*)system + sizeof(qbSystem_));
+  static SystemImpl* from_raw(qbSystem system) {
+    return (SystemImpl*)(((char*)system) + sizeof(qbSystem_));
   }
   
-  void run(qbFrame* frame) {
+  void run(void* event = nullptr) {
     size_t source_size = sources_.size();
     size_t sink_size = sinks_.size();
-    if (transform_) {
-      if (source_size == 0 && sink_size == 0) {
-        run_0_to_0(frame);
-      } else if (source_size == 1 && sink_size == 0) {
-        run_1_to_0(frame);
-      } else if (source_size == 1 && sink_size > 0) {
-        run_1_to_n(frame);
-      } else if (source_size > 1 && sink_size > 0) {
-        run_m_to_n(frame);
-      } else if (source_size == 0 && sink_size > 0) {
-        run_0_to_n(frame);
-      } else if (source_size == 1 && sink_size > 0) {
-        run_1_to_n(frame);
-      }
-    }
+    qbFrame frame;
+    frame.event = event;
+    frame.state = system_->user_state;
 
-    if (callback_) {
-      callback_(system_, frame->message, interfaces_.data());
+    if (!run_condition_ ||
+        (run_condition_ && run_condition_(source_interfaces_.data(),
+                                          sink_interfaces_.data(), &frame))) {
+      if (transform_) {
+        if (source_size == 0 && sink_size == 0) {
+          run_0_to_0(&frame);
+        } else if (source_size == 1 && sink_size == 0) {
+          run_1_to_0(&frame);
+        } else if (source_size == 1 && sink_size > 0) {
+          run_1_to_n(&frame);
+        } else if (source_size > 1 && sink_size > 0) {
+          run_m_to_n(&frame);
+        } else if (source_size == 0 && sink_size > 0) {
+          run_0_to_n(&frame);
+        } else if (source_size == 1 && sink_size > 0) {
+          run_1_to_n(&frame);
+        }
+      }
+
+      if (callback_) {
+        callback_(sink_interfaces_.data(), &frame);
+      }
     }
   }
 
-  void run_0_to_0(qbFrame*) {
-    transform_(system_, elements_.data(), interfaces_.data());
+  void run_0_to_0(qbFrame* f) {
+    transform_(elements_.data(), sink_interfaces_.data(), f);
   }
 
   void copy_to_element(qbCollection c, void* k, void* v, uint64_t offset,
@@ -218,7 +221,7 @@ class SystemImpl {
     element->offset = offset;
   }
 
-  void run_1_to_0(qbFrame*) {
+  void run_1_to_0(qbFrame* f) {
     qbCollection source = sources_[0];
     uint64_t count = source->count(&source->interface);
     uint8_t* keys = source->keys.data(&source->interface);
@@ -229,15 +232,15 @@ class SystemImpl {
           (void*)(keys + source->keys.offset + i * source->keys.stride),
           (void*)(values + source->values.offset + i * source->values.stride),
           i, &elements_.front());
-      transform_(system_, elements_.data(), nullptr);
+      transform_(elements_.data(), nullptr, f);
     }
   }
 
-  void run_0_to_n(qbFrame*) {
-    transform_(system_, nullptr, interfaces_.data());
+  void run_0_to_n(qbFrame* f) {
+    transform_(nullptr, sink_interfaces_.data(), f);
   }
 
-  void run_1_to_n(qbFrame*) {
+  void run_1_to_n(qbFrame* f) {
     qbCollection source = sources_[0];
     const uint64_t count = source->count(&source->interface);
     const uint8_t* keys = source->keys.data(&source->interface);
@@ -247,11 +250,11 @@ class SystemImpl {
           (void*)(keys + source->keys.offset + i * source->keys.stride),
           (void*)(values + source->values.offset + i * source->values.stride),
           i, &elements_.front());
-      transform_(system_, elements_.data(), interfaces_.data());
+      transform_(elements_.data(), sink_interfaces_.data(), f);
     }
   }
 
-  void run_m_to_n(qbFrame*) {
+  void run_m_to_n(qbFrame* f) {
     qbCollection source = sources_[0];
     switch(join_) {
       case qbComponentJoin::QB_JOIN_INNER: {
@@ -265,17 +268,9 @@ class SystemImpl {
           }
         }
       } break;
-      case qbComponentJoin::QB_JOIN_OUTER: {
-        uint64_t max = 0;
-        for (size_t i = 0; i < sources_.size(); ++i) {
-          qbCollection src = sources_[i];
-          uint64_t maybe_max = src->count(&src->interface);
-          if (maybe_max > max) {
-            max = maybe_max;
-            source = src;
-          }
-        }
-      } break;
+      case qbComponentJoin::QB_JOIN_LEFT:
+        source = sources_[0];
+      break;
       case qbComponentJoin::QB_JOIN_CROSS: {
         uint64_t* max_counts =
             (uint64_t*)alloca(sizeof(uint64_t) * sources_.size());
@@ -315,7 +310,7 @@ class SystemImpl {
             ++indices_to_inc;
             indices[max_src] = 0;
           }
-          transform_(system_, elements_.data(), interfaces_.data());
+          transform_(elements_.data(), sink_interfaces_.data(), f);
         }
       } return;
     }
@@ -323,6 +318,7 @@ class SystemImpl {
     const uint64_t count = source->count(&source->interface);
     const uint8_t* keys = source->keys.data(&source->interface);
     switch(join_) {
+      case qbComponentJoin::QB_JOIN_LEFT:
       case qbComponentJoin::QB_JOIN_INNER: {
         for(uint64_t i = 0; i < count; ++i) {
           void* k =
@@ -340,26 +336,7 @@ class SystemImpl {
           }
           if (should_continue) continue;
 
-          transform_(system_, elements_.data(), interfaces_.data());
-        }
-      } break;
-      case qbComponentJoin::QB_JOIN_OUTER: {
-        for(uint64_t i = 0; i < count; ++i) {
-          void* k =
-              (void*)(keys + source->keys.offset + i * source->keys.stride);
-
-          for (size_t j = 0; j < sinks_.size(); ++j) {
-            qbCollection c = sinks_[j];
-            void* v = c->interface.by_key(&c->interface, k);
-            if (v) {
-              copy_to_element(c, k, v, i, &elements_[j]);
-            } else {
-              elements_[j].key = nullptr;
-              elements_[j].value = nullptr;
-              elements_[j].offset = -1;
-            }
-          }
-          transform_(system_, elements_.data(), interfaces_.data());
+          transform_(elements_.data(), sink_interfaces_.data(), f);
         }
       } break;
       default:
@@ -391,15 +368,13 @@ class Channel {
   }
 
   qbResult send_message(void* message) {
-    message_queue_.enqueue(message);
+    message_queue_.enqueue(alloc_message(message));
     return qbResult::QB_OK;
   }
 
   qbResult send_message_sync(void* message) {
-    qbFrame frame;
-    frame.message = message;
     for (const auto& handler : handlers_) {
-      (SystemImpl::from_raw(handler))->run(&frame);
+      (SystemImpl::from_raw(handler))->run(message);
     }
 
     free_message(message);
@@ -424,11 +399,8 @@ class Channel {
         break;
       }
 
-
-      qbFrame frame;
-      frame.message = msg;
       for (const auto& handler : handlers_) {
-        SystemImpl::from_raw(handler)->run(&frame);
+        SystemImpl::from_raw(handler)->run(msg);
       }
 
       free_message(msg);
@@ -493,7 +465,8 @@ class EventRegistry {
  private:
   void alloc_event(qbId id, qbEvent* event, Channel* channel) {
     *event = (qbEvent)calloc(1, sizeof(qbEvent_));
-    *(qbId*)(*event)->id = id;
+    *(qbId*)(&(*event)->id) = id;
+    *(qbId*)(&(*event)->program) = program_;
     (*event)->channel = channel;
   }
 
@@ -547,25 +520,25 @@ class EventRegistry {
 
 class ProgramImpl {
  private:
-   typedef cubez::Table<qbCollection, std::set<qbSystem_*>> Mutators;
+   typedef cubez::Table<qbCollection, std::set<qbSystem>> Mutators;
  public:
   ProgramImpl(qbProgram* program)
       : program_(program),
         events_(program->id) {}
 
-  qbSystem_* create_system(const qbSystemAttr_& attr) {
-    qbSystem_* system = new_system(systems_.size(), attr);
+  qbSystem create_system(const qbSystemAttr_& attr) {
+    qbSystem system = new_system(systems_.size(), attr);
     systems_.push_back(system);
 
     enable_system(system);
     return system;
   }
 
-  qbResult free_system(qbSystem_* system) {
+  qbResult free_system(qbSystem system) {
     return disable_system(system);
   }
 
-  qbResult enable_system(qbSystem_* system) {
+  qbResult enable_system(qbSystem system) {
     disable_system(system);
 
     if (system->policy.trigger == qbTrigger::LOOP) {
@@ -580,7 +553,7 @@ class ProgramImpl {
     return QB_OK;
   }
 
-  qbResult disable_system(qbSystem_* system) {
+  qbResult disable_system(qbSystem system) {
     auto found = std::find(loop_systems_.begin(), loop_systems_.end(), system);
     if (found != loop_systems_.end()) {
       loop_systems_.erase(found);
@@ -590,7 +563,7 @@ class ProgramImpl {
     return QB_OK;
   }
 
-  bool contains_system(qbSystem_* system) {
+  bool contains_system(qbSystem system) {
     return std::find(systems_.begin(), systems_.end(), system) != systems_.end();
   }
 
@@ -616,18 +589,19 @@ class ProgramImpl {
 
   void run() {
     events_.flush_all();
-    for(qbSystem_* p : loop_systems_) {
-      SystemImpl::from_raw(p)->run(nullptr);
+    for(qbSystem p : loop_systems_) {
+      SystemImpl::from_raw(p)->run();
     }
   }
 
  private:
-  qbSystem_* new_system(qbId id, const qbSystemAttr_& attr) {
-    qbSystem_* p = (qbSystem_*)calloc(1, sizeof(qbSystem_) + sizeof(SystemImpl));
+  qbSystem new_system(qbId id, const qbSystemAttr_& attr) {
+    qbSystem p = (qbSystem)calloc(1, sizeof(qbSystem_) + sizeof(SystemImpl));
     *(qbId*)(&p->id) = id;
     *(qbId*)(&p->program) = program_->id;
     p->policy.trigger = attr.trigger;
     p->policy.priority = attr.priority;
+    p->user_state = attr.state;
 
     SystemImpl* impl = SystemImpl::from_raw(p);
     new (impl) SystemImpl(attr, p);
@@ -636,7 +610,7 @@ class ProgramImpl {
   }
 
   qbResult add_system_to_collection(
-      qbSystem_* system, qbCollection collection, Mutators* table) {
+      qbSystem system, qbCollection collection, Mutators* table) {
     if (!system || !collection || !table) {
       return QB_ERROR_NULL_POINTER;
     }
@@ -650,7 +624,7 @@ class ProgramImpl {
       handle = table->insert(collection, {});
     }
 
-    std::set<qbSystem_*>& systems = (*table)[handle];
+    std::set<qbSystem>& systems = (*table)[handle];
 
     if (systems.find(system) == systems.end()) {
       systems.insert(system);
@@ -666,9 +640,9 @@ class ProgramImpl {
   Mutators readers_;
 
   EventRegistry events_;
-  std::vector<qbSystem_*> systems_;
-  std::vector<qbSystem_*> loop_systems_;
-  std::set<qbSystem_*> event_systems_;
+  std::vector<qbSystem> systems_;
+  std::vector<qbSystem> loop_systems_;
+  std::set<qbSystem> event_systems_;
 };
 
 class ProgramThread {
@@ -743,7 +717,7 @@ class ProgramRegistry {
 
   qbProgram* get_program(const char* program) {
     std::hash<std::string> hasher;
-    qbId id = hasher(program);
+    qbId id = hasher(std::string(program));
     if (id == -1) {
       return nullptr;
     }
@@ -788,8 +762,9 @@ class ProgramRegistry {
   qbProgram* new_program(qbId id, const char* name) {
     qbProgram* p = (qbProgram*)calloc(1, sizeof(qbProgram));
     *(qbId*)(&p->id) = id;
-    *(char**)(&p->name) = (char*)name;
+    *(char**)(&p->name) = strdup(name);
     p->self = new ProgramImpl{p};
+
     return p;
   }
 
@@ -807,14 +782,14 @@ class ComponentRegistry {
  public:
   ComponentRegistry() : id_(0) {}
 
-  qbResult create_component(qbComponent_** component, qbComponentAttr_* attr) {
+  qbResult create_component(qbComponent* component, qbComponentAttr attr) {
     new_component(component, attr);
     components_[(*component)->id] = *component;
     return qbResult::QB_OK;
   }
 
   static qbHandle create_component_instance(
-      qbComponent_* component, qbId entity_id, const void* value) {
+      qbComponent component, qbId entity_id, const void* value) {
     qbElement element;
     element.key = &entity_id;
     element.value = (void*)value;
@@ -822,21 +797,20 @@ class ComponentRegistry {
   }
 
  private:
-  qbResult new_component(qbComponent_** component, qbComponentAttr_* attr) {
-    *component = (qbComponent_*)calloc(1, sizeof(qbComponent_));
+  qbResult new_component(qbComponent* component, qbComponentAttr attr) {
+    *component = (qbComponent)calloc(1, sizeof(qbComponent_));
     *(qbId*)(&(*component)->id) = id_++;
     if (attr->impl) {
       (*component)->impl = attr->impl;
     } else {
       (*component)->impl = Component::new_collection(attr->program,
-                                                     attr->name,
                                                      attr->data_size);
     }
     (*component)->data_size = attr->data_size;
     return qbResult::QB_OK;
   }
 
-  std::unordered_map<qbId, qbComponent_*> components_;
+  std::unordered_map<qbId, qbComponent> components_;
   std::atomic_long id_;
 };
 
@@ -844,24 +818,24 @@ class EntityRegistry {
  public:
   EntityRegistry() : id_(0) {}
 
-  qbResult create_entityasync(qbEntity_** entity, const qbEntityAttr_& attr) {
+  qbResult create_entityasync(qbEntity* entity, const qbEntityAttr_& attr) {
     new_entity(entity);
     add_components(*entity, attr);
 
     return qbResult::QB_OK;
   }
 
-  qbResult create_entity(qbEntity_** entity, const qbEntityAttr_& attr) {
+  qbResult create_entity(qbEntity* entity, const qbEntityAttr_& attr) {
     new_entity(entity);
     add_components(*entity, attr);
 
     return qbResult::QB_OK;
   }
 
-  void add_components(qbEntity_* entity, const qbEntityAttr_& attr) {
+  void add_components(qbEntity entity, const qbEntityAttr_& attr) {
     std::vector<ComponentInstance> instances;
     for (const auto instance : attr.component_list) {
-      qbComponent_* component = instance.component;
+      qbComponent component = instance.component;
 
       instances.push_back({
           component->id,
@@ -873,8 +847,8 @@ class EntityRegistry {
   }
 
  private:
-  qbResult new_entity(qbEntity_** entity) {
-    *entity = (qbEntity)calloc(1, sizeof(qbEntity));
+  qbResult new_entity(qbEntity* entity) {
+    *entity = (qbEntity)calloc(1, sizeof(qbEntity_));
     *(qbId*)(&(*entity)->id) = id_++;
     return qbResult::QB_OK;
   }
@@ -899,19 +873,18 @@ class PrivateUniverse {
   qbResult join_program(qbId program);
 
   // qbSystem manipulation.
-  qbResult system_create(qbSystem_** system, const qbSystemAttr_& attr);
+  qbResult system_create(qbSystem* system, const qbSystemAttr_& attr);
 
   qbResult alloc_system(const struct qbSystemCreateInfo* create_info,
-                        qbSystem_** system);
-  qbSystem_* copy_system(qbSystem_* system, const char* dest);
-  qbResult free_system(qbSystem_* system);
+                        qbSystem* system);
+  qbSystem copy_system(qbSystem system, const char* dest);
+  qbResult free_system(qbSystem system);
 
-  qbResult enable_system(qbSystem_* system);
-  qbResult disable_system(qbSystem_* system);
+  qbResult enable_system(qbSystem system);
+  qbResult disable_system(qbSystem system);
 
   // qbCollection manipulation.
-  qbResult collection_create(qbCollection* collection, const char* name,  
-                             qbCollectionAttr attr);
+  qbResult collection_create(qbCollection* collection, qbCollectionAttr attr);
   qbResult collection_share(qbCollection collection, qbProgram destination);
   qbResult collection_copy(qbCollection collection, qbProgram destination);
   qbResult collection_destroy(qbCollection* collection);
@@ -930,10 +903,10 @@ class PrivateUniverse {
   qbResult event_sendsync(qbEvent event, void* message);
 
   // Entity manipulation.
-  qbResult entity_create(qbEntity_** entity, const qbEntityAttr_& attr);
+  qbResult entity_create(qbEntity* entity, const qbEntityAttr_& attr);
 
   // Component manipulation.
-  qbResult component_create(qbComponent_** component, qbComponentAttr_* attr);
+  qbResult component_create(qbComponent* component, qbComponentAttr attr);
 
  private:
   CollectionRegistry collections_;

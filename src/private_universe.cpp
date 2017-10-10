@@ -129,7 +129,7 @@ qbResult PrivateUniverse::join_program(qbId program) {
   return programs_.join_program(program);
 }
 
-qbResult PrivateUniverse::system_create(qbSystem_** system, 
+qbResult PrivateUniverse::system_create(qbSystem* system, 
                                         const qbSystemAttr_& attr) {
   qbProgram* p = programs_.get_program(attr.program);
   if (!p) {
@@ -141,7 +141,7 @@ qbResult PrivateUniverse::system_create(qbSystem_** system,
   return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::free_system(qbSystem_* system) {
+qbResult PrivateUniverse::free_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
@@ -151,12 +151,12 @@ qbResult PrivateUniverse::free_system(qbSystem_* system) {
   return program->free_system(system);
 }
 
-qbSystem_* PrivateUniverse::copy_system(
-    qbSystem_*, const char*) {
+qbSystem PrivateUniverse::copy_system(
+    qbSystem, const char*) {
   return nullptr;
 }
 
-qbResult PrivateUniverse::enable_system(qbSystem_* system) {
+qbResult PrivateUniverse::enable_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
@@ -166,7 +166,7 @@ qbResult PrivateUniverse::enable_system(qbSystem_* system) {
   return program->enable_system(system);
 }
 
-qbResult PrivateUniverse::disable_system(qbSystem_* system) {
+qbResult PrivateUniverse::disable_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
   qbProgram* p = programs_.get_program(system->program);
@@ -178,11 +178,10 @@ qbResult PrivateUniverse::disable_system(qbSystem_* system) {
 
 
 qbResult PrivateUniverse::collection_create(qbCollection* collection,
-                                            const char* name,
                                             qbCollectionAttr attr) {
   qbProgram* p = programs_.get_program(attr->program);
   ASSERT_NOT_NULL(p);
-  *collection = collections_.alloc(p->id, name);
+  *collection = collections_.alloc(p->id, attr);
   return qbResult::QB_OK;
 }
 
@@ -275,13 +274,13 @@ qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
   return ((Channel*)event->channel)->send_message(message);
 }
 
-qbResult PrivateUniverse::entity_create(qbEntity_** entity, const qbEntityAttr_& attr) {
+qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
   if (runner_.state() == Runner::State::LOOPING) {
     return entities_.create_entityasync(entity, attr);
   }
   return entities_.create_entity(entity, attr);
 }
 
-qbResult PrivateUniverse::component_create(qbComponent_** component, qbComponentAttr_* attr) {
+qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
   return components_.create_component(component, attr);
 }

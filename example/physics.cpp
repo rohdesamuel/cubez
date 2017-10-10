@@ -4,15 +4,10 @@
 
 namespace physics {
 
-// Event names
-const char kInsert[] = "physics_insert";
-const char kImpulse[] = "physics_impulse";
-const char kCollision[] = "physics_collision";
+// Components
+qbComponent transforms;
 
-// Collections
-qbComponent objects;
-
-// Channels
+// Events
 qbEvent impulse_event;
 
 // Systems
@@ -27,22 +22,21 @@ void initialize(const Settings&) {
 
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setprogram(&attr, kMainProgram);
-    qb_componentattr_setdatasize(&attr, sizeof(physics::Transform));
+    qb_componentattr_setprogram(attr, kMainProgram);
+    qb_componentattr_setdatatype(attr, physics::Transform);
 
-    qbComponent objects;
-    qb_component_create(&objects, "transforms", attr);
+    qb_component_create(&transforms, attr);
   }
 
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_setprogram(&attr, kMainProgram);
-    qb_systemattr_setpriority(&attr, QB_MIN_PRIORITY);
-    qb_systemattr_addsource(&attr, objects);
-    qb_systemattr_addsink(&attr, objects);
-    qb_systemattr_setfunction(&attr,
-        [](qbSystem, qbElement* elements, qbCollectionInterface* collections) {
+    qb_systemattr_setprogram(attr, kMainProgram);
+    qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
+    qb_systemattr_addsource(attr, transforms);
+    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_setfunction(attr,
+        [](qbElement* elements, qbCollectionInterface* collections, qbFrame*) {
           Transform* particle = (Transform*)elements[0].value;
           particle->p += particle->v;
           if (particle->p.x >  1.0f) { particle->p.x =  0.98f; particle->v.x *= -0.98; }
@@ -58,14 +52,14 @@ void initialize(const Settings&) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_setprogram(&attr, kMainProgram);
-    qb_systemattr_setpriority(&attr, 0);
-    qb_systemattr_addsource(&attr, objects);
-    qb_systemattr_addsource(&attr, objects);
-    qb_systemattr_addsink(&attr, objects);
-    qb_systemattr_setjoin(&attr, qbComponentJoin::QB_JOIN_CROSS);
-    qb_systemattr_setfunction(&attr,
-        [](qbSystem, qbElement* elements, qbCollectionInterface* sinks) {
+    qb_systemattr_setprogram(attr, kMainProgram);
+    qb_systemattr_setpriority(attr, 0);
+    qb_systemattr_addsource(attr, transforms);
+    qb_systemattr_addsource(attr, transforms);
+    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
+    qb_systemattr_setfunction(attr,
+        [](qbElement* elements, qbCollectionInterface* sinks, qbFrame*) {
           qbCollectionInterface* transforms = &sinks[0];
           Transform& a = *(Transform*)elements[0].value;
           Transform& b = *(Transform*)elements[1].value;
@@ -90,18 +84,19 @@ void initialize(const Settings&) {
         });
 
     qb_system_create(&collision_system, attr);
+    qb_systemattr_destroy(&attr);
   }
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_setprogram(&attr, kMainProgram);
-    qb_systemattr_setpriority(&attr, QB_MIN_PRIORITY);
-    qb_systemattr_settrigger(&attr, qbTrigger::EVENT);
-    qb_systemattr_addsink(&attr, objects);
-    qb_systemattr_setcallback(&attr,
-        [](qbSystem, void* message, qbCollectionInterface* collections) {
+    qb_systemattr_setprogram(attr, kMainProgram);
+    qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
+    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_setcallback(attr,
+        [](qbCollectionInterface* collections, qbFrame* frame) {
           qbCollectionInterface* from = &collections[0];
-          Impulse* impulse = (Impulse*)message;
+          Impulse* impulse = (Impulse*)frame->event;
           Transform* transform = (Transform*)from->by_key(from, &impulse->key);
           transform->v += impulse->p;
         });
@@ -113,8 +108,8 @@ void initialize(const Settings&) {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setprogram(&attr, kMainProgram);
-    qb_eventattr_setmessagesize(&attr, sizeof(Impulse));
+    qb_eventattr_setprogram(attr, kMainProgram);
+    qb_eventattr_setmessagesize(attr, sizeof(Impulse));
     qb_event_create(&impulse_event, attr);
     qb_event_subscribe(impulse_event, impulse_system);
     qb_eventattr_destroy(&attr);
@@ -127,7 +122,7 @@ void send_impulse(qbId key, glm::vec3 p) {
 }
 
 qbComponent component() {
-  return objects;
+  return transforms;
 }
 
 }  // namespace physics
