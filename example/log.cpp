@@ -42,12 +42,13 @@ void initialize() {
   qb_detach_program(program_id);
 }
 
-void out(const std::string& s) {
+void out(const std::string&) {
+  /*
   int num_msgs = 1 + (s.size() / MAX_CHARS);
   for (int i = 0; i < num_msgs; ++i) {
     std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
     qb_event_send(std_out, (void*)to_send.c_str());
-  }
+  }*/
 }
 
 }  // namespace log

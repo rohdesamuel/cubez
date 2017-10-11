@@ -195,12 +195,12 @@ class SystemImpl {
           run_1_to_0(&frame);
         } else if (source_size == 1 && sink_size > 0) {
           run_1_to_n(&frame);
-        } else if (source_size > 1 && sink_size > 0) {
-          run_m_to_n(&frame);
         } else if (source_size == 0 && sink_size > 0) {
           run_0_to_n(&frame);
         } else if (source_size == 1 && sink_size > 0) {
           run_1_to_n(&frame);
+        } else if (source_size > 1) {
+          run_m_to_n(&frame);
         }
       }
 
@@ -286,24 +286,28 @@ class SystemImpl {
           keys[i] = sources_[i]->keys.data(&sources_[i]->interface);
           values[i] = sources_[i]->values.data(&sources_[i]->interface);
           max_counts[i] = sources_[i]->count(&sources_[i]->interface);
+          indices[i] = 0;
         }
 
         while (indices_to_inc < max_index) {
           bool reached_max = false;
           size_t max_src = 0;
           for (size_t i = 0; i < sources_.size(); ++i) {
-            qbCollection src = sources_[i];
-            void* k =
-                (void*)(keys[i] + src->keys.offset + i * src->keys.stride);
-            void* v =
-                (void*)(values[i] + src->values.offset + i * src->values.stride);
-            copy_to_element(src, k, v, indices[i], &elements_[i]);
-
-            indices[i] += (1 << i) & indices_to_inc;
             reached_max |= indices[i] == max_counts[i];
-            if (reached_max) {
+            if (indices[i] == max_counts[i]) {
               max_src = i;
+              continue;
             }
+
+            qbCollection src = sources_[i];
+            uint64_t index = indices[i];
+            void* k =
+                (void*)(keys[i] + src->keys.offset + index * src->keys.stride);
+            void* v =
+                (void*)(values[i] + src->values.offset + index * src->values.stride);
+            copy_to_element(src, k, v, index, &elements_[i]);
+
+            indices[i] += (1 << i) & indices_to_inc ? 1 : 0;
           }
 
           if (reached_max) {
@@ -325,8 +329,8 @@ class SystemImpl {
               (void*)(keys + source->keys.offset + i * source->keys.stride);
 
           bool should_continue = false;
-          for (size_t j = 0; j < sinks_.size(); ++j) {
-            qbCollection c = sinks_[j];
+          for (size_t j = 0; j < sources_.size(); ++j) {
+            qbCollection c = sources_[j];
             void* v = c->interface.by_key(&c->interface, k);
             if (!v) {
               should_continue = true;
@@ -394,6 +398,8 @@ class Channel {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
     void* msg = nullptr;
     int max_events = message_queue_.size_approx();
+    if (max_events) {
+    }
     for (int i = 0; i < max_events; ++i) {
       if (!message_queue_.try_dequeue(msg)) {
         break;

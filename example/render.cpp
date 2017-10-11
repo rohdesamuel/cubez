@@ -30,11 +30,11 @@ qbComponent component() {
 }
 
 void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*) {
-  qbRenderable renderable = (qbRenderable)&elements[0];
+  qbRenderable renderable = (qbRenderable)elements[0].value;
 
   Material* material = renderable->material;
   Mesh* mesh = renderable->mesh;
-  physics::Transform* transform = (physics::Transform*)&elements[1];
+  physics::Transform* transform = (physics::Transform*)elements[1].value;
 
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   glBindVertexArray(mesh->vao);
