@@ -76,11 +76,9 @@ qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t size) {
 
 qbResult qb_component_create(
     qbComponent* component, qbComponentAttr attr) {
-#ifdef __ENGINE_DEBUG__
-  DEBUG_ASSERT(attr->program, QB_ERROR_COMPONENTATTR_PROGRAM_IS_NOT_SET);
-  DEBUG_ASSERT(attr->data_size > 0,
-               qbResult::QB_ERROR_COMPONENTATTR_DATA_SIZE_IS_ZERO);
-#endif
+  if (!attr->program) {
+    attr->program = "";
+  }
   return AS_PRIVATE(component_create(component, attr));
 }
 
@@ -121,6 +119,11 @@ qbResult qb_entity_destroy(qbEntity* entity) {
   free(*entity);
   *entity = nullptr;
 	return qbResult::QB_OK;
+}
+
+qbResult qb_entity_getid(qbEntity entity, qbId* id) {
+  *id = entity->id;
+  return qbResult::QB_OK;
 }
 
 qbResult qb_systemattr_create(qbSystemAttr* attr) {
@@ -182,8 +185,10 @@ qbResult qb_systemattr_setuserstate(qbSystemAttr attr, void* state) {
 
 
 qbResult qb_system_create(qbSystem* system, qbSystemAttr attr) {
+  if (!attr->program) {
+    attr->program = "";
+  }
 #ifdef __ENGINE_DEBUG__
-  DEBUG_ASSERT(attr->program, QB_ERROR_SYSTEMATTR_PROGRAM_IS_NOT_SET);
   DEBUG_ASSERT(attr->transform || attr->callback,
                qbResult::QB_ERROR_SYSTEMATTR_HAS_FUNCTION_OR_CALLBACK);
 #endif
@@ -218,9 +223,9 @@ qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program
 }
 
 qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset by_offset,
-                                        qbValueByKey by_key, qbValueByHandle by_handle) {
+                                        qbValueById by_id, qbValueByHandle by_handle) {
   attr->accessor.offset = by_offset;
-  attr->accessor.key = by_key;
+  attr->accessor.id = by_id;
   attr->accessor.handle = by_handle;
 	return qbResult::QB_OK;
 }
@@ -230,14 +235,17 @@ qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData data,
   attr->keys.data = data;
   attr->keys.stride = stride;
   attr->keys.offset = offset;
+  attr->keys.size = sizeof(qbId);
 	return qbResult::QB_OK;
 }
 
 qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData data,
-                                          size_t stride, uint32_t offset) {
+                                            size_t size, size_t stride,
+                                            uint32_t offset) {
   attr->values.data = data;
   attr->values.stride = stride;
   attr->values.offset = offset;
+  attr->values.size = size;
 	return qbResult::QB_OK;
 }
 
@@ -258,8 +266,10 @@ qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount count) {
 
 
 qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr) {
+  if (!attr->program) {
+    attr->program = "";
+  }
 #ifdef __ENGINE_DEBUG__
-  DEBUG_ASSERT(attr->program, QB_ERROR_COLLECTIONATTR_PROGRAM_IS_NOT_SET);
   DEBUG_ASSERT(attr->accessor.offset,
                QB_ERROR_COLLECTIONATTR_ACCESSOR_OFFSET_IS_NOT_SET);
   DEBUG_ASSERT(attr->accessor.key,
@@ -313,8 +323,10 @@ qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size) {
 }
 
 qbResult qb_event_create(qbEvent* event, qbEventAttr attr) {
+  if (!attr->program) {
+    attr->program = "";
+  }
 #ifdef __ENGINE_DEBUG__
-  DEBUG_ASSERT(attr->program, QB_ERROR_EVENTATTR_PROGRAM_IS_NOT_SET);
   DEBUG_ASSERT(attr->message_size > 0,
                qbResult::QB_ERROR_EVENTATTR_MESSAGE_SIZE_IS_ZERO);
 #endif

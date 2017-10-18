@@ -35,9 +35,11 @@ struct Settings {
 
 void initialize(const Settings& settings);
 qbId create(glm::vec3 pos, glm::vec3 vel);
-void send_impulse(qbId key, glm::vec3 p);
+void send_impulse(qbEntity entity, glm::vec3 p);
 
 qbComponent component();
+qbComponent collidables();
+qbComponent movables();
 
 }
 

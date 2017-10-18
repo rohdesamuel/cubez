@@ -19,7 +19,7 @@ struct qbAccessor {
   qbValueByHandle handle;
 
   // REQUIRED
-  qbValueByKey key;
+  qbValueById id;
 };
 
 struct qbIterator {
@@ -30,6 +30,8 @@ struct qbIterator {
   // REQUIRED
   // Size of step when iterating over data
   size_t stride;
+
+  size_t size;
 
   // OPTIONAL
   // Offset into data to start iterating from. Default 0

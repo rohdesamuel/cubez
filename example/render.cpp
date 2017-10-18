@@ -29,6 +29,19 @@ qbComponent component() {
   return renderables;
 }
 
+bool check_for_gl_errors() {
+  GLenum error = glGetError();
+  if (error == GL_NO_ERROR) {
+    return false;
+  }
+  while (error != GL_NO_ERROR) {
+    const GLubyte* error_str = gluErrorString(error);
+    std::cout << "Error(" << error << "): " << error_str << std::endl;
+    error = glGetError();
+  }
+  return true;
+}
+
 void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*) {
   qbRenderable renderable = (qbRenderable)elements[0].value;
 
@@ -36,11 +49,11 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
   Mesh* mesh = renderable->mesh;
   physics::Transform* transform = (physics::Transform*)elements[1].value;
 
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
   glBindVertexArray(mesh->vao);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
 
   ShaderProgram shaders(material->shader_id);
-  //shaders.use();
+  shaders.use();
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, material->texture_id);
@@ -55,7 +68,16 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
   mvp = glm::translate(mvp, p);
   glUniformMatrix4fv(glGetUniformLocation(
         shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
+  if (check_for_gl_errors()) {
+    std::cout << "f\n";
+    std::cout << "Renderable id: " << elements[0].id << "\n";
+  }
   glDrawArrays(GL_TRIANGLES, 0, mesh->count);
+  
+  if (check_for_gl_errors()) {
+    std::cout << "g\n";
+    std::cout << "Renderable id: " << elements[0].id << "\n";
+  }
 }
 
 void present(RenderEvent* event) {
@@ -73,7 +95,6 @@ void initialize() {
     std::cout << "Intializing renderables collection\n";
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setprogram(attr, kMainProgram);
     qb_componentattr_setdatasize(attr, sizeof(qbRenderable_));
 
     qb_component_create(&renderables, attr);
@@ -84,7 +105,6 @@ void initialize() {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_setprogram(attr, kMainProgram);
     qb_systemattr_settrigger(attr, qbTrigger::EVENT);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
     qb_systemattr_addsource(attr, renderables);
@@ -100,7 +120,6 @@ void initialize() {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setprogram(attr, kMainProgram);
     qb_eventattr_setmessagesize(attr, sizeof(RenderEvent));
 
     qb_event_create(&render_event, attr);
@@ -109,6 +128,28 @@ void initialize() {
   }
 
   std::cout << "Finished initializing render\n";
+}
+
+uint32_t load_texture(const std::string& file) {
+  uint32_t texture;
+
+  // Load the image from the file into SDL's surface representation
+  SDL_Surface* surf = SDL_LoadBMP(file.c_str());
+
+  if (!surf) {
+    std::cout << "Could not load texture " << file << std::endl;
+  }
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  SDL_FreeSurface(surf);
+
+  return texture;
 }
 
 }  // namespace render

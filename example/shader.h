@@ -40,6 +40,26 @@ class ShaderProgram {
     glAttachShader(program_, f);
     glAttachShader(program_, v);
     glLinkProgram(program_);
+
+    GLint is_linked;
+    glGetProgramiv(program_, GL_LINK_STATUS, &is_linked);
+    if(is_linked == GL_FALSE) {
+      // Noticed that glGetProgramiv is used to get the length for a shader
+      // program, not glGetShaderiv.
+      int log_size = 0;
+      glGetProgramiv(program_, GL_INFO_LOG_LENGTH, &log_size);
+
+      // The maxLength includes the NULL character.
+      char* error = new char[log_size];
+
+      // Notice that glGetProgramInfoLog, not glGetShaderInfoLog.
+      glGetProgramInfoLog(program_, log_size, &log_size, error);
+      std::cout << "Error in program linkage: " << error << std::endl;
+
+      delete[] error;
+      return;
+    }
+
     glDetachShader(program_, f);
     glDetachShader(program_, v);
     glDeleteShader(v);
@@ -47,10 +67,6 @@ class ShaderProgram {
   }
 
   ShaderProgram(GLuint program) : program_(program) {}
-
-  ~ShaderProgram() {
-    glDeleteProgram(program_);
-  }
 
   void use() {
     glUseProgram(program_);

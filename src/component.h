@@ -148,10 +148,11 @@ public:
     qb_collectionattr_setupdate(attr, default_update);
     qb_collectionattr_setinsert(attr, default_insert);
     qb_collectionattr_setaccessors(attr, default_access_by_offset,
-                                   default_access_by_key,
+                                   default_access_by_id,
                                    default_access_by_handle);
     qb_collectionattr_setkeyiterator(attr, default_keys, sizeof(Key), 0);
-    qb_collectionattr_setvalueiterator(attr, default_values, element_size, 0);
+    qb_collectionattr_setvalueiterator(attr, default_values, element_size,
+                                       element_size, 0);
     qb_collectionattr_setcount(attr, default_count);
 
     qbCollection collection;
@@ -171,9 +172,9 @@ public:
     return (*t)[handle];
   }
 
-  static void* default_access_by_key(qbCollectionInterface* c, void* key) {
+  static void* default_access_by_id(qbCollectionInterface* c, qbId key) {
     Component* t = (Component*)c->collection;
-    qbHandle found = t->find(*(const Key*)key);
+    qbHandle found = t->find(key);
     if (found >= 0) {
       return (*t)[found];
     }
@@ -187,7 +188,7 @@ public:
 
   static qbHandle default_insert(qbCollectionInterface* c, qbElement* element) {
     Component* t = (Component*)c->collection;
-    return t->insert(*(Key*)element->key, element->value);
+    return t->insert(element->id, element->value);
   }
 
   static uint64_t default_count(qbCollectionInterface* c) {

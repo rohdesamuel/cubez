@@ -15,6 +15,7 @@
 #include "physics.h"
 #include "player.h"
 #include "log.h"
+#include "input.h"
 #include "render.h"
 #include "shader.h"
 #include "generic.h"
@@ -108,7 +109,7 @@ void init_rendering(int width, int height) {
   GLenum glewError = glewInit();
   if (glewError != 0) {
     std::cout << "Failed to intialize Glew\n"
-      << "Error code: " << glewError;
+              << "Error code: " << glewError;
     exit(1);
   }
   // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
@@ -121,8 +122,6 @@ void init_rendering(int width, int height) {
 void initialize_universe(qbUniverse* uni) {
   qb_init(uni);
 
-  // Create the "main".
-  qb_create_program(kMainProgram); 
   {
     logging::initialize();
   }
@@ -136,10 +135,9 @@ void initialize_universe(qbUniverse* uni) {
     render::initialize();
     check_for_gl_errors();
   }
-
+  
   {
-    //player::Settings settings;
-    //player::initialize(settings);
+    input::initialize();
   }
 
   {
@@ -157,42 +155,16 @@ void initialize_universe(qbUniverse* uni) {
     check_for_gl_errors();
   }
 
-#if 0
   {
-    qbComponent transforms;
-    {
-      std::cout << "Initialize transforms component\n";
-      qbComponentAttr attr;
-      qb_componentattr_create(&attr);
-      qb_componentattr_setprogram(&attr, kMainProgram);
-      qb_componentattr_setdatasize(&attr, sizeof(physics::Transform));
+    player::Settings settings;
+    settings.texture = "ball.bmp";
+    settings.vs = tex_vs;
+    settings.fs = tex_fs;
+    settings.start_pos = {0, 0, 0};
 
-      std::cout << "Creating transforms component\n";
-      qb_component_create(&transforms, "transforms", attr);
-    }
-
-    qbEntity transform;
-    {
-      std::cout << "Initialize transform entity\n";
-      qbEntityAttr attr;
-      qb_entityattr_create(&attr);
-
-      physics::Transform t{{0.0f, 0.0f, 0.0f}, {0.1f, 0.0f, 0.0f}};
-      qb_entityattr_addcomponent(&attr, transforms, &t);
-
-      for (int i = 0; i < 32; ++i) {
-        std::cout << "entity: " << i << std::endl;
-        qb_entity_create(&transform, attr);
-      }
-    }
-
-    //Generic<Generic<int>, Generic<int>>::initialize(kMainProgram, "void");
-    //Generic<void, Generic<int>, Generic<int>>::create(1, 1);
-    //Generic<int, Generic<float>, Generic<int>>::initialize(kMainProgram, "intint");
-    //Generic<int, Generic<float>, Generic<int>>::create(1, qbId(2), 3);
-    //Generic<int, Generic<int>, Generic<int>>::create({1}, {2}, {3});
+    player::initialize(settings);
+    check_for_gl_errors();
   }
-#endif
 }
 
 int main(int, char* []) {
@@ -245,6 +217,7 @@ int main(int, char* []) {
           } else {
             SDL_Keycode key = e.key.keysym.sym;
             bool state = e.key.state == SDL_PRESSED;
+            std::cout << state << std::endl;
             if (key == SDLK_w) {
               pressed_keys['w'] = state;
             } else if (key == SDLK_a) {
@@ -254,13 +227,12 @@ int main(int, char* []) {
             } else if (key == SDLK_d) {
               pressed_keys['d'] = state;
             } else if (key == SDLK_SPACE) {
-              pressed_keys[' '] = state;
+              input::send_key_event(input::keycode_from_sdl(key), state);
             }
           }
         }
       }
 
-      /*
       if (pressed_keys['w']) {
         player::move_up(0.0001f);
       }
@@ -275,22 +247,8 @@ int main(int, char* []) {
 
       if (pressed_keys['d']) {
         player::move_right(0.0001f);
-      }*/
-
-      if (pressed_keys[' ']) {
-        glm::vec3 p{
-          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-          2 * (((float)(rand() % 1000) / 1000.0f) - 0.5f),
-          0
-        };
-
-        glm::vec3 v{
-          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-          ((float)(rand() % 1000) / 100000.0f) - 0.005f,
-          0
-        };
-        ball::create(p, v);
       }
+
       qb_loop();
       accumulator -= dt;
       t += dt;

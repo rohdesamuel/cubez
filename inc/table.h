@@ -154,69 +154,6 @@ public:
     return 0;
   }
 
-  static qbCollection* new_collection(const std::string& program,
-                                      const std::string& name) {
-    qbCollectionAttr attr;
-    qb_collectionattr_create(&attr);
-    qb_collectionattr_setprogram(attr, program.c_str());
-    qb_collectionattr_setimplementation(attr, new Table);
-    qb_collectionattr_setcount(attr, default_count);
-    qb_collectionattr_setupdate(attr, default_update);
-    qb_collectionattr_setinsert(attr, default_insert);
-    qb_collectionattr_setaccessors(attr, default_access_by_offset,
-                                   default_access_by_key,
-                                   default_access_by_handle);
-    qb_collectionattr_setkeyiterator(attr, default_keys, sizeof(Key), 0);
-    qb_collectionattr_setvalueiterator(attr, default_values, sizeof(Value), 0);
-    qb_collectionattr_setcount(attr, default_count);
-
-    qbCollection collection;
-    qb_collection_create(&collection, attr);
-
-    qb_collectionattr_destroy(&attr);
-    return collection;
-  }
-
-  static void* default_access_by_offset(qbCollectionInterface* c, uint64_t offset) {
-    Table* t = (Table*)c->collection;
-    return &t->value(offset);
-  }
-
-  static void* default_access_by_handle(qbCollectionInterface* c, qbHandle handle) {
-    Table* t = (Table*)c->collection;
-    return &(*t)[handle];
-  }
-
-  static void* default_access_by_key(qbCollectionInterface* c, void* key) {
-    Table* t = (Table*)c->collection;
-    qbHandle found = t->find(*(const Key*)key);
-    if (found >= 0) {
-      return &(*t)[found];
-    }
-    return nullptr;
-  }
-
-  static void default_update(qbCollectionInterface* c, qbElement* el) {
-    Table* t = (Table*)c->collection;
-    t->values[el->offset] = std::move(*(Value*)el->value); 
-  }
-
-  static qbHandle default_insert(qbCollectionInterface* c, qbElement* el) {
-    Table* t = (Table*)c->collection;
-    return t->insert(std::move(*(Key*)el->key), std::move(*(Value*)el->value));
-  }
-
-  static uint64_t default_count(qbCollectionInterface* c) {
-    return ((Table*)c->collection)->size();
-  }
-
-  static uint8_t* default_keys(qbCollectionInterface* c) {
-    return (uint8_t*)((Table*)c->collection)->keys.data();
-  };
-
-  static uint8_t* default_values(qbCollectionInterface* c) {
-    return (uint8_t*)((Table*)c->collection)->values.data();
-  };
 
   Keys keys;
   Values values;
@@ -242,40 +179,6 @@ private:
   Handles handles_;
   FreeHandles free_handles_;
   Index index_;
-};
-
-template <typename Table_>
-class View {
-public:
-  typedef Table_ Table;
-
-  View(Table* table) : table_(table) {}
-
-  inline const typename Table::Value& operator[](qbHandle handle) const {
-    return table_->operator[](handle);
-  }
-
-  inline qbHandle find(typename Table::Key&& key) const {
-    return table_->find(std::move(key));
-  }
-
-  inline qbHandle find(const typename Table::Key& key) const {
-    return table_->find(key);
-  }
-
-  inline const typename Table::Key& key(uint64_t index) const {
-    return table_->keys[index];
-  }
-
-  inline const typename Table::Value& value(uint64_t index) const {
-    return table_->values[index];
-  }
-
-  inline uint64_t size() const {
-    return table_->values.size();
-  }
-private:
-  Table* table_;
 };
 
 }  // namespace cubez

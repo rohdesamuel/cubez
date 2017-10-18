@@ -94,6 +94,8 @@ PrivateUniverse::PrivateUniverse() {
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
+  // Create the default program.
+  create_program("");
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 

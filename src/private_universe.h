@@ -107,7 +107,7 @@ class CollectionRegistry {
     *(qbId*)(&c->program_id) = program;
     c->interface.insert = attr->insert;
     c->interface.update = attr->update;
-    c->interface.by_key = attr->accessor.key;
+    c->interface.by_id = attr->accessor.id;
     c->interface.by_handle = attr->accessor.handle;
     c->interface.by_offset = attr->accessor.offset;
     c->interface.collection = attr->collection;
@@ -145,14 +145,13 @@ class SystemImpl {
     system_(system), join_(attr.join), user_state_(attr.state),
     transform_(attr.transform),
     callback_(attr.callback) {
-    size_t key_size = 0;
+    size_t key_size = sizeof(qbId) * attr.sources.size();
     size_t value_size = 0;
     for(auto* component : attr.sinks) {
       sinks_.push_back(component->impl);
       sink_interfaces_.push_back(component->impl->interface);
     }
     for(auto* component : attr.sources) {
-      key_size += component->impl->keys.stride;
       value_size += component->impl->values.stride;
       sources_.push_back(component->impl);
       source_interfaces_.push_back(component->impl->interface);
@@ -166,7 +165,6 @@ class SystemImpl {
     for(auto* source : sources_) {
       qbElement element;
       element.value = (uint8_t*)element_values_ + value_index;
-      element.key = (uint8_t*)element_keys_ + key_index;
       elements_.push_back(element);
 
       key_index += source->keys.stride;
@@ -216,8 +214,8 @@ class SystemImpl {
 
   void copy_to_element(qbCollection c, void* k, void* v, uint64_t offset,
                         qbElement* element) {
-    memcpy(element->key, k, c->keys.stride);
-    memcpy(element->value, v, c->values.stride);
+    element->id = *(qbId*)k;
+    memcpy(element->value, v, c->values.size);
     element->offset = offset;
   }
 
@@ -331,7 +329,7 @@ class SystemImpl {
           bool should_continue = false;
           for (size_t j = 0; j < sources_.size(); ++j) {
             qbCollection c = sources_[j];
-            void* v = c->interface.by_key(&c->interface, k);
+            void* v = c->interface.by_id(&c->interface, *(qbId*)k);
             if (!v) {
               should_continue = true;
               break;
@@ -797,7 +795,7 @@ class ComponentRegistry {
   static qbHandle create_component_instance(
       qbComponent component, qbId entity_id, const void* value) {
     qbElement element;
-    element.key = &entity_id;
+    element.id = entity_id;
     element.value = (void*)value;
     return component->impl->interface.insert(&component->impl->interface, &element);
   }
@@ -826,21 +824,22 @@ class EntityRegistry {
 
   qbResult create_entityasync(qbEntity* entity, const qbEntityAttr_& attr) {
     new_entity(entity);
-    add_components(*entity, attr);
+    add_components(*entity, attr.component_list);
 
     return qbResult::QB_OK;
   }
 
   qbResult create_entity(qbEntity* entity, const qbEntityAttr_& attr) {
     new_entity(entity);
-    add_components(*entity, attr);
+    add_components(*entity, attr.component_list);
 
     return qbResult::QB_OK;
   }
 
-  void add_components(qbEntity entity, const qbEntityAttr_& attr) {
+  void add_components(qbEntity entity,
+                      const std::vector<qbComponentInstance_>& components) {
     std::vector<ComponentInstance> instances;
-    for (const auto instance : attr.component_list) {
+    for (const auto instance : components) {
       qbComponent component = instance.component;
 
       instances.push_back({

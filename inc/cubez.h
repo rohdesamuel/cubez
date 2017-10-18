@@ -84,13 +84,12 @@ typedef struct qbCollection_* qbCollection;
 //////////////////////  Collections  //////////////////////
 ///////////////////////////////////////////////////////////
 struct qbElement {
-  void* key;
+  qbId id;
   void* value;
 
   qbOffset offset;
 };
 
-struct qbConstCollectionInterface;
 struct qbCollectionInterface;
 
 typedef void (*qbUpdate)(qbCollectionInterface*, qbElement* element);
@@ -99,7 +98,7 @@ typedef uint64_t (*qbCount)(qbCollectionInterface*);
 typedef uint8_t* (*qbData)(qbCollectionInterface*);
 typedef void* (*qbValueByOffset)(qbCollectionInterface*, uint64_t offset);
 typedef void* (*qbValueByHandle)(qbCollectionInterface*, qbHandle handle);
-typedef void* (*qbValueByKey)(qbCollectionInterface*, void* key);
+typedef void* (*qbValueById)(qbCollectionInterface*, qbId entity_id);
 
 struct qbCollectionInterface {
   void* collection;
@@ -108,7 +107,7 @@ struct qbCollectionInterface {
   qbUpdate update;
 
   qbValueByOffset by_offset;
-  qbValueByKey by_key;
+  qbValueById by_id;
   qbValueByHandle by_handle;
 };
 
@@ -116,11 +115,12 @@ qbResult qb_collectionattr_create(qbCollectionAttr* attr);
 qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
 qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
 qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
-                                        qbValueByKey, qbValueByHandle);
+                                        qbValueById, qbValueByHandle);
 qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
                                           size_t stride, uint32_t offset);
 qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
-                                          size_t stride, uint32_t offset);
+                                            size_t size, size_t stride,
+                                            uint32_t offset);
 qbResult qb_collectionattr_setupdate(qbCollectionAttr attr, qbUpdate);
 qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
 qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);

@@ -14,30 +14,7 @@
 namespace ball {
 
 // State
-  render::qbRenderable render_state;
-
-uint32_t load_texture(const std::string& file) {
-  uint32_t texture;
-
-  // Load the image from the file into SDL's surface representation
-  SDL_Surface* surf = SDL_LoadBMP(file.c_str());
-
-  if (!surf) {
-    std::cout << "Could not load texture " << file << std::endl;
-  }
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  SDL_FreeSurface(surf);
-
-  return texture;
-}
-
+render::qbRenderable render_state;
 
 void initialize(const Settings& settings) {
   // Initialize events.
@@ -72,12 +49,12 @@ void initialize(const Settings& settings) {
 
     GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
     glEnableVertexAttribArray(inTexCoord);
-    glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
+    glVertexAttribPointer(inTexCoord, 2, GL_FLOAT, GL_FALSE,
         5 * sizeof(float), (void*)(3 * sizeof(float)));
 
     render::Material material;
     material.shader_id = shaders.id();
-    material.texture_id = load_texture(settings.texture);
+    material.texture_id = render::load_texture(settings.texture);
 
     render_state = render::create(material, mesh);
   }

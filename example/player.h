@@ -4,12 +4,15 @@
 #include "inc/cubez.h"
 
 #include <glm/glm.hpp>
+#include <string>
 
 namespace player {
 
 struct Settings {
   glm::vec3 start_pos;
-  glm::vec3 color;
+  std::string texture;
+  std::string vs;
+  std::string fs;
 };
 
 void initialize(const Settings& settings);
