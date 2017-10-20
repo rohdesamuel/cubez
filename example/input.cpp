@@ -17,6 +17,10 @@ void initialize() {
 qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
   switch(sdl_key) {
     case SDLK_SPACE: return QB_KEY_SPACE;
+    case SDLK_w: return QB_KEY_W;
+    case SDLK_a: return QB_KEY_A;
+    case SDLK_s: return QB_KEY_S;
+    case SDLK_d: return QB_KEY_D;
     default: return QB_KEY_UNKNOWN;
   }
 }
@@ -34,6 +38,10 @@ void send_key_event(qbKey key, bool state) {
 
 void on_key_event(qbSystem system) {
   qb_event_subscribe(input_event, system);
+}
+
+bool is_key_pressed(qbKey key) {
+  return key_states[(int)key];
 }
 
 }  // namespace input

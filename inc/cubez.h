@@ -83,17 +83,16 @@ typedef struct qbCollection_* qbCollection;
 ///////////////////////////////////////////////////////////
 //////////////////////  Collections  //////////////////////
 ///////////////////////////////////////////////////////////
-struct qbElement {
-  qbId id;
-  void* value;
 
-  qbOffset offset;
-};
+typedef struct qbElement_* qbElement;
+
+qbId qb_element_getid(qbElement element);
+qbResult qb_element_read(qbElement element, void* buffer);
+qbResult qb_element_write(qbElement element);
 
 struct qbCollectionInterface;
 
-typedef void (*qbUpdate)(qbCollectionInterface*, qbElement* element);
-typedef qbHandle (*qbInsert)(qbCollectionInterface*, qbElement* element);
+typedef qbHandle (*qbInsert)(qbCollectionInterface*, void* key, void* value);
 typedef uint64_t (*qbCount)(qbCollectionInterface*);
 typedef uint8_t* (*qbData)(qbCollectionInterface*);
 typedef void* (*qbValueByOffset)(qbCollectionInterface*, uint64_t offset);
@@ -104,7 +103,6 @@ struct qbCollectionInterface {
   void* collection;
 
   qbInsert insert;
-  qbUpdate update;
 
   qbValueByOffset by_offset;
   qbValueById by_id;
@@ -121,7 +119,6 @@ qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
 qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
                                             size_t size, size_t stride,
                                             uint32_t offset);
-qbResult qb_collectionattr_setupdate(qbCollectionAttr attr, qbUpdate);
 qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
 qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);
 qbResult qb_collectionattr_setimplementation(qbCollectionAttr attr, void* impl);
@@ -230,7 +227,7 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
 qbResult qb_entity_destroy(qbEntity* entity);
-qbResult qb_entity_getid(qbEntity entity, qbId* id);
+qbId qb_entity_getid(qbEntity entity);
 
 enum qbComponentJoin {
   QB_JOIN_INNER = 0,

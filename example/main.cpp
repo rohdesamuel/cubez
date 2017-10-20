@@ -18,7 +18,6 @@
 #include "input.h"
 #include "render.h"
 #include "shader.h"
-#include "generic.h"
 
 #include <thread>
 #include <unordered_map>
@@ -175,10 +174,6 @@ int main(int, char* []) {
   qbUniverse uni;
   initialize_universe(&uni);
 
-  std::cout << "here\n";
-  std::cout << "here\n";
-  std::cout << "here\n";
-
   qb_start();
   int frame = 0;
   WindowTimer fps_timer(50);
@@ -193,7 +188,6 @@ int main(int, char* []) {
   double start_time = Timer::now();
   double accumulator = 0.0;
 
-  std::unordered_map<char, bool> pressed_keys;
   qb_loop();
   while (1) {
     fps_timer.start();
@@ -216,37 +210,10 @@ int main(int, char* []) {
             exit(0);
           } else {
             SDL_Keycode key = e.key.keysym.sym;
-            bool state = e.key.state == SDL_PRESSED;
-            std::cout << state << std::endl;
-            if (key == SDLK_w) {
-              pressed_keys['w'] = state;
-            } else if (key == SDLK_a) {
-              pressed_keys['a'] = state;
-            } else if (key == SDLK_s) {
-              pressed_keys['s'] = state;
-            } else if (key == SDLK_d) {
-              pressed_keys['d'] = state;
-            } else if (key == SDLK_SPACE) {
-              input::send_key_event(input::keycode_from_sdl(key), state);
-            }
+            input::send_key_event(input::keycode_from_sdl(key),
+                                  e.key.state == SDL_PRESSED);
           }
         }
-      }
-
-      if (pressed_keys['w']) {
-        player::move_up(0.0001f);
-      }
-
-      if (pressed_keys['a']) {
-        player::move_left(0.0001f);
-      }
-
-      if (pressed_keys['s']) {
-        player::move_down(0.0001f);
-      }
-
-      if (pressed_keys['d']) {
-        player::move_right(0.0001f);
       }
 
       qb_loop();
@@ -285,8 +252,8 @@ int main(int, char* []) {
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
 
-    if (trigger % period == 0 && prev_trigger != trigger) {
-    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+    //if (trigger % period == 0 && prev_trigger != trigger) {
+    if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

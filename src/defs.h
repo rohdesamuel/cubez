@@ -56,7 +56,6 @@ struct qbCollectionAttr_ {
   qbAccessor accessor;
   qbIterator keys;
   qbIterator values;
-  qbUpdate update;
   qbInsert insert;
   qbCount count;
 };
@@ -89,6 +88,26 @@ struct qbSystemAttr_ {
 
   std::vector<qbComponent_*> sources;
   std::vector<qbComponent_*> sinks;
+};
+
+enum qbIndexedBy {
+  QB_INDEXEDBY_KEY,
+  QB_INDEXEDBY_OFFSET,
+  QB_INDEXEDBY_HANDLE,
+};
+
+struct qbElement_ {
+  qbId id;
+  void* read_buffer;
+  void* user_buffer;
+  size_t size;
+
+  union {
+    qbOffset offset;
+    qbHandle handle;
+  };
+  qbIndexedBy indexed_by;
+  qbCollectionInterface interface;
 };
 
 struct qbExecutionPolicy_ {

@@ -1,6 +1,7 @@
 #include "physics.h"
 
 #include <atomic>
+#include <iostream>
 
 namespace physics {
 
@@ -34,15 +35,18 @@ void initialize(const Settings&) {
     qb_systemattr_addsource(attr, transforms);
     qb_systemattr_addsink(attr, transforms);
     qb_systemattr_setfunction(attr,
-        [](qbElement* elements, qbCollectionInterface* collections, qbFrame*) {
-          Transform* particle = (Transform*)elements[0].value;
-          particle->p += particle->v;
-          if (particle->p.x >  1.0f) { particle->p.x =  0.98f; particle->v.x *= -0.98; }
-          if (particle->p.x < -1.0f) { particle->p.x = -0.98f; particle->v.x *= -0.98; }
-          if (particle->p.y >  1.0f) { particle->p.y =  0.98f; particle->v.y *= -0.98; }
-          if (particle->p.y < -1.0f) { particle->p.y = -0.98f; particle->v.y *= -0.98; }
+        [](qbElement* elements, qbCollectionInterface*, qbFrame*) {
+          Transform particle;
+          qb_element_read(elements[0], &particle);
 
-          collections[0].update(&collections[0], &elements[0]);
+          particle.v.y -= 0.001;
+          particle.p += particle.v;
+          //if (particle.p.x >  1.0f) { particle.p.x =  1.0f; particle.v.x *= -0.98; }
+          //if (particle.p.x < -1.0f) { particle.p.x = -1.0f; particle.v.x *= -0.98; }
+          //if (particle.p.y >  1.0f) { particle.p.y =  1.0f; particle.v.y *= -0.98; }
+          if (particle.p.y < -1.0f) { particle.p.y = -1.0f; particle.v.y *= -0.98; }
+
+          qb_element_write(elements[0]);
         });
     qb_system_create(&move_system, attr);
     qb_systemattr_destroy(&attr);
@@ -55,14 +59,13 @@ void initialize(const Settings&) {
     qb_systemattr_addsink(attr, transforms);
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
-        [](qbElement* elements, qbCollectionInterface* sinks, qbFrame*) {
-          if (elements[0].offset == elements[1].offset) {
-            return;
-          }
+        [](qbElement* e, qbCollectionInterface*, qbFrame*) {
+          Transform a;
+          Transform b;
 
-          qbCollectionInterface* transforms = &sinks[0];
-          Transform& a = *(Transform*)elements[0].value;
-          Transform& b = *(Transform*)elements[1].value;
+          qb_element_read(e[0], &a);
+          qb_element_read(e[1], &b);
+
           glm::vec3 r = a.p - b.p;
           if (glm::abs(r.x) <= 0.0001f && glm::abs(r.y) <= 0.0001f) {
             return;
@@ -80,8 +83,8 @@ void initialize(const Settings&) {
             std::cout << "bounce\n";
           }
 
-          transforms->update(transforms, &elements[0]);
-          transforms->update(transforms, &elements[1]);
+          qb_element_write(e[0]);
+          qb_element_write(e[1]);
         });
 
     qb_system_create(&collision_system, attr);
@@ -117,8 +120,7 @@ void initialize(const Settings&) {
 }
 
 void send_impulse(qbEntity entity, glm::vec3 p) {
-  qbId id;
-  qb_entity_getid(entity, &id);
+  qbId id = qb_entity_getid(entity);
 
   Impulse message{id, p};
   qb_event_send(impulse_event, &message);

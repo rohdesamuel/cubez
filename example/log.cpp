@@ -1,5 +1,6 @@
 #include "log.h"
 #include <iostream>
+#include <cstring>
 #include <string.h>
 
 namespace logging {
@@ -7,6 +8,7 @@ namespace logging {
 const int MAX_CHARS = 256;
 
 char kStdout[] = "stdout";
+char msg_buffer[MAX_CHARS];
 
 qbSystem system_out;
 qbEvent std_out;
@@ -20,10 +22,11 @@ void initialize() {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
+    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
     qb_systemattr_setprogram(attr, kStdout);
     qb_systemattr_setcallback(attr,
-        [](qbCollectionInterface*, qbFrame*) {
-          //std::cout << (char*)(f->event) << std::endl;
+        [](qbCollectionInterface*, qbFrame* f) {
+          std::cout << (char*)(f->event) << std::endl;
         });
     qb_system_create(&system_out, attr);
     qb_systemattr_destroy(&attr);
@@ -42,13 +45,13 @@ void initialize() {
   qb_detach_program(program_id);
 }
 
-void out(const std::string&) {
-  /*
-  int num_msgs = 1 + (s.size() / MAX_CHARS);
+void out(const std::string& s) {
+  int num_msgs = 1 + (s.length() / MAX_CHARS);
   for (int i = 0; i < num_msgs; ++i) {
     std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
-    qb_event_send(std_out, (void*)to_send.c_str());
-  }*/
+    memcpy(msg_buffer, to_send.c_str(), std::strlen(to_send.c_str()));
+    qb_event_send(std_out, msg_buffer);
+  }
 }
 
 }  // namespace log

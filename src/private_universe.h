@@ -106,7 +106,6 @@ class CollectionRegistry {
     *(qbId*)(&c->id) = id;
     *(qbId*)(&c->program_id) = program;
     c->interface.insert = attr->insert;
-    c->interface.update = attr->update;
     c->interface.by_id = attr->accessor.id;
     c->interface.by_handle = attr->accessor.handle;
     c->interface.by_offset = attr->accessor.offset;
@@ -132,9 +131,9 @@ class SystemImpl {
   qbComponentJoin join_;
   void* user_state_;
 
-  std::vector<qbElement> elements_;
+  std::vector<qbElement> elements_data_;
+  std::vector<qbElement_> elements_;
   void* element_values_;
-  void* element_keys_;
 
   qbRunCondition run_condition_;
   qbTransform transform_;
@@ -145,30 +144,32 @@ class SystemImpl {
     system_(system), join_(attr.join), user_state_(attr.state),
     transform_(attr.transform),
     callback_(attr.callback) {
-    size_t key_size = sizeof(qbId) * attr.sources.size();
-    size_t value_size = 0;
     for(auto* component : attr.sinks) {
       sinks_.push_back(component->impl);
       sink_interfaces_.push_back(component->impl->interface);
     }
     for(auto* component : attr.sources) {
-      value_size += component->impl->values.stride;
       sources_.push_back(component->impl);
       source_interfaces_.push_back(component->impl->interface);
     }
 
-    element_values_ = malloc(value_size);
-    element_keys_ = malloc(key_size);
-
-    size_t key_index = 0;
-    size_t value_index = 0;
     for(auto* source : sources_) {
-      qbElement element;
-      element.value = (uint8_t*)element_values_ + value_index;
-      elements_.push_back(element);
+      qbElement_ element;
+      element.read_buffer = nullptr;
+      element.user_buffer = nullptr;
+      element.size = source->values.size;
+      element.indexed_by = qbIndexedBy::QB_INDEXEDBY_KEY;
 
-      key_index += source->keys.stride;
-      value_index += source->values.stride;
+      elements_.push_back(element);
+    }
+
+    for (size_t i = 0; i < sources_.size(); ++i) {
+      auto source = sources_[i];
+      auto found = std::find(sinks_.begin(), sinks_.end(), source);
+      if (found != sinks_.end()) {
+        elements_[i].interface = (*found)->interface;
+      }
+      elements_data_.push_back(&elements_[i]);
     }
   }
 
@@ -209,14 +210,20 @@ class SystemImpl {
   }
 
   void run_0_to_0(qbFrame* f) {
-    transform_(elements_.data(), sink_interfaces_.data(), f);
+    transform_(elements_data_.data(), sink_interfaces_.data(), f);
   }
 
-  void copy_to_element(qbCollection c, void* k, void* v, uint64_t offset,
-                        qbElement* element) {
+  void copy_to_element(void* k, void* v, qbOffset offset, qbElement element) {
     element->id = *(qbId*)k;
-    memcpy(element->value, v, c->values.size);
+    element->read_buffer = v;
     element->offset = offset;
+    element->indexed_by = qbIndexedBy::QB_INDEXEDBY_OFFSET;
+  }
+
+  void copy_to_element(void* k, void* v, qbElement element) {
+    element->id = *(qbId*)k;
+    element->read_buffer = v;
+    element->indexed_by = qbIndexedBy::QB_INDEXEDBY_KEY;
   }
 
   void run_1_to_0(qbFrame* f) {
@@ -226,11 +233,11 @@ class SystemImpl {
     uint8_t* values = source->values.data(&source->interface);
 
     for(uint64_t i = 0; i < count; ++i) {
-      copy_to_element(source, 
+      copy_to_element(
           (void*)(keys + source->keys.offset + i * source->keys.stride),
           (void*)(values + source->values.offset + i * source->values.stride),
           i, &elements_.front());
-      transform_(elements_.data(), nullptr, f);
+      transform_(elements_data_.data(), nullptr, f);
     }
   }
 
@@ -244,11 +251,11 @@ class SystemImpl {
     const uint8_t* keys = source->keys.data(&source->interface);
     const uint8_t* values = source->values.data(&source->interface);
     for(uint64_t i = 0; i < count; ++i) {
-      copy_to_element(source, 
+      copy_to_element(
           (void*)(keys + source->keys.offset + i * source->keys.stride),
           (void*)(values + source->values.offset + i * source->values.stride),
           i, &elements_.front());
-      transform_(elements_.data(), sink_interfaces_.data(), f);
+      transform_(elements_data_.data(), sink_interfaces_.data(), f);
     }
   }
 
@@ -303,7 +310,7 @@ class SystemImpl {
                 (void*)(keys[i] + src->keys.offset + index * src->keys.stride);
             void* v =
                 (void*)(values[i] + src->values.offset + index * src->values.stride);
-            copy_to_element(src, k, v, index, &elements_[i]);
+            copy_to_element(k, v, index, &elements_[i]);
 
             indices[i] += (1 << i) & indices_to_inc ? 1 : 0;
           }
@@ -312,7 +319,7 @@ class SystemImpl {
             ++indices_to_inc;
             indices[max_src] = 0;
           }
-          transform_(elements_.data(), sink_interfaces_.data(), f);
+          transform_(elements_data_.data(), sink_interfaces_.data(), f);
         }
       } return;
     }
@@ -334,11 +341,11 @@ class SystemImpl {
               should_continue = true;
               break;
             }
-            copy_to_element(c, k, v, i, &elements_[j]);
+            copy_to_element(k, v, &elements_[j]);
           }
           if (should_continue) continue;
 
-          transform_(elements_.data(), sink_interfaces_.data(), f);
+          transform_(elements_data_.data(), sink_interfaces_.data(), f);
         }
       } break;
       default:
@@ -396,8 +403,6 @@ class Channel {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
     void* msg = nullptr;
     int max_events = message_queue_.size_approx();
-    if (max_events) {
-    }
     for (int i = 0; i < max_events; ++i) {
       if (!message_queue_.try_dequeue(msg)) {
         break;
@@ -794,10 +799,8 @@ class ComponentRegistry {
 
   static qbHandle create_component_instance(
       qbComponent component, qbId entity_id, const void* value) {
-    qbElement element;
-    element.id = entity_id;
-    element.value = (void*)value;
-    return component->impl->interface.insert(&component->impl->interface, &element);
+    return component->impl->interface.insert(&component->impl->interface,
+                                             &entity_id, (void*)value);
   }
 
  private:

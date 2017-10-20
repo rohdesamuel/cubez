@@ -145,7 +145,6 @@ public:
     qb_collectionattr_setprogram(attr, program.c_str());
     qb_collectionattr_setimplementation(attr, new Component(element_size));
     qb_collectionattr_setcount(attr, default_count);
-    qb_collectionattr_setupdate(attr, default_update);
     qb_collectionattr_setinsert(attr, default_insert);
     qb_collectionattr_setaccessors(attr, default_access_by_offset,
                                    default_access_by_id,
@@ -181,14 +180,10 @@ public:
     return nullptr;
   }
 
-  static void default_update(qbCollectionInterface* c, qbElement* element) {
+  static qbHandle default_insert(qbCollectionInterface* c, void* key,
+                                 void* value) {
     Component* t = (Component*)c->collection;
-    memmove(t->value(element->offset), element->value, t->element_size());
-  }
-
-  static qbHandle default_insert(qbCollectionInterface* c, qbElement* element) {
-    Component* t = (Component*)c->collection;
-    return t->insert(element->id, element->value);
+    return t->insert(*(qbId*)key, value);
   }
 
   static uint64_t default_count(qbCollectionInterface* c) {

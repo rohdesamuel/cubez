@@ -83,9 +83,7 @@ qbResult qb_component_create(
 }
 
 
-qbResult qb_component_destroy(qbComponent* component) {
-  free(*component);
-  *component = nullptr;
+qbResult qb_component_destroy(qbComponent*) {
 	return qbResult::QB_OK;
 }
 
@@ -115,15 +113,12 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
   return AS_PRIVATE(entity_create(entity, *attr));
 }
 
-qbResult qb_entity_destroy(qbEntity* entity) {
-  free(*entity);
-  *entity = nullptr;
+qbResult qb_entity_destroy(qbEntity*) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_entity_getid(qbEntity entity, qbId* id) {
-  *id = entity->id;
-  return qbResult::QB_OK;
+qbId qb_entity_getid(qbEntity entity) {
+  return entity->id;
 }
 
 qbResult qb_systemattr_create(qbSystemAttr* attr) {
@@ -249,11 +244,6 @@ qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData data,
 	return qbResult::QB_OK;
 }
 
-qbResult qb_collectionattr_setupdate(qbCollectionAttr attr, qbUpdate update) {
-  attr->update = update;
-	return qbResult::QB_OK;
-}
-
 qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert insert) {
   attr->insert = insert;
 	return qbResult::QB_OK;
@@ -272,8 +262,6 @@ qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr) {
 #ifdef __ENGINE_DEBUG__
   DEBUG_ASSERT(attr->accessor.offset,
                QB_ERROR_COLLECTIONATTR_ACCESSOR_OFFSET_IS_NOT_SET);
-  DEBUG_ASSERT(attr->accessor.key,
-               QB_ERROR_COLLECTIONATTR_ACCESSOR_KEY_IS_NOT_SET);
   DEBUG_ASSERT(attr->accessor.handle,
                QB_ERROR_COLLECTIONATTR_ACCESSOR_HANDLE_IS_NOT_SET);
   DEBUG_ASSERT(attr->keys.data,
@@ -284,7 +272,6 @@ qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr) {
                QB_ERROR_COLLECTIONATTR_VALUEITERATOR_DATA_IS_NOT_SET);
   DEBUG_ASSERT(attr->values.stride > 0,
                QB_ERROR_COLLECTIONATTR_VALUEITERATOR_STRIDE_IS_NOT_SET);
-  DEBUG_ASSERT(attr->update, QB_ERROR_COLLECTIONATTR_UPDATE_IS_NOT_SET);
   DEBUG_ASSERT(attr->insert, QB_ERROR_COLLECTIONATTR_INSERT_IS_NOT_SET);
   DEBUG_ASSERT(attr->count, QB_ERROR_COLLECTIONATTR_COUNT_IS_NOT_SET);
   DEBUG_ASSERT(attr->collection,
@@ -361,3 +348,32 @@ qbResult qb_event_sendsync(qbEvent event, void* message) {
   return AS_PRIVATE(event_sendsync(event, message));
 }
 
+qbId qb_element_getid(qbElement element) {
+  return element->id;
+}
+
+qbResult qb_element_read(qbElement element, void* buffer) {
+  memmove(buffer,
+          element->read_buffer,
+          element->size);
+  element->user_buffer = buffer;
+  return QB_OK;
+}
+
+qbResult qb_element_write(qbElement element) {
+  switch(element->indexed_by) {
+    case QB_INDEXEDBY_KEY:
+      memmove(element->interface.by_id(&element->interface, element->id),
+              element->user_buffer, element->size);
+      break;
+    case QB_INDEXEDBY_OFFSET:
+      memmove(element->interface.by_offset(&element->interface, element->offset),
+              element->user_buffer, element->size);
+      break;
+    case QB_INDEXEDBY_HANDLE:
+      memmove(element->interface.by_handle(&element->interface, element->handle),
+              element->user_buffer, element->size);
+      break;
+  }
+  return QB_OK;
+}

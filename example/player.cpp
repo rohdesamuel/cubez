@@ -23,7 +23,7 @@ struct Player {
 
 void initialize(const Settings& settings) {
   {
-    std::cout << "Initialize player textures and shaders\n";
+    std::cout << "Initializing player textures and shaders\n";
     render::Mesh mesh;
     mesh.count = 6;
     GLfloat vertices[] = {
@@ -77,12 +77,14 @@ void initialize(const Settings& settings) {
 
     Player p;
     p.fire_bullets = false;
-    qb_entityattr_addcomponent(attr, players, &p);
 
     physics::Transform t;
     t.p = settings.start_pos;
+    t.v = {0.01, 0, 0};
+
+    qb_entityattr_addcomponent(attr, players, &p);
     qb_entityattr_addcomponent(attr, physics::component(), &t);
-    qb_entityattr_addcomponent(attr, render::component(), render_state);
+    qb_entityattr_addcomponent(attr, render::component(), &render_state);
 
     qb_entity_create(&main_player, attr);
 
@@ -91,60 +93,38 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_create(&attr);
     qb_systemattr_addsource(attr, players);
     qb_systemattr_addsource(attr, physics::component());
+    qb_systemattr_addsink(attr, physics::component());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_setfunction(attr,
         [](qbElement* e, qbCollectionInterface*, qbFrame*) {
-        Player* p = (Player*)e[0].value;
-        if (p->fire_bullets) {
-            physics::Transform* t = (physics::Transform*)e[1].value;
-            ball::create(t->p, {0.01, 0.0, 0.0});
+          physics::Transform t;
+          qb_element_read(e[1], &t);
+          if (input::is_key_pressed(qbKey::QB_KEY_SPACE)) {
+            ball::create(t.p, {0.01, 0.0, 0.0});
           }
+          if (input::is_key_pressed(QB_KEY_W)) {
+            t.v.y += 0.001;
+          }
+          if (input::is_key_pressed(QB_KEY_S)) {
+            t.v.y -= 0.001;  
+          }
+          if (input::is_key_pressed(QB_KEY_A)) {
+            t.v.x -= 0.001;  
+          }
+          if (input::is_key_pressed(QB_KEY_D)) {
+            t.v.x += 0.001;  
+          }
+
+          qb_element_write(e[1]);
         });
 
     qbSystem unused;
     qb_system_create(&unused, attr);
     qb_systemattr_destroy(&attr);
   }
-  {
-    qbSystemAttr attr;
-    qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, players);
-    qb_systemattr_addsink(attr, players);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
-    qb_systemattr_setfunction(attr,
-        [](qbElement* e, qbCollectionInterface* i, qbFrame* f) {
-          input::InputEvent* event = (input::InputEvent*)f->event;
-          if (event->key == input::QB_KEY_SPACE) {
-            ((Player*)(e->value))->fire_bullets = event->is_pressed;
-          }
-          i->update(i, e);
-        });
-
-    qb_system_create(&on_key_event, attr);
-
-    input::on_key_event(on_key_event);
-
-    qb_systemattr_destroy(&attr);
-  }
-}
-
-void move_left(float speed) {
-  physics::send_impulse(main_player, {-speed, 0, 0});
-}
-
-void move_right(float speed) {
-  physics::send_impulse(main_player, {speed, 0, 0});
-}
-
-void move_up(float speed) {
-  physics::send_impulse(main_player, {0, speed, 0});
-}
-
-void move_down(float speed) {
-  physics::send_impulse(main_player, {0, -speed, 0});
+  std::cout << "Finished initializing player\n";
 }
 
 }  // namespace player

@@ -2,7 +2,6 @@
 #define PHYSICS__H
 
 #include "constants.h"
-#include "generic.h"
 
 #include "inc/cubez.h"
 

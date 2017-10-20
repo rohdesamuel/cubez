@@ -6,13 +6,6 @@
 #include "inc/cubez.h"
 #include <SDL2/SDL_keycode.h>
 
-namespace input {
-
-void initialize();
-
-#define  QB_KEY_RELEASED 0
-#define QB_KEY_PRESSED 1
-
 enum qbKey {
   QB_KEY_UNKNOWN,
   QB_KEY_0,
@@ -25,32 +18,32 @@ enum qbKey {
   QB_KEY_7,
   QB_KEY_8,
   QB_KEY_9,
-  QB_KEY_a,
-  QB_KEY_b,
-  QB_KEY_c,
-  QB_KEY_d,
-  QB_KEY_e,
-  QB_KEY_f,
-  QB_KEY_g,
-  QB_KEY_h,
-  QB_KEY_i,
-  QB_KEY_j,
-  QB_KEY_k,
-  QB_KEY_l,
-  QB_KEY_m,
-  QB_KEY_n,
-  QB_KEY_o,
-  QB_KEY_p,
-  QB_KEY_q,
-  QB_KEY_r,
-  QB_KEY_s,
-  QB_KEY_t,
-  QB_KEY_u,
-  QB_KEY_v,
-  QB_KEY_w,
-  QB_KEY_x,
-  QB_KEY_y,
-  QB_KEY_z,
+  QB_KEY_A,
+  QB_KEY_B,
+  QB_KEY_C,
+  QB_KEY_D,
+  QB_KEY_E,
+  QB_KEY_F,
+  QB_KEY_G,
+  QB_KEY_H,
+  QB_KEY_I,
+  QB_KEY_J,
+  QB_KEY_K,
+  QB_KEY_L,
+  QB_KEY_M,
+  QB_KEY_N,
+  QB_KEY_O,
+  QB_KEY_P,
+  QB_KEY_Q,
+  QB_KEY_R,
+  QB_KEY_S,
+  QB_KEY_T,
+  QB_KEY_U,
+  QB_KEY_V,
+  QB_KEY_W,
+  QB_KEY_X,
+  QB_KEY_Y,
+  QB_KEY_Z,
   QB_KEY_LBACKET,
   QB_KEY_LBRACE,
   QB_KEY_LSHIFT,
@@ -68,6 +61,13 @@ enum qbKey {
   QB_KEY_SPACE
 };
 
+namespace input {
+
+void initialize();
+
+#define  QB_KEY_RELEASED 0
+#define QB_KEY_PRESSED 1
+
 struct InputEvent {
   bool was_pressed;
   bool is_pressed;
@@ -76,6 +76,7 @@ struct InputEvent {
 
 void send_key_event(qbKey key, bool is_pressed);
 void on_key_event(qbSystem system);
+bool is_key_pressed(qbKey key);
 qbKey keycode_from_sdl(SDL_Keycode sdl_key);
 
 }  // namespace input

@@ -68,7 +68,7 @@ void create(glm::vec3 pos, glm::vec3 vel) {
 
   physics::Transform t{pos, vel};
   qb_entityattr_addcomponent(attr, physics::component(), &t);
-  qb_entityattr_addcomponent(attr, render::component(), render_state);
+  qb_entityattr_addcomponent(attr, render::component(), &render_state);
 
   qbEntity entity;
   qb_entity_create(&entity, attr);

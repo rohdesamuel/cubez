@@ -43,11 +43,15 @@ bool check_for_gl_errors() {
 }
 
 void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*) {
-  qbRenderable renderable = (qbRenderable)elements[0].value;
+  qbRenderable renderable;
+  qb_element_read(elements[0], &renderable);
 
   Material* material = renderable->material;
   Mesh* mesh = renderable->mesh;
-  physics::Transform* transform = (physics::Transform*)elements[1].value;
+
+  physics::Transform transform;
+  qb_element_read(elements[1], &transform);
+
 
   glBindVertexArray(mesh->vao);
   glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
@@ -60,7 +64,7 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
   glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
   glm::mat4 ortho = glm::ortho(0.0f, 8.0f, 0.0f, 6.0f);
   glm::mat4 mvp = ortho;
-  glm::vec3 p = transform->p;
+  glm::vec3 p = transform.p;
   p = p + glm::vec3{1.0f, 1.0f, 0.0f};
   p.x *= 4.0f;
   p.y *= 3.0f;
@@ -68,15 +72,11 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
   mvp = glm::translate(mvp, p);
   glUniformMatrix4fv(glGetUniformLocation(
         shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
-  if (check_for_gl_errors()) {
-    std::cout << "f\n";
-    std::cout << "Renderable id: " << elements[0].id << "\n";
-  }
   glDrawArrays(GL_TRIANGLES, 0, mesh->count);
   
   if (check_for_gl_errors()) {
     std::cout << "g\n";
-    std::cout << "Renderable id: " << elements[0].id << "\n";
+    std::cout << "Renderable id: " << qb_element_getid(elements[0]) << "\n";
   }
 }
 
@@ -95,7 +95,7 @@ void initialize() {
     std::cout << "Intializing renderables collection\n";
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setdatasize(attr, sizeof(qbRenderable_));
+    qb_componentattr_setdatatype(attr, qbRenderable);
 
     qb_component_create(&renderables, attr);
     qb_componentattr_destroy(&attr);
