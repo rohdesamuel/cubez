@@ -21,19 +21,20 @@ struct Player {
   bool fire_bullets;
 };
 
+
 void initialize(const Settings& settings) {
   {
     std::cout << "Initializing player textures and shaders\n";
     render::Mesh mesh;
     mesh.count = 6;
     GLfloat vertices[] = {
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
+      16.0f, -16.0f, 0.0f,   1.0f, 0.0f,
+      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
 
-      -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+      -16.0f,  16.0f, 0.0f,   0.0f, 1.0f,
+      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
+      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
     };
 
     glGenVertexArrays(1, &mesh.vao);
@@ -105,16 +106,16 @@ void initialize(const Settings& settings) {
             ball::create(t.p, {0.01, 0.0, 0.0});
           }
           if (input::is_key_pressed(QB_KEY_W)) {
-            t.v.y += 0.001;
+            t.v.y += 0.1;
           }
           if (input::is_key_pressed(QB_KEY_S)) {
-            t.v.y -= 0.001;  
+            t.v.y -= 0.1;  
           }
           if (input::is_key_pressed(QB_KEY_A)) {
-            t.v.x -= 0.001;  
+            t.v.x -= 0.1;  
           }
           if (input::is_key_pressed(QB_KEY_D)) {
-            t.v.x += 0.001;  
+            t.v.x += 0.1;  
           }
 
           qb_element_write(e[1]);

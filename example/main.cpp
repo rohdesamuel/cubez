@@ -3,14 +3,6 @@
 #include "inc/table.h"
 #include "inc/timer.h"
 
-#define GL3_PROTOTYPES 1
-
-#include <GL/glew.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
-
 #include "ball.h"
 #include "physics.h"
 #include "player.h"
@@ -74,8 +66,6 @@ void main() {
 }
 )";
 
-SDL_Window *win = nullptr;
-SDL_GLContext *context = nullptr;
 
 void check_for_gl_errors() {
   GLenum error = glGetError();
@@ -83,39 +73,6 @@ void check_for_gl_errors() {
     const GLubyte* error_str = gluErrorString(error);
     std::cout << "Error(" << error << "): " << error_str << std::endl;
   }
-}
-
-void init_rendering(int width, int height) {
-  int posX = 100, posY = 100;
-  
-  SDL_Init(SDL_INIT_VIDEO);
-  
-  // Request an OpenGL 3.3 context
-  SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-
-  SDL_GL_SetAttribute(
-      SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-  win = SDL_CreateWindow("Hello World", posX, posY, width, height,
-                         SDL_WINDOW_OPENGL);
-
-  SDL_GL_CreateContext(win);
-
-  glewExperimental = GL_TRUE;
-  GLenum glewError = glewInit();
-  if (glewError != 0) {
-    std::cout << "Failed to intialize Glew\n"
-              << "Error code: " << glewError;
-    exit(1);
-  }
-  // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
-  // that error here and carry on.
-  glGetError();
-
-  SDL_GL_SwapWindow(win);
 }
 
 void initialize_universe(qbUniverse* uni) {
@@ -131,7 +88,14 @@ void initialize_universe(qbUniverse* uni) {
   }
   
   {
-    render::initialize();
+    render::Settings s;
+    s.title = "Cubez example";
+    s.width = 800;
+    s.height = 600;
+    s.znear = 1.0f;
+    s.zfar = 1000.0f;
+    s.fov = 90.0f;
+    render::initialize(s);
     check_for_gl_errors();
   }
   
@@ -167,9 +131,6 @@ void initialize_universe(qbUniverse* uni) {
 }
 
 int main(int, char* []) {
-  init_rendering(800, 600);
-  std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
-
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
@@ -204,7 +165,7 @@ int main(int, char* []) {
       if (SDL_PollEvent(&e)) {
         if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
           if (e.key.keysym.sym == SDLK_ESCAPE) {
-            SDL_DestroyWindow(win);
+            render::shutdown();
             SDL_Quit();
             qb_stop();
             exit(0);
@@ -234,8 +195,6 @@ int main(int, char* []) {
 
     check_for_gl_errors();
 
-    SDL_GL_SwapWindow(win);
-
     render_timer.stop();
     render_timer.step();
 
@@ -252,8 +211,8 @@ int main(int, char* []) {
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
 
-    //if (trigger % period == 0 && prev_trigger != trigger) {
-    if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+    if (trigger % period == 0 && prev_trigger != trigger) {
+    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

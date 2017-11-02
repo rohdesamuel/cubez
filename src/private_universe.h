@@ -742,22 +742,16 @@ class ProgramRegistry {
   }
 
   void run() {
-    if (programs_.size() == 1) {
-      for (auto& program : programs_) {
-        ((ProgramImpl*)program.second->self)->run();
-      }
-    } else {
-      std::vector<std::future<void>> programs;
+    std::vector<std::future<void>> programs;
 
-      for (auto& program : programs_) {
-        ProgramImpl* p = (ProgramImpl*)program.second->self;
-        programs.push_back(program_threads_.enqueue(
-                [p]() { p->run(); }));
-      }
+    for (auto& program : programs_) {
+      ProgramImpl* p = (ProgramImpl*)program.second->self;
+      programs.push_back(program_threads_.enqueue(
+            [p]() { p->run(); }));
+    }
 
-      for (auto& p : programs) {
-        p.wait();
-      }
+    for (auto& p : programs) {
+      p.wait();
     }
   }
 

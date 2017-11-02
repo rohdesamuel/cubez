@@ -34,7 +34,20 @@ struct RenderEvent {
   uint64_t ftimestamp_us;
 };
 
-void initialize();
+struct Settings {
+  std::string title;
+  int width;
+  int height;
+  float fov;
+  float znear;
+  float zfar;
+};
+
+void initialize(const Settings& settings);
+void shutdown();
+int window_height();
+int window_width();
+
 qbRenderable create(const Material& material, const Mesh& mesh);
 
 qbComponent component();

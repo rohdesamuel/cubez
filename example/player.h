@@ -22,6 +22,8 @@ void move_right(float speed);
 void move_up(float speed);
 void move_down(float speed);
 
+glm::mat4 perspective();
+
 }  // namespace player
 
 #endif  // PLAYER__H

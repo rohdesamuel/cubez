@@ -9,8 +9,8 @@
 
 struct VertexAttribute {
   glm::vec3 v;
-  glm::vec2 vt;
   glm::vec3 vn;
+  glm::vec2 vt;
 };
 
 struct qbMesh_ {
@@ -48,6 +48,7 @@ class MeshBuilder {
     mesh->vertices = (VertexAttribute*)calloc(mesh->count,
                                               sizeof(VertexAttribute));
     for (size_t i = 0; i < mesh->count; ++i) {
+
     }
     return mesh;
   }

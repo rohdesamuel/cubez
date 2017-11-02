@@ -6,7 +6,9 @@
 namespace physics {
 
 // Components
-qbComponent transforms;
+qbComponent transforms_;
+qbComponent collidable_;
+qbComponent movable_;
 
 // Events
 qbEvent impulse_event;
@@ -18,33 +20,34 @@ qbSystem move_system;
 
 void initialize(const Settings&) {
   // Initialize collections.
+  std::cout << "Initializing physics components\n";
   {
-    std::cout << "Initializing physics collections\n";
-
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, physics::Transform);
 
-    qb_component_create(&transforms, attr);
+    qb_component_create(&transforms_, attr);
   }
 
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
-    qb_systemattr_addsource(attr, transforms);
-    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_addsource(attr, transforms_);
+    qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setfunction(attr,
         [](qbElement* elements, qbCollectionInterface*, qbFrame*) {
           Transform particle;
           qb_element_read(elements[0], &particle);
 
-          particle.v.y -= 0.001;
-          particle.p += particle.v;
+          if (!particle.is_fixed) {
+            particle.v.y -= 0.001;
+            particle.p += particle.v;
+          }
           //if (particle.p.x >  1.0f) { particle.p.x =  1.0f; particle.v.x *= -0.98; }
           //if (particle.p.x < -1.0f) { particle.p.x = -1.0f; particle.v.x *= -0.98; }
-          //if (particle.p.y >  1.0f) { particle.p.y =  1.0f; particle.v.y *= -0.98; }
-          if (particle.p.y < -1.0f) { particle.p.y = -1.0f; particle.v.y *= -0.98; }
+          if (particle.p.y < 0.0f - 16.0f) { particle.p.y = 0.0f - 16.0f; particle.v.y *= -0.98; }
+          if (particle.p.y > 800.0f) { particle.p.y = 800.0f; particle.v.y *= -0.98; }
 
           qb_element_write(elements[0]);
         });
@@ -54,9 +57,9 @@ void initialize(const Settings&) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, transforms);
-    qb_systemattr_addsource(attr, transforms);
-    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_addsource(attr, transforms_);
+    qb_systemattr_addsource(attr, transforms_);
+    qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
         [](qbElement* e, qbCollectionInterface*, qbFrame*) {
@@ -65,6 +68,10 @@ void initialize(const Settings&) {
 
           qb_element_read(e[0], &a);
           qb_element_read(e[1], &b);
+
+          if (qb_element_getid(e[0]) == qb_element_getid(e[1])) {
+            return;
+          }
 
           glm::vec3 r = a.p - b.p;
           if (glm::abs(r.x) <= 0.0001f && glm::abs(r.y) <= 0.0001f) {
@@ -96,7 +103,7 @@ void initialize(const Settings&) {
     qb_systemattr_create(&attr);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
     qb_systemattr_settrigger(attr, qbTrigger::EVENT);
-    qb_systemattr_addsink(attr, transforms);
+    qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setcallback(attr,
         [](qbCollectionInterface* collections, qbFrame* frame) {
           qbCollectionInterface* from = &collections[0];
@@ -127,7 +134,7 @@ void send_impulse(qbEntity entity, glm::vec3 p) {
 }
 
 qbComponent component() {
-  return transforms;
+  return transforms_;
 }
 
 }  // namespace physics

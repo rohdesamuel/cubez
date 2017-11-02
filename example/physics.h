@@ -20,6 +20,7 @@ struct Material {
 struct Transform {
   glm::vec3 p;
   glm::vec3 v;
+  bool is_fixed;
 };
 
 struct Impulse {
@@ -37,8 +38,8 @@ qbId create(glm::vec3 pos, glm::vec3 vel);
 void send_impulse(qbEntity entity, glm::vec3 p);
 
 qbComponent component();
-qbComponent collidables();
-qbComponent movables();
+qbComponent collidable();
+qbComponent movable();
 
 }
 

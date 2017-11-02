@@ -23,13 +23,13 @@ void initialize(const Settings& settings) {
     render::Mesh mesh;
     mesh.count = 6;
     GLfloat vertices[] = {
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
+      16.0f, -16.0f, 0.0f,   1.0f, 0.0f,
+      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
 
-      -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
+      -16.0f,  16.0f, 0.0f,   0.0f, 1.0f,
+      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
+      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
     };
 
     glGenVertexArrays(1, &mesh.vao);
@@ -66,7 +66,7 @@ void create(glm::vec3 pos, glm::vec3 vel) {
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
 
-  physics::Transform t{pos, vel};
+  physics::Transform t{pos, vel, false};
   qb_entityattr_addcomponent(attr, physics::component(), &t);
   qb_entityattr_addcomponent(attr, render::component(), &render_state);
 
