@@ -1,12 +1,11 @@
-#include "inc/radiance.h"
-#include "inc/table.h"
-#include "inc/stack_memory.h"
-#include "inc/schema.h"
+#include "inc/cubez.h"
 #include "inc/timer.h"
 
-#include <glm/glm.hpp>
 #include <omp.h>
 #include <unordered_map>
+#include <vector>
+#include <iostream>
+#include <glm/glm.hpp>
 
 typedef std::vector<glm::vec3> Vectors;
 
@@ -14,10 +13,6 @@ struct Transformation {
   glm::vec3 p;
   glm::vec3 v;
 };
-
-typedef radiance::Schema<uint32_t, Transformation> Transformations;
-
-const char kMainProgram[] = "main";
 
 int main() {
 
@@ -27,79 +22,56 @@ int main() {
   std::cout << "Number of iterations: " << iterations << std::endl;
   std::cout << "Entity count: " << count << std::endl;
 
-  radiance::Universe uni;
-  radiance::init(&uni);
-
-  radiance::create_program(kMainProgram); 
-  radiance::Collection* transformations =
-      radiance::add_collection(kMainProgram, "transformations");
-
-  Transformations::Table* table = new Transformations::Table();
-  table->keys.reserve(count);
-  table->values.reserve(count);
-
-  for (uint64_t i = 0; i < count; ++i) {
-    glm::vec3 p{(float)i, 0, 0};
-    glm::vec3 v{1, 0, 0};
-    table->insert(i, {p, v});
+  qbUniverse uni;
+  qb_init(&uni);
+  
+  qbComponent transformations;
+  {
+  	qbComponentAttr attr;
+  	qb_componentattr_create(&attr);
+  	qb_componentattr_setdatatype(attr, Transformation);
+  	qb_component_create(&transformations, attr);
+  	qb_componentattr_destroy(&attr);
+  }
+  
+  qbSystem benchmark;
+  {
+  	qbSystemAttr attr;
+  	qb_systemattr_create(&attr);
+  	qb_systemattr_addsource(attr, transformations);
+  	qb_systemattr_addsink(attr, transformations);
+  	qb_systemattr_setfunction(attr, +[](qbElement* element, qbCollectionInterface*, qbFrame*){
+  			Transformation t;
+  			qb_element_read(element[0], &t);
+  			
+  			t.p += t.v;
+  			
+  			qb_element_write(element[0]);
+  		});
+  	qb_system_create(&benchmark, attr);
+  	qb_systemattr_destroy(&attr);
   }
 
-  radiance::Copy copy =
-      [](const uint8_t*, const uint8_t* value, uint64_t offset,
-         radiance::Stack* stack) {
-        radiance::Mutation* mutation = (radiance::Mutation*)stack->alloc(
-            sizeof(radiance::Mutation) + sizeof(Transformations::Element));
-        mutation->element = (uint8_t*)(mutation + sizeof(radiance::Mutation));
-        mutation->mutate_by = radiance::MutateBy::UPDATE;
-        Transformations::Element* el =
-            (Transformations::Element*)(mutation->element);
-        el->offset = offset;
-        new (&el->value) Transformations::Value(
-            *(Transformations::Value*)(value) );
-      };
-
-  radiance::Mutate mutate =
-      [](radiance::Collection* c, const radiance::Mutation* m) {
-        Transformations::Table* t = (Transformations::Table*)c->collection;
-        Transformations::Element* el = (Transformations::Element*)(m->element);
-        t->values[el->offset] = std::move(el->value); 
-      };
-
-  transformations->collection = (uint8_t*)table;
-  transformations->copy = copy;
-  transformations->mutate = mutate;
-  transformations->count = [](radiance::Collection* c) -> uint64_t {
-    return ((Transformations::Table*)c->collection)->size();
-  };
-
-  transformations->keys.data = (uint8_t*)table->keys.data();
-  transformations->keys.size = sizeof(Transformations::Key);
-  transformations->keys.offset = 0;
-  transformations->values.data = (uint8_t*)table->values.data();
-  transformations->values.size = sizeof(Transformations::Value);
-  transformations->values.offset = 0;
-
-  radiance::Pipeline* pipeline =
-      radiance::add_pipeline(kMainProgram, "transformations", "transformations");
-  pipeline->select = nullptr;
-  pipeline->transform = [](radiance::Stack* s) {
-    Transformations::Element* el =
-        (Transformations::Element*)((radiance::Mutation*)(s->top()))->element;
-    el->value.p += el->value.v;
-  };
-
-  radiance::ExecutionPolicy policy;
-  policy.priority = radiance::MAX_PRIORITY;
-  policy.trigger = radiance::Trigger::LOOP;
-  enable_pipeline(pipeline, policy);
-
-  radiance::start();
+  qb_start();
+  
+  for (uint64_t i = 0; i < count; ++i) {
+	qbEntityAttr attr;
+  	qb_entityattr_create(&attr);
+	glm::vec3 p{(float)i, 0, 0};
+	glm::vec3 v{1, 0, 0};
+	Transformation t{p, v};
+	qb_entityattr_addcomponent(attr, transformations, &t);
+	qbEntity unused;
+	qb_entity_create(&unused, attr);
+	qb_entityattr_destroy(&attr);
+  }
+  
   double total = 0.0;
   double avg = 0.0;
   Timer timer;
   for (uint64_t i = 0; i < iterations; ++i) {
     timer.start();
-    radiance::loop();
+    qb_loop();
     timer.stop();
     total += timer.get_elapsed_ns();
   }
@@ -110,7 +82,7 @@ int main() {
   std::cout << "avg ns per entity per iteration: " << avg / count << std::endl;
   std::cout << "iteration throughput: " << (1e9 / avg) << std::endl;
   std::cout << "entity throughput: " << count / (avg / 1e9) << std::endl;
-  radiance::stop();
+  qb_stop();
 
   return 0;
 }
