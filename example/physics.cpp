@@ -37,17 +37,10 @@ void initialize(const Settings&) {
     qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setfunction(attr,
         [](qbElement* elements, qbCollectionInterface*, qbFrame*) {
-          Transform particle;
-          qb_element_read(elements[0], &particle);
+          Transform t;
+          qb_element_read(elements[0], &t);
 
-          if (!particle.is_fixed) {
-            particle.v.y -= 0.001;
-            particle.p += particle.v;
-          }
-          //if (particle.p.x >  1.0f) { particle.p.x =  1.0f; particle.v.x *= -0.98; }
-          //if (particle.p.x < -1.0f) { particle.p.x = -1.0f; particle.v.x *= -0.98; }
-          if (particle.p.y < 0.0f - 16.0f) { particle.p.y = 0.0f - 16.0f; particle.v.y *= -0.98; }
-          if (particle.p.y > 800.0f) { particle.p.y = 800.0f; particle.v.y *= -0.98; }
+          t.p += t.v;
 
           qb_element_write(elements[0]);
         });

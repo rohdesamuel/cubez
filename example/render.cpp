@@ -19,8 +19,8 @@
 namespace render {
 
 struct qbRenderable_ {
-  Material* material;
-  Mesh* mesh;
+  qbMesh mesh;
+  qbMaterial material;
 };
 
 struct Camera {
@@ -77,30 +77,19 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
   qbRenderable renderable;
   qb_element_read(elements[0], &renderable);
 
-  Material* material = renderable->material;
-  Mesh* mesh = renderable->mesh;
-
   physics::Transform transform;
   qb_element_read(elements[1], &transform);
-
-
-  glBindVertexArray(mesh->vao);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-
-  ShaderProgram shaders(material->shader_id);
-  shaders.use();
-
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, material->texture_id);
-  glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
 
   glm::mat4 mvp;
   glm::mat4 m = glm::translate(glm::mat4(1.0f), transform.p);
 
+  qb_material_use(renderable->material);
+
   mvp = camera.projection_mat * camera.view_mat * m;
-  glUniformMatrix4fv(glGetUniformLocation(
-        shaders.id(), "uMvp"), 1, GL_FALSE, (GLfloat*)&mvp);
-  glDrawArrays(GL_TRIANGLES, 0, mesh->count);
+  qbShader shader = qb_material_getshader(renderable->material);
+  qb_shader_setmat4(shader, "uMvp", mvp);
+
+  qb_mesh_draw(renderable->mesh, renderable->material);
   
   if (check_for_gl_errors()) {
     std::cout << "Renderable id: " << qb_element_getid(elements[0]) << "\n";
@@ -108,11 +97,7 @@ void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*)
 }
 
 void present(RenderEvent* event) {
-  camera.yaw += 1.0f;
-  camera.pitch = 90.0f;
-
-  camera.from = {0.0f, 0.0f, 0.0f};
-  camera.to = {1.0f, 0.0f, 0.0f};
+  // Initial rotation matrix.
   camera.rotation_mat = glm::mat4(1.0f);
 
   // Rotatae yaw.
@@ -126,24 +111,29 @@ void present(RenderEvent* event) {
       camera.rotation_mat,
       glm::radians(camera.pitch),
       glm::vec3{0.0f, 1.0f, 0.0f});
-  
-  camera.from = glm::vec3(camera.rotation_mat * glm::vec4(camera.from, 1.0f));
-  camera.to = glm::vec3(camera.rotation_mat * glm::vec4(camera.to, 1.0f));
 
-  camera.from += glm::vec3{0.0f, 0.0f, 100.0f};
-  camera.to += glm::vec3{0.0f, 0.0f, 100.0f};
+  glm::vec3 look_from = {0.0f, 0.0f, 0.0f};
+  glm::vec3 look_to = {1.0f, 0.0f, 0.0f};
+  
+  look_from = glm::vec3(camera.rotation_mat * glm::vec4(look_from, 1.0f));
+  look_to = glm::vec3(camera.rotation_mat * glm::vec4(look_to, 1.0f));
+
+  look_from += camera.from;
+  look_to += camera.from;
 
   camera.view_mat = glm::lookAt(
-      camera.from, camera.to,
+      look_from, look_to,
       glm::vec3(camera.rotation_mat * camera.up_vector));
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   qb_event_send(render_event, event);
   qb_event_flush(render_event);
   SDL_GL_SwapWindow(win);
 }
 
-qbRenderable create(const Material& mat, const Mesh& mesh) {
-  return new qbRenderable_{new Material(mat), new Mesh(mesh)};
+qbRenderable create(qbMesh mesh, qbMaterial material) {
+  return new qbRenderable_{mesh, material};
 }
 
 void initialize_context(const Settings& settings) {
@@ -159,6 +149,7 @@ void initialize_context(const Settings& settings) {
   SDL_GL_SetAttribute(
       SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 
   win = SDL_CreateWindow(settings.title.c_str(), posX, posY,
                          settings.width, settings.height,
@@ -173,6 +164,14 @@ void initialize_context(const Settings& settings) {
               << "Error code: " << glewError;
     exit(1);
   }
+
+  glCullFace(GL_BACK);
+  glFrontFace(GL_CCW);
+  glEnable(GL_CULL_FACE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+
+  //glClearColor(0.729, 1.0, 1.0, 0.0);
 
   std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
@@ -204,7 +203,7 @@ void initialize(const Settings& settings) {
   camera.yaw = 0.0f;
   camera.pitch = -90.0f;
 
-  // Rotatae yaw.
+  // Rotate yaw.
   camera.rotation_mat = glm::rotate(
       camera.rotation_mat,
       glm::radians(camera.yaw),
@@ -264,28 +263,6 @@ void shutdown() {
   SDL_DestroyWindow(win);
 }
 
-uint32_t load_texture(const std::string& file) {
-  uint32_t texture;
-
-  // Load the image from the file into SDL's surface representation
-  SDL_Surface* surf = SDL_LoadBMP(file.c_str());
-
-  if (!surf) {
-    std::cout << "Could not load texture " << file << std::endl;
-  }
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  SDL_FreeSurface(surf);
-
-  return texture;
-}
-
 int window_height() {
   return height;
 }
@@ -293,5 +270,56 @@ int window_height() {
 int window_width() {
   return width;
 }
+
+qbResult qb_camera_setposition(glm::vec3 new_position) {
+  glm::vec3 delta = new_position - camera.from;
+
+  camera.from += delta;
+  camera.to += delta;
+  return QB_OK;
+}
+
+qbResult qb_camera_setyaw(float new_yaw) {
+  camera.yaw = new_yaw;
+  return QB_OK;
+}
+
+qbResult qb_camera_setpitch(float new_pitch) {
+  camera.pitch = new_pitch;
+  return QB_OK;
+}
+
+qbResult qb_camera_incposition(glm::vec3 delta) {
+  camera.from += delta;
+  camera.to += delta;
+  return QB_OK;
+}
+
+qbResult qb_camera_incyaw(float delta) {
+  camera.yaw += delta;
+  return QB_OK;
+}
+
+qbResult qb_camera_incpitch(float delta) {
+  camera.pitch += delta;
+  return QB_OK;
+}
+
+glm::vec3 qb_camera_getposition() {
+  return camera.from;
+}
+
+glm::mat4 qb_camera_getorientation() {
+  return camera.rotation_mat;
+}
+
+float qb_camera_getyaw() {
+  return camera.yaw;
+}
+
+float qb_camera_getpitch() {
+  return camera.pitch;
+}
+
 
 }  // namespace render

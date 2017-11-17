@@ -7,7 +7,9 @@
 #include "inc/cubez.h"
 #include "inc/common.h"
 
+#include <fstream>
 #include <iostream>
+#include <streambuf>
 
 class ShaderProgram {
  private:
@@ -67,6 +69,33 @@ class ShaderProgram {
   }
 
   ShaderProgram(GLuint program) : program_(program) {}
+
+  static ShaderProgram load_from_file(const std::string& vs_file,
+                                      const std::string& fs_file) {
+    std::string vs;
+    std::string fs;
+    {
+      std::ifstream t(vs_file);
+
+      t.seekg(0, std::ios::end);   
+      vs.reserve(t.tellg());
+      t.seekg(0, std::ios::beg);
+
+      vs.assign(std::istreambuf_iterator<char>(t),
+          std::istreambuf_iterator<char>());
+    }
+    {
+      std::ifstream t(fs_file);
+
+      t.seekg(0, std::ios::end);   
+      fs.reserve(t.tellg());
+      t.seekg(0, std::ios::beg);
+
+      fs.assign(std::istreambuf_iterator<char>(t),
+          std::istreambuf_iterator<char>());
+    }
+    return ShaderProgram(vs, fs);
+  }
 
   void use() {
     glUseProgram(program_);

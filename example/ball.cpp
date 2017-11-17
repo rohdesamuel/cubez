@@ -17,46 +17,9 @@ namespace ball {
 render::qbRenderable render_state;
 
 void initialize(const Settings& settings) {
-  // Initialize events.
   {
     std::cout << "Initialize ball textures and shaders\n";
-    render::Mesh mesh;
-    mesh.count = 6;
-    GLfloat vertices[] = {
-      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
-      16.0f, -16.0f, 0.0f,   1.0f, 0.0f,
-      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
-
-      -16.0f,  16.0f, 0.0f,   0.0f, 1.0f,
-      16.0f,  16.0f, 0.0f,   1.0f, 1.0f,
-      -16.0f, -16.0f, 0.0f,   0.0f, 0.0f,
-    };
-
-    glGenVertexArrays(1, &mesh.vao);
-    glBindVertexArray(mesh.vao);
-
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    ShaderProgram shaders(settings.vs, settings.fs);
-    shaders.use();
-
-    GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
-    glEnableVertexAttribArray(inPos);
-    glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
-        5 * sizeof(float), 0);
-
-    GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
-    glEnableVertexAttribArray(inTexCoord);
-    glVertexAttribPointer(inTexCoord, 2, GL_FLOAT, GL_FALSE,
-        5 * sizeof(float), (void*)(3 * sizeof(float)));
-
-    render::Material material;
-    material.shader_id = shaders.id();
-    material.texture_id = render::load_texture(settings.texture);
-
-    render_state = render::create(material, mesh);
+    render_state = render::create(settings.mesh, settings.material);
   }
 
   std::cout << "Finished initializing ball\n";

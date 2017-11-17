@@ -10,9 +10,6 @@ namespace player {
 
 struct Settings {
   glm::vec3 start_pos;
-  std::string texture;
-  std::string vs;
-  std::string fs;
 };
 
 void initialize(const Settings& settings);

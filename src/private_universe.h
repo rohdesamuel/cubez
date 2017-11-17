@@ -210,7 +210,7 @@ class SystemImpl {
   }
 
   void run_0_to_0(qbFrame* f) {
-    transform_(elements_data_.data(), sink_interfaces_.data(), f);
+    transform_(nullptr, nullptr, f);
   }
 
   void copy_to_element(void* k, void* v, qbOffset offset, qbElement element) {
@@ -402,6 +402,15 @@ class Channel {
   void flush() {
     std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
     void* msg = nullptr;
+    while (message_queue_.try_dequeue(msg)) {
+      for (const auto& handler : handlers_) {
+        SystemImpl::from_raw(handler)->run(msg);
+      }
+
+      free_message(msg);
+    }
+
+    /*
     int max_events = message_queue_.size_approx();
     for (int i = 0; i < max_events; ++i) {
       if (!message_queue_.try_dequeue(msg)) {
@@ -413,7 +422,7 @@ class Channel {
       }
 
       free_message(msg);
-    }
+    }*/
   }
 
  private:
