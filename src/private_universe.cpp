@@ -87,15 +87,12 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
 }
 
 PrivateUniverse::PrivateUniverse() {
-  //init_rendering(&rendering_context_,
-      //{ GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None }, 600, 600);
 }
 
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
-  // Create the default program.
-  create_program("");
+  entities_.init();
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 
@@ -183,7 +180,7 @@ qbResult PrivateUniverse::collection_create(qbCollection* collection,
                                             qbCollectionAttr attr) {
   qbProgram* p = programs_.get_program(attr->program);
   ASSERT_NOT_NULL(p);
-  *collection = collections_.alloc(p->id, attr);
+  *collection = collections_.create(p->id, attr);
   return qbResult::QB_OK;
 }
 
@@ -281,6 +278,21 @@ qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& a
     return entities_.create_entityasync(entity, attr);
   }
   return entities_.create_entity(entity, attr);
+}
+
+qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
+  return entities_.find(entity, entity_id);
+}
+
+qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
+                                             qbComponent component,
+                                             void* instance_data) {
+  return entities_.add_component(entity, component, instance_data);
+}
+
+qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
+                                                qbComponent component) {
+  return entities_.remove_component(entity, component);
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {

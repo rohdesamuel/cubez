@@ -14,10 +14,12 @@ struct Transformation {
   glm::vec3 v;
 };
 
+qbComponent transformations;
+
 int main() {
 
-  uint64_t count = 4096;
-  uint64_t iterations = 100000;
+  uint64_t count = 1;
+  uint64_t iterations = 1;
   std::cout << "Number of threads: " << omp_get_max_threads() << std::endl;
   std::cout << "Number of iterations: " << iterations << std::endl;
   std::cout << "Entity count: " << count << std::endl;
@@ -25,7 +27,6 @@ int main() {
   qbUniverse uni;
   qb_init(&uni);
   
-  qbComponent transformations;
   {
   	qbComponentAttr attr;
   	qb_componentattr_create(&attr);
@@ -44,26 +45,35 @@ int main() {
   			Transformation t;
   			qb_element_read(element[0], &t);
   			
+        qbEntity e;
+        qb_entity_find(&e, qb_element_getid(element[0]));
+        qb_entity_removecomponent(e, transformations);
+        /*
   			t.p += t.v;
   			
-  			qb_element_write(element[0]);
+  			qb_element_write(element[0]);*/
   		});
   	qb_system_create(&benchmark, attr);
   	qb_systemattr_destroy(&attr);
   }
 
+  std::cout << "Starting engine\n";
   qb_start();
   
+  std::cout << "Creating entities\n";
   for (uint64_t i = 0; i < count; ++i) {
-	qbEntityAttr attr;
-  	qb_entityattr_create(&attr);
-	glm::vec3 p{(float)i, 0, 0};
-	glm::vec3 v{1, 0, 0};
-	Transformation t{p, v};
-	qb_entityattr_addcomponent(attr, transformations, &t);
-	qbEntity unused;
-	qb_entity_create(&unused, attr);
-	qb_entityattr_destroy(&attr);
+    qbEntityAttr attr;
+      qb_entityattr_create(&attr);
+    glm::vec3 p{(float)i, 0, 0};
+    glm::vec3 v{1, 0, 0};
+    qbEntity entity;
+    Transformation t{p, v};
+    qb_entityattr_addcomponent(attr, transformations, &t);
+    qb_entity_create(&entity, attr);
+    qb_entity_addcomponent(entity, transformations, &t);
+    qb_entity_removecomponent(entity, transformations);
+    qb_entity_addcomponent(entity, transformations, &t);
+    qb_entityattr_destroy(&attr);
   }
   
   double total = 0.0;

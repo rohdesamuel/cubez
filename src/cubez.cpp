@@ -113,6 +113,19 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
   return AS_PRIVATE(entity_create(entity, *attr));
 }
 
+qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
+  return AS_PRIVATE(entity_find(entity, entity_id));
+}
+
+qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
+                                void* instance_data) {
+  return AS_PRIVATE(entity_addcomponent(entity, component, instance_data));
+}
+
+qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
+  return AS_PRIVATE(entity_removecomponent(entity, component));
+}
+
 qbResult qb_entity_destroy(qbEntity*) {
 	return qbResult::QB_OK;
 }
@@ -225,6 +238,14 @@ qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset b
 	return qbResult::QB_OK;
 }
 
+qbResult qb_collectionattr_setremovers(qbCollectionAttr attr, qbRemoveByOffset by_offset,
+                                        qbRemoveById by_id, qbRemoveByHandle by_handle) {
+  attr->remove_by_offset = by_offset;
+  attr->remove_by_id = by_id;
+  attr->remove_by_handle = by_handle;
+	return qbResult::QB_OK;
+}
+
 qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData data,
                                           size_t stride, uint32_t offset) {
   attr->keys.data = data;
@@ -260,6 +281,14 @@ qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr) {
     attr->program = "";
   }
 #ifdef __ENGINE_DEBUG__
+  DEBUG_ASSERT(attr->remove_by_id,
+               QB_ERROR_COLLECTIONATTR_REMOVE_BY_KEY_IS_NOT_SET);
+  DEBUG_ASSERT(attr->remove_by_offset,
+               QB_ERROR_COLLECTIONATTR_REMOVE_BY_OFFSET_IS_NOT_SET);
+  DEBUG_ASSERT(attr->remove_by_handle,
+               QB_ERROR_COLLECTIONATTR_REMOVE_BY_HANDLE_IS_NOT_SET);
+  DEBUG_ASSERT(attr->accessor.id,
+               QB_ERROR_COLLECTIONATTR_ACCESSOR_KEY_IS_NOT_SET);
   DEBUG_ASSERT(attr->accessor.offset,
                QB_ERROR_COLLECTIONATTR_ACCESSOR_OFFSET_IS_NOT_SET);
   DEBUG_ASSERT(attr->accessor.handle,

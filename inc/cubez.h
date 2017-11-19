@@ -98,6 +98,9 @@ typedef uint8_t* (*qbData)(qbCollectionInterface*);
 typedef void* (*qbValueByOffset)(qbCollectionInterface*, uint64_t offset);
 typedef void* (*qbValueByHandle)(qbCollectionInterface*, qbHandle handle);
 typedef void* (*qbValueById)(qbCollectionInterface*, qbId entity_id);
+typedef void (*qbRemoveByOffset)(qbCollectionInterface*, uint64_t offset);
+typedef void (*qbRemoveByHandle)(qbCollectionInterface*, qbHandle handle);
+typedef void (*qbRemoveById)(qbCollectionInterface*, qbId entity_id);
 
 struct qbCollectionInterface {
   void* collection;
@@ -107,11 +110,17 @@ struct qbCollectionInterface {
   qbValueByOffset by_offset;
   qbValueById by_id;
   qbValueByHandle by_handle;
+
+  qbRemoveByOffset remove_by_offset;
+  qbRemoveByHandle remove_by_handle;
+  qbRemoveById remove_by_id;
 };
 
 qbResult qb_collectionattr_create(qbCollectionAttr* attr);
 qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
 qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
+qbResult qb_collectionattr_setremovers(qbCollectionAttr attr, qbRemoveByOffset,
+                                       qbRemoveById, qbRemoveByHandle);
 qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
                                         qbValueById, qbValueByHandle);
 qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
@@ -227,7 +236,11 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
 qbResult qb_entity_destroy(qbEntity* entity);
+qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
+                                void* instance_data);
+qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
 qbId qb_entity_getid(qbEntity entity);
+qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
 
 enum qbComponentJoin {
   QB_JOIN_INNER = 0,
