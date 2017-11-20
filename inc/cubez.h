@@ -228,6 +228,15 @@ qbResult qb_componentattr_setimplementation(qbComponentAttr attr,
 qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 qbResult qb_component_destroy(qbComponent* component);
 
+// Triggers when a component is created. If created when an entity is created,
+// then it is triggered after all components have been instantiated.
+qbResult qb_component_oncreate(qbComponent component,
+    void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
+// Triggers when a component is destroyed. Is triggered before before memory
+// is freed.
+qbResult qb_component_ondestroy(qbComponent component,
+    void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
+
 qbResult qb_entityattr_create(qbEntityAttr* attr);
 qbResult qb_entityattr_destroy(qbEntityAttr* attr);
 
@@ -236,11 +245,12 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
 qbResult qb_entity_destroy(qbEntity* entity);
+qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
+
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
                                 void* instance_data);
 qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
 qbId qb_entity_getid(qbEntity entity);
-qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
 
 enum qbComponentJoin {
   QB_JOIN_INNER = 0,
@@ -286,7 +296,7 @@ qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
 qbResult qb_event_create(qbEvent* event, qbEventAttr attr);
 qbResult qb_event_destroy(qbEvent* event);
 
-// Flush events from program. If event if null, flush all events from program.
+// Flush events from program. If event is null, flush all events from program.
 // Engine must not be in the LOOPING run state.
 qbResult qb_event_flush(qbEvent event);
 qbResult qb_event_flushall(qbProgram program);

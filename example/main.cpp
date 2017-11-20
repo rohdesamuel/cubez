@@ -234,6 +234,9 @@ int main(int, char* []) {
 
     if (trigger % period == 0 && prev_trigger != trigger) {
     //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+      ball::create({(float)(rand() % 500) - 250.0f,
+                    (float)(rand() % 500) - 250.0f,
+                    (float)(rand() % 500) - 250.0f}, {});
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

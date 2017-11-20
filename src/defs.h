@@ -63,11 +63,34 @@ struct qbCollectionAttr_ {
   qbRemoveById remove_by_id;
 };
 
+typedef void(*qbComponentOnCreate)(qbEntity parent_entity,
+                                   qbComponent to_destroy,
+                                   void* instance_data);
+
+typedef void(*qbComponentOnDestroy)(qbEntity parent_entity,
+                                    qbComponent to_destroy,
+                                    void* instance_data);
+
+struct qbComponentOnCreateEvent_ {
+  qbEntity entity;
+  qbComponent component;
+  void* instance_data;
+};
+
+struct qbComponentOnDestroyEvent_ {
+  qbEntity entity;
+  qbComponent component;
+  void* instance_data;
+};
+
 // All components are keyed on an entity id.
 struct qbComponent_ {
   const qbId id;
   size_t data_size;
   qbCollection impl;
+
+  qbEvent on_create;
+  qbEvent on_destroy;
 };
 
 struct qbComponentAttr_ {
@@ -141,13 +164,16 @@ struct qbEntityAttr_ {
 };
 
 struct qbInstance_ {
-  qbId component_id;
+  qbComponent component;
   qbHandle instance_handle;
+  void* data;
 };
 
 struct qbEntity_ {
   const qbId id;
   std::vector<qbInstance_> instances;
+
+  qbEvent destroy_event;
 };
 
 struct qbEventAttr_ {

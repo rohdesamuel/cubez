@@ -214,8 +214,6 @@ class SystemImpl {
           run_1_to_n(&frame);
         } else if (source_size == 0 && sink_size > 0) {
           run_0_to_n(&frame);
-        } else if (source_size == 1 && sink_size > 0) {
-          run_1_to_n(&frame);
         } else if (source_size > 1) {
           run_m_to_n(&frame);
         }
@@ -828,6 +826,28 @@ class ComponentRegistry {
                                                 handle);
   }
 
+  static qbResult send_component_create_event(qbComponent component,
+                                              qbEntity entity,
+                                              void* instance_data) {
+    qbComponentOnCreateEvent_ event;
+    event.entity = entity;
+    event.component = component;
+    event.instance_data = instance_data;
+
+    return qb_event_send(component->on_create, &event);
+  }
+
+  static qbResult send_component_destroy_event(qbComponent component,
+                                               qbEntity entity,
+                                               void* instance_data) {
+    qbComponentOnDestroyEvent_ event;
+    event.entity = entity;
+    event.component = component;
+    event.instance_data = instance_data;
+
+    return qb_event_send(component->on_destroy, &event);
+  }
+
  private:
   qbResult new_component(qbComponent* component, qbComponentAttr attr) {
     *component = (qbComponent)calloc(1, sizeof(qbComponent_));
@@ -839,6 +859,20 @@ class ComponentRegistry {
                                                      attr->data_size);
     }
     (*component)->data_size = attr->data_size;
+    {
+      qbEventAttr attr;
+      qb_eventattr_create(&attr);
+      qb_eventattr_setmessagetype(attr, qbComponentOnCreateEvent_);
+      qb_event_create(&(*component)->on_create, attr);
+      qb_eventattr_destroy(&attr);
+    }
+    {
+      qbEventAttr attr;
+      qb_eventattr_create(&attr);
+      qb_eventattr_setmessagetype(attr, qbComponentOnDestroyEvent_);
+      qb_event_create(&(*component)->on_destroy, attr);
+      qb_eventattr_destroy(&attr);
+    }
     return qbResult::QB_OK;
   }
 
@@ -848,8 +882,10 @@ class ComponentRegistry {
 
 class EntityRegistry {
  public:
-  struct AddEntityEvent {};
-  struct RemoveEntityEvent {};
+  struct DestroyEntityEvent {
+    EntityRegistry* self;
+    qbEntity entity;
+  };
 
   struct AddComponentEvent {
     qbEntity entity;
@@ -902,6 +938,25 @@ class EntityRegistry {
 
       qb_eventattr_destroy(&attr);
     }
+
+    {
+      qbSystemAttr attr;
+      qb_systemattr_create(&attr);
+      qb_systemattr_setcallback(attr, destroy_entity_handler);
+      qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+      qb_system_create(&destroy_entity_system_, attr);
+      qb_systemattr_destroy(&attr);
+    }
+    {
+      qbEventAttr attr;
+      qb_eventattr_create(&attr);
+      qb_eventattr_setmessagetype(attr, DestroyEntityEvent);
+      qb_event_create(&destroy_entity_event_, attr);
+
+      qb_event_subscribe(destroy_entity_event_, destroy_entity_system_);
+
+      qb_eventattr_destroy(&attr);
+    }
   }
 
   qbResult create_entityasync(qbEntity* entity, const qbEntityAttr_& attr) {
@@ -915,7 +970,20 @@ class EntityRegistry {
     new_entity(entity);
     entities_[(*entity)->id] = *entity;
     set_components(*entity, attr.component_list);
+    for (qbInstance_& instance : (*entity)->instances) {
+      ComponentRegistry::send_component_create_event(
+          instance.component, *entity, instance.data);
+    }
     return qbResult::QB_OK;
+  }
+
+  qbResult destroy_entity(qbEntity* entity) {
+    for (qbInstance_& instance : (*entity)->instances) {
+      remove_component(*entity, instance.component);
+    }
+    send_destroy_entity_event(*entity);
+    *entity = nullptr;
+    return QB_OK;
   }
 
   void set_components(qbEntity entity,
@@ -923,10 +991,14 @@ class EntityRegistry {
     std::vector<qbInstance_> instances;
     for (const auto instance : components) {
       qbComponent component = instance.component;
+      qbHandle handle = ComponentRegistry::create_component_instance(
+          component, entity->id, instance.data);
+
       instances.push_back({
-          component->id,
-          ComponentRegistry::create_component_instance(component, entity->id,
-                                                       instance.data)
+          component,
+          handle,
+          component->impl->interface.by_handle(&component->impl->interface,
+                                               handle)
         });
     }
     entity->instances = instances;
@@ -938,10 +1010,16 @@ class EntityRegistry {
     memcpy(data, instance_data, component->data_size);
 
     AddComponentEvent event{entity, component, data};
-    return qb_event_send(add_component_event_, &event);
+    qb_event_send(add_component_event_, &event);
+
+    ComponentRegistry::send_component_create_event(component, entity, data);
+    return QB_OK;
   }
 
   qbResult remove_component(qbEntity entity, qbComponent component) {
+    void* data = component->impl->interface.by_id(&component->impl->interface,
+                                                  entity->id);
+    ComponentRegistry::send_component_destroy_event(component, entity, data);
     RemoveComponentEvent event{entity, component};
     return qb_event_send(remove_component_event_, &event);
   }
@@ -970,34 +1048,46 @@ class EntityRegistry {
     void* instance_data = event->instance_data;
 
     std::vector<qbInstance_>* instances = &entity->instances;
+    qbHandle handle = ComponentRegistry::create_component_instance(component, entity->id,
+            instance_data);
     instances->push_back({
-        component->id,
-        ComponentRegistry::create_component_instance(component, entity->id,
-            instance_data)
+        component,
+        handle,
+        component->impl->interface.by_handle(&component->impl->interface,
+            handle)
         });
     free(instance_data);
   }
 
   static void remove_component_handler(qbCollectionInterface*, qbFrame* frame) {
-    std::cout << "removing component\n";
     RemoveComponentEvent* event = (RemoveComponentEvent*)frame->event;
     qbEntity entity = event->entity;
     qbComponent component = event->component;
 
     std::vector<qbInstance_>* instances = &entity->instances;
     auto comp = [component](const qbInstance_& instance) {
-          return instance.component_id == component->id;
+          return instance.component == component;
         };
     auto to_erase = std::find_if(instances->begin(), instances->end(), comp);
     while(to_erase != instances->end()) {
-      std::cout << "destroying component instance\n";
       ComponentRegistry::destroy_component_instance(component,
           to_erase->instance_handle);
-      std::cout << "erasing\n";
       instances->erase(to_erase);
-      std::cout << "more?\n";
       to_erase = std::find_if(instances->begin(), instances->end(), comp);
     } 
+  }
+
+  void send_destroy_entity_event(qbEntity entity) {
+    DestroyEntityEvent event{this, entity};
+    qb_event_send(destroy_entity_event_, &event);
+  }
+
+  static void destroy_entity_handler(qbCollectionInterface*, qbFrame* frame) {
+    DestroyEntityEvent* event = (DestroyEntityEvent*)frame->event;
+    EntityRegistry* self = event->self;
+    qbEntity entity = event->entity;
+    self->entities_.erase(entity->id);
+    free(entity);
   }
 
   std::unordered_map<qbId, qbEntity> entities_;
@@ -1005,9 +1095,11 @@ class EntityRegistry {
 
   qbEvent add_component_event_;
   qbEvent remove_component_event_;
+  qbEvent destroy_entity_event_;
 
   qbSystem add_component_system_;
   qbSystem remove_component_system_;
+  qbSystem destroy_entity_system_;
 };
 
 class PrivateUniverse {
@@ -1057,6 +1149,7 @@ class PrivateUniverse {
 
   // Entity manipulation.
   qbResult entity_create(qbEntity* entity, const qbEntityAttr_& attr);
+  qbResult entity_destroy(qbEntity* entity);
   qbResult entity_find(qbEntity* entity, qbId entity_id);
   qbResult entity_addcomponent(qbEntity entity, qbComponent component,
                                   void* instance_data);

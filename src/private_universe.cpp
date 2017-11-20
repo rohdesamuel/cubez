@@ -280,6 +280,10 @@ qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& a
   return entities_.create_entity(entity, attr);
 }
 
+qbResult PrivateUniverse::entity_destroy(qbEntity* entity) {
+  return entities_.destroy_entity(entity);
+}
+
 qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
   return entities_.find(entity, entity_id);
 }

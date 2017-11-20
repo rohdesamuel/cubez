@@ -82,11 +82,51 @@ qbResult qb_component_create(
   return AS_PRIVATE(component_create(component, attr));
 }
 
-
 qbResult qb_component_destroy(qbComponent*) {
 	return qbResult::QB_OK;
 }
 
+qbResult qb_component_oncreate(qbComponent component,
+                               qbComponentOnCreate on_create) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_create);
+  qb_systemattr_setcallback(attr, +[](qbCollectionInterface*, qbFrame* frame) {
+        qbComponentOnCreateEvent_* event =
+            (qbComponentOnCreateEvent_*)frame->event;
+        qbComponentOnCreate on_create = (qbComponentOnCreate)frame->state;
+        on_create(event->entity, event->component, event->instance_data);
+      });
+  qbSystem system;
+  qb_system_create(&system, attr);
+
+  qb_event_subscribe(component->on_create, system);
+
+  qb_systemattr_destroy(&attr);
+  return QB_OK;
+}
+
+qbResult qb_component_ondestroy(qbComponent component,
+                                qbComponentOnDestroy on_destroy) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_destroy);
+  qb_systemattr_setcallback(attr, +[](qbCollectionInterface*, qbFrame* frame) {
+        qbComponentOnDestroyEvent_* event =
+            (qbComponentOnDestroyEvent_*)frame->event;
+        qbComponentOnDestroy on_destroy = (qbComponentOnDestroy)frame->state;
+        on_destroy(event->entity, event->component, event->instance_data);
+      });
+  qbSystem system;
+  qb_system_create(&system, attr);
+
+  qb_event_subscribe(component->on_destroy, system);
+
+  qb_systemattr_destroy(&attr);
+  return QB_OK;
+}
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
   *attr = (qbEntityAttr)calloc(1, sizeof(qbEntityAttr_));
@@ -113,6 +153,10 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
   return AS_PRIVATE(entity_create(entity, *attr));
 }
 
+qbResult qb_entity_destroy(qbEntity* entity) {
+  return AS_PRIVATE(entity_destroy(entity));
+}
+
 qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
   return AS_PRIVATE(entity_find(entity, entity_id));
 }
@@ -124,10 +168,6 @@ qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
 
 qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
   return AS_PRIVATE(entity_removecomponent(entity, component));
-}
-
-qbResult qb_entity_destroy(qbEntity*) {
-	return qbResult::QB_OK;
 }
 
 qbId qb_entity_getid(qbEntity entity) {
