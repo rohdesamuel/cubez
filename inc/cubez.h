@@ -246,6 +246,8 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
 qbResult qb_entity_destroy(qbEntity* entity);
 qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
+//void* qb_entity_getcomponent(qbEntity entity, qbComponent component);
+qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer);
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
                                 void* instance_data);

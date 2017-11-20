@@ -161,6 +161,20 @@ qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
   return AS_PRIVATE(entity_find(entity, entity_id));
 }
 
+qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer) {
+  auto& instances = entity->instances;
+  auto it = std::find_if(instances.begin(), instances.end(),
+      [component](const qbInstance_& instance) {
+        return instance.component == component;
+      });
+  if (it == instances.end()) {
+    *(void**)buffer = nullptr;
+  }
+  *(void**)buffer = component->impl->interface.by_handle(
+      &component->impl->interface, it->instance_handle);
+  return QB_OK;
+}
+
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
                                 void* instance_data) {
   return AS_PRIVATE(entity_addcomponent(entity, component, instance_data));

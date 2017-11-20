@@ -33,19 +33,17 @@ void initialize(const Settings& settings) {
     qb_componentattr_setdatatype(attr, Ball);
     qb_component_create(&ball_component, attr);
 
-    qb_component_ondestroy(ball_component, +[](qbEntity, qbComponent, void*) {
-          for (int i = 0; i < 5; ++i) {
-            ball::create({(float)(rand() % 500) - 250.0f,
-                          (float)(rand() % 500) - 250.0f,
-                          (float)(rand() % 500) - 250.0f},
-                         {((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f});
+    qb_component_ondestroy(ball_component, +[](qbEntity entity, qbComponent, void*) {
+          physics::Transform* transform;
+          qb_entity_getcomponent(entity, physics::component(), &transform);
+          if (rand() % 10 == 0) {
+            for (int i = 0; i < 2; ++i) {
+              ball::create(transform->p,
+                           {((float)(rand() % 500) - 250.0f) / 250.0f,
+                            ((float)(rand() % 500) - 250.0f) / 250.0f,
+                            ((float)(rand() % 500) - 250.0f) / 250.0f});
+            }
           }
-          std::cout << "Bye!\n";
-        });
-    qb_component_oncreate(ball_component, +[](qbEntity, qbComponent, void*) {
-          std::cout << "Hi!\n";
         });
     qb_componentattr_destroy(&attr);
   }
@@ -80,16 +78,17 @@ void create(glm::vec3 pos, glm::vec3 vel) {
   qb_entityattr_create(&attr);
 
   Ball b;
-  b.death_counter = rand() % 10000;
+  b.death_counter = 1000 + (rand() % 100) - (rand() % 100);
   qb_entityattr_addcomponent(attr, ball_component, &b);
 
   physics::Transform t{pos, vel, false};
   qb_entityattr_addcomponent(attr, physics::component(), &t);
 
+  qb_entityattr_addcomponent(attr, render::component(), &render_state);
+
   qbEntity entity;
   qb_entity_create(&entity, attr);
 
-  qb_entity_addcomponent(entity, render::component(), &render_state);
 
   qb_entityattr_destroy(&attr);
 }

@@ -923,25 +923,6 @@ class EntityRegistry {
     {
       qbSystemAttr attr;
       qb_systemattr_create(&attr);
-      qb_systemattr_setcallback(attr, remove_component_handler);
-      qb_systemattr_settrigger(attr, qbTrigger::EVENT);
-      qb_system_create(&remove_component_system_, attr);
-      qb_systemattr_destroy(&attr);
-    }
-    {
-      qbEventAttr attr;
-      qb_eventattr_create(&attr);
-      qb_eventattr_setmessagetype(attr, RemoveComponentEvent);
-      qb_event_create(&remove_component_event_, attr);
-
-      qb_event_subscribe(remove_component_event_, remove_component_system_);
-
-      qb_eventattr_destroy(&attr);
-    }
-
-    {
-      qbSystemAttr attr;
-      qb_systemattr_create(&attr);
       qb_systemattr_setcallback(attr, destroy_entity_handler);
       qb_systemattr_settrigger(attr, qbTrigger::EVENT);
       qb_system_create(&destroy_entity_system_, attr);
@@ -957,12 +938,37 @@ class EntityRegistry {
 
       qb_eventattr_destroy(&attr);
     }
+
+    // Create the remove_component_event AFTER the destroy_entity_event to make
+    // sure it is handled before the destroy_entity_event.
+    {
+      qbSystemAttr attr;
+      qb_systemattr_create(&attr);
+      qb_systemattr_setcallback(attr, remove_component_handler);
+      qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+      qb_system_create(&remove_component_system_, attr);
+      qb_systemattr_destroy(&attr);
+    }
+    {
+      qbEventAttr attr;
+      qb_eventattr_create(&attr);
+      qb_eventattr_setmessagetype(attr, RemoveComponentEvent);
+      qb_event_create(&remove_component_event_, attr);
+
+      qb_event_subscribe(remove_component_event_, remove_component_system_);
+
+      qb_eventattr_destroy(&attr);
+    }
   }
 
   qbResult create_entityasync(qbEntity* entity, const qbEntityAttr_& attr) {
     new_entity(entity);
+    entities_[(*entity)->id] = *entity;
     set_components(*entity, attr.component_list);
-
+    for (qbInstance_& instance : (*entity)->instances) {
+      ComponentRegistry::send_component_create_event(
+          instance.component, *entity, instance.data);
+    }
     return qbResult::QB_OK;
   }
 
@@ -978,6 +984,9 @@ class EntityRegistry {
   }
 
   qbResult destroy_entity(qbEntity* entity) {
+    for (qbInstance_& instance : (*entity)->instances) {
+      notify_remove_component(*entity, instance.component);
+    }
     for (qbInstance_& instance : (*entity)->instances) {
       remove_component(*entity, instance.component);
     }
@@ -1016,10 +1025,13 @@ class EntityRegistry {
     return QB_OK;
   }
 
-  qbResult remove_component(qbEntity entity, qbComponent component) {
+  qbResult notify_remove_component(qbEntity entity, qbComponent component) {
     void* data = component->impl->interface.by_id(&component->impl->interface,
                                                   entity->id);
-    ComponentRegistry::send_component_destroy_event(component, entity, data);
+    return ComponentRegistry::send_component_destroy_event(component, entity, data);
+  }
+
+  qbResult remove_component(qbEntity entity, qbComponent component) {
     RemoveComponentEvent event{entity, component};
     return qb_event_send(remove_component_event_, &event);
   }
