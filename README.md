@@ -1,4 +1,4 @@
-# Cubez - A fast C API Game Engine
+# Cubez - A Fast C API Game Engine
 
 **Cubez** is an Entity Component System based Game Engine. ECS is a game engine design pattern that favors composition over inheritance. This principle allows the game designer a greater control and flexibility in game design.
 
