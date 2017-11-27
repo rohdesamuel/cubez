@@ -129,7 +129,7 @@ void initialize(const Settings&) {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setcallback(attr,
         [](qbCollectionInterface* collections, qbFrame* frame) {

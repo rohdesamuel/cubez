@@ -22,7 +22,7 @@ void initialize() {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setprogram(attr, kStdout);
     qb_systemattr_setcallback(attr,
         [](qbCollectionInterface*, qbFrame* f) {

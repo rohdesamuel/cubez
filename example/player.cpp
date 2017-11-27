@@ -126,7 +126,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_addsource(attr, physics::component());
     qb_systemattr_addsink(attr, physics::component());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setfunction(attr,
         [](qbElement* els, qbCollectionInterface*, qbFrame* f) {
           input::InputEvent* e = (input::InputEvent*)f->event;

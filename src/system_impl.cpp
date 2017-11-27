@@ -44,26 +44,22 @@ void SystemImpl::Run(void* event) {
   frame.event = event;
   frame.state = system_->user_state;
 
-  if (!run_condition_ ||
-      (run_condition_ && run_condition_(source_interfaces_.data(),
-                                        sink_interfaces_.data(), &frame))) {
-    if (transform_) {
-      if (source_size == 0 && sink_size == 0) {
-        Run_0_To_0(&frame);
-      } else if (source_size == 1 && sink_size == 0) {
-        Run_1_To_0(&frame);
-      } else if (source_size == 1 && sink_size > 0) {
-        Run_1_To_N(&frame);
-      } else if (source_size == 0 && sink_size > 0) {
-        Run_0_To_N(&frame);
-      } else if (source_size > 1) {
-        Run_M_To_N(&frame);
-      }
+  if (transform_) {
+    if (source_size == 0 && sink_size == 0) {
+      Run_0_To_0(&frame);
+    } else if (source_size == 1 && sink_size == 0) {
+      Run_1_To_0(&frame);
+    } else if (source_size == 1 && sink_size > 0) {
+      Run_1_To_N(&frame);
+    } else if (source_size == 0 && sink_size > 0) {
+      Run_0_To_N(&frame);
+    } else if (source_size > 1) {
+      Run_M_To_N(&frame);
     }
+  }
 
-    if (callback_) {
-      callback_(sink_interfaces_.data(), &frame);
-    }
+  if (callback_) {
+    callback_(sink_interfaces_.data(), &frame);
   }
 }
 

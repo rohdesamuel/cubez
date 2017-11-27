@@ -24,10 +24,10 @@ qbResult ProgramImpl::FreeSystem(qbSystem system) {
 qbResult ProgramImpl::EnableSystem(qbSystem system) {
   DisableSystem(system);
 
-  if (system->policy.trigger == qbTrigger::LOOP) {
+  if (system->policy.trigger == qbTrigger::QB_TRIGGER_LOOP) {
     loop_systems_.push_back(system);
     std::sort(loop_systems_.begin(), loop_systems_.end());
-  } else if (system->policy.trigger == qbTrigger::EVENT) {
+  } else if (system->policy.trigger == qbTrigger::QB_TRIGGER_EVENT) {
     event_systems_.insert(system);
   } else {
     return QB_ERROR_UNKNOWN_TRIGGER_POLICY;

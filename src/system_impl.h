@@ -37,7 +37,6 @@ class SystemImpl {
   std::vector<qbElement_> elements_;
   void* element_values_;
 
-  qbRunCondition run_condition_;
   qbTransform transform_;
   qbCallback callback_;
 };

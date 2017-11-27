@@ -240,7 +240,7 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
     qb_systemattr_addsource(attr, renderables);
     qb_systemattr_addsource(attr, physics::component());

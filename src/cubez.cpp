@@ -90,7 +90,7 @@ qbResult qb_component_oncreate(qbComponent component,
                                qbComponentOnCreate on_create) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_create);
   qb_systemattr_setcallback(attr, +[](qbCollectionInterface*, qbFrame* frame) {
         qbComponentOnCreateEvent_* event =
@@ -111,7 +111,7 @@ qbResult qb_component_ondestroy(qbComponent component,
                                 qbComponentOnDestroy on_destroy) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_destroy);
   qb_systemattr_setcallback(attr, +[](qbCollectionInterface*, qbFrame* frame) {
         qbComponentOnDestroyEvent_* event =

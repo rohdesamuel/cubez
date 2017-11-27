@@ -10,7 +10,7 @@ void EntityRegistry::Init() {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, AddComponentHandler);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_system_create(&add_component_system_, attr);
     qb_systemattr_destroy(&attr);
   }
@@ -29,7 +29,7 @@ void EntityRegistry::Init() {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, DestroyEntityHandler);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_system_create(&destroy_entity_system_, attr);
     qb_systemattr_destroy(&attr);
   }
@@ -50,7 +50,7 @@ void EntityRegistry::Init() {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, RemoveComponentHandler);
-    qb_systemattr_settrigger(attr, qbTrigger::EVENT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_system_create(&remove_component_system_, attr);
     qb_systemattr_destroy(&attr);
   }

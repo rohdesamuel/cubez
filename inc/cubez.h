@@ -77,31 +77,21 @@ typedef struct qbComponent_* qbComponent;
 typedef struct qbComponentAttr_* qbComponentAttr;
 typedef struct qbSystem_* qbSystem;
 typedef struct qbSystemAttr_* qbSystemAttr;
+typedef struct qbElement_* qbElement;
+typedef struct qbEventAttr_* qbEventAttr;
+typedef struct qbEvent_* qbEvent;
 typedef struct qbCollectionAttr_* qbCollectionAttr;
 typedef struct qbCollection_* qbCollection;
 
-///////////////////////////////////////////////////////////
-//////////////////////  Collections  //////////////////////
-///////////////////////////////////////////////////////////
-
-typedef struct qbElement_* qbElement;
-
-qbId qb_element_getid(qbElement element);
-qbEntity qb_element_getentity(qbElement element);
-qbResult qb_element_read(qbElement element, void* buffer);
-qbResult qb_element_write(qbElement element);
-
-struct qbCollectionInterface;
-
-typedef qbHandle (*qbInsert)(qbCollectionInterface*, void* key, void* value);
-typedef uint64_t (*qbCount)(qbCollectionInterface*);
-typedef uint8_t* (*qbData)(qbCollectionInterface*);
-typedef void* (*qbValueByOffset)(qbCollectionInterface*, uint64_t offset);
-typedef void* (*qbValueByHandle)(qbCollectionInterface*, qbHandle handle);
-typedef void* (*qbValueById)(qbCollectionInterface*, qbId entity_id);
-typedef void (*qbRemoveByOffset)(qbCollectionInterface*, uint64_t offset);
-typedef void (*qbRemoveByHandle)(qbCollectionInterface*, qbHandle handle);
-typedef void (*qbRemoveById)(qbCollectionInterface*, qbId entity_id);
+typedef qbHandle (*qbInsert)(struct qbCollectionInterface*, void* key, void* value);
+typedef uint64_t (*qbCount)(struct qbCollectionInterface*);
+typedef uint8_t* (*qbData)(struct qbCollectionInterface*);
+typedef void* (*qbValueByOffset)(struct qbCollectionInterface*, uint64_t offset);
+typedef void* (*qbValueByHandle)(struct qbCollectionInterface*, qbHandle handle);
+typedef void* (*qbValueById)(struct qbCollectionInterface*, qbId entity_id);
+typedef void (*qbRemoveByOffset)(struct qbCollectionInterface*, uint64_t offset);
+typedef void (*qbRemoveByHandle)(struct qbCollectionInterface*, qbHandle handle);
+typedef void (*qbRemoveById)(struct qbCollectionInterface*, qbId entity_id);
 
 struct qbCollectionInterface {
   void* collection;
@@ -117,104 +107,9 @@ struct qbCollectionInterface {
   qbRemoveById remove_by_id;
 };
 
-qbResult qb_collectionattr_create(qbCollectionAttr* attr);
-qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
-qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
-qbResult qb_collectionattr_setremovers(qbCollectionAttr attr, qbRemoveByOffset,
-                                       qbRemoveById, qbRemoveByHandle);
-qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
-                                        qbValueById, qbValueByHandle);
-qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
-                                          size_t stride, uint32_t offset);
-qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
-                                            size_t size, size_t stride,
-                                            uint32_t offset);
-qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
-qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);
-qbResult qb_collectionattr_setimplementation(qbCollectionAttr attr, void* impl);
-
-qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr);
-qbResult qb_collection_destroy(qbCollection* collection);
-qbResult qb_collection_share(qbCollection collection, qbProgram destination);
-
 ///////////////////////////////////////////////////////////
-////////////////////////  Systems  ////////////////////////
+///////////////////////  Components  //////////////////////
 ///////////////////////////////////////////////////////////
-
-const int16_t QB_MAX_PRIORITY = 0x7FFF;
-const int16_t QB_MIN_PRIORITY = 0x8001;
-
-enum class qbTrigger {
-  LOOP = 0,
-  EVENT,
-};
-
-struct qbFrame {
-  void* event;
-  void* state;
-};
-
-typedef bool (*qbRunCondition)(qbCollectionInterface* sources,
-                               qbCollectionInterface* sinks,
-                               qbFrame* frame);
-
-typedef void (*qbTransform)(qbElement* elements,
-                            qbCollectionInterface* sinks, qbFrame* frame);
-
-typedef void (*qbCallback)(qbCollectionInterface* sinks, qbFrame* frame);
-
-// Allocate, take ownership, and add a system to the specified program. System
-// is enabled for execution by default
-//
-// Arguments:
-//   program The program name to attach this system to
-//   source The collection name to read from. If there are multiple sources,
-//          this collection's key will be used to query all sources added with
-//          qb_add_source.
-//   sink The collection name to write to
-//
-// Returns:
-//   The allocated system
-
-// Relinquish ownership to engine and free it
-//
-// Arguments:
-//   system The system to free
-//
-// Returns:
-//   QB_OK on success
-
-// Copies a system and its configuration to a different program
-//
-// Arguments:
-//   source_system The system to copy
-//   destination_program The program to copy the system to
-//
-// Returns:
-//   Pointer to newly allocated system
-
-// Enable a system to run.
-//
-// Arguments:
-//   system The system to enable
-//   policy The new policy to set
-//
-// Returns:
-//   QB_OK on success
-
-// Disable a system from running
-//
-// Arguments:
-//   system The system to disable
-//
-// Returns:
-//   QB_OK on success
-//qbResult qb_disable_system(qbSystem system);
-
-///////////////////////////////////////////////////////////
-/////////////////////  Type Management  ///////////////////
-///////////////////////////////////////////////////////////
-
 
 qbResult qb_componentattr_create(qbComponentAttr* attr);
 qbResult qb_componentattr_destroy(qbComponentAttr* attr);
@@ -229,15 +124,19 @@ qbResult qb_componentattr_setimplementation(qbComponentAttr attr,
 qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 qbResult qb_component_destroy(qbComponent* component);
 
-// Triggers when a component is created. If created when an entity is created,
-// then it is triggered after all components have been instantiated.
+// Triggers fn when a component is created. If created when an entity is
+// created, then it is triggered after all components have been instantiated.
 qbResult qb_component_oncreate(qbComponent component,
     void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
-// Triggers when a component is destroyed. Is triggered before before memory
+
+// Triggers fn when a component is destroyed. Is triggered before before memory
 // is freed.
 qbResult qb_component_ondestroy(qbComponent component,
     void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
 
+///////////////////////////////////////////////////////////
+////////////////////////  Entities  ///////////////////////
+///////////////////////////////////////////////////////////
 qbResult qb_entityattr_create(qbEntityAttr* attr);
 qbResult qb_entityattr_destroy(qbEntityAttr* attr);
 
@@ -247,7 +146,6 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
 qbResult qb_entity_destroy(qbEntity* entity);
 qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
-//void* qb_entity_getcomponent(qbEntity entity, qbComponent component);
 qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer);
 
 qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component);
@@ -257,11 +155,33 @@ qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
 qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
 qbId qb_entity_getid(qbEntity entity);
 
+///////////////////////////////////////////////////////////
+////////////////////////  Systems  ////////////////////////
+///////////////////////////////////////////////////////////
+
+const int16_t QB_MAX_PRIORITY = 0x7FFF;
+const int16_t QB_MIN_PRIORITY = 0x8001;
+
+enum qbTrigger {
+  QB_TRIGGER_LOOP = 0,
+  QB_TRIGGER_EVENT,
+};
+
+struct qbFrame {
+  void* event;
+  void* state;
+};
+
 enum qbComponentJoin {
   QB_JOIN_INNER = 0,
   QB_JOIN_LEFT,
   QB_JOIN_CROSS,
 };
+
+typedef void (*qbTransform)(qbElement* elements,
+                            qbCollectionInterface* sinks, qbFrame* frame);
+
+typedef void (*qbCallback)(qbCollectionInterface* sinks, qbFrame* frame);
 
 qbResult qb_systemattr_create(qbSystemAttr* attr);
 qbResult qb_systemattr_destroy(qbSystemAttr* attr);
@@ -281,14 +201,9 @@ qbResult qb_system_destroy(qbSystem* system);
 qbResult qb_system_enable(qbSystem system);
 qbResult qb_system_disable(qbSystem system);
 
-
-
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
 ///////////////////////////////////////////////////////////
-
-typedef struct qbEventAttr_* qbEventAttr;
-typedef struct qbEvent_* qbEvent;
 
 qbResult qb_eventattr_create(qbEventAttr* attr);
 qbResult qb_eventattr_destroy(qbEventAttr* attr);
@@ -315,6 +230,36 @@ qbResult qb_event_subscribewith(qbEvent event, qbSystem system,
 qbResult qb_event_sendto(qbEvent event, qbComponent component, void* message);
 qbResult qb_event_send(qbEvent event, void* message);
 qbResult qb_event_sendsync(qbEvent event, void* message);
+
+///////////////////////////////////////////////////////////
+//////////////////////  Collections  //////////////////////
+///////////////////////////////////////////////////////////
+
+qbId qb_element_getid(qbElement element);
+qbEntity qb_element_getentity(qbElement element);
+qbResult qb_element_read(qbElement element, void* buffer);
+qbResult qb_element_write(qbElement element);
+
+qbResult qb_collectionattr_create(qbCollectionAttr* attr);
+qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
+qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
+qbResult qb_collectionattr_setremovers(qbCollectionAttr attr, qbRemoveByOffset,
+                                       qbRemoveById, qbRemoveByHandle);
+qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
+                                        qbValueById, qbValueByHandle);
+qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
+                                          size_t stride, uint32_t offset);
+qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
+                                            size_t size, size_t stride,
+                                            uint32_t offset);
+qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
+qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);
+qbResult qb_collectionattr_setimplementation(qbCollectionAttr attr, void* impl);
+
+qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr);
+qbResult qb_collection_destroy(qbCollection* collection);
+qbResult qb_collection_share(qbCollection collection, qbProgram destination);
+
 
 END_EXTERN_C
 
