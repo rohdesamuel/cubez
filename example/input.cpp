@@ -58,8 +58,8 @@ void send_key_event(qbKey key, bool state) {
   qb_event_send(input_event, &input);
 }
 
-void on_key_event(qbSystem system) {
-  qb_event_subscribe(input_event, system);
+qbResult on_key_event(qbSystem system) {
+  return qb_event_subscribe(input_event, system);
 }
 
 bool is_key_pressed(qbKey key) {

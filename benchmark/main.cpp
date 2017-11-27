@@ -41,20 +41,21 @@ int main() {
   	qb_systemattr_create(&attr);
   	qb_systemattr_addsource(attr, transformations);
   	qb_systemattr_addsink(attr, transformations);
-  	qb_systemattr_setfunction(attr, +[](qbElement* element, qbCollectionInterface*, qbFrame*){
-        std::cout << "benchmark system\n";
-  			Transformation t;
-  			qb_element_read(element[0], &t);
-  			
-        qbEntity e;
-        qb_entity_find(&e, qb_element_getid(element[0]));
-        std::cout << "found? " << (e != nullptr) << "\n";
-        qb_entity_destroy(&e);
-        /*
-  			t.p += t.v;
-  			
-  			qb_element_write(element[0]);*/
-  		});
+  	qb_systemattr_setfunction(attr,
+        +[](qbElement* element, qbCollectionInterface*, qbFrame*){
+          std::cout << "benchmark system\n";
+          Transformation t;
+          qb_element_read(element[0], &t);
+          
+          qbEntity e;
+          qb_entity_find(&e, qb_element_getid(element[0]));
+          std::cout << "found? " << (e != nullptr) << "\n";
+          qb_entity_destroy(&e);
+          /*
+          t.p += t.v;
+          
+          qb_element_write(element[0]);*/
+        });
   	qb_system_create(&benchmark, attr);
   	qb_systemattr_destroy(&attr);
   }

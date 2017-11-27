@@ -78,7 +78,7 @@ void initialize(const Settings& settings) {
           impulse_r *= on_ground ? 1.0f : 0.01f;
 
           if (input::is_key_pressed(QB_KEY_W)) {
-          t.v += impulse;
+            t.v += impulse;
           }
           if (input::is_key_pressed(QB_KEY_S)) {
             t.v -= impulse;

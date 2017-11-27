@@ -30,6 +30,10 @@ struct qbMeshAttributes_ {
   std::vector<uint32_t> indices;
 };
 
+struct qbCollisionMesh_ {
+  float r;
+};
+
 struct qbMesh_ {
   uint32_t vao;
   uint32_t el_vbo;

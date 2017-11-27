@@ -154,7 +154,10 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
 }
 
 qbResult qb_entity_destroy(qbEntity* entity) {
-  return AS_PRIVATE(entity_destroy(entity));
+  if (entity && *entity) {
+    return AS_PRIVATE(entity_destroy(entity));
+  }
+  return QB_ERROR_NULL_POINTER;
 }
 
 qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
@@ -173,6 +176,15 @@ qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* bu
   *(void**)buffer = component->impl->interface.by_handle(
       &component->impl->interface, it->instance_handle);
   return QB_OK;
+}
+
+qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component) {
+  auto& instances = entity->instances;
+  auto it = std::find_if(instances.begin(), instances.end(),
+      [component](const qbInstance_& instance) {
+        return instance.component == component;
+      });
+  return it == instances.end() ? QB_ERROR_NOT_FOUND : QB_OK;
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
@@ -433,6 +445,12 @@ qbResult qb_event_sendsync(qbEvent event, void* message) {
 
 qbId qb_element_getid(qbElement element) {
   return element->id;
+}
+
+qbEntity qb_element_getentity(qbElement element) {
+  qbEntity ret;
+  qb_entity_find(&ret, element->id);
+  return ret;
 }
 
 qbResult qb_element_read(qbElement element, void* buffer) {

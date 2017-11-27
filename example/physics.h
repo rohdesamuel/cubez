@@ -28,6 +28,15 @@ struct Impulse {
   glm::vec3 p;
 };
 
+struct Collision {
+  qbEntity a;
+  qbEntity b;
+};
+
+struct Collidable {
+  uint8_t unused;
+};
+
 struct Settings {
   float gravity = 0.0f;
   float friction = 0.0f;
@@ -40,6 +49,8 @@ void send_impulse(qbEntity entity, glm::vec3 p);
 qbComponent component();
 qbComponent collidable();
 qbComponent movable();
+
+qbResult on_collision(qbSystem system);
 
 }
 

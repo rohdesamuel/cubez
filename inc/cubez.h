@@ -87,6 +87,7 @@ typedef struct qbCollection_* qbCollection;
 typedef struct qbElement_* qbElement;
 
 qbId qb_element_getid(qbElement element);
+qbEntity qb_element_getentity(qbElement element);
 qbResult qb_element_read(qbElement element, void* buffer);
 qbResult qb_element_write(qbElement element);
 
@@ -249,6 +250,8 @@ qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
 //void* qb_entity_getcomponent(qbEntity entity, qbComponent component);
 qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer);
 
+qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component);
+
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
                                 void* instance_data);
 qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
@@ -305,7 +308,11 @@ qbResult qb_event_flushall(qbProgram program);
 qbResult qb_event_subscribe(qbEvent event, qbSystem system);
 qbResult qb_event_unsubscribe(qbEvent event, qbSystem system);
 
+qbResult qb_event_subscribewith(qbEvent event, qbSystem system,
+                                qbComponent component);
+
 // Thread-safe.
+qbResult qb_event_sendto(qbEvent event, qbComponent component, void* message);
 qbResult qb_event_send(qbEvent event, void* message);
 qbResult qb_event_sendsync(qbEvent event, void* message);
 

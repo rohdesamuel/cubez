@@ -31,6 +31,7 @@ struct Camera {
 
   glm::mat4 view_mat;
   glm::mat4 projection_mat;
+  glm::mat4 inv_projection_mat;
   glm::mat4 rotation_mat;
   glm::vec3 from;
   glm::vec3 to;
@@ -197,6 +198,11 @@ void initialize(const Settings& settings) {
       camera.ratio,
       camera.znear,
       camera.zfar);
+
+  // There's a closed form solution that might be faster, but this is performed
+  // only once here.
+  camera.inv_projection_mat = glm::inverse(camera.projection_mat);
+
   camera.from = {0.0f, 0.0f, 750.0f};
   camera.to = {0.0f, 0.0f, 0.0f};
   camera.rotation_mat = glm::mat4(1.0f);

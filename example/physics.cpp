@@ -11,6 +11,7 @@ qbComponent collidable_;
 qbComponent movable_;
 
 // Events
+qbEvent collision_event_;
 qbEvent impulse_event;
 
 // Systems
@@ -27,6 +28,23 @@ void initialize(const Settings&) {
     qb_componentattr_setdatatype(attr, physics::Transform);
 
     qb_component_create(&transforms_, attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, Collidable);
+
+    qb_component_create(&collidable_, attr);
+    qb_componentattr_destroy(&attr);
+  }
+
+  {
+    qbEventAttr attr;
+    qb_eventattr_create(&attr);
+    qb_eventattr_setmessagetype(attr, Collision);
+    qb_event_create(&collision_event_, attr);
+    qb_eventattr_destroy(&attr);
   }
 
   {
@@ -50,18 +68,32 @@ void initialize(const Settings&) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, transforms_);
-    qb_systemattr_addsource(attr, transforms_);
-    qb_systemattr_addsink(attr, transforms_);
+    qb_systemattr_addsource(attr, collidable_);
+    qb_systemattr_addsource(attr, collidable_);
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
         [](qbElement* e, qbCollectionInterface*, qbFrame*) {
-          Transform a;
-          Transform b;
+          qbEntity e_a = qb_element_getentity(e[0]);
+          qbEntity e_b = qb_element_getentity(e[1]);
 
-          qb_element_read(e[0], &a);
-          qb_element_read(e[1], &b);
+          if (e_a == e_b) {
+            return;
+          }
 
+          Transform* a;
+          Transform* b;
+
+          qb_entity_getcomponent(e_a, transforms_, &a);
+          qb_entity_getcomponent(e_b, transforms_, &b);
+
+          glm::vec3 r = a->p - b->p;
+
+          if (glm::length(r) < 32.0f) {
+            Collision event{e_a, e_b};
+            qb_event_send(collision_event_, &event);
+          }
+
+          /*
           if (qb_element_getid(e[0]) == qb_element_getid(e[1])) {
             return;
           }
@@ -82,13 +114,15 @@ void initialize(const Settings&) {
             b.v = b.v + (p * n);// * 0.15f;
             std::cout << "bounce\n";
           }
+          */
 
-          qb_element_write(e[0]);
-          qb_element_write(e[1]);
+          // CollisionEvent event{
+          //   qb_element_getentity(e[0]),
+          //   qb_element_getentity(e[1])};
+          // qb_event_sendto(collision_event_, physics::Collidable, &event);
         });
 
     qb_system_create(&collision_system, attr);
-    qb_system_disable(collision_system);
     qb_systemattr_destroy(&attr);
   }
   {
@@ -129,5 +163,14 @@ void send_impulse(qbEntity entity, glm::vec3 p) {
 qbComponent component() {
   return transforms_;
 }
+
+qbComponent collidable() {
+  return collidable_;
+}
+
+qbResult on_collision(qbSystem system) {
+  return qb_event_subscribe(collision_event_, system);
+}
+
 
 }  // namespace physics
