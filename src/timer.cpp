@@ -18,7 +18,7 @@ Timer::Timer() {
 double Timer::now() {
   double ret = 0.0;
 #ifdef __COMPILE_AS_WINDOWS__
-  LARGE_INTEGER freq;
+  static LARGE_INTEGER freq = { 0, 0 };
   LARGE_INTEGER now;
   if (!freq.QuadPart) {
     QueryPerformanceFrequency(&freq);
@@ -107,7 +107,7 @@ void WindowTimer::start() {
 
 // Starts the timer.
 void WindowTimer::step() {
-  window_[iterator_++] = get_elapsed_ns();
+  window_[iterator_++] = (int64_t)get_elapsed_ns();
   iterator_ = iterator_ % window_size_;
 }
 
