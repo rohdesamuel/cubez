@@ -2,6 +2,7 @@
 #define BYTE_VECTOR__H
 
 #include "common.h"
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <iostream>
@@ -34,7 +35,7 @@ class ByteVector {
     size_t stride_;
   };
   typedef const iterator const_iterator;
-  typedef uint32_t Index;
+  typedef uint64_t Index;
 
 
   ByteVector(size_t element_size) :
@@ -155,7 +156,7 @@ class ByteVector {
 
     size_t new_capacity = capacity_;
     if (count > capacity_) {
-      new_capacity = 1 << (log_2 + 1);
+      new_capacity = (size_t)1 << (log_2 + 1);
     } else if (count < capacity_ / 2) {
       new_capacity = std::max(8, 1 << (log_2 - 1));
     }

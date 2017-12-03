@@ -159,8 +159,8 @@ qbId qb_entity_getid(qbEntity entity);
 ////////////////////////  Systems  ////////////////////////
 ///////////////////////////////////////////////////////////
 
-const int16_t QB_MAX_PRIORITY = 0x7FFF;
-const int16_t QB_MIN_PRIORITY = 0x8001;
+const int16_t QB_MAX_PRIORITY = (int16_t)0x7FFF;
+const int16_t QB_MIN_PRIORITY = (int16_t)0x8001;
 
 enum qbTrigger {
   QB_TRIGGER_LOOP = 0,

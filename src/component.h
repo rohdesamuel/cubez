@@ -16,7 +16,7 @@ public:
   typedef ByteVector Values;
 
   // For fast lookup if you have the handle to an entity.
-  typedef std::vector<uint64_t> Handles;
+  typedef std::vector<size_t> Handles;
   typedef std::vector<qbHandle> FreeHandles;
 
   // For fast lookup by Entity Id.

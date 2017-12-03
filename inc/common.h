@@ -53,13 +53,16 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C }
 #include <cstdint>
-using std::size_t;
 #endif  // ifdef __cplusplus
 
 #if (defined __WIN32__ || defined __CYGWIN32__ || defined _WIN32 || defined _WIN64 || defined _MSC_VER)
 #define __COMPILE_AS_WINDOWS__
 #elif (defined __linux__ || defined __GNUC__)
 #define __COMPILE_AS_LINUX__
+#endif
+
+#ifndef __COMPILE_AS_WINDOWS__
+using std::size_t;
 #endif
 
 typedef int64_t qbHandle;
