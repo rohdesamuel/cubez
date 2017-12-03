@@ -7,15 +7,15 @@
 #include <SDL2/SDL.h>
 
 #include "inc/cubez.h"
+#include "mesh.h"
 
 namespace ball {
 
 const char kCollection[] = "ball_objects";
 
 struct Settings {
-  std::string texture;
-  std::string vs;
-  std::string fs;
+  qbMesh mesh;
+  qbMaterial material;
 };
 
 void initialize(const Settings& settings);

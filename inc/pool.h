@@ -133,7 +133,24 @@ public:
     return values.size();
   }
 
-  int64_t remove(qbHandle handle) {
+  int64_t remove_by_id(qbId id) {
+    qbHandle found = find(id);
+    if (found < 0) {
+      return -1;
+    }
+
+    return remove_by_handle(found);
+  }
+
+  int64_t remove_by_offset(qbOffset offset) {
+    auto it = std::find(handles_.begin(), handles_.end(), offset);
+    if (it == handles_.end()) {
+      return -1;
+    }
+    return remove_by_handle(*it);
+  }
+
+  int64_t remove_by_handle(qbHandle handle) {
     qbHandle h_from = handle;
     uint64_t& i_from = handles_[h_from];
     Key& k_from = keys[i_from];
@@ -167,6 +184,9 @@ public:
     qb_collectionattr_setaccessors(attr, default_access_by_offset,
                                    default_access_by_id,
                                    default_access_by_handle);
+    qb_collectionattr_setremovers(attr, default_remove_by_offset,
+                                  default_remove_by_id,
+                                  default_remove_by_handle);
     qb_collectionattr_setkeyiterator(attr, default_keys, sizeof(Key), 0);
     qb_collectionattr_setvalueiterator(attr, default_values, sizeof(Value), 0);
     qb_collectionattr_setcount(attr, default_count);
@@ -176,6 +196,21 @@ public:
 
     qb_collectionattr_destroy(&attr);
     return collection;
+  }
+
+  static void default_remove_by_offset(qbCollectionInterface* c, uint64_t offset) {
+    Pool* t = (Pool*)c->collection;
+    t->remove_by_offset(offset);
+  }
+
+  static void default_remove_by_handle(qbCollectionInterface* c, qbHandle handle) {
+    Pool* t = (Pool*)c->collection;
+    t->remove_by_handle(handle);
+  }
+
+  static void default_remove_by_id(qbCollectionInterface* c, qbId id) {
+    Pool* t = (Pool*)c->collection;
+    t->remove_by_id(id);
   }
 
   static void* default_access_by_offset(qbCollectionInterface* c, uint64_t offset) {

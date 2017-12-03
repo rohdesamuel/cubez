@@ -10,42 +10,54 @@
 #include <SDL2/SDL.h>
 
 #include "inc/cubez.h"
+#include "mesh.h"
 
 namespace render {
 
 typedef struct qbRenderable_* qbRenderable;
-
-struct Material {
-  glm::vec4 color;
-  unsigned int shader_id;
-  unsigned int texture_id;
-  glm::vec2 texture_offset;
-  glm::vec2 texture_scale;
-};
-
-struct Mesh {
-  unsigned int vbo;
-  unsigned int vao;
-  unsigned int count;
-};
 
 struct RenderEvent {
   uint64_t frame;
   uint64_t ftimestamp_us;
 };
 
-void initialize();
-qbRenderable create(const Material& material, const Mesh& mesh);
+struct Settings {
+  std::string title;
+  int width;
+  int height;
+  float fov;
+  float znear;
+  float zfar;
+};
+
+void initialize(const Settings& settings);
+void shutdown();
+int window_height();
+int window_width();
+
+qbRenderable create(qbMesh mesh, qbMaterial material);
 
 qbComponent component();
-
-uint32_t load_texture(const std::string& file);
 
 void add_transform(qbId renderable_id, qbId transform_id);
 
 void render(qbId material, qbId mesg);
 
 void present(RenderEvent* event);
+
+qbResult qb_camera_setposition(glm::vec3 new_position);
+qbResult qb_camera_setyaw(float new_yaw);
+qbResult qb_camera_setpitch(float new_pitch);
+
+qbResult qb_camera_incposition(glm::vec3 delta);
+qbResult qb_camera_incyaw(float delta);
+qbResult qb_camera_incpitch(float delta);
+
+glm::vec3 qb_camera_getposition();
+glm::mat4 qb_camera_getorientation();
+
+float qb_camera_getyaw();
+float qb_camera_getpitch();
 
 }  // namespace render
 

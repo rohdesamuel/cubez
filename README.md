@@ -1,18 +1,20 @@
-# Cubez
-**Cubez** is a custom-made game framework written for C++. Its goal is to share and experiment with different performant and cache-aware algorithms in a simple game library. It currently provides a low-level interface for creating objects and executing operations over them. Future iterations will include a full object typing system, syntactic sugar, physics, sound, user input, display, and all the other fun goodies game frameworks usually have!
+# Cubez - A Fast C API Game Engine
 
-## Main Features
+**Cubez** is an Entity Component System based Game Engine. ECS is a game engine design pattern that favors composition over inheritance. This principle allows the game designer a greater control and flexibility in game design.
 
-### Installation
-sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-sudo apt-get update
-sudo apt-get install g++5
+From [Wikipedia](https://en.wikipedia.org/wiki/Entity%E2%80%93component%E2%80%93system) on the subject:
+> Entity–component–system (ECS) is an architectural pattern that is mostly used in game development. An ECS follows the Composition
+> over inheritance principle that allows greater flexibility in defining entities where every object in a game's scene is an entity
+> (e.g. enemies, bullets, vehicles, etc.). Every Entity consists of one or more components which add additional behavior or
+> functionality. Therefore, the behavior of an entity can be changed at runtime by adding or removing components. This eliminates
+> the ambiguity problems of deep and wide inheritance hierarchies that are difficult to understand, maintain and extend. Common ECS
+> approaches are highly compatible and often combined with data oriented design techniques.
 
 #### Dependencies
+Compiler with c++11 capabilities
 
 ```
 sudo apt-get install libglm-dev
 sudo apt-get install libglew-dev
+sudo apt-get install libsdl2-2.0
 ```
-
-

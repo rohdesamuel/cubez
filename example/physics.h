@@ -20,11 +20,21 @@ struct Material {
 struct Transform {
   glm::vec3 p;
   glm::vec3 v;
+  bool is_fixed;
 };
 
 struct Impulse {
   qbId key;
   glm::vec3 p;
+};
+
+struct Collision {
+  qbEntity a;
+  qbEntity b;
+};
+
+struct Collidable {
+  uint8_t unused;
 };
 
 struct Settings {
@@ -37,8 +47,10 @@ qbId create(glm::vec3 pos, glm::vec3 vel);
 void send_impulse(qbEntity entity, glm::vec3 p);
 
 qbComponent component();
-qbComponent collidables();
-qbComponent movables();
+qbComponent collidable();
+qbComponent movable();
+
+qbResult on_collision(qbSystem system);
 
 }
 

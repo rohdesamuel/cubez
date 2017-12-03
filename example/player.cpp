@@ -12,7 +12,6 @@
 namespace player {
 
 // State
-render::qbRenderable render_state;
 qbComponent players;
 qbEntity main_player;
 qbSystem on_key_event;
@@ -21,48 +20,8 @@ struct Player {
   bool fire_bullets;
 };
 
+
 void initialize(const Settings& settings) {
-  {
-    std::cout << "Initializing player textures and shaders\n";
-    render::Mesh mesh;
-    mesh.count = 6;
-    GLfloat vertices[] = {
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      0.5f, -0.5f, 0.0f,   1.0f, 0.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
-
-      -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,
-      0.5f,  0.5f, 0.0f,   1.0f, 1.0f,
-      -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,
-    };
-
-    glGenVertexArrays(1, &mesh.vao);
-    glBindVertexArray(mesh.vao);
-
-    
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    ShaderProgram shaders(settings.vs, settings.fs);
-    shaders.use();
-
-    GLint inPos = glGetAttribLocation(shaders.id(), "inPos");
-    glEnableVertexAttribArray(inPos);
-    glVertexAttribPointer(inPos, 3, GL_FLOAT, GL_FALSE,
-        5 * sizeof(float), 0);
-
-    GLint inTexCoord = glGetAttribLocation(shaders.id(), "inTexCoord");
-    glEnableVertexAttribArray(inTexCoord);
-    glVertexAttribPointer(inTexCoord, 3, GL_FLOAT, GL_FALSE,
-        5 * sizeof(float), (void*)(3 * sizeof(float)));
-
-    render::Material material;
-    material.shader_id = shaders.id();
-    material.texture_id = render::load_texture(settings.texture);
-
-    render_state = render::create(material, mesh);
-  }
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
@@ -80,11 +39,10 @@ void initialize(const Settings& settings) {
 
     physics::Transform t;
     t.p = settings.start_pos;
-    t.v = {0.01, 0, 0};
+    t.v = {0, 0, 0};
 
     qb_entityattr_addcomponent(attr, players, &p);
     qb_entityattr_addcomponent(attr, physics::component(), &t);
-    qb_entityattr_addcomponent(attr, render::component(), &render_state);
 
     qb_entity_create(&main_player, attr);
 
@@ -101,27 +59,95 @@ void initialize(const Settings& settings) {
         [](qbElement* e, qbCollectionInterface*, qbFrame*) {
           physics::Transform t;
           qb_element_read(e[1], &t);
-          if (input::is_key_pressed(qbKey::QB_KEY_SPACE)) {
-            ball::create(t.p, {0.01, 0.0, 0.0});
-          }
+
+          glm::mat4 rot = render::qb_camera_getorientation();
+
+          glm::vec3 impulse = glm::vec3(rot * glm::vec4{1.0f, 0.0f, 0.0f, 1.0f});
+          glm::vec3 impulse_l = glm::vec3(rot * glm::vec4{0.0f, 1.0f, 0.0f, 1.0f});
+          glm::vec3 impulse_r = glm::vec3(rot * glm::vec4{0.0f, -1.0f, 0.0f, 1.0f});
+
+          impulse = glm::normalize(impulse);
+          impulse_r = glm::normalize(impulse_r);
+          impulse_l = glm::normalize(impulse_l);
+
+          float floor_level = 8.0f;
+          bool on_ground = t.p.z < floor_level + 0.01f;
+
+          impulse *= on_ground ? 1.0f : 0.01f;
+          impulse_l *= on_ground ? 1.0f : 0.01f;
+          impulse_r *= on_ground ? 1.0f : 0.01f;
+
           if (input::is_key_pressed(QB_KEY_W)) {
-            t.v.y += 0.001;
+            t.v += impulse;
           }
           if (input::is_key_pressed(QB_KEY_S)) {
-            t.v.y -= 0.001;  
+            t.v -= impulse;
           }
           if (input::is_key_pressed(QB_KEY_A)) {
-            t.v.x -= 0.001;  
+            t.v += impulse_l;
           }
           if (input::is_key_pressed(QB_KEY_D)) {
-            t.v.x += 0.001;  
+            t.v += impulse_r;
           }
+
+          if (input::is_key_pressed(QB_KEY_I)) {
+            render::qb_camera_incpitch(0.5f);
+          }
+          if (input::is_key_pressed(QB_KEY_K)) {
+            render::qb_camera_incpitch(-0.5f);
+          }
+          if (input::is_key_pressed(QB_KEY_J)) {
+            render::qb_camera_incyaw(0.5f);
+          }
+          if (input::is_key_pressed(QB_KEY_L)) {
+            render::qb_camera_incyaw(-0.5f);
+          }
+          t.v.z -= 0.1f;
+
+          if (on_ground) {
+            t.p.z = floor_level;
+            t.v.z = 0;
+            t.v.x -= t.v.x * 0.25f;
+            t.v.y -= t.v.y * 0.25f;
+          }
+          render::qb_camera_setposition(t.p);
 
           qb_element_write(e[1]);
         });
 
     qbSystem unused;
     qb_system_create(&unused, attr);
+    qb_systemattr_destroy(&attr);
+  }
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addsource(attr, players);
+    qb_systemattr_addsource(attr, physics::component());
+    qb_systemattr_addsink(attr, physics::component());
+    qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+    qb_systemattr_setfunction(attr,
+        [](qbElement* els, qbCollectionInterface*, qbFrame* f) {
+          input::InputEvent* e = (input::InputEvent*)f->event;
+          if (e->key != QB_KEY_SPACE) {
+            return;
+          }
+
+          physics::Transform t;
+          qb_element_read(els[1], &t);
+
+          if (!e->was_pressed && e->is_pressed && t.p.z <= 8.01f) {
+            t.v.z += 5.0f;
+          }
+
+          qb_element_write(els[1]);
+        });
+    qbSystem unused;
+    qb_system_create(&unused, attr);
+
+    input::on_key_event(unused);
+
     qb_systemattr_destroy(&attr);
   }
   std::cout << "Finished initializing player\n";

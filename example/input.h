@@ -75,7 +75,7 @@ struct InputEvent {
 };
 
 void send_key_event(qbKey key, bool is_pressed);
-void on_key_event(qbSystem system);
+qbResult on_key_event(qbSystem system);
 bool is_key_pressed(qbKey key);
 qbKey keycode_from_sdl(SDL_Keycode sdl_key);
 

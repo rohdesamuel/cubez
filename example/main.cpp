@@ -3,51 +3,17 @@
 #include "inc/table.h"
 #include "inc/timer.h"
 
-#define GL3_PROTOTYPES 1
-
-#include <GL/glew.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
-
 #include "ball.h"
 #include "physics.h"
 #include "player.h"
 #include "log.h"
+#include "mesh.h"
 #include "input.h"
 #include "render.h"
 #include "shader.h"
 
 #include <thread>
 #include <unordered_map>
-
-const char tex_vs[] = R"(
-#version 330 core
-attribute vec3 inPos; 
-attribute vec2 inTexCoord; 
-
-uniform mat4 uMvp;
-
-varying vec2 vTexCoord; 
-
-void main() { 
-  vTexCoord = inTexCoord; 
-  gl_Position = uMvp * vec4(inPos, 1.0); 
-}
-)";
-
-const char tex_fs[] = R"(
-#version 330 core
-uniform sampler2D uTexture; 
-
-varying vec2 vTexCoord; 
- 
-void main() { 
-  vec4 texColor = texture2D(uTexture, vTexCoord); 
-  gl_FragColor = texColor; 
-}
-)";
 
 const char simple_vs[] = R"(
 #version 200
@@ -74,8 +40,6 @@ void main() {
 }
 )";
 
-SDL_Window *win = nullptr;
-SDL_GLContext *context = nullptr;
 
 void check_for_gl_errors() {
   GLenum error = glGetError();
@@ -83,39 +47,6 @@ void check_for_gl_errors() {
     const GLubyte* error_str = gluErrorString(error);
     std::cout << "Error(" << error << "): " << error_str << std::endl;
   }
-}
-
-void init_rendering(int width, int height) {
-  int posX = 100, posY = 100;
-  
-  SDL_Init(SDL_INIT_VIDEO);
-  
-  // Request an OpenGL 3.3 context
-  SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-
-  SDL_GL_SetAttribute(
-      SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-  win = SDL_CreateWindow("Hello World", posX, posY, width, height,
-                         SDL_WINDOW_OPENGL);
-
-  SDL_GL_CreateContext(win);
-
-  glewExperimental = GL_TRUE;
-  GLenum glewError = glewInit();
-  if (glewError != 0) {
-    std::cout << "Failed to intialize Glew\n"
-              << "Error code: " << glewError;
-    exit(1);
-  }
-  // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
-  // that error here and carry on.
-  glGetError();
-
-  SDL_GL_SwapWindow(win);
 }
 
 void initialize_universe(qbUniverse* uni) {
@@ -131,7 +62,19 @@ void initialize_universe(qbUniverse* uni) {
   }
   
   {
-    render::initialize();
+    render::Settings s;
+    s.title = "Cubez example";
+    s.width = 800;
+    s.height = 600;
+    s.znear = 0.1f;
+    s.zfar = 10000.0f;
+    s.fov = 70.0f;
+    render::initialize(s);
+
+    render::qb_camera_setyaw(90.0f);
+    render::qb_camera_setpitch(0.0f);
+    render::qb_camera_setposition({400.0f, -250.0f, 250.0f});
+
     check_for_gl_errors();
   }
   
@@ -139,26 +82,70 @@ void initialize_universe(qbUniverse* uni) {
     input::initialize();
   }
 
+  qbShader mesh_shader;
+  qbTexture ball_texture;
+  qbMesh block_mesh;
+  qbMaterial ball_material;
   {
-    ball::Settings settings;
-    settings.texture = "ball.bmp";
-    settings.vs = tex_vs;
-    settings.fs = tex_fs;
+    // Load resources.
+    std::cout << "Loading resources.\n";
+    qb_shader_load(&mesh_shader, "mesh_shader", "mesh.vs", "mesh.fs");
+    qb_texture_load(&ball_texture, "ball_texture", "ball.bmp");
+    qb_mesh_load(&block_mesh, "block_mesh", "block.obj");
+    qbMaterialAttr attr;
+    qb_materialattr_create(&attr);
 
-    ball::initialize(settings);
+    qb_materialattr_addtexture(attr, ball_texture, {0, 0}, {0, 0});
+    qb_materialattr_setshader(attr, mesh_shader);
+    qb_material_create(&ball_material, attr);
 
-    ball::create({0.0f, 1.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({1.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
-    check_for_gl_errors();
+    qb_materialattr_destroy(&attr);
   }
 
   {
+    ball::Settings settings;
+    settings.mesh = block_mesh;
+    settings.material = ball_material;
+
+    ball::initialize(settings);
+
+    ball::create({0.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({800.0f, 0.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({0.0f, 600.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({800.0f, 600.0f, 0.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({0.0f, 0.0f, 100.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({800.0f, 0.0f, 100.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({0.0f, 600.0f, 100.0f},
+                 {0.0f, 0.0f, 0.0f});
+    ball::create({800.0f, 600.0f, 100.0f},
+                 {0.0f, 0.0f, 0.0f});
+    check_for_gl_errors();
+  }
+  {
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+
+    physics::Transform t{{400.0f, 300.0f, -32.0f}, {}, true};
+    qb_entityattr_addcomponent(attr, physics::component(), &t);
+
+    qbMesh mesh;
+    qb_mesh_load(&mesh, "floor_mesh", "floor.obj");
+    render::qbRenderable renderable = render::create(mesh, ball_material);
+    qb_entityattr_addcomponent(attr, render::component(), &renderable);
+
+    qbEntity unused;
+    qb_entity_create(&unused, attr);
+
+    qb_entityattr_destroy(&attr);
+  }
+  {
     player::Settings settings;
-    settings.texture = "ball.bmp";
-    settings.vs = tex_vs;
-    settings.fs = tex_fs;
     settings.start_pos = {0, 0, 0};
 
     player::initialize(settings);
@@ -167,9 +154,6 @@ void initialize_universe(qbUniverse* uni) {
 }
 
 int main(int, char* []) {
-  init_rendering(800, 600);
-  std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
-
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
@@ -204,7 +188,7 @@ int main(int, char* []) {
       if (SDL_PollEvent(&e)) {
         if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
           if (e.key.keysym.sym == SDLK_ESCAPE) {
-            SDL_DestroyWindow(win);
+            render::shutdown();
             SDL_Quit();
             qb_stop();
             exit(0);
@@ -225,16 +209,12 @@ int main(int, char* []) {
 
     render_timer.start();
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     render::RenderEvent e;
     e.frame = frame;
     e.ftimestamp_us = Timer::now() - start_time;
     render::present(&e);
 
     check_for_gl_errors();
-
-    SDL_GL_SwapWindow(win);
 
     render_timer.stop();
     render_timer.step();
@@ -251,9 +231,14 @@ int main(int, char* []) {
 
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
+    if (rand() % 10 == 0) {
+      ball::create({(float)(rand() % 500) - 250.0f,
+                    (float)(rand() % 500) - 250.0f,
+                    (float)(rand() % 500) - 250.0f}, {});
+    }
 
-    //if (trigger % period == 0 && prev_trigger != trigger) {
-    if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+    if (trigger % period == 0 && prev_trigger != trigger) {
+    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +

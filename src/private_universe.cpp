@@ -1,7 +1,5 @@
 #include "private_universe.h"
 
-#include <algorithm>
-
 typedef Runner::State RunState;
 
 void Runner::wait_until(const std::vector<State>& allowed) {
@@ -87,15 +85,12 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
 }
 
 PrivateUniverse::PrivateUniverse() {
-  //init_rendering(&rendering_context_,
-      //{ GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None }, 600, 600);
 }
 
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
-  // Create the default program.
-  create_program("");
+  entities_.Init();
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 
@@ -106,7 +101,7 @@ qbResult PrivateUniverse::start() {
 qbResult PrivateUniverse::loop() {
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
-  programs_.run();
+  programs_.Run();
 
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
@@ -116,29 +111,29 @@ qbResult PrivateUniverse::stop() {
 }
 
 qbId PrivateUniverse::create_program(const char* name) {
-  return programs_.create_program(name); 
+  return programs_.CreateProgram(name); 
 }
 
 qbResult PrivateUniverse::run_program(qbId program) {
-  return programs_.run_program(program); 
+  return programs_.RunProgram(program); 
 }
 
 qbResult PrivateUniverse::detach_program(qbId program) {
-  return programs_.detach_program(program);
+  return programs_.DetatchProgram(program);
 }
 
 qbResult PrivateUniverse::join_program(qbId program) {
-  return programs_.join_program(program);
+  return programs_.JoinProgram(program);
 }
 
 qbResult PrivateUniverse::system_create(qbSystem* system, 
                                         const qbSystemAttr_& attr) {
-  qbProgram* p = programs_.get_program(attr.program);
+  qbProgram* p = programs_.GetProgram(attr.program);
   if (!p) {
     return qbResult::QB_UNKNOWN;
   }
 
-  *system = programs_.to_impl(p)->create_system(attr);
+  *system = ProgramImpl::FromRaw(p)->CreateSystem(attr);
 
   return qbResult::QB_OK;
 }
@@ -146,11 +141,10 @@ qbResult PrivateUniverse::system_create(qbSystem* system,
 qbResult PrivateUniverse::free_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
-  qbProgram* p = programs_.get_program(system->program);
+  qbProgram* p = programs_.GetProgram(system->program);
   ASSERT_NOT_NULL(p);
 
-  ProgramImpl* program = programs_.to_impl(p);
-  return program->free_system(system);
+  return ProgramImpl::FromRaw(p)->FreeSystem(system);
 }
 
 qbSystem PrivateUniverse::copy_system(
@@ -161,29 +155,27 @@ qbSystem PrivateUniverse::copy_system(
 qbResult PrivateUniverse::enable_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
-  qbProgram* p = programs_.get_program(system->program);
+  qbProgram* p = programs_.GetProgram(system->program);
   ASSERT_NOT_NULL(p);
 
-  ProgramImpl* program = programs_.to_impl(p);
-  return program->enable_system(system);
+  return ProgramImpl::FromRaw(p)->EnableSystem(system);
 }
 
 qbResult PrivateUniverse::disable_system(qbSystem system) {
   ASSERT_NOT_NULL(system);
 
-  qbProgram* p = programs_.get_program(system->program);
+  qbProgram* p = programs_.GetProgram(system->program);
   ASSERT_NOT_NULL(p);
 
-  ProgramImpl* program = programs_.to_impl(p);
-  return program->disable_system(system);
+  return ProgramImpl::FromRaw(p)->DisableSystem(system);
 }
 
 
 qbResult PrivateUniverse::collection_create(qbCollection* collection,
                                             qbCollectionAttr attr) {
-  qbProgram* p = programs_.get_program(attr->program);
+  qbProgram* p = programs_.GetProgram(attr->program);
   ASSERT_NOT_NULL(p);
-  *collection = collections_.alloc(p->id, attr);
+  *collection = collections_.Create(p->id, attr);
   return qbResult::QB_OK;
 }
 
@@ -223,9 +215,9 @@ qbResult PrivateUniverse::copy_collection(const char*, const char*,
 #endif
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
-  qbProgram* p = programs_.get_program(attr->program);
+  qbProgram* p = programs_.GetProgram(attr->program);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  return programs_.to_impl(p)->create_event(event, attr);
+  return ProgramImpl::FromRaw(p)->CreateEvent(event, attr);
 }
 
 qbResult PrivateUniverse::event_destroy(qbEvent*) {
@@ -238,9 +230,9 @@ qbResult PrivateUniverse::event_flush(qbEvent event) {
     return err;
   }
 
-  qbProgram* p = programs_.get_program(event->program);
+  qbProgram* p = programs_.GetProgram(event->program);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  programs_.to_impl(p)->flush_events(event);
+  ProgramImpl::FromRaw(p)->FlushEvent(event);
 	return qbResult::QB_OK;
 }
 
@@ -250,39 +242,55 @@ qbResult PrivateUniverse::event_flushall(qbProgram program) {
     return err;
   }
 
-  qbProgram* p = programs_.get_program(program.id);
+  qbProgram* p = programs_.GetProgram(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  programs_.to_impl(p)->flush_all_events();
+  ProgramImpl::FromRaw(p)->FlushAllEvents();
 	return qbResult::QB_OK;
 }
 
 qbResult PrivateUniverse::event_subscribe(qbEvent event, qbSystem system) {
-  qbProgram* p = programs_.get_program(event->program);
-  programs_.to_impl(p)->subscribe_to(event, system);
+  qbProgram* p = programs_.GetProgram(event->program);
+  ProgramImpl::FromRaw(p)->SubscribeTo(event, system);
 	return qbResult::QB_OK;
 }
 
 qbResult PrivateUniverse::event_unsubscribe(qbEvent event, qbSystem system) {
-  qbProgram* p = programs_.get_program(event->program);
-  programs_.to_impl(p)->unsubscribe_from(event, system);
+  qbProgram* p = programs_.GetProgram(event->program);
+  ProgramImpl::FromRaw(p)->UnsubscribeFrom(event, system);
 	return qbResult::QB_OK;
 }
 
 qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
-  return ((Channel*)event->channel)->send_message(message);
+  return ((Channel*)event->channel)->SendMessage(message);
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Channel*)event->channel)->send_message(message);
+  return ((Channel*)event->channel)->SendMessage(message);
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
-  if (runner_.state() == Runner::State::LOOPING) {
-    return entities_.create_entityasync(entity, attr);
-  }
-  return entities_.create_entity(entity, attr);
+  return entities_.CreateEntity(entity, attr);
+}
+
+qbResult PrivateUniverse::entity_destroy(qbEntity* entity) {
+  return entities_.DestroyEntity(entity);
+}
+
+qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
+  return entities_.Find(entity, entity_id);
+}
+
+qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
+                                             qbComponent component,
+                                             void* instance_data) {
+  return entities_.AddComponent(entity, component, instance_data);
+}
+
+qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
+                                                qbComponent component) {
+  return entities_.RemoveComponent(entity, component);
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  return components_.create_component(component, attr);
+  return components_.CreateComponent(component, attr);
 }
