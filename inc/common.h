@@ -39,7 +39,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #else
 
-#define ERROR cerr
+#define ERR cerr
 #define INFO cout
 #define LOG(to, str) do{} while(0)
 
@@ -59,6 +59,10 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define __COMPILE_AS_WINDOWS__
 #elif (defined __linux__ || defined __GNUC__)
 #define __COMPILE_AS_LINUX__
+#endif
+
+#ifdef __COMPILE_AS_WINDOWS__
+#define DLLEXPORT __declspec(dllexport)
 #endif
 
 #ifndef __COMPILE_AS_WINDOWS__

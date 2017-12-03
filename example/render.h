@@ -7,6 +7,8 @@
 #include <glm/gtx/quaternion.hpp>
 #include <set>
 #include <unordered_map>
+
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
 #include "inc/cubez.h"

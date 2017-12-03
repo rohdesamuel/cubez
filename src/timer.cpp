@@ -91,13 +91,18 @@ void Timer::reset() {
 #endif
 }
 
-WindowTimer::WindowTimer(uint8_t window_size) : iterator_(0) {
+WindowTimer::WindowTimer(uint8_t window_size)
+    : iterator_(0), window_(new std::vector<int64_t>) {
   window_size_ = std::max(window_size, (uint8_t)1);
-  window_.reserve(window_size_);
+  window_->reserve(window_size_);
   for (uint8_t i = 0; i < window_size_; ++i) {
-    window_.push_back(0);
+    window_->push_back(0);
   }
   reset();
+}
+
+WindowTimer::~WindowTimer() {
+  delete window_;
 }
 
 // Starts the timer.
@@ -107,7 +112,7 @@ void WindowTimer::start() {
 
 // Starts the timer.
 void WindowTimer::step() {
-  window_[iterator_++] = (int64_t)get_elapsed_ns();
+  (*window_)[iterator_++] = (int64_t)get_elapsed_ns();
   iterator_ = iterator_ % window_size_;
 }
 
@@ -120,7 +125,7 @@ void WindowTimer::stop() {
 void WindowTimer::reset() {
   timer_.reset();
   for (uint8_t i = 0; i < window_size_; ++i) {
-    window_[i] = 0;
+    (*window_)[i] = 0;
   }
 }
 
@@ -132,7 +137,7 @@ double WindowTimer::get_elapsed_ns() {
 // Gets the average elapsed time in [ns] since start.
 double WindowTimer::get_avg_elapsed_ns() {
   double accum = 0;
-  for (auto& n : window_) {
+  for (auto& n : *window_) {
     accum += n;
   }
   return accum / window_size_;

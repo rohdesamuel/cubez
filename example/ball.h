@@ -4,7 +4,6 @@
 #include <string>
 
 #include <glm/glm.hpp>
-#include <SDL2/SDL.h>
 
 #include "inc/cubez.h"
 #include "mesh.h"

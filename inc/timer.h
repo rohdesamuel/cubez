@@ -13,7 +13,7 @@
 #include <time.h>
 #endif
 
-class Timer {
+class DLLEXPORT Timer {
 public:
   Timer();
 
@@ -49,9 +49,10 @@ private:
 
 };
 
-class WindowTimer {
+class DLLEXPORT WindowTimer {
 public:
   WindowTimer(uint8_t window_size = 0);
+  ~WindowTimer();
 
   // Starts the timer.
   void start();
@@ -76,7 +77,7 @@ private:
 
   uint8_t iterator_;
   uint8_t window_size_;
-  std::vector<int64_t> window_;
+  std::vector<int64_t>* window_;
 };
 
 #endif

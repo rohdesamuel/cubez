@@ -225,25 +225,25 @@ qbResult process_line(MeshBuilder* builder, const std::string& token,
                                         const std::string& line) {
   if (token == "v") {
     glm::vec3 v = {0, 0, 0};
-    if (::sscanf(line.c_str(), "%f %f %f", &v.x, &v.y, &v.z) == 3) {
+    if (::sscanf_s(line.c_str(), "%f %f %f", &v.x, &v.y, &v.z) == 3) {
       std::cout << "read vertex" << line << std::endl;
       builder->add_vertex(v);
     }
   } else if (token == "vt") {
     glm::vec2 vt = {0, 0};
-    if (::sscanf(line.c_str(), "%f %f", &vt.x, &vt.y) == 2) {
+    if (::sscanf_s(line.c_str(), "%f %f", &vt.x, &vt.y) == 2) {
       std::cout << "read texture" << line << std::endl;
       builder->add_texture(vt);
     }
   } else if (token == "vn") {
     glm::vec3 vn = {0, 0, 0};
-    if (::sscanf(line.c_str(), "%f %f %f", &vn.x, &vn.y, &vn.z) == 3) {
+    if (::sscanf_s(line.c_str(), "%f %f %f", &vn.x, &vn.y, &vn.z) == 3) {
       std::cout << "read normal" << line << std::endl;
       builder->add_normal(vn);
     }
   } else if (token == "f") {
     Face face;
-    if (::sscanf(line.c_str(),
+    if (::sscanf_s(line.c_str(),
                  "%d/%d/%d %d/%d/%d %d/%d/%d",
                  &face.v[0], &face.vt[0], &face.vn[0],
                  &face.v[1], &face.vt[1], &face.vn[1],
@@ -363,8 +363,8 @@ qbShader qb_material_getshader(qbMaterial material) {
 qbResult qb_shader_load(qbShader* shader, const char*,
     const char* vs_filename, const char* fs_filename) {
   *shader = new qbShader_;
-  (*shader)->vs_file = strdup(vs_filename);
-  (*shader)->fs_file = strdup(fs_filename);
+  (*shader)->vs_file = _strdup(vs_filename);
+  (*shader)->fs_file = _strdup(fs_filename);
 
   ShaderProgram program = ShaderProgram::load_from_file(vs_filename, fs_filename);
   (*shader)->shader_id = program.id();
@@ -427,7 +427,7 @@ qbResult qb_shader_setmat4(qbShader shader, const char* uniform,
 qbResult qb_texture_load(qbTexture* texture, const char*,
                          const char* texture_file) {
   *texture = new qbTexture_;
-  (*texture)->texture_file = strdup(texture_file);
+  (*texture)->texture_file = _strdup(texture_file);
   (*texture)->texture_id = load_texture(texture_file);
   return QB_OK;
 }
