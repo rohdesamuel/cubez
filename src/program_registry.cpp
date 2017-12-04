@@ -76,7 +76,7 @@ qbResult ProgramRegistry::RunProgram(qbId program) {
 qbProgram* ProgramRegistry::AllocProgram(qbId id, const char* name) {
   qbProgram* p = (qbProgram*)calloc(1, sizeof(qbProgram));
   *(qbId*)(&p->id) = id;
-  *(char**)(&p->name) = _strdup(name);
+  *(char**)(&p->name) = STRDUP(name);
   p->self = new ProgramImpl{p};
 
   return p;

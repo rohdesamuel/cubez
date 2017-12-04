@@ -10,13 +10,6 @@
 namespace physics {
 
 
-struct Material {
-  float mass;
-  
-  // Constant of restitution.
-  float r;
-};
-
 struct Transform {
   glm::vec3 p;
   glm::vec3 v;
@@ -34,7 +27,6 @@ struct Collision {
 };
 
 struct Collidable {
-  uint8_t unused;
 };
 
 struct Settings {
