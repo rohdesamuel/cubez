@@ -363,8 +363,8 @@ qbShader qb_material_getshader(qbMaterial material) {
 qbResult qb_shader_load(qbShader* shader, const char*,
     const char* vs_filename, const char* fs_filename) {
   *shader = new qbShader_;
-  (*shader)->vs_file = strdup(vs_filename);
-  (*shader)->fs_file = strdup(fs_filename);
+  (*shader)->vs_file = STRDUP(vs_filename);
+  (*shader)->fs_file = STRDUP(fs_filename);
 
   ShaderProgram program = ShaderProgram::load_from_file(vs_filename, fs_filename);
   (*shader)->shader_id = program.id();
@@ -427,7 +427,7 @@ qbResult qb_shader_setmat4(qbShader shader, const char* uniform,
 qbResult qb_texture_load(qbTexture* texture, const char*,
                          const char* texture_file) {
   *texture = new qbTexture_;
-  (*texture)->texture_file = strdup(texture_file);
+  (*texture)->texture_file = STRDUP(texture_file);
   (*texture)->texture_id = load_texture(texture_file);
   return QB_OK;
 }

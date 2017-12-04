@@ -63,7 +63,6 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define DLLEXPORT __declspec(dllexport)
-#define strdup(str) _strdup(str)
 #define STRDUP _strdup
 #define SSCANF sscanf_s
 #else
