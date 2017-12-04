@@ -5,7 +5,7 @@
 #include "defs.h"
 
 #include <mutex>
-#include <unordered_map>
+#include <map>
 
 class EventRegistry {
  public:
@@ -33,7 +33,7 @@ class EventRegistry {
   qbId program_;
   qbId event_id_;
   std::mutex state_mutex_;
-  std::unordered_map<qbId, Channel*> events_; 
+  std::map<qbId, Channel*, std::greater<qbId>> events_; 
 };
 
 #endif  // EVENT_REGISTRY__H

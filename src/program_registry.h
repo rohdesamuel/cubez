@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <future>
+#include <unordered_map>
 
 class ProgramRegistry {
  public:
