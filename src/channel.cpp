@@ -42,18 +42,15 @@ void Channel::AddHandler(qbSystem s) {
 }
 
 void Channel::RemoveHandler(qbSystem s) {
-  std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
   handlers_.erase(s);
 }
 
 void Channel::Flush() {
-  std::lock_guard<decltype(handlers_mu_)> lock(handlers_mu_);
   void* msg = nullptr;
   while (message_queue_.try_dequeue(msg)) {
     for (const auto& handler : handlers_) {
       SystemImpl::FromRaw(handler)->Run(msg);
     }
-
     FreeMessage(msg);
   }
 }

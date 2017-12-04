@@ -21,6 +21,7 @@ void EventRegistry::Unsubscribe(qbEvent event, qbSystem system) {
 }
 
 void EventRegistry::FlushAll() {
+  std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
   for (auto event : events_) {
     event.second->Flush();
   }

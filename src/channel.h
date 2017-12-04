@@ -28,7 +28,6 @@ class Channel {
   // Thread-safe.
   void FreeMessage(void* message);
 
-  std::mutex handlers_mu_;
   std::set<qbSystem> handlers_;
   moodycamel::ConcurrentQueue<void*> message_queue_;
   moodycamel::ConcurrentQueue<void*> free_mem_;
