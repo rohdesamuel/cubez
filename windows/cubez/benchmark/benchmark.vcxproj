@@ -19,32 +19,32 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{1A4F920A-804C-41A7-9A38-533348444A5F}</ProjectGuid>
-    <RootNamespace>cubez</RootNamespace>
+    <ProjectGuid>{22DBE366-CF57-42C4-9589-C431D72AB629}</ProjectGuid>
+    <RootNamespace>benchmark</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -69,24 +69,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\Sam\Source\Repos\cubez;$(IncludePath);C:\GLM\include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\Sam\Source\Repos\cubez;$(IncludePath);C:\GLM\include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -94,83 +86,47 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
     <ClInclude Include="..\..\..\inc\pool.h" />
+    <ClInclude Include="..\..\..\inc\table.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />
-    <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />
-    <ClInclude Include="..\..\..\src\byte_vector.h" />
-    <ClInclude Include="..\..\..\src\channel.h" />
-    <ClInclude Include="..\..\..\src\collection_registry.h" />
-    <ClInclude Include="..\..\..\src\component.h" />
-    <ClInclude Include="..\..\..\src\component_registry.h" />
-    <ClInclude Include="..\..\..\src\concurrentqueue.h" />
-    <ClInclude Include="..\..\..\src\defs.h" />
-    <ClInclude Include="..\..\..\src\entity_registry.h" />
-    <ClInclude Include="..\..\..\src\event_registry.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_hash.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_map.h" />
-    <ClInclude Include="..\..\..\src\memory_pool.h" />
-    <ClInclude Include="..\..\..\src\private_universe.h" />
-    <ClInclude Include="..\..\..\src\program_impl.h" />
-    <ClInclude Include="..\..\..\src\program_registry.h" />
-    <ClInclude Include="..\..\..\src\program_thread.h" />
-    <ClInclude Include="..\..\..\src\stack_memory.h" />
-    <ClInclude Include="..\..\..\src\system_impl.h" />
-    <ClInclude Include="..\..\..\src\thread_pool.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\channel.cpp" />
-    <ClCompile Include="..\..\..\src\collection_registry.cpp" />
-    <ClCompile Include="..\..\..\src\component_registry.cpp" />
-    <ClCompile Include="..\..\..\src\cubez.cpp" />
-    <ClCompile Include="..\..\..\src\entity_registry.cpp" />
-    <ClCompile Include="..\..\..\src\event_registry.cpp" />
-    <ClCompile Include="..\..\..\src\private_universe.cpp" />
-    <ClCompile Include="..\..\..\src\program_impl.cpp" />
-    <ClCompile Include="..\..\..\src\program_registry.cpp" />
-    <ClCompile Include="..\..\..\src\program_thread.cpp" />
-    <ClCompile Include="..\..\..\src\system_impl.cpp" />
-    <ClCompile Include="..\..\..\src\timer.cpp" />
+    <ClCompile Include="..\..\..\benchmark\main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
