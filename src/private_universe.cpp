@@ -224,18 +224,6 @@ qbResult PrivateUniverse::event_destroy(qbEvent*) {
 	return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::event_flush(qbEvent event) {
-  qbResult err = runner_.assert_in_state(RunState::RUNNING);
-  if (err != QB_OK) {
-    return err;
-  }
-
-  qbProgram* p = programs_.GetProgram(event->program);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  ProgramImpl::FromRaw(p)->FlushEvent(event);
-	return qbResult::QB_OK;
-}
-
 qbResult PrivateUniverse::event_flushall(qbProgram program) {
   qbResult err = runner_.assert_in_state(RunState::RUNNING);
   if (err != QB_OK) {
@@ -265,7 +253,7 @@ qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Channel*)event->channel)->SendMessage(message);
+  return ((Channel*)event->channel)->SendMessageSync(message);
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {

@@ -54,10 +54,6 @@ qbResult ProgramImpl::CreateEvent(qbEvent* event, qbEventAttr attr) {
   return events_.CreateEvent(event, attr);
 }
 
-void ProgramImpl::FlushEvent(qbEvent event) {
-  events_.Flush(event);
-}
-
 void ProgramImpl::FlushAllEvents() {
   events_.FlushAll();
 }

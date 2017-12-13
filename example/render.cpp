@@ -128,8 +128,7 @@ void present(RenderEvent* event) {
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  qb_event_send(render_event, event);
-  qb_event_flush(render_event);
+  qb_event_sendsync(render_event, event);
   SDL_GL_SwapWindow(win);
 }
 

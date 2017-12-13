@@ -86,6 +86,10 @@ qbResult qb_component_destroy(qbComponent*) {
 	return qbResult::QB_OK;
 }
 
+size_t qb_component_getcount(qbComponent component) {
+  return component->impl->count(&component->impl->interface);
+}
+
 qbResult qb_component_oncreate(qbComponent component,
                                qbComponentOnCreate on_create) {
   qbSystemAttr attr;
@@ -417,10 +421,6 @@ qbResult qb_event_create(qbEvent* event, qbEventAttr attr) {
 
 qbResult qb_event_destroy(qbEvent* event) {
 	return AS_PRIVATE(event_destroy(event));
-}
-
-qbResult qb_event_flush(qbEvent event) {
-	return AS_PRIVATE(event_flush(event));
 }
 
 qbResult qb_event_flushall(qbProgram program) {

@@ -21,8 +21,6 @@ class ProgramImpl {
 
   qbResult CreateEvent(qbEvent* event, qbEventAttr attr);
 
-  void FlushEvent(qbEvent event);
-
   void FlushAllEvents();
 
   void SubscribeTo(qbEvent event, qbSystem system);
