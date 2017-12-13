@@ -125,6 +125,7 @@ void initialize_universe(qbUniverse* uni) {
                  {0.0f, 0.0f, 0.0f});
     ball::create({800.0f, 600.0f, 100.0f},
                  {0.0f, 0.0f, 0.0f});
+
     check_for_gl_errors();
   }
   {
@@ -185,7 +186,7 @@ int main(int, char* []) {
     update_timer.start();
     while (accumulator >= dt) {
       SDL_Event e;
-      if (SDL_PollEvent(&e)) {
+      while (SDL_PollEvent(&e)) {
         if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
           if (e.key.keysym.sym == SDLK_ESCAPE) {
             render::shutdown();
@@ -193,13 +194,29 @@ int main(int, char* []) {
             qb_stop();
             exit(0);
           } else {
+            if (e.key.keysym.sym == SDLK_LCTRL) {
+              if (e.key.state == SDL_PRESSED) {
+                SDL_SetRelativeMouseMode(SDL_FALSE);
+              } else {
+                SDL_SetRelativeMouseMode(SDL_TRUE);
+              }
+            }
             SDL_Keycode key = e.key.keysym.sym;
             input::send_key_event(input::keycode_from_sdl(key),
                                   e.key.state == SDL_PRESSED);
           }
+        } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+          input::send_mouse_click_event(input::button_from_sdl(e.button.button),
+                                        e.button.state == SDL_PRESSED);
+        } else if (e.type == SDL_MOUSEMOTION) {
+          if (SDL_GetRelativeMouseMode()) {
+            input::send_mouse_move_event(e.motion.x, e.motion.y,
+                                         e.motion.xrel, e.motion.yrel);
+          }
+        } else if (e.type == SDL_QUIT) {
+
         }
       }
-
       qb_loop();
       accumulator -= dt;
       t += dt;
@@ -213,9 +230,7 @@ int main(int, char* []) {
     e.frame = frame;
     e.ftimestamp_us = Timer::now() - start_time;
     render::present(&e);
-
-    check_for_gl_errors();
-
+    
     render_timer.stop();
     render_timer.step();
 
@@ -236,16 +251,19 @@ int main(int, char* []) {
                     (float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f}, {});
     }
+      
 
     if (trigger % period == 0 && prev_trigger != trigger) {
     //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
+
+      std::cout << "Ball count " << qb_component_getcount(ball::Component()) << std::endl;
       double total = 15 * 1e6;
       logging::out(
           "Frame " + std::to_string(frame) + "\n" +
           + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total)
           + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
-          + "Render FPS: " + std::to_string(1e9 / render_timer.get_avg_elapsed_ns()) + "\n"
-          + "Update FPS: " + std::to_string(1e9 / update_timer.get_avg_elapsed_ns()) + "\n"
+          + "Render FPS: " + std::to_string((int)(1e9 / render_timer.get_avg_elapsed_ns())) + "\n"
+          + "Update FPS: " + std::to_string((int)(1e9 / update_timer.get_avg_elapsed_ns())) + "\n"
           + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
           + "Accum: " + std::to_string(accumulator) + "\n\n");
     }
