@@ -9,17 +9,126 @@
 
 typedef std::vector<glm::vec3> Vectors;
 
-struct Transformation {
-  glm::vec3 p;
-  glm::vec3 v;
+struct PositionComponent {
+  glm::vec2 p;
 };
 
-qbComponent transformations;
+struct DirectionComponent {
+  glm::vec2 dir;
+};
+
+struct ComflabulationComponent {
+  float thingy;
+  int dingy;
+  bool mingy;
+  std::string stringy;
+};
+
+qbComponent position_component;
+qbComponent direction_component;
+qbComponent comflabulation_component;
+
+void move(qbElement* e, qbCollectionInterface*, qbFrame* f) {
+  PositionComponent p;
+  DirectionComponent d;
+  qb_element_read(e[0], &p);
+  qb_element_read(e[1], &d);
+
+  float dt = *(float*)(f->state);
+  p.p += d.dir * dt;
+
+  qb_element_write(e[0]);
+}
+
+void comflab(qbElement* e, qbCollectionInterface*, qbFrame* f) {
+  ComflabulationComponent comflab;
+  qb_element_read(e[0], &comflab);
+  comflab.thingy *= 1.000001f;
+  comflab.mingy = !comflab.mingy;
+  comflab.dingy++;
+  qb_element_write(e[0]);
+}
+
+uint64_t create_entities_benchmark(uint64_t count) {
+  Timer timer;
+  qbEntityAttr attr;
+  qb_entityattr_create(&attr);
+
+  timer.start();
+  for (uint64_t i = 0; i < count; ++i) {
+    qbEntity entity;
+    qb_entity_create(&entity, attr);
+  }
+  timer.stop();
+
+  qb_entityattr_destroy(&attr);
+  return timer.get_elapsed_ns();
+#if 0
+  PositionComponent pos;
+  DirectionComponent dir;
+  ComflabulationComponent com;
+
+  qb_entityattr_addcomponent(attr, position_component, &pos);
+  qb_entityattr_addcomponent(attr, direction_component, &dir);
+  qb_entityattr_addcomponent(attr, comflabulation_component, &com);
+#endif
+
+}
+
+template<class F>
+void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations) {
+  std::cout << "Running benchmark: " << name << "\n";
+  uint64_t elapsed = 0;
+  for (uint64_t i = 0; i < iterations; ++i) {
+    elapsed += f(count);
+  }
+  std::cout << "Finished benchmark\n";
+  std::cout << "Total elapsed: " << elapsed << "ns\n";
+  std::cout << "Elapsed per iteration: " << elapsed / iterations << "ns\n";
+}
 
 int main() {
+  qbUniverse uni;
+  qb_init(&uni);
+  qb_start();
 
-  uint64_t count = 1;
-  uint64_t iterations = 2;
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, PositionComponent);
+    qb_component_create(&position_component, attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, DirectionComponent);
+    qb_component_create(&direction_component, attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, ComflabulationComponent);
+    qb_component_create(&comflabulation_component, attr);
+    qb_componentattr_destroy(&attr);
+  }
+
+  uint64_t count = 10'000'000;
+  uint64_t iterations = 1;
+  do_benchmark("Create Entities Benchmark",
+               create_entities_benchmark, count, iterations);
+  
+  qb_stop();
+
+   while (1);
+}
+
+#if 0
+int main() {
+
+  uint64_t count = 100000;
+  uint64_t iterations = 10000;
   std::cout << "Number of threads: " << omp_get_max_threads() << std::endl;
   std::cout << "Number of iterations: " << iterations << std::endl;
   std::cout << "Entity count: " << count << std::endl;
@@ -42,19 +151,16 @@ int main() {
   	qb_systemattr_addsource(attr, transformations);
   	qb_systemattr_addsink(attr, transformations);
   	qb_systemattr_setfunction(attr,
-        +[](qbElement* element, qbCollectionInterface*, qbFrame*){
-          std::cout << "benchmark system\n";
+        [](qbElement* element, qbCollectionInterface*, qbFrame*){
           Transformation t;
           qb_element_read(element[0], &t);
           
-          qbEntity e;
-          qb_entity_find(&e, qb_element_getid(element[0]));
-          std::cout << "found? " << (e != nullptr) << "\n";
-          qb_entity_destroy(&e);
-          /*
+          //qbEntity e;
+          //qb_entity_find(&e, qb_element_getid(element[0]));
+          //qb_entity_destroy(&e);
           t.p += t.v;
           
-          qb_element_write(element[0]);*/
+          qb_element_write(element[0]);
         });
   	qb_system_create(&benchmark, attr);
   	qb_systemattr_destroy(&attr);
@@ -65,7 +171,6 @@ int main() {
   
   std::cout << "Creating entities\n";
   for (uint64_t i = 0; i < count; ++i) {
-    std::cout << "Created entity\n";
     qbEntityAttr attr;
       qb_entityattr_create(&attr);
     glm::vec3 p{(float)i, 0, 0};
@@ -86,7 +191,6 @@ int main() {
   Timer timer;
   std::cout << "looping\n";
   for (uint64_t i = 0; i < iterations; ++i) {
-    std::cout << "loop\n";
     timer.start();
     qb_loop();
     timer.stop();
@@ -101,5 +205,8 @@ int main() {
   std::cout << "entity throughput: " << count / (avg / 1e9) << std::endl;
   qb_stop();
 
+  while (1);
+
   return 0;
 }
+#endif
