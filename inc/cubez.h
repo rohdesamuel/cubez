@@ -124,6 +124,8 @@ DLLEXPORT qbResult qb_componentattr_setimplementation(qbComponentAttr attr,
 DLLEXPORT qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 DLLEXPORT qbResult qb_component_destroy(qbComponent* component);
 
+DLLEXPORT size_t qb_component_getcount(qbComponent component);
+
 // Triggers fn when a component is created. If created when an entity is
 // created, then it is triggered after all components have been instantiated.
 DLLEXPORT qbResult qb_component_oncreate(qbComponent component,
@@ -218,7 +220,6 @@ DLLEXPORT qbResult qb_event_destroy(qbEvent* event);
 
 // Flush events from program. If event is null, flush all events from program.
 // Engine must not be in the LOOPING run state.
-DLLEXPORT qbResult qb_event_flush(qbEvent event);
 DLLEXPORT qbResult qb_event_flushall(qbProgram program);
 DLLEXPORT qbResult qb_event_subscribe(qbEvent event, qbSystem system);
 DLLEXPORT qbResult qb_event_unsubscribe(qbEvent event, qbSystem system);
