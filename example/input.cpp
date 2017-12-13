@@ -3,15 +3,31 @@
 
 namespace input {
 
-qbEvent input_event;
+qbEvent keyboard_event;
+qbEvent mouse_event;
 std::unordered_map<int, bool> key_states;
+std::unordered_map<int, bool> mouse_states;
+int mouse_x;
+int mouse_y;
 
 void initialize() {
-  qbEventAttr attr;
-  qb_eventattr_create(&attr);
-  qb_eventattr_setmessagetype(attr, InputEvent);
-  qb_event_create(&input_event, attr);
-  qb_eventattr_destroy(&attr);
+  mouse_x = 0;
+  mouse_y = 0;
+  SDL_SetRelativeMouseMode(SDL_TRUE);
+  {
+    qbEventAttr attr;
+    qb_eventattr_create(&attr);
+    qb_eventattr_setmessagetype(attr, InputEvent);
+    qb_event_create(&keyboard_event, attr);
+    qb_eventattr_destroy(&attr);
+  }
+  {
+    qbEventAttr attr;
+    qb_eventattr_create(&attr);
+    qb_eventattr_setmessagetype(attr, MouseEvent);
+    qb_event_create(&mouse_event, attr);
+    qb_eventattr_destroy(&attr);
+  }
 }
 
 qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
@@ -49,21 +65,81 @@ qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
 
 void send_key_event(qbKey key, bool state) {
   InputEvent input;
-  input.was_pressed = key_states[key];
+  input.was_pressed = key_states[(int)key];
   input.is_pressed = state;
   input.key = key;
 
   key_states[(int)key] = state;
 
-  qb_event_send(input_event, &input);
+  qb_event_send(keyboard_event, &input);
+}
+
+void send_mouse_click_event(qbButton button, bool is_pressed) {
+  MouseEvent event;
+  event.was_pressed = mouse_states[(int)button];
+  event.is_pressed = is_pressed;
+  event.mouse_button = button;
+
+  get_mouse_position(&event.x, &event.y);
+  event.xrel = 0;
+  event.yrel = 0;
+  mouse_states[(int)button] = is_pressed;
+
+  qb_event_send(mouse_event, &event);
+}
+
+void send_mouse_move_event(int x, int y, int xrel, int yrel) {
+  MouseEvent event;
+  event.x = x;
+  event.y = y;
+  event.xrel = xrel;
+  event.yrel = yrel;
+  mouse_x = x;
+  mouse_y = y;
+
+  qb_event_send(mouse_event, &event);
 }
 
 qbResult on_key_event(qbSystem system) {
-  return qb_event_subscribe(input_event, system);
+  return qb_event_subscribe(keyboard_event, system);
+}
+
+qbResult on_mouse_event(qbSystem system) {
+  return qb_event_subscribe(mouse_event, system);
 }
 
 bool is_key_pressed(qbKey key) {
   return key_states[(int)key];
+}
+
+bool is_mouse_pressed(qbButton mouse_button) {
+  return SDL_GetMouseState(nullptr, nullptr) & button_to_sdl(mouse_button);
+}
+
+void get_mouse_position(int* x, int* y) {
+  SDL_GetMouseState(x, y);
+}
+
+uint8_t button_to_sdl(qbButton button) {
+  switch (button) {
+    case QB_BUTTON_LEFT: return SDL_BUTTON_LEFT;
+    case QB_BUTTON_MIDDLE: return SDL_BUTTON_MIDDLE;
+    case QB_BUTTON_RIGHT: return SDL_BUTTON_RIGHT;
+    case QB_BUTTON_X1: return SDL_BUTTON_X1;
+    case QB_BUTTON_X2: return SDL_BUTTON_X2;
+  }
+  return SDL_BUTTON_LEFT;
+}
+
+qbButton button_from_sdl(uint8_t sdl_key) {
+  switch (sdl_key) {
+    case SDL_BUTTON_LEFT: return QB_BUTTON_LEFT;
+    case SDL_BUTTON_MIDDLE: return QB_BUTTON_MIDDLE;
+    case SDL_BUTTON_RIGHT: return QB_BUTTON_RIGHT;
+    case SDL_BUTTON_X1: return QB_BUTTON_X1;
+    case SDL_BUTTON_X2: return QB_BUTTON_X2;
+  }
+  return QB_BUTTON_LEFT;
 }
 
 }  // namespace input

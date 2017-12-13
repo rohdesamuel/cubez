@@ -5,6 +5,7 @@
 #include "inc/common.h"
 #include "inc/cubez.h"
 #include <SDL2/SDL_keycode.h>
+#include <SDL2/SDL_mouse.h>
 
 enum qbKey {
   QB_KEY_UNKNOWN,
@@ -61,6 +62,14 @@ enum qbKey {
   QB_KEY_SPACE
 };
 
+enum qbButton {
+  QB_BUTTON_LEFT,
+  QB_BUTTON_MIDDLE,
+  QB_BUTTON_RIGHT,
+  QB_BUTTON_X1,
+  QB_BUTTON_X2
+};
+
 namespace input {
 
 void initialize();
@@ -74,10 +83,30 @@ struct InputEvent {
   qbKey key;
 };
 
+struct MouseEvent {
+  bool was_pressed;
+  bool is_pressed;
+  qbButton mouse_button;
+  int x;
+  int y;
+  int xrel;
+  int yrel;
+};
+
 void send_key_event(qbKey key, bool is_pressed);
+void send_mouse_click_event(qbButton button, bool is_pressed);
+void send_mouse_move_event(int x, int y, int xrel, int yrel);
+
 qbResult on_key_event(qbSystem system);
+qbResult on_mouse_event(qbSystem system);
+
 bool is_key_pressed(qbKey key);
+bool is_mouse_pressed(qbButton mouse_button);
+void get_mouse_position(int* x, int* y);
+
 qbKey keycode_from_sdl(SDL_Keycode sdl_key);
+qbButton button_from_sdl(uint8_t sdl_key);
+uint8_t button_to_sdl(qbButton button);
 
 }  // namespace input
 
