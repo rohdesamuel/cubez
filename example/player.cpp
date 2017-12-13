@@ -150,6 +150,26 @@ void initialize(const Settings& settings) {
 
     qb_systemattr_destroy(&attr);
   }
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addsource(attr, players);
+    qb_systemattr_settrigger(attr, QB_TRIGGER_EVENT);
+    qb_systemattr_setcallback(attr,
+        [](qbCollectionInterface*, qbFrame* f) {
+          input::MouseEvent* e = (input::MouseEvent*)f->event;
+          render::qb_camera_incyaw(-(float)(e->xrel) * 0.25f);
+          render::qb_camera_incpitch((float)(e->yrel) * 0.25f);
+        });
+    
+    
+    qbSystem mouse_movement;
+    qb_system_create(&mouse_movement, attr);
+
+    input::on_mouse_event(mouse_movement);
+
+    qb_systemattr_destroy(&attr);
+  }
   std::cout << "Finished initializing player\n";
 }
 
