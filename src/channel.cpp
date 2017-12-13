@@ -3,7 +3,13 @@
 
 #include <cstring>
 
-Channel::Channel(size_t size) : size_(size) {
+Channel::Channel(
+  qbId id,
+  std::queue<Channel::ChannelMessage>* message_queue,
+  size_t size)
+  : id_(id),
+    message_queue_(message_queue),
+    size_(size) {
   // Start count is arbitrarily choosen.
   for (int i = 0; i < 16; ++i) {
     free_mem_.enqueue(AllocMessage(nullptr));
@@ -24,7 +30,7 @@ void* Channel::AllocMessage(void* initial_val) {
 }
 
 qbResult Channel::SendMessage(void* message) {
-  message_queue_.enqueue(AllocMessage(message));
+  message_queue_->push(ChannelMessage{ id_, AllocMessage(message) });
   return qbResult::QB_OK;
 }
 
@@ -45,14 +51,11 @@ void Channel::RemoveHandler(qbSystem s) {
   handlers_.erase(s);
 }
 
-void Channel::Flush() {
-  void* msg = nullptr;
-  while (message_queue_.try_dequeue(msg)) {
-    for (const auto& handler : handlers_) {
-      SystemImpl::FromRaw(handler)->Run(msg);
-    }
-    FreeMessage(msg);
+void Channel::Flush(void* message) {
+  for (const auto& handler : handlers_) {
+    SystemImpl::FromRaw(handler)->Run(message);
   }
+  FreeMessage(message);
 }
 
 void Channel::FreeMessage(void* message) {
