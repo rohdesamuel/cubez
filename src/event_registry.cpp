@@ -1,11 +1,17 @@
 #include "event_registry.h"
 
-EventRegistry::EventRegistry(qbId program): program_(program), event_id_(0) { }
+EventRegistry::EventRegistry(qbId program)
+  : program_(program),
+    event_id_(0),
+    message_queue_(
+      new std::queue<Channel::ChannelMessage>()) { }
+EventRegistry::~EventRegistry() {
+}
 
 qbResult EventRegistry::CreateEvent(qbEvent* event, qbEventAttr attr) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
   qbId event_id = event_id_++;
-  events_[event_id] = new Channel(attr->message_size);
+  events_[event_id] = new Channel(event_id, message_queue_, attr->message_size);
   AllocEvent(event_id, event, events_[event_id]);
   return qbResult::QB_OK;
 }
@@ -21,16 +27,11 @@ void EventRegistry::Unsubscribe(qbEvent event, qbSystem system) {
 }
 
 void EventRegistry::FlushAll() {
-  std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-  for (auto event : events_) {
-    event.second->Flush();
-  }
-}
-
-void EventRegistry::Flush(qbEvent event) {
-  Channel* queue = FindEvent(event);
-  if (queue) {
-    queue->Flush();
+  Channel::ChannelMessage msg;
+  while (!message_queue_->empty()) {
+    msg = message_queue_->front();
+    events_[msg.handler]->Flush(msg.message);
+    message_queue_->pop();
   }
 }
 

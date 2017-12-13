@@ -5,11 +5,12 @@
 #include "defs.h"
 
 #include <mutex>
-#include <map>
+#include <unordered_map>
 
 class EventRegistry {
  public:
   EventRegistry(qbId program);
+  ~EventRegistry();
 
   // Thread-safe.
   qbResult CreateEvent(qbEvent* event, qbEventAttr attr);
@@ -22,8 +23,6 @@ class EventRegistry {
 
   void FlushAll();
 
-  void Flush(qbEvent event);
-
  private:
   void AllocEvent(qbId id, qbEvent* event, Channel* channel);
 
@@ -33,7 +32,8 @@ class EventRegistry {
   qbId program_;
   qbId event_id_;
   std::mutex state_mutex_;
-  std::map<qbId, Channel*, std::greater<qbId>> events_; 
+  std::unordered_map<qbId, Channel*> events_;
+  std::queue<Channel::ChannelMessage>* message_queue_;
 };
 
 #endif  // EVENT_REGISTRY__H
