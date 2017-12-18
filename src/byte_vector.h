@@ -84,18 +84,22 @@ class ByteVector {
     return iterator((uint8_t*)back(), elem_size_);
   }
 
+  // Returns the addres to the first element.
   void* front() {
     return elems_;
   }
 
+  // Returns the address to the last element.
   void* back() {
     return elems_ + count_ * elem_size_;
   }
 
+  // Returns the addres to the first element.
   const void* front() const {
     return elems_;
   }
 
+  // Returns the address to the last element.
   const void* back() const {
     return elems_ + count_ * elem_size_;
   }
@@ -185,7 +189,9 @@ class ByteVector {
     if (count_ + 1 >= capacity_) {
       resize(capacity_ + 1);
     }
-    std::memmove((*this)[count_], data, elem_size_);
+    if (data) {
+      std::memmove((*this)[count_], data, elem_size_);
+    }
     ++count_;
   }
 
@@ -193,7 +199,9 @@ class ByteVector {
     if (count_ + 1 >= capacity_) {
       resize(capacity_ + 1);
     }
-    std::memcpy((*this)[count_], data, elem_size_);
+    if (data) {
+      std::memcpy((*this)[count_], data, elem_size_);
+    }
     ++count_;
   }
 
