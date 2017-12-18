@@ -64,7 +64,7 @@ void SystemImpl::Run(void* event) {
 }
 
 void SystemImpl::CopyToElement(void* k, void* v, qbOffset offset,
-                                 qbElement element) {
+                               qbElement element) {
   element->id = *(qbId*)k;
   element->read_buffer = v;
   element->offset = offset;
@@ -142,11 +142,17 @@ void SystemImpl::Run_M_To_N(qbFrame* f) {
       memset(indices, 0, sizeof(uint64_t) * sources_.size());
       uint32_t indices_to_inc = 1;
       uint32_t max_index = 1 << sources_.size();
+      bool all_empty = true;
       for (size_t i = 0; i < sources_.size(); ++i) {
         keys[i] = sources_[i]->keys.data(&sources_[i]->interface);
         values[i] = sources_[i]->values.data(&sources_[i]->interface);
         max_counts[i] = sources_[i]->count(&sources_[i]->interface);
         indices[i] = 0;
+        all_empty &= sources_[i]->count(&sources_[i]->interface) == 0;
+      }
+
+      if (all_empty) {
+        return;
       }
 
       while (indices_to_inc < max_index) {
