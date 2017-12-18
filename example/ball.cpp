@@ -81,7 +81,7 @@ void initialize(const Settings& settings) {
           physics::Collision* c = (physics::Collision*)frame->event;
           if (qb_entity_hascomponent(c->a, ball_component) == QB_OK &&
               qb_entity_hascomponent(c->b, ball_component) == QB_OK) {
-            //std::cout << "Death by collision " << qb_entity_getid(c->a) << "\n";
+            std::cout << "Death by collision " << qb_entity_getid(c->a) << "\n";
             qb_entity_destroy(&c->a);
           }
         });
@@ -89,7 +89,7 @@ void initialize(const Settings& settings) {
     qbSystem system;
     qb_system_create(&system, attr);
 
-    //physics::on_collision(system);
+    physics::on_collision(system);
 
     qb_systemattr_destroy(&attr);
   }
