@@ -45,6 +45,8 @@ qbResult ComponentRegistry::SendComponentDestroyEvent(qbComponent component,
 
 qbResult ComponentRegistry::AllocComponent(qbComponent* component, qbComponentAttr attr) {
   *component = (qbComponent)calloc(1, sizeof(qbComponent_));
+  memset(*component, 0, sizeof(qbComponent_));
+
   *(qbId*)(&(*component)->id) = id_++;
   if (attr->impl) {
     (*component)->impl = attr->impl;
