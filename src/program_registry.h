@@ -8,7 +8,7 @@
 
 #include <algorithm>
 #include <future>
-#include <unordered_map>
+#include <map>
 
 class ProgramRegistry {
  public:
@@ -31,7 +31,7 @@ class ProgramRegistry {
  private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
-  std::unordered_map<size_t, qbProgram*> programs_;
+  std::map<size_t, qbProgram*> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;
 };

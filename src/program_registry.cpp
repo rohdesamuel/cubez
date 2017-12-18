@@ -55,7 +55,7 @@ qbProgram* ProgramRegistry::GetProgram(qbId id) {
 
 void ProgramRegistry::Run() {
   std::vector<std::future<void>> programs;
-
+  programs.reserve(programs_.size());
   for (auto& program : programs_) {
     ProgramImpl* p = (ProgramImpl*)program.second->self;
     programs.push_back(program_threads_.enqueue(
