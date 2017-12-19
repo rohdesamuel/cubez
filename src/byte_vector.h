@@ -177,7 +177,7 @@ class ByteVector {
     capacity_ = new_capacity;
   }
 
-  size_t capacity() {
+  size_t capacity() const {
     return capacity_;
   }
 
