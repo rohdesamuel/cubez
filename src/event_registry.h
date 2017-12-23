@@ -3,6 +3,7 @@
 
 #include "channel.h"
 #include "defs.h"
+#include "byte_queue.h"
 
 #include <mutex>
 #include <unordered_map>
@@ -30,10 +31,9 @@ class EventRegistry {
   Channel* FindEvent(qbEvent event);
 
   qbId program_;
-  qbId event_id_;
   std::mutex state_mutex_;
-  std::unordered_map<qbId, Channel*> events_;
-  std::queue<Channel::ChannelMessage>* message_queue_;
+  std::vector<Channel*> events_;
+  ByteQueue* message_queue_;
 };
 
 #endif  // EVENT_REGISTRY__H

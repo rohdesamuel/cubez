@@ -3,6 +3,9 @@
 
 #include "concurrentqueue.h"
 #include "defs.h"
+#include "byte_vector.h"
+#include "byte_queue.h"
+#include "memory_pool.h"
 
 #include <mutex>
 #include <queue>
@@ -12,9 +15,9 @@ class Channel {
  public:
   struct ChannelMessage {
     qbId handler;
-    void* message;
+    size_t index;
   };
-  Channel(qbId id, std::queue<ChannelMessage>* message_queue, size_t size = 1);
+  Channel(qbId id, ByteQueue* message_queue, size_t size = 1);
 
   // Thread-safe.
   qbResult SendMessage(void* message);
@@ -29,19 +32,21 @@ class Channel {
   void RemoveHandler(qbSystem s);
 
   // Not thread-safe.
-  void Flush(void* message);
+  void Flush(size_t index);
 
  private:
-  // Thread-safe.
-  void* AllocMessage(void* initial_val);
+  // Allocates a message to send. Moves the data pointed to by initial_val
+  // to a new message. Returns pointer to the newly allocated message.
+   ChannelMessage AllocMessage(void* initial_val);
 
   // Thread-safe.
-  void FreeMessage(void* message);
+  void FreeMessage(size_t index);
 
-  std::set<qbSystem> handlers_;
+  std::vector<qbSystem> handlers_;
   qbId id_;
-  std::queue<Channel::ChannelMessage>* message_queue_;
-  moodycamel::ConcurrentQueue<void*> free_mem_;
+  ByteQueue* message_queue_;
+  std::vector<size_t> free_mem_;
+  ByteVector mem_buffer_;
   size_t size_;
 };
 

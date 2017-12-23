@@ -2,16 +2,15 @@
 
 EventRegistry::EventRegistry(qbId program)
   : program_(program),
-    event_id_(0),
     message_queue_(
-      new std::queue<Channel::ChannelMessage>()) { }
-EventRegistry::~EventRegistry() {
-}
+      new ByteQueue(sizeof(Channel::ChannelMessage))) { }
+
+EventRegistry::~EventRegistry() { }
 
 qbResult EventRegistry::CreateEvent(qbEvent* event, qbEventAttr attr) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-  qbId event_id = event_id_++;
-  events_[event_id] = new Channel(event_id, message_queue_, attr->message_size);
+  qbId event_id = events_.size();
+  events_.push_back(new Channel(event_id, message_queue_, attr->message_size));
   AllocEvent(event_id, event, events_[event_id]);
   return qbResult::QB_OK;
 }
@@ -29,8 +28,8 @@ void EventRegistry::Unsubscribe(qbEvent event, qbSystem system) {
 void EventRegistry::FlushAll() {
   Channel::ChannelMessage msg;
   while (!message_queue_->empty()) {
-    msg = message_queue_->front();
-    events_[msg.handler]->Flush(msg.message);
+    msg = *(Channel::ChannelMessage*)message_queue_->front();
+    events_[msg.handler]->Flush(msg.index);
     message_queue_->pop();
   }
 }
@@ -43,9 +42,5 @@ void EventRegistry::AllocEvent(qbId id, qbEvent* event, Channel* channel) {
 }
 
 Channel* EventRegistry::FindEvent(qbEvent event) {
-  auto it = events_.find(event->id);
-  if (it != events_.end()) {
-    return it->second;
-  }
-  return nullptr;
+  return events_[event->id];
 }

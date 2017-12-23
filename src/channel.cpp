@@ -5,32 +5,37 @@
 
 Channel::Channel(
   qbId id,
-  std::queue<Channel::ChannelMessage>* message_queue,
+  ByteQueue* message_queue,
   size_t size)
   : id_(id),
     message_queue_(message_queue),
-    size_(size) {
-  // Start count is arbitrarily choosen.
-  for (int i = 0; i < 16; ++i) {
-    free_mem_.enqueue(AllocMessage(nullptr));
-  }
+    size_(size),
+    mem_buffer_(size),
+    free_mem_(size) {
+  mem_buffer_.reserve(1000);
+  free_mem_.reserve(1000);
 }
 
-// Thread-safe.
-void* Channel::AllocMessage(void* initial_val) {
-  void* ret = nullptr;
-  if (!free_mem_.try_dequeue(ret)) {
-    ret = calloc(1, size_);
+Channel::ChannelMessage Channel::AllocMessage(void* initial_val) {
+  size_t ret_index = 0;
+  if (free_mem_.empty()) {
+    ret_index = mem_buffer_.size();
+    mem_buffer_.push_back(initial_val);
+    initial_val = nullptr;
+  } else {
+    ret_index = free_mem_.back();
+    free_mem_.pop_back();
   }
-  DEBUG_ASSERT(ret, QB_ERROR_NULL_POINTER);
   if (initial_val) {
-    memmove(ret, initial_val, size_);
+    void* val = mem_buffer_[ret_index];
+    memmove(val, initial_val, size_);
   }
-  return ret;
+  return{ id_, ret_index };
 }
 
 qbResult Channel::SendMessage(void* message) {
-  message_queue_->push(ChannelMessage{ id_, AllocMessage(message) });
+  Channel::ChannelMessage new_message = AllocMessage(message);
+  message_queue_->push(&new_message);
   return qbResult::QB_OK;
 }
 
@@ -39,25 +44,25 @@ qbResult Channel::SendMessageSync(void* message) {
     (SystemImpl::FromRaw(handler))->Run(message);
   }
 
-  FreeMessage(message);
   return qbResult::QB_OK;
 }
 
 void Channel::AddHandler(qbSystem s) {
-  handlers_.insert(s);
+  handlers_.push_back(s);
 }
 
 void Channel::RemoveHandler(qbSystem s) {
-  handlers_.erase(s);
+  handlers_.erase(std::find(handlers_.begin(), handlers_.end(), s));
 }
 
-void Channel::Flush(void* message) {
+void Channel::Flush(size_t index) {
   for (const auto& handler : handlers_) {
-    SystemImpl::FromRaw(handler)->Run(message);
+    void* m = (uint8_t*)(ChannelMessage*)mem_buffer_[index] + size_;
+    SystemImpl::FromRaw(handler)->Run(m);
   }
-  FreeMessage(message);
+  FreeMessage(index);
 }
 
-void Channel::FreeMessage(void* message) {
-  free_mem_.enqueue(message);
+void Channel::FreeMessage(size_t index) {
+  free_mem_.push_back(index);
 }
