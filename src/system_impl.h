@@ -2,33 +2,31 @@
 #define SYSTEM_IMPL__H
 
 #include "defs.h"
+#include "component_registry.h"
 
 #include <algorithm>
 #include <cstring>
 
 class SystemImpl {
  public:
-  SystemImpl(const qbSystemAttr_& attr, qbSystem system);
+  SystemImpl(ComponentRegistry* component_registry,
+             const qbSystemAttr_& attr, qbSystem system);
 
   static SystemImpl* FromRaw(qbSystem system);
   
   void Run(void* event = nullptr);
 
  private:
-  void CopyToElement(void* k, void* v, qbOffset offset, qbElement element);
-  void CopyToElement(void* k, void* v, qbElement element);
+  void CopyToElement(qbComponent component, qbId instance_id, void* instance_data, qbElement element);
 
-  void Run_0_To_0(qbFrame* f);
-  void Run_1_To_0(qbFrame* f);
-  void Run_0_To_N(qbFrame* f);
-  void Run_1_To_N(qbFrame* f);
-  void Run_M_To_N(qbFrame* f);
+  void Run_0(qbFrame* f);
+  void Run_1(qbFrame* f);
+  void Run_N(qbFrame* f);
 
+  ComponentRegistry* component_registry_;
   qbSystem system_;
-  std::vector<qbCollection> sources_;
-  std::vector<qbCollection> sinks_;
-  std::vector<qbCollectionInterface> source_interfaces_;
-  std::vector<qbCollectionInterface> sink_interfaces_;
+  std::vector<qbId> sources_;
+  std::vector<qbId> sinks_;
 
   qbComponentJoin join_;
   void* user_state_;

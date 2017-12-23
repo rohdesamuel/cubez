@@ -1,9 +1,11 @@
 #include "program_impl.h"
 #include "system_impl.h"
 
-ProgramImpl::ProgramImpl(qbProgram* program)
+ProgramImpl::ProgramImpl(qbProgram* program,
+                         ComponentRegistry* component_registry)
     : program_(program),
-      events_(program->id) {}
+      events_(program->id),
+      component_registry_(component_registry) {}
 
 ProgramImpl* ProgramImpl::FromRaw(qbProgram* program) {
   return (ProgramImpl*)program->self;
@@ -82,7 +84,7 @@ qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {
   p->user_state = attr.state;
 
   SystemImpl* impl = SystemImpl::FromRaw(p);
-  new (impl) SystemImpl(attr, p);
+  new (impl) SystemImpl(component_registry_, attr, p);
 
   return p;
 }

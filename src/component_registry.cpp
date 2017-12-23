@@ -5,56 +5,12 @@
 ComponentRegistry::ComponentRegistry() : id_(0) {}
 
 qbResult ComponentRegistry::CreateComponent(qbComponent* component, qbComponentAttr attr) {
-  AllocComponent(component, attr);
-  components_[(*component)->id] = *component;
-  return qbResult::QB_OK;
-}
-
-qbHandle ComponentRegistry::CreateComponentInstance(
-    qbComponent component, qbId entity_id, const void* value) {
-  return component->impl->interface.insert(&component->impl->interface,
-                                           &entity_id, (void*)value);
-}
-
-void ComponentRegistry::DestroyComponentInstance(qbComponent component, qbHandle handle) {
-  component->impl->interface.remove_by_handle(&component->impl->interface,
-                                              handle);
-}
-
-qbResult ComponentRegistry::SendComponentCreateEvent(qbComponent component,
-                                            qbEntity entity,
-                                            void* instance_data) {
-  qbComponentOnCreateEvent_ event;
-  event.entity = entity;
-  event.component = component;
-  event.instance_data = instance_data;
-
-  return qb_event_send(component->on_create, &event);
-}
-
-qbResult ComponentRegistry::SendComponentDestroyEvent(qbComponent component,
-                                             qbEntity entity,
-                                             void* instance_data) {
-  qbComponentOnDestroyEvent_ event;
-  event.entity = entity;
-  event.component = component;
-  event.instance_data = instance_data;
-
-  return qb_event_send(component->on_destroy, &event);
-}
-
-qbResult ComponentRegistry::AllocComponent(qbComponent* component, qbComponentAttr attr) {
-  *component = (qbComponent)calloc(1, sizeof(qbComponent_));
-  memset(*component, 0, sizeof(qbComponent_));
-
-  *(qbId*)(&(*component)->id) = id_++;
-  if (attr->impl) {
-    (*component)->impl = attr->impl;
-  } else {
-    (*component)->impl = Component::new_collection(attr->program,
-                                                   attr->data_size);
-  }
-  (*component)->data_size = attr->data_size;
+  qbId new_id = id_++;
+  components_[new_id] =
+      new qbComponent_{ new_id, SparseMap<void>{attr->data_size}, nullptr,
+                        nullptr };
+  components_[new_id]->instances.reserve(10000);
+  *component = components_[new_id];
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
@@ -72,3 +28,34 @@ qbResult ComponentRegistry::AllocComponent(qbComponent* component, qbComponentAt
   return qbResult::QB_OK;
 }
 
+qbId ComponentRegistry::CreateComponentInstance(
+    qbComponent component, qbId entity_id, const void* value) {
+  component->instances.insert(entity_id, (void*)value);
+  return entity_id;
+}
+
+void ComponentRegistry::DestroyComponentInstance(qbComponent component, qbId id) {
+  return component->instances.erase(id);
+}
+
+qbResult ComponentRegistry::SendComponentCreateEvent(qbComponent component,
+                                                     qbId entity,
+                                                     void* instance_data) {
+  qbComponentOnCreateEvent_ event;
+  event.entity = entity;
+  event.component = component;
+  event.instance_data = instance_data;
+
+  return qb_event_send(component->on_create, &event);
+}
+
+qbResult ComponentRegistry::SendComponentDestroyEvent(qbComponent component,
+                                                      qbId entity,
+                                                      void* instance_data) {
+  qbComponentOnDestroyEvent_ event;
+  event.entity = entity;
+  event.component = component;
+  event.instance_data = instance_data;
+
+  return qb_event_send(component->on_destroy, &event);
+}

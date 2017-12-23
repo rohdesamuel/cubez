@@ -2,30 +2,39 @@
 #define ENTITY_REGISTRY__H
 
 #include "defs.h"
+#include "memory_pool.h"
+#include "buddy_system_allocator.h"
+#include "component_registry.h"
+#include "sparse_set.h"
+#include "sparse_map.h"
 
 #include <algorithm>
 #include <atomic>
+#include <mutex>
 #include <unordered_map>
+#include <unordered_set>
+
+extern const uint32_t kMaxInstanceCount;
 
 class EntityRegistry {
  public:
   struct DestroyEntityEvent {
     EntityRegistry* self;
-    qbId entity_id;
+    qbId entity;
   };
 
   struct AddComponentEvent {
-    qbEntity entity;
+    qbId entity;
     qbComponent component;
     void* instance_data;
   };
 
   struct RemoveComponentEvent {
-    qbEntity entity;
+    qbId entity;
     qbComponent component;
   };
 
-  EntityRegistry();
+  EntityRegistry(ComponentRegistry* component_registry);
 
   void Init();
 
@@ -38,31 +47,39 @@ class EntityRegistry {
   // removed. Frees entity memory after all components have been destroyed.
   qbResult DestroyEntity(qbEntity* entity);
 
-  void SetComponents(qbEntity entity,
+  void SetComponents(qbId entity,
                       const std::vector<qbComponentInstance_>& components);
 
-  qbResult AddComponent(qbEntity entity, qbComponent component,
+  qbResult AddComponent(qbId entity, qbComponent component,
                         void* instance_data);
 
-  qbResult RemoveComponent(qbEntity entity, qbComponent component);
+  qbResult RemoveComponent(qbId entity, qbComponent component);
 
   qbResult Find(qbEntity* entity, qbId entity_id);
 
  private:
-  qbResult AllocEntity(qbEntity* entity);
+  struct EntityElement {
+    qbEntity_ entity;
+    qbInstance_ instances[5];
+  };
+  qbId AllocEntity();
 
-  qbResult SendDestroyEntityEvent(qbEntity entity);
+  qbResult SendDestroyEntityEvent(qbId entity);
   
-  qbResult SendRemoveComponentEvent(qbEntity entity, qbComponent component);
+  qbResult SendRemoveComponentEvent(qbId entity, qbComponent component);
 
-  static void AddComponentHandler(qbCollectionInterface*, qbFrame* frame);
+  static void AddComponentHandler(qbFrame* frame);
 
-  static void RemoveComponentHandler(qbCollectionInterface*,
-                                       qbFrame* frame);
+  static void RemoveComponentHandler(qbFrame* frame);
 
-  static void DestroyEntityHandler(qbCollectionInterface*, qbFrame* frame);
+  static void DestroyEntityHandler(qbFrame* frame);
 
-  std::unordered_map<qbId, qbEntity> entities_;
+  ComponentRegistry* component_registry_;
+
+  SparseSet entities_;
+  SparseSet destroyed_entities_;
+  std::vector<size_t> free_entity_ids_;
+
   std::atomic_long id_;
 
   qbEvent add_component_event_;
@@ -72,6 +89,8 @@ class EntityRegistry {
   qbSystem add_component_system_;
   qbSystem remove_component_system_;
   qbSystem destroy_entity_system_;
+
+  std::mutex destroy_entity_mu_;
 };
 
 #endif  // ENTITY_REGISTRY__H

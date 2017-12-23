@@ -12,7 +12,7 @@
 
 class ProgramRegistry {
  public:
-  ProgramRegistry();
+  ProgramRegistry(ComponentRegistry* component_registry);
 
   qbId CreateProgram(const char* program);
 
@@ -31,6 +31,7 @@ class ProgramRegistry {
  private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
+  ComponentRegistry* component_registry_;
   std::map<size_t, qbProgram*> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;

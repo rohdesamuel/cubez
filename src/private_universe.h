@@ -127,16 +127,16 @@ class PrivateUniverse {
   Runner runner_;
 
   // Must be initialized first.
-  ProgramRegistry programs_;
+  std::unique_ptr<ProgramRegistry> programs_;
 
   // Must be initialized after the ProgramRegistry.
-  CollectionRegistry collections_;
+  std::unique_ptr<CollectionRegistry> collections_;
 
   // Must be initialized after the CollectionRegistry.
-  ComponentRegistry components_;
+  std::unique_ptr<ComponentRegistry> components_;
 
   // Must be initialized after the ComponentRegistry and ProgramRegistry.
-  EntityRegistry entities_;
+  std::unique_ptr<EntityRegistry> entities_;
 };
 
 #endif  // PRIVATE_UNIVERSE__H

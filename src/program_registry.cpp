@@ -2,7 +2,8 @@
 
 #include <cstring>
 
-ProgramRegistry::ProgramRegistry() :
+ProgramRegistry::ProgramRegistry(ComponentRegistry* component_registry) :
+    component_registry_(component_registry),
     program_threads_(std::thread::hardware_concurrency()) {
   // Create the default program.
   CreateProgram("");
@@ -77,7 +78,7 @@ qbProgram* ProgramRegistry::AllocProgram(qbId id, const char* name) {
   qbProgram* p = (qbProgram*)calloc(1, sizeof(qbProgram));
   *(qbId*)(&p->id) = id;
   *(char**)(&p->name) = STRDUP(name);
-  p->self = new ProgramImpl{p};
+  p->self = new ProgramImpl{p, component_registry_};
 
   return p;
 }

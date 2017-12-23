@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "cubez.h"
+#include "sparse_map.h"
 
 #include <vector>
 
@@ -39,8 +40,8 @@ struct qbIterator {
 };
 
 struct qbCollection_ {
-  const qbId id;
-  const qbId program_id;
+  qbId id;
+  qbId program_id;
 
   qbIterator keys;
   qbIterator values;
@@ -72,22 +73,21 @@ typedef void(*qbComponentOnDestroy)(qbEntity parent_entity,
                                     void* instance_data);
 
 struct qbComponentOnCreateEvent_ {
-  qbEntity entity;
+  qbId entity;
   qbComponent component;
   void* instance_data;
 };
 
 struct qbComponentOnDestroyEvent_ {
-  qbEntity entity;
+  qbId entity;
   qbComponent component;
   void* instance_data;
 };
 
 // All components are keyed on an entity id.
 struct qbComponent_ {
-  const qbId id;
-  size_t data_size;
-  qbCollection impl;
+  qbId id;
+  SparseMap<void> instances;
 
   qbEvent on_create;
   qbEvent on_destroy;
@@ -124,16 +124,11 @@ enum qbIndexedBy {
 
 struct qbElement_ {
   qbId id;
+  qbComponent component;
+
   void* read_buffer;
   void* user_buffer;
   size_t size;
-
-  union {
-    qbOffset offset;
-    qbHandle handle;
-  };
-  qbIndexedBy indexed_by;
-  qbCollectionInterface interface;
 };
 
 struct qbExecutionPolicy_ {
@@ -148,8 +143,8 @@ struct qbExecutionPolicy_ {
 };
 
 struct qbSystem_ {
-  const qbId id;
-  const qbId program;
+  qbId id;
+  qbId program;
   void* user_state;
   qbExecutionPolicy_ policy;
 };
@@ -170,8 +165,8 @@ struct qbInstance_ {
 };
 
 struct qbEntity_ {
-  const qbId id;
-  std::vector<qbInstance_> instances;
+  qbId id;
+  uint32_t instance_count;
 
   qbEvent destroy_event;
 };
@@ -182,8 +177,8 @@ struct qbEventAttr_ {
 };
 
 struct qbEvent_ {
-  const qbId id;
-  const qbId program;
+  qbId id;
+  qbId program;
   void* channel;
 };
 

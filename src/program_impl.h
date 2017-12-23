@@ -2,11 +2,12 @@
 #define PROGRAM_IMPL__H
 
 #include "defs.h"
+#include "component_registry.h"
 #include "event_registry.h"
 
 class ProgramImpl {
  public:
-  ProgramImpl(qbProgram* program);
+  ProgramImpl(qbProgram* program, ComponentRegistry* component_registry);
   static ProgramImpl* FromRaw(qbProgram* program);
 
   qbSystem CreateSystem(const qbSystemAttr_& attr);
@@ -35,6 +36,8 @@ class ProgramImpl {
   qbProgram* program_;
 
   EventRegistry events_;
+  ComponentRegistry* component_registry_;
+
   std::vector<qbSystem> systems_;
   std::vector<qbSystem> loop_systems_;
   std::set<qbSystem> event_systems_;

@@ -1,9 +1,16 @@
 #include "entity_registry.h"
 
-#include "component_registry.h"
 #include <cstring>
+#include <iostream>
 
-EntityRegistry::EntityRegistry() : id_(0) {}
+const uint32_t kMaxInstanceCount = 5;
+
+EntityRegistry::EntityRegistry(ComponentRegistry* component_registry)
+    : id_(0), component_registry_(component_registry) {
+  entities_.reserve(100000);
+  destroyed_entities_.reserve(10000);
+  free_entity_ids_.reserve(10000);
+}
 
 void EntityRegistry::Init() {
   {
@@ -11,6 +18,7 @@ void EntityRegistry::Init() {
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, AddComponentHandler);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+    qb_systemattr_setuserstate(attr, this);
     qb_system_create(&add_component_system_, attr);
     qb_systemattr_destroy(&attr);
   }
@@ -44,13 +52,12 @@ void EntityRegistry::Init() {
     qb_eventattr_destroy(&attr);
   }
 
-  // Create the remove_component_event AFTER the destroy_entity_event to make
-  // sure it is handled before the destroy_entity_event.
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, RemoveComponentHandler);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+    qb_systemattr_setuserstate(attr, this);
     qb_system_create(&remove_component_system_, attr);
     qb_systemattr_destroy(&attr);
   }
@@ -70,12 +77,14 @@ void EntityRegistry::Init() {
 // ComponentCreateEvent after all components have been created.
 qbResult EntityRegistry::CreateEntity(qbEntity* entity,
                                       const qbEntityAttr_& attr) {
-  AllocEntity(entity);
-  entities_[(*entity)->id] = *entity;
-  SetComponents(*entity, attr.component_list);
-  for (qbInstance_& instance : (*entity)->instances) {
+  qbId new_id = AllocEntity();
+  *entity = new_id;
+  SetComponents(new_id, attr.component_list);
+
+  for (const qbComponentInstance_& instance: attr.component_list) {
+    qbComponent component = instance.component;
     ComponentRegistry::SendComponentCreateEvent(
-        instance.component, *entity, instance.data);
+      component, new_id, component->instances[*entity]);
   }
   return qbResult::QB_OK;
 }
@@ -84,130 +93,122 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
 // destroyed next frame. Sends a ComponentDestroyEvent before components are
 // removed. Frees entity memory after all components have been destroyed.
 qbResult EntityRegistry::DestroyEntity(qbEntity* entity) {
-  for (qbInstance_& instance : (*entity)->instances) {
-    SendRemoveComponentEvent(*entity, instance.component);
+  std::lock_guard<std::mutex> lock(destroy_entity_mu_);
+  
+  // Only send events if the entity isn't destroyed yet.
+  if (destroyed_entities_.has(*entity)) {
+    return QB_OK;
   }
-  for (qbInstance_& instance : (*entity)->instances) {
-    RemoveComponent(*entity, instance.component);
+  destroyed_entities_.insert(*entity);
+
+  //std::cout << "Send OnRemoveComponent Event for " << (*entity)->id << "\n";
+  
+  for (auto it = component_registry_->begin(); it != component_registry_->end(); ++it) {
+    qbComponent component = (*it).second;
+    if (component->instances.has(*entity)) {
+      SendRemoveComponentEvent(*entity, component);
+    }
   }
+
+  //std::cout << "Send RemoveComponent Event for " << (*entity)->id << "\n";
+  for (auto it = component_registry_->begin(); it != component_registry_->end(); ++it) {
+    qbComponent component = (*it).second;
+    if (component->instances.has(*entity)) {
+      RemoveComponent(*entity, component);
+    }
+  }
+
+  //std::cout << "Send DestroyEntity Event for " << (*entity)->id << "\n";
   SendDestroyEntityEvent(*entity);
-  *entity = nullptr;
+ 
   return QB_OK;
 }
 
-void EntityRegistry::SetComponents(qbEntity entity,
-                    const std::vector<qbComponentInstance_>& components) {
-  std::vector<qbInstance_> instances;
-  for (const auto instance : components) {
+void EntityRegistry::SetComponents(qbId entity,
+                                   const std::vector<qbComponentInstance_>& components) {
+  for (const auto& instance : components) {
     qbComponent component = instance.component;
-    qbHandle handle = ComponentRegistry::CreateComponentInstance(
-        component, entity->id, instance.data);
-
-    instances.push_back({
-        component,
-        handle,
-        component->impl->interface.by_handle(&component->impl->interface,
-                                             handle)
-      });
+    ComponentRegistry::CreateComponentInstance(component, entity, instance.data);
   }
-  entity->instances = instances;
 }
 
-qbResult EntityRegistry::AddComponent(qbEntity entity, qbComponent component,
-                   void* instance_data) {
-  void* data = malloc(component->data_size);
-  memcpy(data, instance_data, component->data_size);
+qbResult EntityRegistry::AddComponent(qbId entity, qbComponent component,
+                                      void* instance_data) {
+  size_t element_size = component->instances.element_size();
+  void* data = malloc(element_size);
+  memcpy(data, instance_data, element_size);
 
   AddComponentEvent event{entity, component, data};
   qb_event_send(add_component_event_, &event);
 
-  ComponentRegistry::SendComponentCreateEvent(component, entity, data);
+  component_registry_->SendComponentCreateEvent(component, entity, data);
   return QB_OK;
 }
 
-qbResult EntityRegistry::SendRemoveComponentEvent(qbEntity entity,
+qbResult EntityRegistry::SendRemoveComponentEvent(qbId entity,
                                                   qbComponent component) {
-  void* data = component->impl->interface.by_id(&component->impl->interface,
-                                                entity->id);
-  return ComponentRegistry::SendComponentDestroyEvent(component, entity, data);
+  void* data = component->instances[entity];
+  return component_registry_->SendComponentDestroyEvent(component, entity, data);
 }
 
-qbResult EntityRegistry::RemoveComponent(qbEntity entity,
+qbResult EntityRegistry::RemoveComponent(qbId entity,
                                          qbComponent component) {
   RemoveComponentEvent event{entity, component};
   return qb_event_send(remove_component_event_, &event);
 }
 
 qbResult EntityRegistry::Find(qbEntity* entity, qbId entity_id) {
-  auto it = entities_.find(entity_id);
-  if (it == entities_.end()) {
-    *entity = nullptr;
+  if (!entities_.has(entity_id)) {
     return QB_ERROR_NOT_FOUND;
   }
-  *entity = it->second;
+  *entity = entity_id;
   return QB_OK;
 }
 
-qbResult EntityRegistry::AllocEntity(qbEntity* entity) {
-  *entity = (qbEntity)calloc(1, sizeof(qbEntity_));
-  *(qbId*)(&(*entity)->id) = id_++;
-  return qbResult::QB_OK;
+qbId EntityRegistry::AllocEntity() {
+  qbId new_id;
+  if (free_entity_ids_.empty()) {
+    new_id = entities_.size();
+  } else {
+    new_id = free_entity_ids_.back();
+  }
+
+  entities_.insert(new_id);
+
+  return new_id;
 }
 
-void EntityRegistry::AddComponentHandler(qbCollectionInterface*,
-                                         qbFrame* frame) {
+void EntityRegistry::AddComponentHandler(qbFrame* frame) {
   AddComponentEvent* event = (AddComponentEvent*)frame->event;
-  qbEntity entity = event->entity;
+  qbId entity = event->entity;
   qbComponent component = event->component;
-  void* instance_data = event->instance_data;
 
-  std::vector<qbInstance_>* instances = &entity->instances;
-  qbHandle handle = ComponentRegistry::CreateComponentInstance(component,
-          entity->id,
-          instance_data);
-  instances->push_back({
-      component,
-      handle,
-      component->impl->interface.by_handle(&component->impl->interface,
-          handle)
-      });
-  free(instance_data);
+  component->instances.insert(entity, event->instance_data);
+
+  free(event->instance_data);
 }
 
-void EntityRegistry::RemoveComponentHandler(qbCollectionInterface*,
-                                     qbFrame* frame) {
+void EntityRegistry::RemoveComponentHandler(qbFrame* frame) {
   RemoveComponentEvent* event = (RemoveComponentEvent*)frame->event;
-  qbEntity entity = event->entity;
+  qbId entity = event->entity;
   qbComponent component = event->component;
 
-  std::vector<qbInstance_>* instances = &entity->instances;
-  auto comp = [component](const qbInstance_& instance) {
-        return instance.component == component;
-      };
-  auto to_erase = std::find_if(instances->begin(), instances->end(), comp);
-  while(to_erase != instances->end()) {
-    ComponentRegistry::DestroyComponentInstance(component,
-        to_erase->instance_handle);
-    instances->erase(to_erase);
-    to_erase = std::find_if(instances->begin(), instances->end(), comp);
-  } 
+  //std::cout << "RemoveComponent for " << entity->id << "\n";
+
+  component->instances.erase(entity);
 }
 
-qbResult EntityRegistry::SendDestroyEntityEvent(qbEntity entity) {
-  DestroyEntityEvent event{this, entity->id};
+qbResult EntityRegistry::SendDestroyEntityEvent(qbId entity) {
+  DestroyEntityEvent event{this, entity};
   return qb_event_send(destroy_entity_event_, &event);
 }
 
-void EntityRegistry::DestroyEntityHandler(qbCollectionInterface*,
-                                          qbFrame* frame) {
+void EntityRegistry::DestroyEntityHandler(qbFrame* frame) {
   DestroyEntityEvent* event = (DestroyEntityEvent*)frame->event;
   EntityRegistry* self = event->self;
 
-  auto it = self->entities_.find(event->entity_id);
-  if (it != self->entities_.end()) {
-    qbEntity entity = it->second;
-    free(entity);
-    self->entities_.erase(it);
-  }
+  //std::cout << "DestroyEntity for " << event->entity << "\n";
+  // Remove entity from index and make it available for use.
+  self->free_entity_ids_.push_back(event->entity);
 }
 

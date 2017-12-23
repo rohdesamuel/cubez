@@ -44,10 +44,8 @@ qbCollection CollectionRegistry::new_collection(qbId id, qbId program, qbCollect
   *(qbId*)(&c->program_id) = program;
   c->interface.insert = attr->insert;
   c->interface.by_id = attr->accessor.id;
-  c->interface.by_handle = attr->accessor.handle;
   c->interface.by_offset = attr->accessor.offset;
   c->interface.remove_by_id = attr->remove_by_id;
-  c->interface.remove_by_handle = attr->remove_by_handle;
   c->interface.remove_by_offset = attr->remove_by_offset;
   c->interface.collection = attr->collection;
   c->count = attr->count;
