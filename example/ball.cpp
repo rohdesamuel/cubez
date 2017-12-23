@@ -54,7 +54,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_addsource(attr, ball_component);
     qb_systemattr_addsink(attr, ball_component);
     qb_systemattr_setfunction(attr,
-        [](qbElement* els, qbCollectionInterface*, qbFrame*) {
+        [](qbElement* els, qbFrame*) {
           Ball ball;
           qb_element_read(els[0], &ball);       
           --ball.death_counter;
@@ -77,7 +77,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setpriority(attr, QB_MAX_PRIORITY);
     qb_systemattr_setcallback(attr,
-        [](qbCollectionInterface*, qbFrame* frame) {
+        [](qbFrame* frame) {
           physics::Collision* c = (physics::Collision*)frame->event;
           if (qb_entity_hascomponent(c->a, ball_component) == QB_OK &&
               qb_entity_hascomponent(c->b, ball_component) == QB_OK) {

@@ -55,11 +55,12 @@ qbResult qb_system_disable(qbSystem system) {
 
 qbResult qb_componentattr_create(qbComponentAttr* attr) {
   *attr = (qbComponentAttr)calloc(1, sizeof(qbComponentAttr_));
+  new (*attr) qbComponentAttr_;
 	return qbResult::QB_OK;
 }
 
 qbResult qb_componentattr_destroy(qbComponentAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -87,7 +88,7 @@ qbResult qb_component_destroy(qbComponent*) {
 }
 
 size_t qb_component_getcount(qbComponent component) {
-  return component->impl->count(&component->impl->interface);
+  return component->instances.size();
 }
 
 qbResult qb_component_oncreate(qbComponent component,
@@ -96,7 +97,7 @@ qbResult qb_component_oncreate(qbComponent component,
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_create);
-  qb_systemattr_setcallback(attr, [](qbCollectionInterface*, qbFrame* frame) {
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
         qbComponentOnCreateEvent_* event =
             (qbComponentOnCreateEvent_*)frame->event;
         qbComponentOnCreate on_create = (qbComponentOnCreate)frame->state;
@@ -117,7 +118,7 @@ qbResult qb_component_ondestroy(qbComponent component,
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_destroy);
-  qb_systemattr_setcallback(attr, [](qbCollectionInterface*, qbFrame* frame) {
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
         qbComponentOnDestroyEvent_* event =
             (qbComponentOnDestroyEvent_*)frame->event;
         qbComponentOnDestroy on_destroy = (qbComponentOnDestroy)frame->state;
@@ -134,11 +135,12 @@ qbResult qb_component_ondestroy(qbComponent component,
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
   *attr = (qbEntityAttr)calloc(1, sizeof(qbEntityAttr_));
+  new (*attr) qbEntityAttr_;
 	return qbResult::QB_OK;
 }
 
 qbResult qb_entityattr_destroy(qbEntityAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -168,27 +170,17 @@ qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
   return AS_PRIVATE(entity_find(entity, entity_id));
 }
 
-qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer) {
-  auto& instances = entity->instances;
-  auto it = std::find_if(instances.begin(), instances.end(),
-      [component](const qbInstance_& instance) {
-        return instance.component == component;
-      });
-  if (it == instances.end()) {
-    *(void**)buffer = nullptr;
+qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
+                                void* buffer) {
+  if (component->instances.has(entity)) {
+    *(void**)buffer = component->instances[entity];
   }
-  *(void**)buffer = component->impl->interface.by_handle(
-      &component->impl->interface, it->instance_handle);
+  *(void**)buffer = nullptr;
   return QB_OK;
 }
 
 qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component) {
-  auto& instances = entity->instances;
-  auto it = std::find_if(instances.begin(), instances.end(),
-      [component](const qbInstance_& instance) {
-        return instance.component == component;
-      });
-  return it == instances.end() ? QB_ERROR_NOT_FOUND : QB_OK;
+  return component->instances.has(entity) ? QB_OK : QB_ERROR_NOT_FOUND;
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
@@ -201,16 +193,17 @@ qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
 }
 
 qbId qb_entity_getid(qbEntity entity) {
-  return entity->id;
+  return entity;
 }
 
 qbResult qb_systemattr_create(qbSystemAttr* attr) {
   *attr = (qbSystemAttr)calloc(1, sizeof(qbSystemAttr_));
+  new (*attr) qbSystemAttr_;
 	return qbResult::QB_OK;
 }
 
 qbResult qb_systemattr_destroy(qbSystemAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -280,12 +273,13 @@ qbResult qb_system_destroy(qbSystem*) {
 
 
 qbResult qb_collectionattr_create(qbCollectionAttr* attr) {
-  (*attr) = (qbCollectionAttr)calloc(1, sizeof(qbCollectionAttr_));
+  *attr = (qbCollectionAttr)calloc(1, sizeof(qbCollectionAttr_));
+  new (*attr) qbCollectionAttr_;
 	return qbResult::QB_OK;
 }
 
 qbResult qb_collectionattr_destroy(qbCollectionAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -389,11 +383,12 @@ qbResult qb_collection_destroy(qbCollection* collection) {
 
 qbResult qb_eventattr_create(qbEventAttr* attr) {
   *attr = (qbEventAttr)calloc(1, sizeof(qbEventAttr_));
+  new (*attr) qbEventAttr_;
 	return qbResult::QB_OK;
 }
 
 qbResult qb_eventattr_destroy(qbEventAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -462,19 +457,7 @@ qbResult qb_element_read(qbElement element, void* buffer) {
 }
 
 qbResult qb_element_write(qbElement element) {
-  switch(element->indexed_by) {
-    case QB_INDEXEDBY_KEY:
-      memmove(element->interface.by_id(&element->interface, element->id),
-              element->user_buffer, element->size);
-      break;
-    case QB_INDEXEDBY_OFFSET:
-      memmove(element->interface.by_offset(&element->interface, element->offset),
-              element->user_buffer, element->size);
-      break;
-    case QB_INDEXEDBY_HANDLE:
-      memmove(element->interface.by_handle(&element->interface, element->handle),
-              element->user_buffer, element->size);
-      break;
-  }
+  memmove(element->component->instances[element->id],
+          element->user_buffer, element->size);
   return QB_OK;
 }

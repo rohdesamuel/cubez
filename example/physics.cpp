@@ -54,7 +54,7 @@ void initialize(const Settings&) {
     qb_systemattr_addsource(attr, transforms_);
     qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setfunction(attr,
-        [](qbElement* elements, qbCollectionInterface*, qbFrame*) {
+        [](qbElement* elements, qbFrame*) {
           Transform t;
           qb_element_read(elements[0], &t);
 
@@ -72,7 +72,7 @@ void initialize(const Settings&) {
     qb_systemattr_addsource(attr, collidable_);
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
-        [](qbElement* e, qbCollectionInterface*, qbFrame*) {
+        [](qbElement* e, qbFrame*) {
           qbEntity e_a = qb_element_getentity(e[0]);
           qbEntity e_b = qb_element_getentity(e[1]);
 
@@ -132,11 +132,11 @@ void initialize(const Settings&) {
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_addsink(attr, transforms_);
     qb_systemattr_setcallback(attr,
-        [](qbCollectionInterface* collections, qbFrame* frame) {
-          qbCollectionInterface* from = &collections[0];
+        [](qbFrame* frame) {
+          /*qbCollectionInterface* from = &collections[0];
           Impulse* impulse = (Impulse*)frame->event;
           Transform* transform = (Transform*)from->by_id(from, impulse->key);
-          transform->v += impulse->p;
+          transform->v += impulse->p;*/
         });
     qb_system_create(&impulse_system, attr);
     qb_systemattr_destroy(&attr);

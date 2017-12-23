@@ -25,7 +25,7 @@ void initialize() {
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setprogram(attr, kStdout);
     qb_systemattr_setcallback(attr,
-        [](qbCollectionInterface*, qbFrame* f) {
+        [](qbFrame* f) {
           std::cout << (char*)(f->event) << std::endl;
         });
     qb_system_create(&system_out, attr);

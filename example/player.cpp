@@ -56,7 +56,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_addsink(attr, physics::component());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_setfunction(attr,
-        [](qbElement* e, qbCollectionInterface*, qbFrame*) {
+        [](qbElement* e, qbFrame*) {
           physics::Transform t;
           qb_element_read(e[1], &t);
 
@@ -128,7 +128,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setfunction(attr,
-        [](qbElement* els, qbCollectionInterface*, qbFrame* f) {
+        [](qbElement* els, qbFrame* f) {
           input::InputEvent* e = (input::InputEvent*)f->event;
           if (e->key != QB_KEY_SPACE) {
             return;
@@ -156,7 +156,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_addsource(attr, players);
     qb_systemattr_settrigger(attr, QB_TRIGGER_EVENT);
     qb_systemattr_setcallback(attr,
-        [](qbCollectionInterface*, qbFrame* f) {
+        [](qbFrame* f) {
           input::MouseEvent* e = (input::MouseEvent*)f->event;
           render::qb_camera_incyaw(-(float)(e->xrel) * 0.25f);
           render::qb_camera_incpitch((float)(e->yrel) * 0.25f);

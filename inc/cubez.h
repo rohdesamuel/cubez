@@ -71,7 +71,7 @@ DLLEXPORT qbResult qb_detach_program(qbId program);
 //   QB_OK on success
 DLLEXPORT qbResult qb_join_program(qbId program);
 
-typedef struct qbEntity_* qbEntity;
+typedef qbId qbEntity;
 typedef struct qbEntityAttr_* qbEntityAttr;
 typedef struct qbComponent_* qbComponent;
 typedef struct qbComponentAttr_* qbComponentAttr;
@@ -100,10 +100,8 @@ struct qbCollectionInterface {
 
   qbValueByOffset by_offset;
   qbValueById by_id;
-  qbValueByHandle by_handle;
 
   qbRemoveByOffset remove_by_offset;
-  qbRemoveByHandle remove_by_handle;
   qbRemoveById remove_by_id;
 };
 
@@ -118,8 +116,6 @@ DLLEXPORT qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t siz
     qb_componentattr_setdatasize(attr, sizeof(type))
 
 DLLEXPORT qbResult qb_componentattr_setprogram(qbComponentAttr attr, const char* program);
-DLLEXPORT qbResult qb_componentattr_setimplementation(qbComponentAttr attr,
-                                            qbCollection* collection);
 
 DLLEXPORT qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 DLLEXPORT qbResult qb_component_destroy(qbComponent* component);
@@ -180,10 +176,9 @@ enum qbComponentJoin {
   QB_JOIN_CROSS,
 };
 
-typedef void (*qbTransform)(qbElement* elements,
-                            qbCollectionInterface* sinks, qbFrame* frame);
+typedef void (*qbTransform)(qbElement* elements, qbFrame* frame);
 
-typedef void (*qbCallback)(qbCollectionInterface* sinks, qbFrame* frame);
+typedef void (*qbCallback)(qbFrame* frame);
 
 DLLEXPORT qbResult qb_systemattr_create(qbSystemAttr* attr);
 DLLEXPORT qbResult qb_systemattr_destroy(qbSystemAttr* attr);

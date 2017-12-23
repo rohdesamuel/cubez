@@ -74,7 +74,7 @@ bool check_for_gl_errors() {
   return true;
 }
 
-void render_event_handler(qbElement* elements, qbCollectionInterface*, qbFrame*) {
+void render_event_handler(qbElement* elements, qbFrame*) {
   qbRenderable renderable;
   qb_element_read(elements[0], &renderable);
 
