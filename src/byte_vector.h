@@ -37,6 +37,7 @@ class ByteVector {
   typedef const iterator const_iterator;
   typedef uint64_t Index;
 
+  ByteVector() : elems_(nullptr), count_(0), capacity_(0), elem_size_(0) { }
 
   ByteVector(size_t element_size) :
       elems_(nullptr), count_(0), capacity_(0), elem_size_(element_size) {
@@ -45,19 +46,25 @@ class ByteVector {
   }
 
   ByteVector(const ByteVector& other) : elem_size_(other.elem_size_) {
-    count_ = other.count_;
-    reserve(count_);
-    memcpy(elems_, other.elems_, other.size() * other.element_size());
+    copy(other);
   }
 
   ByteVector(ByteVector&& other) : elem_size_(other.elem_size_) {
-    count_ = other.count_;
-    capacity_ = other.capacity_;
-    elems_ = other.elems_;
+    move(std::move(other));
+  }
 
-    other.count_ = 0;
-    other.capacity_ = 0;
-    other.elems_ = nullptr;
+  ByteVector& operator=(const ByteVector& other) {
+    if (this != &other) {
+      copy(other);
+    }
+    return *this;
+  }
+
+  ByteVector& operator=(ByteVector&& other) {
+    if (this != &other) {
+      move(std::move(other));
+    }
+    return *this;
   }
 
   void* operator[](Index index) {
@@ -161,7 +168,7 @@ class ByteVector {
     size_t new_capacity = capacity_;
     if (count > capacity_) {
       new_capacity = (size_t)1 << (log_2 + 1);
-    } else if (count < capacity_ / 2) {
+    } else if (count < capacity_ / 4) {
       new_capacity = std::max(8, 1 << (log_2 - 1));
     }
 
@@ -171,7 +178,7 @@ class ByteVector {
 
     uint8_t* new_elems = (uint8_t*)calloc(new_capacity, elem_size_);
 
-    std::memcpy(new_elems, front(), count_ * elem_size_);
+    std::memmove(new_elems, front(), capacity_ * elem_size_);
     free(elems_);
     elems_ = new_elems;
     capacity_ = new_capacity;
@@ -213,6 +220,24 @@ class ByteVector {
   }
 
  private:
+  void copy(const ByteVector& other) {
+    count_ = other.count_;
+    reserve(count_);
+    memcpy(elems_, other.elems_, other.size() * other.element_size());
+    *(size_t*)(&elem_size_) = other.elem_size_;
+  }
+
+  void move(ByteVector&& other) {
+    count_ = other.count_;
+    capacity_ = other.capacity_;
+    elems_ = other.elems_;
+    *(size_t*)(&elem_size_) = other.elem_size_;
+
+    other.count_ = 0;
+    other.capacity_ = 0;
+    other.elems_ = nullptr;
+  }
+
   uint8_t* elems_;
   size_t count_;
   size_t capacity_;

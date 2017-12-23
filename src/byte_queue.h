@@ -88,10 +88,10 @@ public:
   }
 
   void push(const void* data) {
-    if (length_ < capacity_) {
+    if (length_ < capacity_ && overflow_length_ == 0) {
+      std::memmove(ring_[end_], data, ring_.element_size());
       end_ = (end_ + 1) % capacity_;
       ++length_;
-      ring_.push_back(data);
     } else {
       ++overflow_length_;
       overflow_.push_back(data);
