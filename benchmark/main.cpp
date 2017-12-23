@@ -89,22 +89,9 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_addsource(attr, position_component);
-    qb_systemattr_setfunction(attr,
-      [](qbElement*, qbCollectionInterface*, qbFrame*) {
-        *Count() += 2;
-      });
-
-    qbSystem system;
-    qb_system_create(&system, attr);
-    qb_systemattr_destroy(&attr);
-  }
-  {
-    qbSystemAttr attr;
-    qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, position_component);
     qb_systemattr_addsink(attr, position_component);
     qb_systemattr_setfunction(attr,
-      [](qbElement* e, qbCollectionInterface*, qbFrame*) {
+      [](qbElement* e, qbFrame*) {
         *Count() += 1;
       });
 
@@ -167,10 +154,10 @@ int main() {
   uint64_t count = 10'000'000;
   uint64_t iterations = 1;
   uint64_t test_iterations = 1;
-  do_benchmark("Create entities benchmark",
-               create_entities_benchmark, count, iterations, 1);
-  /*do_benchmark("Unpack one component benchmark",
-    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);*/
+  /*do_benchmark("Create entities benchmark",
+               create_entities_benchmark, count, iterations, 1);*/
+  do_benchmark("Unpack one component benchmark",
+    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
   qb_stop();
 
    while (1);
