@@ -23,7 +23,7 @@ public:
     dense_.reserve(size);
   }
 
-  void insert(int64_t value) {
+  void insert(uint64_t value) {
     if (value >= sparse_.size()) {
       sparse_.resize(value + 1, -1);
     }
@@ -31,14 +31,14 @@ public:
     dense_.push_back(value);
   }
 
-  void erase(int64_t value) {
+  void erase(uint64_t value) {
     dense_[sparse_[value]] = dense_.back();
     sparse_[dense_.back()] = sparse_[value];
     dense_.pop_back();
     sparse_[value] = -1;
   }
 
-  bool has(int64_t value) {
+  bool has(uint64_t value) {
     if (value > sparse_.size()) {
       return false;
     }
@@ -51,7 +51,7 @@ public:
 
 private:
   std::vector<qbHandle> sparse_;
-  std::vector<int64_t> dense_;
+  std::vector<uint64_t> dense_;
 };
 
 #endif  // SPARSE_SET__H

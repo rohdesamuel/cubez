@@ -38,7 +38,6 @@ SystemImpl* SystemImpl::FromRaw(qbSystem system) {
 
 void SystemImpl::Run(void* event) {
   size_t source_size = sources_.size();
-  size_t sink_size = sinks_.size();
   qbFrame frame;
   frame.event = event;
   frame.state = system_->user_state;
@@ -72,8 +71,6 @@ void SystemImpl::Run_1(qbFrame* f) {
   qbComponent component = &(*component_registry_)[sources_[0]];
   auto& instances = component->instances;
 
-  uint64_t count = instances.size();
-  
   for (auto id_component : instances) {
     CopyToElement(component, id_component.first, id_component.second, &elements_[0]);
     transform_(elements_data_.data(), f);
@@ -101,7 +98,6 @@ void SystemImpl::Run_N(qbFrame* f) {
     } return;
   }
 
-  const uint64_t count = source->instances.size();
   switch(join_) {
     case qbComponentJoin::QB_JOIN_LEFT:
     case qbComponentJoin::QB_JOIN_INNER: {
