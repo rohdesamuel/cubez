@@ -45,7 +45,7 @@ class ComponentRegistry {
                                             void* instance_data);
 
  private:
-  SparseMap<qbComponent_*> components_;
+  SparseMap<qbComponent> components_;
   std::atomic_long id_;
 };
 
