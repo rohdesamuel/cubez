@@ -74,13 +74,13 @@ class EntityRegistry {
 
   static void DestroyEntityHandler(qbFrame* frame);
 
+  std::atomic_long id_;
+  
   ComponentRegistry* component_registry_;
 
   SparseSet entities_;
   SparseSet destroyed_entities_;
   std::vector<size_t> free_entity_ids_;
-
-  std::atomic_long id_;
 
   qbEvent add_component_event_;
   qbEvent remove_component_event_;

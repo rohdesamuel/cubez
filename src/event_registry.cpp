@@ -34,11 +34,11 @@ void EventRegistry::FlushAll() {
   }
 }
 
-void EventRegistry::AllocEvent(qbId id, qbEvent* event, Event* channel) {
-  *event = (qbEvent)calloc(1, sizeof(qbEvent_));
-  *(qbId*)(&(*event)->id) = id;
-  *(qbId*)(&(*event)->program) = program_;
-  (*event)->channel = channel;
+void EventRegistry::AllocEvent(qbId id, qbEvent* qb_event, Event* event) {
+  *qb_event = (qbEvent)calloc(1, sizeof(qbEvent_));
+  *(qbId*)(&(*qb_event)->id) = id;
+  *(qbId*)(&(*qb_event)->program) = program_;
+  (*qb_event)->event = event;
 }
 
 Event* EventRegistry::FindEvent(qbEvent event) {

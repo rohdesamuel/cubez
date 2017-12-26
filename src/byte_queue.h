@@ -21,6 +21,7 @@ public:
     } else if (overflow_length_ > 0) {
       return overflow_[overflow_begin_];
     }
+    return nullptr;
   }
 
   // Returns the address to the last element.
