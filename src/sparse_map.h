@@ -114,7 +114,7 @@ public:
 
   void erase(uint64_t key) {
     // Erase the old value.
-    dense_values_[sparse_[key]] = dense_values_.back();
+    dense_values_[sparse_[key]] = std::move(dense_values_.back());
     dense_values_.pop_back();
 
     // Erase from the sparse set.
@@ -125,7 +125,7 @@ public:
   }
 
   bool has(uint64_t key) {
-    if (key > sparse_.size()) {
+    if (key >= sparse_.size()) {
       return false;
     }
     return sparse_[key] != -1;
@@ -262,7 +262,7 @@ public:
   }
 
   bool has(uint64_t key) {
-    if (key > sparse_.size()) {
+    if (key >= sparse_.size()) {
       return false;
     }
     return sparse_[key] != -1;

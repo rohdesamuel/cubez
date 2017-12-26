@@ -39,7 +39,7 @@ public:
   }
 
   bool has(uint64_t value) {
-    if (value > sparse_.size()) {
+    if (value >= sparse_.size()) {
       return false;
     }
     return sparse_[value] != -1;
