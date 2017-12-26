@@ -10,8 +10,7 @@ Event::Event(
   : id_(id),
     message_queue_(message_queue),
     size_(size),
-    mem_buffer_(size),
-    free_mem_(size) {
+    mem_buffer_(size) {
   mem_buffer_.reserve(1000);
   free_mem_.reserve(1000);
 }
@@ -57,7 +56,7 @@ void Event::RemoveHandler(qbSystem s) {
 
 void Event::Flush(size_t index) {
   for (const auto& handler : handlers_) {
-    void* m = (uint8_t*)(Message*)mem_buffer_[index] + size_;
+    void* m = mem_buffer_[index];
     SystemImpl::FromRaw(handler)->Run(m);
   }
   FreeMessage(index);

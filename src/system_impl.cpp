@@ -102,14 +102,15 @@ void SystemImpl::Run_N(qbFrame* f) {
     case qbComponentJoin::QB_JOIN_LEFT:
     case qbComponentJoin::QB_JOIN_INNER: {
       for (auto id_component : source->instances) {
+        qbId entity_id = id_component.first;
         bool should_continue = false;
         for (size_t j = 0; j < sources_.size(); ++j) {
-          qbComponent c = &(*component_registry_)[j];
-          if (!c->instances.has(id_component.first)) {
+          qbComponent c = &(*component_registry_)[sources_[j]];
+          if (!c->instances.has(entity_id)) {
             should_continue = true;
             break;
           }
-          CopyToElement(c, id_component.first, id_component.second, &elements_[j]);
+          CopyToElement(c, entity_id, c->instances[entity_id], &elements_[j]);
         }
         if (should_continue) continue;
 
