@@ -88,7 +88,7 @@ class ByteVector {
   }
 
   const_iterator end() const {
-    return iterator((uint8_t*)back(), elem_size_);
+    return iterator((uint8_t*)(elems_ + count_ * elem_size_), elem_size_);
   }
 
   // Returns the addres to the first element.
@@ -98,7 +98,7 @@ class ByteVector {
 
   // Returns the address to the last element.
   void* back() {
-    return elems_ + count_ * elem_size_;
+    return elems_ + (count_ - 1) * elem_size_;
   }
 
   // Returns the addres to the first element.
@@ -108,7 +108,7 @@ class ByteVector {
 
   // Returns the address to the last element.
   const void* back() const {
-    return elems_ + count_ * elem_size_;
+    return elems_ + (count_ - 1) * elem_size_;
   }
 
   void* at(Index index) {
