@@ -8,23 +8,23 @@ int32_t log_2(uint64_t v) {
     LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
     LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
   };
-  register uint64_t t; // temporary
-  if (t = v >> 56) {
-    return 56 + LogTable256[t];
-  } else if (t = v >> 48) {
-    return 48 + LogTable256[t];
-  } else if (t = v >> 40) {
-    return 40 + LogTable256[t];
-  } else if (t = v >> 32) {
-    return 32 + LogTable256[t];
-  } else if (t = v >> 24) {
-    return 24 + LogTable256[t];
-  } else if (t = v >> 16) {
-    return 16 + LogTable256[t];
-  } else if (t = v >> 8) {
-    return 8 + LogTable256[t];
+  uint64_t t; // temporary
+  if ((t = v) >> 56) {
+    return 56 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 48) {
+    return 48 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 40) {
+    return 40 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 32) {
+    return 32 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 24) {
+    return 24 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 16) {
+    return 16 + LogTable256[(uint8_t)t];
+  } else if ((t = v) >> 8) {
+    return 8 + LogTable256[(uint8_t)t];
   } else {
-    return LogTable256[v];
+    return LogTable256[(uint8_t)v];
   }
 }
 

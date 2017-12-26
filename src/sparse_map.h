@@ -15,7 +15,7 @@
 template<class Value_>
 class SparseMap {
 public:
-  typedef int64_t Key;
+  typedef uint64_t Key;
   typedef Value_ Value;
 
   class iterator {
@@ -75,14 +75,14 @@ public:
     dense_.reserve(size);
   }
 
-  Value& operator[](int64_t key) {
+  Value& operator[](uint64_t key) {
     if (!has(key)) {
       insert(key, Value{});
     }
     return dense_values_[sparse_[key]];
   }
 
-  const Value& operator[](int64_t key) const {
+  const Value& operator[](uint64_t key) const {
     return dense_values_[sparse_[key]];
   }
 
@@ -94,7 +94,7 @@ public:
     return iterator{ this, size() };
   }
 
-  void insert(int64_t key, const Value& value) {
+  void insert(uint64_t key, const Value& value) {
     if (key >= sparse_.size()) {
       sparse_.resize(key + 1, -1);
     }
@@ -103,7 +103,7 @@ public:
     dense_values_.push_back(value);
   }
 
-  void insert(int64_t key, Value&& value) {
+  void insert(uint64_t key, Value&& value) {
     if (key >= sparse_.size()) {
       sparse_.resize(key + 1, -1);
     }
@@ -112,7 +112,7 @@ public:
     dense_values_.push_back(std::move(value));
   }
 
-  void erase(int64_t key) {
+  void erase(uint64_t key) {
     // Erase the old value.
     dense_values_[sparse_[key]] = dense_values_.back();
     dense_values_.pop_back();
@@ -124,7 +124,7 @@ public:
     sparse_[key] = -1;
   }
 
-  bool has(int64_t key) {
+  bool has(uint64_t key) {
     if (key > sparse_.size()) {
       return false;
     }
@@ -150,7 +150,7 @@ private:
 
   std::vector<Value> dense_values_;
   std::vector<qbId> sparse_;
-  std::vector<int64_t> dense_;
+  std::vector<uint64_t> dense_;
 
   friend class iterator;
 };
@@ -158,7 +158,7 @@ private:
 template<>
 class SparseMap<void> {
 public:
-  typedef int64_t Key;
+  typedef uint64_t Key;
 
   class iterator {
   public:
@@ -191,8 +191,8 @@ public:
   SparseMap() {}
 
   SparseMap(size_t element_size)
-    : sparse_(16, -1), element_size_(element_size),
-    dense_values_(element_size) {}
+    : element_size_(element_size), sparse_(16, -1), 
+      dense_values_(element_size) {}
 
   SparseMap(const SparseMap<void>& other) : dense_values_(other.element_size_) {
     copy(other);
@@ -221,14 +221,14 @@ public:
     dense_.reserve(size);
   }
 
-  void* operator[](int64_t key) {
+  void* operator[](uint64_t key) {
     if (!has(key)) {
       insert(key, nullptr);
     }
     return dense_values_[sparse_[key]];
   }
 
-  const void* operator[](int64_t key) const {
+  const void* operator[](uint64_t key) const {
     return dense_values_[sparse_[key]];
   }
 
@@ -240,7 +240,7 @@ public:
     return iterator{ this, size() };
   }
 
-  void insert(int64_t key, void* value) {
+  void insert(uint64_t key, void* value) {
     if (key >= sparse_.size()) {
       sparse_.resize(key + 1, -1);
     }
@@ -249,7 +249,7 @@ public:
     dense_values_.push_back(std::move(value));
   }
 
-  void erase(int64_t key) {
+  void erase(uint64_t key) {
     // Erase the old value.
     memmove(dense_values_[sparse_[key]], dense_values_.back(), element_size_);
     dense_values_.pop_back();
@@ -261,7 +261,7 @@ public:
     sparse_[key] = -1;
   }
 
-  bool has(int64_t key) {
+  bool has(uint64_t key) {
     if (key > sparse_.size()) {
       return false;
     }
@@ -289,11 +289,10 @@ private:
     dense_ = std::move(other.dense_);
   }
 
-  ByteVector dense_values_;
-  std::vector<qbId> sparse_;
-  std::vector<int64_t> dense_;
-
   size_t element_size_;
+  std::vector<qbId> sparse_;
+  ByteVector dense_values_;
+  std::vector<uint64_t> dense_;
 };
 
 #endif  // SPARSE_MAP__H

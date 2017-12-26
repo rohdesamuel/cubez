@@ -179,7 +179,7 @@ struct qbEventAttr_ {
 struct qbEvent_ {
   qbId id;
   qbId program;
-  void* channel;
+  void* event;
 };
 
 #endif

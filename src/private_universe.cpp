@@ -256,11 +256,11 @@ qbResult PrivateUniverse::event_unsubscribe(qbEvent event, qbSystem system) {
 }
 
 qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
-  return ((Channel*)event->channel)->SendMessage(message);
+  return ((Event*)event->event)->SendMessage(message);
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Channel*)event->channel)->SendMessageSync(message);
+  return ((Event*)event->event)->SendMessageSync(message);
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
