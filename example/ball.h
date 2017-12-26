@@ -20,7 +20,6 @@ struct Settings {
 void initialize(const Settings& settings);
 
 void create(glm::vec3 pos, glm::vec3 vel);
-void create(qbId id, glm::vec3 pos, glm::vec3 vel);
 
 qbComponent Component();
 

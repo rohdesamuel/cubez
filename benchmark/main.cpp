@@ -40,7 +40,7 @@ void move(qbElement* e, qbCollectionInterface*, qbFrame* f) {
   qb_element_write(e[0]);
 }
 
-void comflab(qbElement* e, qbCollectionInterface*, qbFrame* f) {
+void comflab(qbElement* e, qbCollectionInterface*, qbFrame*) {
   ComflabulationComponent comflab;
   qb_element_read(e[0], &comflab);
   comflab.thingy *= 1.000001f;
@@ -91,7 +91,7 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
     qb_systemattr_addsource(attr, position_component);
     qb_systemattr_addsink(attr, position_component);
     qb_systemattr_setfunction(attr,
-      [](qbElement* e, qbFrame*) {
+      [](qbElement*, qbFrame*) {
         *Count() += 1;
       });
 
@@ -159,6 +159,4 @@ int main() {
   do_benchmark("Unpack one component benchmark",
     iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
   qb_stop();
-
-   while (1);
 }

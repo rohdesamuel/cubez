@@ -125,22 +125,6 @@ void initialize(const Settings&) {
     qb_system_create(&collision_system, attr);
     qb_systemattr_destroy(&attr);
   }
-  {
-    qbSystemAttr attr;
-    qb_systemattr_create(&attr);
-    qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
-    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-    qb_systemattr_addsink(attr, transforms_);
-    qb_systemattr_setcallback(attr,
-        [](qbFrame* frame) {
-          /*qbCollectionInterface* from = &collections[0];
-          Impulse* impulse = (Impulse*)frame->event;
-          Transform* transform = (Transform*)from->by_id(from, impulse->key);
-          transform->v += impulse->p;*/
-        });
-    qb_system_create(&impulse_system, attr);
-    qb_systemattr_destroy(&attr);
-  }
 
   // Initialize events.
   {

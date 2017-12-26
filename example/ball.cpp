@@ -39,10 +39,10 @@ void initialize(const Settings& settings) {
         //std::cout << "Ball destroyed " << qb_entity_getid(entity) << "\n";
         if (rand() % 2 == 0 && qb_component_getcount(ball_component) < 5) {
           for (int i = 0; i < 5; ++i) {
-            ball::create(qb_entity_getid(entity), transform->p,
-                          {((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f});
+            ball::create(transform->p,
+                         {((float)(rand() % 500) - 250.0f) / 250.0f,
+                         ((float)(rand() % 500) - 250.0f) / 250.0f,
+                         ((float)(rand() % 500) - 250.0f) / 250.0f});
           }
         }
       });
@@ -98,29 +98,6 @@ void initialize(const Settings& settings) {
 }
 
 void create(glm::vec3 pos, glm::vec3 vel) {
-  qbEntityAttr attr;
-  qb_entityattr_create(&attr);
-
-  Ball b;
-  b.death_counter = 100 + (rand() % 100) - (rand() % 100);
-  qb_entityattr_addcomponent(attr, ball_component, &b);
-
-  physics::Transform t{ pos, vel, false };
-  qb_entityattr_addcomponent(attr, physics::component(), &t);
-
-  qb_entityattr_addcomponent(attr, render::component(), &render_state);
-
-  physics::Collidable c;
-  qb_entityattr_addcomponent(attr, physics::collidable(), &c);
-
-  qbEntity entity;
-  qb_entity_create(&entity, attr);
-
-
-  qb_entityattr_destroy(&attr);
-}
-
-void create(qbId id, glm::vec3 pos, glm::vec3 vel) {
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
 
