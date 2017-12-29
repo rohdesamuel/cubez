@@ -3,10 +3,8 @@
 
 #include "defs.h"
 #include "memory_pool.h"
-#include "buddy_system_allocator.h"
 #include "component_registry.h"
 #include "sparse_set.h"
-#include "sparse_map.h"
 
 #include <algorithm>
 #include <atomic>
@@ -18,6 +16,12 @@ extern const uint32_t kMaxInstanceCount;
 
 class EntityRegistry {
  public:
+  struct CreateEntityEvent {
+    EntityRegistry* self;
+    qbId entity;
+    std::vector<qbComponentInstance_>* instances;
+  };
+
   struct DestroyEntityEvent {
     EntityRegistry* self;
     qbId entity;
@@ -72,6 +76,8 @@ class EntityRegistry {
 
   static void RemoveComponentHandler(qbFrame* frame);
 
+  static void CreateEntityHandler(qbFrame* frame);
+
   static void DestroyEntityHandler(qbFrame* frame);
 
   std::atomic_long id_;
@@ -81,13 +87,16 @@ class EntityRegistry {
   SparseSet entities_;
   SparseSet destroyed_entities_;
   std::vector<size_t> free_entity_ids_;
+  MemoryPool<uint8_t, 4096> component_buffer_;
 
   qbEvent add_component_event_;
   qbEvent remove_component_event_;
+  qbEvent create_entity_event_;
   qbEvent destroy_entity_event_;
 
   qbSystem add_component_system_;
   qbSystem remove_component_system_;
+  qbSystem create_entity_system_;
   qbSystem destroy_entity_system_;
 
   std::mutex destroy_entity_mu_;

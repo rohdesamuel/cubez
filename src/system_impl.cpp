@@ -111,7 +111,7 @@ void SystemImpl::Run_N(qbFrame* f) {
       bool all_zero = true;
       ++indices[0];
       for (size_t i = 0; i < indices.size(); ++i) {
-        if (indices[i] == (*component_registry_)[sources_[i]].instances.size()) {
+        if (indices[i] >= (*component_registry_)[sources_[i]].instances.size()) {
           indices[i] = 0;
           if (i + 1 < indices.size()) {
             ++indices[i + 1];

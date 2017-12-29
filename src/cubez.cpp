@@ -160,7 +160,7 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
 }
 
 qbResult qb_entity_destroy(qbEntity* entity) {
-  if (entity && *entity) {
+  if (entity) {
     return AS_PRIVATE(entity_destroy(entity));
   }
   return QB_ERROR_NULL_POINTER;

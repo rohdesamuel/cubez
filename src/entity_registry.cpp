@@ -55,6 +55,25 @@ void EntityRegistry::Init() {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
+    qb_systemattr_setcallback(attr, CreateEntityHandler);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+    qb_system_create(&create_entity_system_, attr);
+    qb_systemattr_destroy(&attr);
+  }
+  {
+    qbEventAttr attr;
+    qb_eventattr_create(&attr);
+    qb_eventattr_setmessagetype(attr, CreateEntityEvent);
+    qb_event_create(&create_entity_event_, attr);
+
+    qb_event_subscribe(create_entity_event_, create_entity_system_);
+
+    qb_eventattr_destroy(&attr);
+  }
+
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, RemoveComponentHandler);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setuserstate(attr, this);
@@ -80,13 +99,21 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
   qbId new_id = AllocEntity();
   LOG(INFO, "CreateEntity " << new_id << "\n");
   *entity = new_id;
-  SetComponents(new_id, attr.component_list);
 
-  for (const qbComponentInstance_& instance: attr.component_list) {
-    qbComponent component = instance.component;
-    ComponentRegistry::SendComponentCreateEvent(
-      component, new_id, component->instances[*entity]);
+  CreateEntityEvent event;
+  event.self = this;
+  event.entity = new_id;
+  event.instances = new std::vector<qbComponentInstance_>();
+  event.instances->reserve(attr.component_list.size());
+  for (auto& instance : attr.component_list) {
+    void* instance_data = malloc(instance.component->instances.element_size());
+    memmove(instance_data, instance.data,
+            instance.component->instances.element_size());
+    event.instances->push_back({ instance.component, instance_data });
   }
+
+  qb_event_send(create_entity_event_, &event);
+
   return qbResult::QB_OK;
 }
 
@@ -175,8 +202,6 @@ qbId EntityRegistry::AllocEntity() {
     free_entity_ids_.pop_back();
   }
 
-  entities_.insert(new_id);
-
   return new_id;
 }
 
@@ -203,6 +228,26 @@ void EntityRegistry::RemoveComponentHandler(qbFrame* frame) {
 qbResult EntityRegistry::SendDestroyEntityEvent(qbId entity) {
   DestroyEntityEvent event{this, entity};
   return qb_event_send(destroy_entity_event_, &event);
+}
+
+void EntityRegistry::CreateEntityHandler(qbFrame* frame) {
+  CreateEntityEvent* event = (CreateEntityEvent*)frame->event;
+  qbId new_id = event->entity;
+  EntityRegistry* self = event->self;
+
+  self->entities_.insert(new_id);
+  self->SetComponents(new_id, *event->instances);
+
+  for (auto& instance : *event->instances) {
+    free(instance.data);
+  }
+
+  for (const qbComponentInstance_& instance: *event->instances) {
+    qbComponent component = instance.component;
+    ComponentRegistry::SendComponentCreateEvent(
+      component, new_id, component->instances[new_id]);
+  }
+  delete event->instances;
 }
 
 void EntityRegistry::DestroyEntityHandler(qbFrame* frame) {
