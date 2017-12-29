@@ -74,26 +74,22 @@ void send_key_event(qbKey key, bool state) {
   qb_event_send(keyboard_event, &input);
 }
 
-void send_mouse_click_event(qbButton button, bool is_pressed) {
+void send_mouse_click_event(qbButton button, uint8_t is_pressed) {
   MouseEvent event;
-  event.was_pressed = mouse_states[(int)button];
-  event.is_pressed = is_pressed;
-  event.mouse_button = button;
-
-  get_mouse_position(&event.x, &event.y);
-  event.xrel = 0;
-  event.yrel = 0;
-  mouse_states[(int)button] = is_pressed;
+  event.event_type = QB_MOUSE_EVENT_BUTTON;
+  event.button_event.state = is_pressed;
+  event.button_event.mouse_button = button;
 
   qb_event_send(mouse_event, &event);
 }
 
 void send_mouse_move_event(int x, int y, int xrel, int yrel) {
   MouseEvent event;
-  event.x = x;
-  event.y = y;
-  event.xrel = xrel;
-  event.yrel = yrel;
+  event.event_type = QB_MOUSE_EVENT_MOTION;
+  event.motion_event.x = x;
+  event.motion_event.y = y;
+  event.motion_event.xrel = xrel;
+  event.motion_event.yrel = yrel;
   mouse_x = x;
   mouse_y = y;
 

@@ -19,7 +19,7 @@ struct Settings {
 
 void initialize(const Settings& settings);
 
-void create(glm::vec3 pos, glm::vec3 vel);
+void create(glm::vec3 pos, glm::vec3 vel, bool collidable = true);
 
 qbComponent Component();
 

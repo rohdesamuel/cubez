@@ -83,18 +83,33 @@ struct InputEvent {
   qbKey key;
 };
 
-struct MouseEvent {
-  bool was_pressed;
-  bool is_pressed;
+enum qbMouseEvent {
+  QB_MOUSE_EVENT_MOTION,
+  QB_MOUSE_EVENT_BUTTON,
+};
+
+struct MouseButtonEvent {
+  uint8_t state;
   qbButton mouse_button;
+};
+
+struct MouseMotionEvent {
   int x;
   int y;
   int xrel;
   int yrel;
 };
 
+struct MouseEvent {
+  union {
+    MouseButtonEvent button_event;
+    MouseMotionEvent motion_event;
+  };
+  qbMouseEvent event_type;
+};
+
 void send_key_event(qbKey key, bool is_pressed);
-void send_mouse_click_event(qbButton button, bool is_pressed);
+void send_mouse_click_event(qbButton button, uint8_t is_pressed);
 void send_mouse_move_event(int x, int y, int xrel, int yrel);
 
 qbResult on_key_event(qbSystem system);
