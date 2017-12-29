@@ -78,7 +78,7 @@ void EntityRegistry::Init() {
 qbResult EntityRegistry::CreateEntity(qbEntity* entity,
                                       const qbEntityAttr_& attr) {
   qbId new_id = AllocEntity();
-  std::cout << "CreateEntity " << new_id << "\n";
+  LOG(INFO, "CreateEntity " << new_id << "\n");
   *entity = new_id;
   SetComponents(new_id, attr.component_list);
 
@@ -102,7 +102,7 @@ qbResult EntityRegistry::DestroyEntity(qbEntity* entity) {
   }
   destroyed_entities_.insert(*entity);
 
-  std::cout << "Send OnRemoveComponent Event for " << (*entity) << "\n";
+  LOG(INFO, "Send OnRemoveComponent Event for " << (*entity) << "\n");
   
   for (auto it = component_registry_->begin(); it != component_registry_->end(); ++it) {
     qbComponent component = (*it).second;
@@ -111,7 +111,7 @@ qbResult EntityRegistry::DestroyEntity(qbEntity* entity) {
     }
   }
 
-  std::cout << "Send RemoveComponent Event for " << (*entity) << "\n";
+  LOG(INFO, "Send RemoveComponent Event for " << (*entity) << "\n");
   for (auto it = component_registry_->begin(); it != component_registry_->end(); ++it) {
     qbComponent component = (*it).second;
     if (component->instances.has(*entity)) {
@@ -119,7 +119,7 @@ qbResult EntityRegistry::DestroyEntity(qbEntity* entity) {
     }
   }
 
-  std::cout << "Send DestroyEntity Event for " << (*entity) << "\n";
+  LOG(INFO, "Send DestroyEntity Event for " << (*entity) << "\n");
   SendDestroyEntityEvent(*entity);
  
   return QB_OK;
@@ -195,7 +195,7 @@ void EntityRegistry::RemoveComponentHandler(qbFrame* frame) {
   qbId entity = event->entity;
   qbComponent component = event->component;
 
-  std::cout << "RemoveComponent for " << entity << "\n";
+  LOG(INFO, "RemoveComponent for " << entity << "\n");
 
   component->instances.erase(entity);
 }
@@ -209,7 +209,7 @@ void EntityRegistry::DestroyEntityHandler(qbFrame* frame) {
   DestroyEntityEvent* event = (DestroyEntityEvent*)frame->event;
   EntityRegistry* self = event->self;
 
-  std::cout << "DestroyEntity for " << event->entity << "\n";
+  LOG(INFO, "DestroyEntity for " << event->entity << "\n");
   // Remove entity from index and make it available for use.
   self->entities_.erase(event->entity);
   self->destroyed_entities_.erase(event->entity);
