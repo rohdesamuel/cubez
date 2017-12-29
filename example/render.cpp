@@ -77,7 +77,7 @@ bool check_for_gl_errors() {
 void render_event_handler(qbElement* elements, qbFrame*) {
   qbRenderable renderable;
   qb_element_read(elements[0], &renderable);
-
+  
   physics::Transform transform;
   qb_element_read(elements[1], &transform);
 

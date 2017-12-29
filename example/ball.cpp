@@ -36,7 +36,6 @@ void initialize(const Settings& settings) {
                                               void*) {
         physics::Transform* transform;
         qb_entity_getcomponent(entity, physics::component(), &transform);
-        //std::cout << "Ball destroyed " << qb_entity_getid(entity) << "\n";
         if (rand() % 2 == 0 && qb_component_getcount(ball_component) < 5) {
           for (int i = 0; i < 5; ++i) {
             ball::create(transform->p,
@@ -61,7 +60,6 @@ void initialize(const Settings& settings) {
           if (ball.death_counter < 0) {
             qbEntity e;
             qb_entity_find(&e, qb_element_getid(els[0]));
-            //std::cout << "Death by counter for " << qb_entity_getid(e) << "\n";
             qb_entity_destroy(&e);
           } else {
             qb_element_write(els[0]);
@@ -81,7 +79,6 @@ void initialize(const Settings& settings) {
           physics::Collision* c = (physics::Collision*)frame->event;
           if (qb_entity_hascomponent(c->a, ball_component) == QB_OK &&
               qb_entity_hascomponent(c->b, ball_component) == QB_OK) {
-            std::cout << "Death by collision " << qb_entity_getid(c->a) << "\n";
             qb_entity_destroy(&c->a);
           }
         });
