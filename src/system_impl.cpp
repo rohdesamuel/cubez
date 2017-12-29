@@ -57,7 +57,8 @@ void SystemImpl::Run(void* event) {
   }
 }
 
-void SystemImpl::CopyToElement(qbComponent component, qbId instance_id, void* instance_data, qbElement element) {
+void SystemImpl::CopyToElement(qbComponent component, qbId instance_id,
+                               void* instance_data, qbElement element) {
   element->id = instance_id;
   element->read_buffer = instance_data;
   element->component = component;
@@ -95,6 +96,55 @@ void SystemImpl::Run_N(qbFrame* f) {
       source = &(*component_registry_)[sources_[0]];
     break;
     case qbComponentJoin::QB_JOIN_CROSS: {
+#if 1
+    static std::vector<size_t> indices(sources_.size(), 0);
+
+    while (1) {
+      for (size_t i = 0; i < indices.size(); ++i) {
+        qbId source_id = sources_[i];
+        qbComponent src = &(*component_registry_)[source_id];
+        auto it = src->instances.begin() + indices[i];
+        CopyToElement(src, (*it).first, (*it).second, &elements_[i]);
+      }
+      transform_(elements_data_.data(), f);
+
+      bool all_zero = true;
+      ++indices[0];
+      for (size_t i = 0; i < indices.size(); ++i) {
+        if (indices[i] == (*component_registry_)[sources_[i]].instances.size()) {
+          indices[i] = 0;
+          if (i + 1 < indices.size()) {
+            ++indices[i + 1];
+          }
+        }
+        all_zero &= indices[i] == 0;
+      }
+
+      if (all_zero) break;
+    }
+#else
+
+      int i = 0;
+      while(1) {
+        int j = i;
+        for (size_t index = 0; index < sources_.size(); ++index) {
+          qbId source_id = sources_[index];
+          qbComponent src = &(*component_registry_)[source_id];
+
+          auto it = src->instances.begin();
+          it = it + (j % std::max((uint64_t)1, src->instances.size()));
+
+          std::cout << j << "\n";
+          j /= std::max((uint64_t)1, src->instances.size());
+          std::cout << j << "\n";
+
+          CopyToElement(src, (*it).first, (*it).second, &elements_[index]);
+        }
+        if (j > 0) return;
+        transform_(elements_data_.data(), f);
+        ++i;
+      }
+#endif
     } return;
   }
 

@@ -174,8 +174,9 @@ qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
                                 void* buffer) {
   if (component->instances.has(entity)) {
     *(void**)buffer = component->instances[entity];
+  } else {
+    *(void**)buffer = nullptr;
   }
-  *(void**)buffer = nullptr;
   return QB_OK;
 }
 
