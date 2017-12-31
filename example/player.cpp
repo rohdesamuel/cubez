@@ -57,6 +57,9 @@ void initialize(const Settings& settings) {
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_setfunction(attr,
         [](qbElement* e, qbFrame*) {
+          Player player;
+          qb_element_read(e[0], &player);
+
           physics::Transform t;
           qb_element_read(e[1], &t);
 
@@ -110,6 +113,15 @@ void initialize(const Settings& settings) {
             t.v.x -= t.v.x * 0.25f;
             t.v.y -= t.v.y * 0.25f;
           }
+
+          if (player.fire_bullets) {
+            glm::vec3 vel = glm::vec3(
+                render::qb_camera_getorientation()
+                * glm::vec4{5.0, 0.0, 0.0, 1.0});
+            
+            ball::create(t.p, vel, false);
+          }
+          
           render::qb_camera_setposition(t.p);
 
           qb_element_write(e[1]);
@@ -154,12 +166,22 @@ void initialize(const Settings& settings) {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_addsource(attr, players);
+    qb_systemattr_addsink(attr, players);
     qb_systemattr_settrigger(attr, QB_TRIGGER_EVENT);
-    qb_systemattr_setcallback(attr,
-        [](qbFrame* f) {
+    qb_systemattr_setfunction(attr,
+        [](qbElement* elements, qbFrame* f) {
           input::MouseEvent* e = (input::MouseEvent*)f->event;
-          render::qb_camera_incyaw(-(float)(e->xrel) * 0.25f);
-          render::qb_camera_incpitch((float)(e->yrel) * 0.25f);
+          if (e->event_type == input::QB_MOUSE_EVENT_MOTION) {
+            render::qb_camera_incyaw(-(float)(e->motion_event.xrel) * 0.25f);
+            render::qb_camera_incpitch((float)(e->motion_event.yrel) * 0.25f);
+          } else {
+            Player p;
+            qb_element_read(elements[0], &p);
+            if (e->button_event.mouse_button == qbButton::QB_BUTTON_LEFT) {
+              p.fire_bullets = e->button_event.state == 1;
+            }
+            qb_element_write(elements[0]);
+          }
         });
     
     
