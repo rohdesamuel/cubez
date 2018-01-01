@@ -1,4 +1,3 @@
-#define __ENGINE_DEBUG__
 #include "inc/cubez.h"
 #include "inc/table.h"
 #include "inc/timer.h"
@@ -185,38 +184,12 @@ int main(int, char* []) {
 
     update_timer.start();
     while (accumulator >= dt) {
-      SDL_Event e;
-      while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-          if (e.key.keysym.sym == SDLK_ESCAPE) {
-            render::shutdown();
-            SDL_Quit();
-            qb_stop();
-            exit(0);
-          } else {
-            if (e.key.keysym.sym == SDLK_LCTRL) {
-              if (e.key.state == SDL_PRESSED) {
-                SDL_SetRelativeMouseMode(SDL_FALSE);
-              } else {
-                SDL_SetRelativeMouseMode(SDL_TRUE);
-              }
-            }
-            SDL_Keycode key = e.key.keysym.sym;
-            input::send_key_event(input::keycode_from_sdl(key),
-                                  e.key.state == SDL_PRESSED);
-          }
-        } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
-          input::send_mouse_click_event(input::button_from_sdl(e.button.button),
-                                        e.button.state == SDL_PRESSED);
-        } else if (e.type == SDL_MOUSEMOTION) {
-          if (SDL_GetRelativeMouseMode()) {
-            input::send_mouse_move_event(e.motion.x, e.motion.y,
-                                         e.motion.xrel, e.motion.yrel);
-          }
-        } else if (e.type == SDL_QUIT) {
-
-        }
-      }
+      input::handle_input([](SDL_Event*) {
+          render::shutdown();
+          SDL_Quit();
+          qb_stop();
+          exit(0);
+        });
       qb_loop();
       accumulator -= dt;
       t += dt;
@@ -246,7 +219,7 @@ int main(int, char* []) {
 
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
-    if (rand() % 10 == 0) {
+    if (rand() % 100000 == 0) {
       ball::create({(float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f}, {});
@@ -255,7 +228,6 @@ int main(int, char* []) {
 
     if (trigger % period == 0 && prev_trigger != trigger) {
     //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
-
       std::cout << "Ball count " << qb_component_getcount(ball::Component()) << std::endl;
       double total = 15 * 1e6;
       logging::out(
@@ -265,7 +237,7 @@ int main(int, char* []) {
           + "Render FPS: " + std::to_string((int)(1e9 / render_timer.get_avg_elapsed_ns())) + "\n"
           + "Update FPS: " + std::to_string((int)(1e9 / update_timer.get_avg_elapsed_ns())) + "\n"
           + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
-          + "Accum: " + std::to_string(accumulator) + "\n\n");
+          + "Accum: " + std::to_string(accumulator) + "\n");
     }
   }
 }

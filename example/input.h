@@ -4,6 +4,9 @@
 #include "constants.h"
 #include "inc/common.h"
 #include "inc/cubez.h"
+
+#include <functional>
+#include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_mouse.h>
 
@@ -111,6 +114,8 @@ struct MouseEvent {
 void send_key_event(qbKey key, bool is_pressed);
 void send_mouse_click_event(qbButton button, uint8_t is_pressed);
 void send_mouse_move_event(int x, int y, int xrel, int yrel);
+
+void handle_input(std::function<void(SDL_Event*)> shutdown_handler);
 
 qbResult on_key_event(qbSystem system);
 qbResult on_mouse_event(qbSystem system);

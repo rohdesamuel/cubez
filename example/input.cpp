@@ -1,4 +1,5 @@
 #include "input.h"
+
 #include <unordered_map>
 
 namespace input {
@@ -27,6 +28,38 @@ void initialize() {
     qb_eventattr_setmessagetype(attr, MouseEvent);
     qb_event_create(&mouse_event, attr);
     qb_eventattr_destroy(&attr);
+  }
+}
+
+void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
+  SDL_Event e;
+  while (SDL_PollEvent(&e)) {
+    if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
+      if (e.key.keysym.sym == SDLK_ESCAPE) {
+        shutdown_handler(&e);
+      } else {
+        if (e.key.keysym.sym == SDLK_LCTRL) {
+          if (e.key.state == SDL_PRESSED) {
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+          } else {
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+          }
+        }
+        SDL_Keycode key = e.key.keysym.sym;
+        input::send_key_event(input::keycode_from_sdl(key),
+            e.key.state == SDL_PRESSED);
+      }
+    } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+      input::send_mouse_click_event(input::button_from_sdl(e.button.button),
+          e.button.state);
+    } else if (e.type == SDL_MOUSEMOTION) {
+      if (SDL_GetRelativeMouseMode()) {
+        input::send_mouse_move_event(e.motion.x, e.motion.y,
+            e.motion.xrel, e.motion.yrel);
+      }
+    } else if (e.type == SDL_QUIT) {
+
+    }
   }
 }
 
