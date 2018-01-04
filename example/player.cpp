@@ -120,6 +120,32 @@ void initialize(const Settings& settings) {
                 * glm::vec4{5.0, 0.0, 0.0, 1.0});
             
             ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, false);
           }
           
           render::qb_camera_setposition(t.p);

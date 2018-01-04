@@ -9,7 +9,6 @@
 
 namespace physics {
 
-
 struct Transform {
   glm::vec3 p;
   glm::vec3 v;

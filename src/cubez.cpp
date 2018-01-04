@@ -88,46 +88,48 @@ qbResult qb_component_destroy(qbComponent*) {
 }
 
 size_t qb_component_getcount(qbComponent component) {
-  return component->instances.size();
+  return component->instances.Size();
 }
 
-qbResult qb_component_oncreate(qbComponent component,
-                               qbComponentOnCreate on_create) {
+qbResult qb_instance_oncreate(qbComponent component,
+                               qbInstanceOnCreate on_create) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_create);
   qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-        qbComponentOnCreateEvent_* event =
-            (qbComponentOnCreateEvent_*)frame->event;
-        qbComponentOnCreate on_create = (qbComponentOnCreate)frame->state;
-        on_create(event->entity, event->component, event->instance_data);
+        qbInstanceOnCreateEvent_* event =
+            (qbInstanceOnCreateEvent_*)frame->event;
+        qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
+        on_create(event->entity, event->component,
+                  event->component->instances[event->entity]);
       });
   qbSystem system;
   qb_system_create(&system, attr);
 
-  qb_event_subscribe(component->on_create, system);
+  component->instances.SubcsribeToOnCreate(system);
 
   qb_systemattr_destroy(&attr);
   return QB_OK;
 }
 
-qbResult qb_component_ondestroy(qbComponent component,
-                                qbComponentOnDestroy on_destroy) {
+qbResult qb_instance_ondestroy(qbComponent component,
+                                qbInstanceOnDestroy on_destroy) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, (void*)on_destroy);
   qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-        qbComponentOnDestroyEvent_* event =
-            (qbComponentOnDestroyEvent_*)frame->event;
-        qbComponentOnDestroy on_destroy = (qbComponentOnDestroy)frame->state;
-        on_destroy(event->entity, event->component, event->instance_data);
+        qbInstanceOnDestroyEvent_* event =
+            (qbInstanceOnDestroyEvent_*)frame->event;
+        qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
+        on_destroy(event->entity, event->component,
+                   event->component->instances[event->entity]);
       });
   qbSystem system;
   qb_system_create(&system, attr);
 
-  qb_event_subscribe(component->on_destroy, system);
+  component->instances.SubcsribeToOnDestroy(system);
 
   qb_systemattr_destroy(&attr);
   return QB_OK;
@@ -172,7 +174,7 @@ qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
 
 qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
                                 void* buffer) {
-  if (component->instances.has(entity)) {
+  if (component->instances.Has(entity)) {
     *(void**)buffer = component->instances[entity];
   } else {
     *(void**)buffer = nullptr;
@@ -181,7 +183,7 @@ qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
 }
 
 qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component) {
-  return component->instances.has(entity) ? QB_OK : QB_ERROR_NOT_FOUND;
+  return component->instances.Has(entity) ? QB_OK : QB_ERROR_NOT_FOUND;
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,

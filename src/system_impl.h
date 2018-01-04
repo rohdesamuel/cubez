@@ -25,8 +25,8 @@ class SystemImpl {
 
   ComponentRegistry* component_registry_;
   qbSystem system_;
-  std::vector<qbId> sources_;
-  std::vector<qbId> sinks_;
+  std::vector<qbComponent> sources_;
+  std::vector<qbComponent> sinks_;
 
   qbComponentJoin join_;
   void* user_state_;

@@ -7,17 +7,17 @@ SystemImpl::SystemImpl(ComponentRegistry* component_registry,
   callback_(attr.callback) {
 
   for (auto* component : attr.sources) {
-    sources_.push_back(component->id);
+    sources_.push_back(component);
   }
   for(auto* component : attr.sinks) {
-    sinks_.push_back(component->id);
+    sinks_.push_back(component);
   }
 
-  for(qbId source : sources_) {
+  for(auto source : sources_) {
     qbElement_ element;
     element.read_buffer = nullptr;
     element.user_buffer = nullptr;
-    element.size = (*component_registry_)[source].instances.element_size();
+    element.size = source->instances.ElementSize();
 
     elements_.push_back(element);
   }
@@ -69,7 +69,7 @@ void SystemImpl::Run_0(qbFrame* f) {
 }
 
 void SystemImpl::Run_1(qbFrame* f) {
-  qbComponent component = &(*component_registry_)[sources_[0]];
+  qbComponent component = sources_[0];
   auto& instances = component->instances;
 
   for (auto id_component : instances) {
@@ -79,13 +79,13 @@ void SystemImpl::Run_1(qbFrame* f) {
 }
 
 void SystemImpl::Run_N(qbFrame* f) {
-  qbComponent source = &(*component_registry_)[sources_[0]];
+  qbComponent source = sources_[0];
   switch(join_) {
     case qbComponentJoin::QB_JOIN_INNER: {
       uint64_t min = 0xFFFFFFFFFFFFFFFF;
       for (size_t i = 0; i < sources_.size(); ++i) {
-        qbComponent src = &(*component_registry_)[sources_[i]];
-        uint64_t maybe_min = src->instances.size();
+        qbComponent src = sources_[i];
+        uint64_t maybe_min = src->instances.Size();
         if (maybe_min < min) {
           min = maybe_min;
           source = src;
@@ -93,7 +93,7 @@ void SystemImpl::Run_N(qbFrame* f) {
       }
     } break;
     case qbComponentJoin::QB_JOIN_LEFT:
-      source = &(*component_registry_)[sources_[0]];
+      source = sources_[0];
     break;
     case qbComponentJoin::QB_JOIN_CROSS: {
 #if 1
@@ -101,8 +101,7 @@ void SystemImpl::Run_N(qbFrame* f) {
 
     while (1) {
       for (size_t i = 0; i < indices.size(); ++i) {
-        qbId source_id = sources_[i];
-        qbComponent src = &(*component_registry_)[source_id];
+        qbComponent src = sources_[i];
         auto it = src->instances.begin() + indices[i];
         CopyToElement(src, (*it).first, (*it).second, &elements_[i]);
       }
@@ -111,7 +110,7 @@ void SystemImpl::Run_N(qbFrame* f) {
       bool all_zero = true;
       ++indices[0];
       for (size_t i = 0; i < indices.size(); ++i) {
-        if (indices[i] >= (*component_registry_)[sources_[i]].instances.size()) {
+        if (indices[i] >= sources_[i]->instances.Size()) {
           indices[i] = 0;
           if (i + 1 < indices.size()) {
             ++indices[i + 1];
@@ -155,8 +154,8 @@ void SystemImpl::Run_N(qbFrame* f) {
         qbId entity_id = id_component.first;
         bool should_continue = false;
         for (size_t j = 0; j < sources_.size(); ++j) {
-          qbComponent c = &(*component_registry_)[sources_[j]];
-          if (!c->instances.has(entity_id)) {
+          qbComponent c = sources_[j];
+          if (!c->instances.Has(entity_id)) {
             should_continue = true;
             break;
           }

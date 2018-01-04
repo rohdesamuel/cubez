@@ -124,12 +124,12 @@ DLLEXPORT size_t qb_component_getcount(qbComponent component);
 
 // Triggers fn when a component is created. If created when an entity is
 // created, then it is triggered after all components have been instantiated.
-DLLEXPORT qbResult qb_component_oncreate(qbComponent component,
+DLLEXPORT qbResult qb_instance_oncreate(qbComponent component,
     void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
 
 // Triggers fn when a component is destroyed. Is triggered before before memory
 // is freed.
-DLLEXPORT qbResult qb_component_ondestroy(qbComponent component,
+DLLEXPORT qbResult qb_instance_ondestroy(qbComponent component,
     void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
 
 ///////////////////////////////////////////////////////////

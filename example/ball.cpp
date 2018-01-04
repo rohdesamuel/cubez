@@ -32,16 +32,16 @@ void initialize(const Settings& settings) {
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, Ball);
     qb_component_create(&ball_component, attr);
-    qb_component_ondestroy(ball_component, [](qbEntity entity, qbComponent,
+    qb_instance_ondestroy(ball_component, [](qbEntity entity, qbComponent,
                                               void*) {
         physics::Transform* transform;
         qb_entity_getcomponent(entity, physics::component(), &transform);
         if (rand() % 10 == 0) {
-          for (int i = 0; i < 5; ++i) {
+          for (int i = 0; i < 10; ++i) {
             ball::create(transform->p,
                          {((float)(rand() % 500) - 250.0f) / 250.0f,
-                         ((float)(rand() % 500) - 250.0f) / 250.0f,
-                         ((float)(rand() % 500) - 250.0f) / 250.0f}, false);
+                          ((float)(rand() % 500) - 250.0f) / 250.0f,
+                          ((float)(rand() % 500) - 250.0f) / 250.0f}, false);
           }
         }
       });

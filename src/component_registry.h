@@ -11,42 +11,50 @@ class ComponentRegistry {
  public:
   ComponentRegistry();
 
-  typedef SparseMap<qbComponent_*>::iterator iterator;
+  void Init();
 
-  iterator begin() {
-    return components_.begin();
+  struct InstanceCreateEvent {
+    qbId entity;
+    qbComponent component;
+    void* instance_data;
+  };
+
+  struct InstanceDestroyEvent {
+    qbId entity;
+    qbComponent component;
+  };
+
+  Component& operator[](qbId component) {
+    return components_[component]->instances;
   }
 
-  iterator end() {
-    return components_.end();
+  const Component& operator[](qbId component) const {
+    return components_[component]->instances;
   }
 
-  qbComponent_& operator[](qbId component) {
-    return *components_[component];
-  }
+  qbResult ComponentCreate(qbComponent* component, qbComponentAttr attr);
 
-  const qbComponent_& operator[](qbId component) const {
-    return *components_[component];
-  }
+  qbResult CreateInstancesFor(
+      qbEntity entity, const std::vector<qbComponentInstance_>& instances);
 
-  qbResult CreateComponent(qbComponent* component, qbComponentAttr attr);
+  qbResult CreateInstanceFor(qbEntity entity, qbComponent component,
+                             void* instance_data);
 
-  static qbId CreateComponentInstance(
-      qbComponent component, qbId entity_id, const void* value);
-
-  static void DestroyComponentInstance(qbComponent component, qbId handle);
-
-  static qbResult SendComponentCreateEvent(qbComponent component,
-                                           qbId entity,
-                                           void* instance_data);
-
-  static qbResult SendComponentDestroyEvent(qbComponent component,
-                                            qbId entity,
-                                            void* instance_data);
+  int DestroyInstancesFor(qbEntity entity);
+  qbResult DestroyInstanceFor(qbEntity entity, qbComponent component);
 
  private:
+  static void InstanceCreateHandler(qbFrame* frame);
+  static void InstanceDestroyHandler(qbFrame* frame);
+
   SparseMap<qbComponent> components_;
   std::atomic_long id_;
+
+  qbEvent instance_create_event_;
+  qbEvent instance_destroy_event_;
+
+  qbSystem instance_create_system_;
+  qbSystem instance_destroy_system_;
 };
 
 #endif  // COMPONENT_REGISTRY__H

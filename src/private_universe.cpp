@@ -97,6 +97,7 @@ PrivateUniverse::PrivateUniverse() {
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
+  components_->Init();
   entities_->Init();
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
@@ -287,5 +288,5 @@ qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  return components_->CreateComponent(component, attr);
+  return components_->ComponentCreate(component, attr);
 }

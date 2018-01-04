@@ -182,7 +182,6 @@ int main(int, char* []) {
 
     accumulator += frame_time;
 
-    update_timer.start();
     while (accumulator >= dt) {
       input::handle_input([](SDL_Event*) {
           render::shutdown();
@@ -190,12 +189,14 @@ int main(int, char* []) {
           qb_stop();
           exit(0);
         });
+      update_timer.start();
       qb_loop();
+      update_timer.stop();
+      update_timer.step();
+
       accumulator -= dt;
       t += dt;
     }
-    update_timer.stop();
-    update_timer.step();
 
     render_timer.start();
 

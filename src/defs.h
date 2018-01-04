@@ -2,6 +2,7 @@
 #define DEFS__H
 
 #include "common.h"
+#include "component.h"
 #include "cubez.h"
 #include "sparse_map.h"
 
@@ -64,33 +65,27 @@ struct qbCollectionAttr_ {
   qbRemoveById remove_by_id;
 };
 
-typedef void(*qbComponentOnCreate)(qbEntity parent_entity,
+typedef void(*qbInstanceOnCreate)(qbEntity parent_entity,
                                    qbComponent to_destroy,
                                    void* instance_data);
 
-typedef void(*qbComponentOnDestroy)(qbEntity parent_entity,
+typedef void(*qbInstanceOnDestroy)(qbEntity parent_entity,
                                     qbComponent to_destroy,
                                     void* instance_data);
 
-struct qbComponentOnCreateEvent_ {
+struct qbInstanceOnCreateEvent_ {
   qbId entity;
   qbComponent component;
-  void* instance_data;
 };
 
-struct qbComponentOnDestroyEvent_ {
+struct qbInstanceOnDestroyEvent_ {
   qbId entity;
   qbComponent component;
-  void* instance_data;
 };
 
 // All components are keyed on an entity id.
 struct qbComponent_ {
-  qbId id;
-  SparseMap<void> instances;
-
-  qbEvent on_create;
-  qbEvent on_destroy;
+  Component instances;
 };
 
 struct qbComponentAttr_ {
@@ -150,7 +145,7 @@ struct qbSystem_ {
 };
 
 struct qbComponentInstance_ {
-  qbComponent_* component;
+  qbComponent component;
   void* data;
 };
 
