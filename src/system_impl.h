@@ -9,8 +9,7 @@
 
 class SystemImpl {
  public:
-  SystemImpl(ComponentRegistry* component_registry,
-             const qbSystemAttr_& attr, qbSystem system);
+  SystemImpl(const qbSystemAttr_& attr, qbSystem system);
 
   static SystemImpl* FromRaw(qbSystem system);
   
@@ -23,7 +22,6 @@ class SystemImpl {
   void Run_1(qbFrame* f);
   void Run_N(qbFrame* f);
 
-  ComponentRegistry* component_registry_;
   qbSystem system_;
   std::vector<qbComponent> sources_;
   std::vector<qbComponent> sinks_;

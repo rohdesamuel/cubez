@@ -84,7 +84,7 @@ qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {
   p->user_state = attr.state;
 
   SystemImpl* impl = SystemImpl::FromRaw(p);
-  new (impl) SystemImpl(component_registry_, attr, p);
+  new (impl) SystemImpl(attr, p);
 
   return p;
 }
