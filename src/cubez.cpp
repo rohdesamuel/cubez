@@ -182,8 +182,8 @@ qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
   return QB_OK;
 }
 
-qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component) {
-  return component->instances.Has(entity) ? QB_OK : QB_ERROR_NOT_FOUND;
+bool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
+  return component->instances.Has(entity);
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,

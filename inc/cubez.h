@@ -146,10 +146,10 @@ DLLEXPORT qbResult qb_entity_destroy(qbEntity* entity);
 DLLEXPORT qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
 DLLEXPORT qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer);
 
-DLLEXPORT qbResult qb_entity_hascomponent(qbEntity entity, qbComponent component);
+DLLEXPORT bool qb_entity_hascomponent(qbEntity entity, qbComponent component);
 
 DLLEXPORT qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
-                                void* instance_data);
+                                          void* instance_data);
 DLLEXPORT qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
 DLLEXPORT qbId qb_entity_getid(qbEntity entity);
 
