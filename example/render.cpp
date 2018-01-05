@@ -157,6 +157,9 @@ void initialize_context(const Settings& settings) {
 
   SDL_GL_CreateContext(win);
 
+  // Enable vsync.
+  SDL_GL_SetSwapInterval(-1);
+
   glewExperimental = GL_TRUE;
   GLenum glewError = glewInit();
   if (glewError != 0) {
