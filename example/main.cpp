@@ -178,6 +178,7 @@ int main(int, char* []) {
 
     double new_time = Timer::now() * 0.000000001;
     double frame_time = new_time - current_time;
+    frame_time = std::min(0.25, frame_time);
     current_time = new_time;
 
     accumulator += frame_time;
