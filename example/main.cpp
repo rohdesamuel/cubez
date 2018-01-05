@@ -1,5 +1,4 @@
 #include "inc/cubez.h"
-#include "inc/table.h"
 #include "inc/timer.h"
 
 #include "ball.h"
