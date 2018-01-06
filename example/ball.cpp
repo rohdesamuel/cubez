@@ -21,11 +21,18 @@ struct Ball {
 };
 
 qbComponent ball_component;
+qbComponent Explodable;
 
 void initialize(const Settings& settings) {
   {
     std::cout << "Initialize ball textures and shaders\n";
     render_state = render::create(settings.mesh, settings.material);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_component_create(&Explodable, attr);
+    qb_componentattr_destroy(&attr);
   }
   {
     qbComponentAttr attr;
@@ -36,12 +43,12 @@ void initialize(const Settings& settings) {
                                               void*) {
         physics::Transform* transform;
         qb_entity_getcomponent(entity, physics::component(), &transform);
-        if (rand() % 10 == 0) {
+        if (qb_entity_hascomponent(entity, Explodable)) {
           for (int i = 0; i < 10; ++i) {
             ball::create(transform->p,
                          {((float)(rand() % 500) - 250.0f) / 250.0f,
                           ((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f}, false);
+                          ((float)(rand() % 500) - 250.0f) / 250.0f}, false, false);
           }
         }
       });
@@ -55,12 +62,15 @@ void initialize(const Settings& settings) {
     qb_systemattr_setfunction(attr,
         [](qbElement* els, qbFrame*) {
           Ball ball;
-          qb_element_read(els[0], &ball);       
+          qb_element_read(els[0], &ball);
+
+
+          qbEntity e = qb_element_getentity(els[0]);
+          physics::Transform* t;
+          qb_entity_getcomponent(e, physics::component(), &t);
+
           --ball.death_counter;
-          if (ball.death_counter < 0) {
-            qbEntity e;
-            if (qb_entity_find(&e, qb_element_getid(els[0])) == QB_OK) {
-            }
+          if (ball.death_counter < 0 || (t->p.z <= -48 && qb_entity_hascomponent(e, Explodable))) {
             qb_entity_destroy(&e);
           } else {
             qb_element_write(els[0]);
@@ -95,12 +105,12 @@ void initialize(const Settings& settings) {
   std::cout << "Finished initializing ball\n";
 }
 
-void create(glm::vec3 pos, glm::vec3 vel, bool collidable) {
+void create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool collidable) {
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
 
   Ball b;
-  b.death_counter = 1000 + (rand() % 100) - (rand() % 100);
+  b.death_counter = 100 + (rand() % 10) - (rand() % 10);
   qb_entityattr_addcomponent(attr, ball_component, &b);
 
   physics::Transform t{pos, vel, false};
@@ -111,6 +121,10 @@ void create(glm::vec3 pos, glm::vec3 vel, bool collidable) {
   if (collidable) {
     physics::Collidable c;
     qb_entityattr_addcomponent(attr, physics::collidable(), &c);
+  }
+
+  if (explodable) {
+    qb_entityattr_addcomponent(attr, Explodable, nullptr);
   }
 
   qbEntity entity;

@@ -117,35 +117,9 @@ void initialize(const Settings& settings) {
           if (player.fire_bullets) {
             glm::vec3 vel = glm::vec3(
                 render::qb_camera_getorientation()
-                * glm::vec4{5.0, 0.0, 0.0, 1.0});
+                * glm::vec4{100.0, 0.0, 0.0, 1.0});
             
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
-            ball::create(t.p, vel, false);
+            ball::create(t.p, vel, true, false);
           }
           
           render::qb_camera_setposition(t.p);
