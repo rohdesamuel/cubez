@@ -446,9 +446,7 @@ qbId qb_element_getid(qbElement element) {
 }
 
 qbEntity qb_element_getentity(qbElement element) {
-  qbEntity ret;
-  qb_entity_find(&ret, element->id);
-  return ret;
+  return element->id;
 }
 
 qbResult qb_element_read(qbElement element, void* buffer) {
