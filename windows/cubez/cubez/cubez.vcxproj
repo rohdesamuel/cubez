@@ -142,12 +142,12 @@
     <ClInclude Include="..\..\..\src\byte_queue.h" />
     <ClInclude Include="..\..\..\src\byte_vector.h" />
     <ClInclude Include="..\..\..\src\channel.h" />
-    <ClInclude Include="..\..\..\src\collection_registry.h" />
     <ClInclude Include="..\..\..\src\component.h" />
     <ClInclude Include="..\..\..\src\component_registry.h" />
     <ClInclude Include="..\..\..\src\concurrentqueue.h" />
     <ClInclude Include="..\..\..\src\defs.h" />
     <ClInclude Include="..\..\..\src\entity_registry.h" />
+    <ClInclude Include="..\..\..\src\event.h" />
     <ClInclude Include="..\..\..\src\event_registry.h" />
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\hopscotch_hash.h" />
@@ -164,13 +164,14 @@
     <ClInclude Include="..\..\..\src\thread_pool.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\channel.cpp" />
-    <ClCompile Include="..\..\..\src\collection_registry.cpp" />
+    <ClCompile Include="..\..\..\src\component.cpp" />
     <ClCompile Include="..\..\..\src\component_registry.cpp" />
     <ClCompile Include="..\..\..\src\cubez.cpp" />
     <ClCompile Include="..\..\..\src\entity_registry.cpp" />
+    <ClCompile Include="..\..\..\src\event.cpp" />
     <ClCompile Include="..\..\..\src\event_registry.cpp" />
     <ClCompile Include="..\..\..\src\fast_math.cpp" />
+    <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />

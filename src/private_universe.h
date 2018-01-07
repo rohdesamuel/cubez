@@ -3,7 +3,6 @@
 
 #include "defs.h"
 
-#include "collection_registry.h"
 #include "component_registry.h"
 #include "entity_registry.h"
 #include "program_registry.h"
@@ -93,11 +92,6 @@ class PrivateUniverse {
   qbResult enable_system(qbSystem system);
   qbResult disable_system(qbSystem system);
 
-  // qbCollection manipulation.
-  qbResult collection_create(qbCollection* collection, qbCollectionAttr attr);
-  qbResult collection_share(qbCollection collection, qbProgram destination);
-  qbResult collection_copy(qbCollection collection, qbProgram destination);
-  qbResult collection_destroy(qbCollection* collection);
 
   // Events.
   qbResult event_create(qbEvent* event, qbEventAttr attr);
@@ -128,9 +122,6 @@ class PrivateUniverse {
 
   // Must be initialized first.
   std::unique_ptr<ProgramRegistry> programs_;
-
-  // Must be initialized after the ProgramRegistry.
-  std::unique_ptr<CollectionRegistry> collections_;
 
   // Must be initialized after the CollectionRegistry.
   std::unique_ptr<ComponentRegistry> components_;

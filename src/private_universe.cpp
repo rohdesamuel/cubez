@@ -89,8 +89,6 @@ PrivateUniverse::PrivateUniverse() {
 
   programs_ = std::make_unique<ProgramRegistry>(components_.get());
 
-  collections_ = std::make_unique<CollectionRegistry>();
-
   entities_ = std::make_unique<EntityRegistry>(components_.get());
 }
 
@@ -177,50 +175,6 @@ qbResult PrivateUniverse::disable_system(qbSystem system) {
 
   return ProgramImpl::FromRaw(p)->DisableSystem(system);
 }
-
-
-qbResult PrivateUniverse::collection_create(qbCollection* collection,
-                                            qbCollectionAttr attr) {
-  qbProgram* p = programs_->GetProgram(attr->program);
-  ASSERT_NOT_NULL(p);
-  *collection = collections_->Create(p->id, attr);
-  return qbResult::QB_OK;
-}
-
-qbResult PrivateUniverse::collection_share(qbCollection, qbProgram) {
-	return qbResult::QB_OK;
-}
-
-qbResult PrivateUniverse::collection_copy(qbCollection, qbProgram) {
-	return qbResult::QB_OK;
-}
-
-qbResult PrivateUniverse::collection_destroy(qbCollection*) {
-	return qbResult::QB_OK;
-}
-
-#if 0
-qbResult PrivateUniverse::share_collection(
-      const char* source_program, const char* source_collection,
-      const char* dest_program, const char* dest_collection) {
-  qbProgram* src = programs_.get_program(source_program);
-  if (!src) {
-    return QB_ERROR_NULL_POINTER;
-  }
-  qbProgram* dst = programs_.get_program(dest_program);
-  if (!dst) {
-    return QB_ERROR_NULL_POINTER;
-  }
-
-  return collections_.share(src->id, source_collection,
-                            dst->id, dest_collection);
-}
-
-qbResult PrivateUniverse::copy_collection(const char*, const char*,
-                                          const char*, const char*) {
-  return QB_OK;
-}
-#endif
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
   qbProgram* p = programs_->GetProgram(attr->program);

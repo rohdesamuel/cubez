@@ -40,31 +40,6 @@ struct qbIterator {
   uint32_t offset;
 };
 
-struct qbCollection_ {
-  qbId id;
-  qbId program_id;
-
-  qbIterator keys;
-  qbIterator values;
-  qbCount count;
-
-  qbCollectionInterface interface;
-};
-
-struct qbCollectionAttr_ {
-  void* collection;
-  const char* program;
-
-  qbAccessor accessor;
-  qbIterator keys;
-  qbIterator values;
-  qbInsert insert;
-  qbCount count;
-  qbRemoveByOffset remove_by_offset;
-  qbRemoveByHandle remove_by_handle;
-  qbRemoveById remove_by_id;
-};
-
 typedef void(*qbInstanceOnCreate)(qbEntity parent_entity,
                                    qbComponent to_destroy,
                                    void* instance_data);

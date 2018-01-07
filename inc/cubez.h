@@ -228,34 +228,13 @@ DLLEXPORT qbResult qb_event_send(qbEvent event, void* message);
 DLLEXPORT qbResult qb_event_sendsync(qbEvent event, void* message);
 
 ///////////////////////////////////////////////////////////
-//////////////////////  Collections  //////////////////////
+//////////////////////  Elements  //////////////////////
 ///////////////////////////////////////////////////////////
 
 DLLEXPORT qbId qb_element_getid(qbElement element);
 DLLEXPORT qbEntity qb_element_getentity(qbElement element);
 DLLEXPORT qbResult qb_element_read(qbElement element, void* buffer);
 DLLEXPORT qbResult qb_element_write(qbElement element);
-
-DLLEXPORT qbResult qb_collectionattr_create(qbCollectionAttr* attr);
-DLLEXPORT qbResult qb_collectionattr_destroy(qbCollectionAttr* attr);
-DLLEXPORT qbResult qb_collectionattr_setprogram(qbCollectionAttr attr, const char* program);
-DLLEXPORT qbResult qb_collectionattr_setremovers(qbCollectionAttr attr, qbRemoveByOffset,
-                                       qbRemoveById, qbRemoveByHandle);
-DLLEXPORT qbResult qb_collectionattr_setaccessors(qbCollectionAttr attr, qbValueByOffset,
-                                        qbValueById, qbValueByHandle);
-DLLEXPORT qbResult qb_collectionattr_setkeyiterator(qbCollectionAttr attr, qbData,
-                                          size_t stride, uint32_t offset);
-DLLEXPORT qbResult qb_collectionattr_setvalueiterator(qbCollectionAttr attr, qbData,
-                                            size_t size, size_t stride,
-                                            uint32_t offset);
-DLLEXPORT qbResult qb_collectionattr_setinsert(qbCollectionAttr attr, qbInsert);
-DLLEXPORT qbResult qb_collectionattr_setcount(qbCollectionAttr attr, qbCount);
-DLLEXPORT qbResult qb_collectionattr_setimplementation(qbCollectionAttr attr, void* impl);
-
-DLLEXPORT qbResult qb_collection_create(qbCollection* collection, qbCollectionAttr attr);
-DLLEXPORT qbResult qb_collection_destroy(qbCollection* collection);
-DLLEXPORT qbResult qb_collection_share(qbCollection collection, qbProgram destination);
-
 
 END_EXTERN_C
 
