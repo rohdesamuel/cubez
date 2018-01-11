@@ -42,6 +42,7 @@ class ByteVector {
   ByteVector(size_t element_size) :
       elems_(nullptr), count_(0), capacity_(0), elem_size_(element_size) {
     size_t initial_capacity = 8;
+    elems_ = (uint8_t*)calloc(initial_capacity, elem_size_);
     reserve(initial_capacity);
   }
 
@@ -51,6 +52,10 @@ class ByteVector {
 
   ByteVector(ByteVector&& other) : elem_size_(other.elem_size_) {
     move(std::move(other));
+  }
+
+  ~ByteVector() {
+    free(elems_);
   }
 
   ByteVector& operator=(const ByteVector& other) {
@@ -175,12 +180,7 @@ class ByteVector {
     if (capacity_ == new_capacity) {
       return;
     }
-
-    uint8_t* new_elems = (uint8_t*)calloc(new_capacity, elem_size_);
-
-    std::memmove(new_elems, front(), capacity_ * elem_size_);
-    free(elems_);
-    elems_ = new_elems;
+    elems_ = (uint8_t*)realloc(elems_, new_capacity * elem_size_);
     capacity_ = new_capacity;
   }
 
