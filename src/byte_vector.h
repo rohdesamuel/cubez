@@ -148,11 +148,53 @@ class ByteVector {
 
   void reserve(size_t count) {
     if (count > capacity_) {
-      resize(count);
+      resize_capacity(count);
     }
   }
 
+  void clear() {
+    count_ = 0;
+    resize_capacity(0);
+  }
+
   void resize(size_t count) {
+    count_ = count;
+    resize_capacity(count);
+  }
+
+  size_t capacity() const {
+    return capacity_;
+  }
+
+  void push_back(void* data) {
+    if (count_ + 1 >= capacity_) {
+      resize_capacity(capacity_ + 1);
+    }
+    if (data) {
+      std::memmove((*this)[count_], data, elem_size_);
+    }
+    ++count_;
+  }
+
+  void push_back(const void* data) {
+    if (count_ + 1 >= capacity_) {
+      resize_capacity(capacity_ + 1);
+    }
+    if (data) {
+      std::memcpy((*this)[count_], data, elem_size_);
+    }
+    ++count_;
+  }
+
+  void pop_back() {
+    --count_;
+    if (count_ < capacity_) {
+      resize_capacity(capacity_ - 1);
+    }
+  }
+
+ private:
+  void resize_capacity(size_t count) {
     if (count <= 8) {
       count = 8;
     }
@@ -184,42 +226,6 @@ class ByteVector {
     capacity_ = new_capacity;
   }
 
-  size_t capacity() const {
-    return capacity_;
-  }
-
-  void clear() {
-    count_ = 0;
-  }
-
-  void push_back(void* data) {
-    if (count_ + 1 >= capacity_) {
-      resize(capacity_ + 1);
-    }
-    if (data) {
-      std::memmove((*this)[count_], data, elem_size_);
-    }
-    ++count_;
-  }
-
-  void push_back(const void* data) {
-    if (count_ + 1 >= capacity_) {
-      resize(capacity_ + 1);
-    }
-    if (data) {
-      std::memcpy((*this)[count_], data, elem_size_);
-    }
-    ++count_;
-  }
-
-  void pop_back() {
-    --count_;
-    if (count_ < capacity_) {
-      resize(capacity_ - 1);
-    }
-  }
-
- private:
   void copy(const ByteVector& other) {
     count_ = other.count_;
     reserve(count_);
