@@ -14,6 +14,44 @@
 
 class SparseSet {
 public:
+
+  class iterator {
+  public:
+    iterator operator++() {
+      ++index_;
+      return *this;
+    }
+
+    iterator operator+(size_t delta) {
+      index_ = std::min(set_->size(), index_ + delta);
+      return *this;
+    }
+
+    iterator operator+=(size_t delta) {
+      return *this + delta;
+    }
+
+    bool operator==(const iterator& other) {
+      return set_ == other.set_ && index_ == other.index_;
+    }
+
+    bool operator!=(const iterator& other) {
+      return !(*this == other);
+    }
+
+    uint64_t& operator*() {
+      return set_->dense_[index_];
+    }
+
+  private:
+    iterator(SparseSet* set, size_t index) : set_(set), index_(index) {}
+
+    SparseSet* set_;
+    size_t index_;
+
+    friend class SparseSet;
+  };
+
   SparseSet() : sparse_(16, -1) {
     dense_.reserve(16);
   }
@@ -38,6 +76,11 @@ public:
     sparse_[value] = -1;
   }
 
+  void clear() {
+    sparse_.resize(0);
+    dense_.resize(0);
+  }
+
   bool has(uint64_t value) {
     if (value >= sparse_.size()) {
       return false;
@@ -47,6 +90,14 @@ public:
 
   uint64_t size() const {
     return dense_.size();
+  }
+
+  iterator begin() {
+    return iterator{ this, 0 };
+  }
+
+  iterator end() {
+    return iterator{ this, size() };
   }
 
 private:
