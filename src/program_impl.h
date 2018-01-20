@@ -28,7 +28,12 @@ class ProgramImpl {
 
   void UnsubscribeFrom(qbEvent event, qbSystem system);
 
+  void Ready();
   void Run();
+  void Done();
+
+  qbId Id();
+  const char* Name();
 
  private:
   qbSystem AllocSystem(qbId id, const qbSystemAttr_& attr);
@@ -38,9 +43,11 @@ class ProgramImpl {
   EventRegistry events_;
   ComponentRegistry* component_registry_;
 
+  SparseMap<ComponentBuffer*> mutables_;
   std::vector<qbSystem> systems_;
   std::vector<qbSystem> loop_systems_;
   std::set<qbSystem> event_systems_;
+  std::set<qbSystem> mutating_systems_;
 };
 
 #endif  // PROGRAM_IMPL__H

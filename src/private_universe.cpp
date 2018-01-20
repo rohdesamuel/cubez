@@ -2,6 +2,8 @@
 
 typedef Runner::State RunState;
 
+thread_local qbId PrivateUniverse::program_id;
+
 void Runner::wait_until(const std::vector<State>& allowed) {
   while (std::find(allowed.begin(), allowed.end(), state_) == allowed.end());
 }
@@ -14,7 +16,6 @@ qbResult Runner::transition(
     State allowed, State next) {
   return transition(std::vector<State>{allowed}, next);
 }
-
 
 #ifdef __ENGINE_DEBUG__
 qbResult Runner::transition(const std::vector<State>& allowed, State next) {
@@ -49,7 +50,6 @@ qbResult Runner::transition(std::vector<State>&&, State next) {
   return QB_OK;
 }
 #endif
-
 
 qbResult Runner::assert_in_state(State allowed) {
   return assert_in_state(std::vector<State>{allowed});
@@ -87,14 +87,18 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
 PrivateUniverse::PrivateUniverse() {
   components_ = std::make_unique<ComponentRegistry>();
 
-  programs_ = std::make_unique<ProgramRegistry>(components_.get());
+  programs_ = std::make_unique<ProgramRegistry>(components_.get(), &buffer_);
 
-  entities_ = std::make_unique<EntityRegistry>(components_.get());
+  entities_ = std::make_unique<EntityRegistry>(components_.get(), &buffer_);
+
+  // Create the default program.
+  program_id = create_program("");
 }
 
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
+  buffer_.Init(entities_.get());
   components_->Init();
   entities_->Init();
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
@@ -117,7 +121,9 @@ qbResult PrivateUniverse::stop() {
 }
 
 qbId PrivateUniverse::create_program(const char* name) {
-  return programs_->CreateProgram(name);
+  qbId program = programs_->CreateProgram(name);
+  buffer_.RegisterProgram(program);
+  return program;
 }
 
 qbResult PrivateUniverse::run_program(qbId program) {
@@ -222,7 +228,7 @@ qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& a
   return entities_->CreateEntity(entity, attr);
 }
 
-qbResult PrivateUniverse::entity_destroy(qbEntity* entity) {
+qbResult PrivateUniverse::entity_destroy(qbEntity entity) {
   return entities_->DestroyEntity(entity);
 }
 
@@ -231,8 +237,8 @@ qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
 }
 
 qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
-                                             qbComponent component,
-                                             void* instance_data) {
+                                              qbComponent component,
+                                              void* instance_data) {
   return entities_->AddComponent(entity, component, instance_data);
 }
 
@@ -242,5 +248,8 @@ qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  return components_->ComponentCreate(component, attr);
+  qbProgram* program = programs_->GetProgram(attr->program);
+  qbResult result = components_->ComponentCreate(component, attr, &buffer_);  
+  buffer_.RegisterComponent(program->id, &(*component)->instances);
+  return result;
 }

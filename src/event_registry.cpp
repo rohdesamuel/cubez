@@ -10,7 +10,7 @@ EventRegistry::~EventRegistry() { }
 qbResult EventRegistry::CreateEvent(qbEvent* event, qbEventAttr attr) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
   qbId event_id = events_.size();
-  events_.push_back(new Event(event_id, message_queue_, attr->message_size));
+  events_.push_back(new Event(program_, event_id, message_queue_, attr->message_size));
   AllocEvent(event_id, event, events_[event_id]);
   return qbResult::QB_OK;
 }

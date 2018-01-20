@@ -6,6 +6,7 @@
 #include "component_registry.h"
 #include "entity_registry.h"
 #include "program_registry.h"
+#include "frame_buffer.h"
 
 #include <mutex>
 
@@ -108,7 +109,7 @@ class PrivateUniverse {
 
   // Entity manipulation.
   qbResult entity_create(qbEntity* entity, const qbEntityAttr_& attr);
-  qbResult entity_destroy(qbEntity* entity);
+  qbResult entity_destroy(qbEntity entity);
   qbResult entity_find(qbEntity* entity, qbId entity_id);
   qbResult entity_addcomponent(qbEntity entity, qbComponent component,
                                   void* instance_data);
@@ -116,6 +117,9 @@ class PrivateUniverse {
 
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);
+
+  // Current program id of running thread.
+  static thread_local qbId program_id;
 
  private:
   Runner runner_;
@@ -128,6 +132,9 @@ class PrivateUniverse {
 
   // Must be initialized after the ComponentRegistry and ProgramRegistry.
   std::unique_ptr<EntityRegistry> entities_;
+  
+  // Mutable buffers.
+  FrameBuffer buffer_;
 };
 
 #endif  // PRIVATE_UNIVERSE__H

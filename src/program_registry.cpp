@@ -1,12 +1,13 @@
 #include "program_registry.h"
+#include "private_universe.h"
 
 #include <cstring>
 
-ProgramRegistry::ProgramRegistry(ComponentRegistry* component_registry) :
+ProgramRegistry::ProgramRegistry(ComponentRegistry* component_registry,
+                                 FrameBuffer* buffer) :
     component_registry_(component_registry),
+    frame_buffer_(buffer),
     program_threads_(std::thread::hardware_concurrency()) {
-  // Create the default program.
-  CreateProgram("");
 }
 
 qbId ProgramRegistry::CreateProgram(const char* program) {
@@ -55,16 +56,31 @@ qbProgram* ProgramRegistry::GetProgram(qbId id) {
 }
 
 void ProgramRegistry::Run() {
-  std::vector<std::future<void>> programs;
-  programs.reserve(programs_.size());
+  std::vector<std::future<void>> programs(programs_.size());
+
+  frame_buffer_->ResolveDeltas();
+
   for (auto& program : programs_) {
-    ProgramImpl* p = (ProgramImpl*)program.second->self;
+    ProgramImpl::FromRaw(program.second)->Ready();
+  }
+
+  for (auto& program : programs_) {
+    ProgramImpl* p = ProgramImpl::FromRaw(program.second);
     programs.push_back(program_threads_.enqueue(
-          [p]() { p->Run(); }));
+      [p]() {
+        PrivateUniverse::program_id = p->Id();
+        p->Run();
+      }));
   }
 
   for (auto& p : programs) {
-    p.wait();
+    if (p.valid()) {
+      p.wait();
+    }
+  }
+
+  for (auto& program : programs_) {
+    ProgramImpl::FromRaw(program.second)->Done();
   }
 }
 

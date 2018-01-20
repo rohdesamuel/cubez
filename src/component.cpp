@@ -1,8 +1,9 @@
 #include "component.h"
 #include "defs.h"
+#include "frame_buffer.h"
 
-Component::Component(qbComponent parent, qbId id, size_t instance_size)
-    : parent_(parent), id_(id), instances_(instance_size) {
+Component::Component(FrameBuffer* buffer, qbComponent parent, qbId id, size_t instance_size)
+    : frame_buffer_(buffer), parent_(parent), id_(id), instances_(instance_size) {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
@@ -19,19 +20,27 @@ Component::Component(qbComponent parent, qbId id, size_t instance_size)
   }
 }
 
+ComponentBuffer* Component::MakeBuffer() {
+  return new ComponentBuffer{ this };
+}
+
+void Component::Merge(ComponentBuffer* update) {
+  for (auto pair : update->insert_or_update_) {
+    memmove(instances_[pair.first], pair.second, ElementSize());
+  }
+  for (auto id : update->destroyed_) {
+    if (instances_.has(id)) {
+      instances_.erase(id);
+    }
+  }
+}
+
 qbResult Component::Create(qbId entity, void* value) {
-  instances_.insert(entity, value);
-
-  qbInstanceOnCreateEvent_ event;
-  event.entity = entity;
-  event.component = parent_;
-
-  return qb_event_send(on_create_, &event);
+  return frame_buffer_->Component(id_)->Create(entity, value);
 }
 
 qbResult Component::Destroy(qbId entity) {
-  instances_.erase(entity);
-  return QB_OK;
+  return frame_buffer_->Component(id_)->Destroy(entity);
 }
 
 qbResult Component::SubcsribeToOnCreate(qbSystem system) {
@@ -43,26 +52,41 @@ qbResult Component::SubcsribeToOnDestroy(qbSystem system) {
 }
 
 void* Component::operator[](qbId entity) {
+  void* result = frame_buffer_->Component(id_)->FindOrCreate(entity, instances_[entity]);
+  if (result) {
+    return result;
+  }
   return instances_[entity];
 }
 
 const void* Component::operator[](qbId entity) const {
+  const void* result = frame_buffer_->Component(id_)->Find(entity);
+  if (result) {
+    return result;
+  }
   return instances_[entity];
 }
 
-bool Component::Has(qbId entity) {
-  return instances_.has(entity);
+const void* Component::at(qbId entity) const {
+  return (*this)[entity];
 }
 
-bool Component::Empty() {
+bool Component::Has(qbId entity) const {
+  if (instances_.has(entity)) {
+    return true;
+  }
+  return frame_buffer_->Component(id_)->Has(entity);
+}
+
+bool Component::Empty() const {
   return instances_.size() == 0;
 }
 
-size_t Component::Size() {
+size_t Component::Size() const {
   return instances_.size();
 }
 
-size_t Component::ElementSize() {
+size_t Component::ElementSize() const {
   return instances_.element_size();
 }
 
@@ -75,7 +99,7 @@ qbResult Component::SendInstanceCreateNotification(qbEntity entity) {
   event.entity = entity;
   event.component = parent_;
 
-  return qb_event_send(on_create_, &event);
+  return qb_event_sendsync(on_create_, &event);
 }
 
 qbResult Component::SendInstanceDestroyNotification(qbEntity entity) {
@@ -83,9 +107,12 @@ qbResult Component::SendInstanceDestroyNotification(qbEntity entity) {
   event.entity = entity;
   event.component = parent_;
 
-  return qb_event_send(on_destroy_, &event);
+  return qb_event_sendsync(on_destroy_, &event);
 }
 
+qbId Component::Id() const {
+  return id_;
+}
 
 Component::iterator Component::begin() {
   return instances_.begin();
@@ -93,4 +120,45 @@ Component::iterator Component::begin() {
 
 Component::iterator Component::end() {
   return instances_.end();
+}
+
+ComponentBuffer::ComponentBuffer(Component* component)
+  : insert_or_update_(component->ElementSize()), component_(component) {}
+
+void* ComponentBuffer::FindOrCreate(qbId entity, void* value) {
+  if (!insert_or_update_.has(entity)) {
+    insert_or_update_.insert(entity, value);
+  }
+  return insert_or_update_[entity];
+}
+
+const void* ComponentBuffer::Find(qbId entity) {
+  if (insert_or_update_.has(entity)) {
+    return insert_or_update_[entity];
+  }
+  return nullptr;
+}
+
+qbResult ComponentBuffer::Create(qbId entity, void* value) {
+  insert_or_update_.insert(entity, value);
+  return QB_OK;
+}
+
+qbResult ComponentBuffer::Destroy(qbId entity) {
+  destroyed_.insert(entity);
+  return QB_OK;
+}
+
+bool ComponentBuffer::Has(qbId entity) {
+  return destroyed_.has(entity) ? false : insert_or_update_.has(entity);
+}
+
+void ComponentBuffer::Clear() {
+  insert_or_update_.clear();
+  destroyed_.clear();
+}
+
+void ComponentBuffer::Resolve() {
+  component_->Merge(this);
+  Clear();
 }

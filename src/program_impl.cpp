@@ -11,9 +11,25 @@ ProgramImpl* ProgramImpl::FromRaw(qbProgram* program) {
   return (ProgramImpl*)program->self;
 }
 
+qbId ProgramImpl::Id() {
+  return program_->id;
+}
+
+const char* ProgramImpl::Name() {
+  return program_->name;
+}
+
 qbSystem ProgramImpl::CreateSystem(const qbSystemAttr_& attr) {
+  // Create fake components to buffer all deltas.
+  for (qbComponent component : attr.mutables) {
+    mutables_[component->instances.Id()] = std::move(component->instances.MakeBuffer());
+  }
+
   qbSystem system = AllocSystem(systems_.size(), attr);
   systems_.push_back(system);
+  if (!attr.mutables.empty()) {
+    mutating_systems_.insert(system);
+  }
 
   EnableSystem(system);
   return system;
@@ -45,6 +61,7 @@ qbResult ProgramImpl::DisableSystem(qbSystem system) {
   } else {
     event_systems_.erase(system);
   }
+  mutating_systems_.erase(system);
   return QB_OK;
 }
 
@@ -68,11 +85,19 @@ void ProgramImpl::UnsubscribeFrom(qbEvent event, qbSystem system) {
   events_.Unsubscribe(event, system);
 }
 
+void ProgramImpl::Ready() {
+  // Give copy of components.
+}
+
 void ProgramImpl::Run() {
   events_.FlushAll();
   for(qbSystem p : loop_systems_) {
     SystemImpl::FromRaw(p)->Run();
   }
+}
+
+void ProgramImpl::Done() {
+  // Merge changes back into the base components.
 }
 
 qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {

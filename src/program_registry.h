@@ -12,7 +12,7 @@
 
 class ProgramRegistry {
  public:
-  ProgramRegistry(ComponentRegistry* component_registry);
+  ProgramRegistry(ComponentRegistry* component_registry, FrameBuffer* buffer);
 
   qbId CreateProgram(const char* program);
 
@@ -32,6 +32,7 @@ class ProgramRegistry {
   qbProgram* AllocProgram(qbId id, const char* name);
 
   ComponentRegistry* component_registry_;
+  FrameBuffer* frame_buffer_;
   std::map<size_t, qbProgram*> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;
