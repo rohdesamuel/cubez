@@ -18,7 +18,7 @@ class Event {
     size_t index;
   };
 
-  Event(qbId id, ByteQueue* message_queue, size_t size = 1);
+  Event(qbId program, qbId id, ByteQueue* message_queue, size_t size = 1);
 
   // Thread-safe.
   qbResult SendMessage(void* message);
@@ -44,6 +44,7 @@ class Event {
   void FreeMessage(size_t index);
 
   std::vector<qbSystem> handlers_;
+  qbId program_;
   qbId id_;
   ByteQueue* message_queue_;
   size_t size_;

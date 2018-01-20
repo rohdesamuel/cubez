@@ -4,10 +4,12 @@
 #include <cstring>
 
 Event::Event(
+  qbId program,
   qbId id,
   ByteQueue* message_queue,
   size_t size)
-  : id_(id),
+  : program_(program),
+    id_(id),
     message_queue_(message_queue),
     size_(size),
     mem_buffer_(size) {
