@@ -74,26 +74,26 @@ bool check_for_gl_errors() {
   return true;
 }
 
-void render_event_handler(qbElement* elements, qbFrame*) {
-  qbRenderable renderable;
-  qb_element_read(elements[0], &renderable);
+void render_event_handler(qbInstance* insts, qbFrame*) {
+  qbRenderable* renderable;
+  qb_instance_getconst(insts[0], &renderable);
   
-  physics::Transform transform;
-  qb_element_read(elements[1], &transform);
+  physics::Transform* transform;
+  qb_instance_getconst(insts[1], &transform);
 
   glm::mat4 mvp;
-  glm::mat4 m = glm::translate(glm::mat4(1.0f), transform.p);
+  glm::mat4 m = glm::translate(glm::mat4(1.0f), transform->p);
 
-  qb_material_use(renderable->material);
+  qb_material_use((*renderable)->material);
 
   mvp = camera.projection_mat * camera.view_mat * m;
-  qbShader shader = qb_material_getshader(renderable->material);
+  qbShader shader = qb_material_getshader((*renderable)->material);
   qb_shader_setmat4(shader, "uMvp", mvp);
 
-  qb_mesh_draw(renderable->mesh, renderable->material);
+  qb_mesh_draw((*renderable)->mesh, (*renderable)->material);
   
   if (check_for_gl_errors()) {
-    std::cout << "Renderable id: " << qb_element_getid(elements[0]) << "\n";
+    std::cout << "Renderable entity: " << qb_instance_getentity(insts[0]) << "\n";
   }
 }
 
@@ -174,7 +174,7 @@ void initialize_context(const Settings& settings) {
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
 
-  //glClearColor(0.729, 1.0, 1.0, 0.0);
+  glClearColor(0.1, 0.1, 0.1, 0.0);
 
   std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
@@ -244,8 +244,8 @@ void initialize(const Settings& settings) {
     qb_systemattr_create(&attr);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
-    qb_systemattr_addsource(attr, renderables);
-    qb_systemattr_addsource(attr, physics::component());
+    qb_systemattr_addconst(attr, renderables);
+    qb_systemattr_addconst(attr, physics::component());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_INNER);
     qb_systemattr_setfunction(attr, render_event_handler);
 

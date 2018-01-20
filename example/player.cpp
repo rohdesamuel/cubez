@@ -20,6 +20,9 @@ struct Player {
   bool fire_bullets;
 };
 
+qbComponent Component() {
+  return players;
+}
 
 void initialize(const Settings& settings) {
   {
@@ -51,17 +54,17 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, players);
-    qb_systemattr_addsource(attr, physics::component());
-    qb_systemattr_addsink(attr, physics::component());
+    qb_systemattr_addconst(attr, players);
+    qb_systemattr_addmutable(attr, physics::component());
+
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_setfunction(attr,
-        [](qbElement* e, qbFrame*) {
-          Player player;
-          qb_element_read(e[0], &player);
+        [](qbInstance* insts, qbFrame*) {
+          Player* player;
+          qb_instance_getconst(insts[0], &player);
 
-          physics::Transform t;
-          qb_element_read(e[1], &t);
+          physics::Transform* t;
+          qb_instance_getmutable(insts[1], &t);
 
           glm::mat4 rot = render::qb_camera_getorientation();
 
@@ -74,23 +77,23 @@ void initialize(const Settings& settings) {
           impulse_l = glm::normalize(impulse_l);
 
           float floor_level = 8.0f;
-          bool on_ground = t.p.z < floor_level + 0.01f;
+          bool on_ground = t->p.z < floor_level + 0.01f;
 
           impulse *= on_ground ? 1.0f : 0.01f;
           impulse_l *= on_ground ? 1.0f : 0.01f;
           impulse_r *= on_ground ? 1.0f : 0.01f;
 
           if (input::is_key_pressed(QB_KEY_W)) {
-            t.v += impulse;
+            t->v += impulse;
           }
           if (input::is_key_pressed(QB_KEY_S)) {
-            t.v -= impulse;
+            t->v -= impulse;
           }
           if (input::is_key_pressed(QB_KEY_A)) {
-            t.v += impulse_l;
+            t->v += impulse_l;
           }
           if (input::is_key_pressed(QB_KEY_D)) {
-            t.v += impulse_r;
+            t->v += impulse_r;
           }
 
           if (input::is_key_pressed(QB_KEY_I)) {
@@ -105,26 +108,27 @@ void initialize(const Settings& settings) {
           if (input::is_key_pressed(QB_KEY_L)) {
             render::qb_camera_incyaw(-0.5f);
           }
-          t.v.z -= 0.1f;
+
+          t->v.z -= 0.1f;
 
           if (on_ground) {
-            t.p.z = floor_level;
-            t.v.z = 0;
-            t.v.x -= t.v.x * 0.25f;
-            t.v.y -= t.v.y * 0.25f;
+            t->p.z = floor_level;
+            t->v.z = 0;
+            t->v.x -= t->v.x * 0.25f;
+            t->v.y -= t->v.y * 0.25f;
           }
 
-          if (player.fire_bullets) {
-            glm::vec3 vel = glm::vec3(
+          if (player->fire_bullets) {
+            for (int i = 0; i < 10; ++i) {
+              glm::vec3 vel = glm::vec3(
                 render::qb_camera_getorientation()
-                * glm::vec4{100.0, 0.0, 0.0, 1.0});
-            
-            ball::create(t.p, vel, true, false);
+                * glm::vec4{ 1000.0, 0.0, 0.0, 1.0 });
+
+              ball::create(t->p, vel, true, false);
+            }
           }
           
-          render::qb_camera_setposition(t.p);
-
-          qb_element_write(e[1]);
+          render::qb_camera_setposition(t->p);
         });
 
     qbSystem unused;
@@ -134,26 +138,23 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, players);
-    qb_systemattr_addsource(attr, physics::component());
-    qb_systemattr_addsink(attr, physics::component());
+    qb_systemattr_addconst(attr, players);
+    qb_systemattr_addmutable(attr, physics::component());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setfunction(attr,
-        [](qbElement* els, qbFrame* f) {
+        [](qbInstance* insts, qbFrame* f) {
           input::InputEvent* e = (input::InputEvent*)f->event;
           if (e->key != QB_KEY_SPACE) {
             return;
           }
 
-          physics::Transform t;
-          qb_element_read(els[1], &t);
+          physics::Transform* t;
+          qb_instance_getmutable(insts[1], &t);
 
-          if (!e->was_pressed && e->is_pressed && t.p.z <= 8.01f) {
-            t.v.z += 5.0f;
+          if (!e->was_pressed && e->is_pressed && t->p.z <= 8.01f) {
+            t->v.z += 5.0f;
           }
-
-          qb_element_write(els[1]);
         });
     qbSystem unused;
     qb_system_create(&unused, attr);
@@ -165,22 +166,20 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, players);
-    qb_systemattr_addsink(attr, players);
+    qb_systemattr_addmutable(attr, players);
     qb_systemattr_settrigger(attr, QB_TRIGGER_EVENT);
     qb_systemattr_setfunction(attr,
-        [](qbElement* elements, qbFrame* f) {
+        [](qbInstance* insts, qbFrame* f) {
           input::MouseEvent* e = (input::MouseEvent*)f->event;
           if (e->event_type == input::QB_MOUSE_EVENT_MOTION) {
             render::qb_camera_incyaw(-(float)(e->motion_event.xrel) * 0.25f);
             render::qb_camera_incpitch((float)(e->motion_event.yrel) * 0.25f);
           } else {
-            Player p;
-            qb_element_read(elements[0], &p);
+            Player* p;
+            qb_instance_getmutable(insts[0], &p);
             if (e->button_event.mouse_button == qbButton::QB_BUTTON_LEFT) {
-              p.fire_bullets = e->button_event.state == 1;
+              p->fire_bullets = e->button_event.state == 1;
             }
-            qb_element_write(elements[0]);
           }
         });
     

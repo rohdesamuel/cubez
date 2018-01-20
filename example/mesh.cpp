@@ -11,6 +11,7 @@
 #include <cstring>
 #include <string>
 #include <tuple>
+#include <array>
 #include <vector>
 
 struct VertexAttribute {
@@ -73,13 +74,6 @@ struct qbTexture_ {
   const char* texture_file;
 };
 
-// Zero-based indexing of vertex attributes.
-struct Face {
-  int v[3];
-  int vn[3];
-  int vt[3];
-};
-
 uint32_t load_texture(const std::string& file) {
   uint32_t texture;
 
@@ -102,160 +96,165 @@ uint32_t load_texture(const std::string& file) {
   return texture;
 }
 
-class MeshBuilder {
- private:
-  std::vector<glm::vec3> v_;
-  std::vector<glm::vec2> vt_;
-  std::vector<glm::vec3> vn_;
-  std::vector<Face> f_;
 
- public:
-  void add_vertex(glm::vec3 v) {
-    v_.push_back(v);
+int MeshBuilder::add_vertex(glm::vec3&& v) {
+  v_.push_back(v);
+  return v_.size() - 1;
+}
+
+int MeshBuilder::add_texture(glm::vec2&& vt) {
+  vt_.push_back(vt);
+  return vt_.size() - 1;
+}
+
+int MeshBuilder::add_normal(glm::vec3&& vn) {
+  vn_.push_back(vn);
+  return vn_.size() - 1;
+}
+
+int MeshBuilder::add_face(Face&& face) {
+  f_.push_back(face);
+  return f_.size() - 1;
+}
+
+int MeshBuilder::add_face(std::vector<glm::vec3>&& vertices,
+  std::vector<glm::vec2>&& textures,
+  std::vector<glm::vec3>&& normals) {
+  Face f;
+  for (size_t i = 0; i < vertices.size(); ++i) {
+    f.v[i] = add_vertex(std::move(vertices[i]));
   }
-
-  void add_texture(glm::vec2 vt) {
-    vt_.push_back(vt);
+  for (size_t i = 0; i < textures.size(); ++i) {
+    f.vt[i] = add_texture(std::move(textures[i]));
   }
-
-  void add_normal(glm::vec3 vn) {
-    vn_.push_back(vn);
+  for (size_t i = 0; i < normals.size(); ++i) {
+    f.vn[i] = add_normal(std::move(normals[i]));
   }
+  f_.push_back(std::move(f));
+  return f_.size() - 1;
+}
 
-  void add_face(Face face) {
-    f_.push_back(face);
-  }
+qbMesh MeshBuilder::build() {
+  qbMesh mesh = new qbMesh_;
+  qbMeshAttributes_* attributes = new qbMeshAttributes_;
+  mesh->attributes = attributes;
 
-  qbMesh build() {
-    std::cout << "building mesh\n";
-    qbMesh mesh = new qbMesh_;
-    qbMeshAttributes_* attributes = new qbMeshAttributes_;
-    mesh->attributes = attributes;
+  std::map<VertexAttribute, uint32_t> mapped_indices;
 
-    std::map<VertexAttribute, uint32_t> mapped_indices;
+  for (const Face& face : f_) {
+    for (int i = 0; i < 3; ++i) {
+      const glm::vec3& v = v_[face.v[i]];
+      const glm::vec2& vt = vt_[face.vt[i]];
+      const glm::vec3& vn = vn_[face.vn[i]];
 
-    for (const Face& face : f_) {
-      for (int i = 0; i < 3; ++i) {
-        const glm::vec3& v = v_[face.v[i]];
-        const glm::vec2& vt = vt_[face.vt[i]];
-        const glm::vec3& vn = vn_[face.vn[i]];
+      VertexAttribute attr = {v, vn, vt};
 
-        VertexAttribute attr = {v, vn, vt};
+      auto it = mapped_indices.find(attr);
+      if (it == mapped_indices.end()) {
+        attributes->v.push_back(v_[face.v[i]]);
+        attributes->vn.push_back(vn_[face.vn[i]]);
+        attributes->vt.push_back(vt_[face.vt[i]]);
 
-        auto it = mapped_indices.find(attr);
-        if (it == mapped_indices.end()) {
-          attributes->v.push_back(v_[face.v[i]]);
-          attributes->vn.push_back(vn_[face.vn[i]]);
-          attributes->vt.push_back(vt_[face.vt[i]]);
-
-          uint32_t new_index = attributes->v.size() - 1;
-          attributes->indices.push_back(new_index);
-          mapped_indices[attr] = new_index;
-        } else {
-          attributes->indices.push_back(it->second);
-        }
+        uint32_t new_index = attributes->v.size() - 1;
+        attributes->indices.push_back(new_index);
+        mapped_indices[attr] = new_index;
+      } else {
+        attributes->indices.push_back(it->second);
       }
     }
-    glGenVertexArrays(1, &mesh->vao);
-    glGenBuffers(1, &mesh->v_vbo);
-    glGenBuffers(1, &mesh->vt_vbo);
-    glGenBuffers(1, &mesh->vn_vbo);
-    glGenBuffers(1, &mesh->el_vbo);
-
-    std::cout << mesh->vao << ": " << mesh->v_vbo << ", " << mesh->vt_vbo
-              << ", " << mesh->vn_vbo << ", " << mesh->el_vbo << "\n";
-
-    glBindVertexArray(mesh->vao);
-
-    // Vertices
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->v_vbo);
-    glBufferData(GL_ARRAY_BUFFER, attributes->v.size() * sizeof(glm::vec3),
-                 attributes->v.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(
-        0,                  // attribute
-        3,                  // size
-        GL_FLOAT,           // type
-        GL_FALSE,           // normalized?
-        0,                  // stride
-        (void*)0            // array buffer offset
-        );
-
-    // UVs
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vt_vbo);
-    glBufferData(GL_ARRAY_BUFFER, attributes->vt.size() * sizeof(glm::vec2),
-                 attributes->vt.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(
-        1,                  // attribute
-        2,                  // size
-        GL_FLOAT,           // type
-        GL_FALSE,           // normalized?
-        0,                  // stride
-        (void*)0            // array buffer offset
-        );
-
-    // Normals
-    glBindBuffer(GL_ARRAY_BUFFER, mesh->vn_vbo);
-    glBufferData(GL_ARRAY_BUFFER, attributes->vn.size() * sizeof(glm::vec3),
-                 attributes->vn.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(
-        2,                  // attribute
-        3,                  // size
-        GL_FLOAT,           // type
-        GL_FALSE,           // normalized?
-        0,                  // stride
-        (void*)0            // array buffer offset
-        );
-
-    // Indices
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->el_vbo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 attributes->indices.size() * sizeof(uint32_t),
-                 attributes->indices.data(), GL_STATIC_DRAW);
-
-    glBindVertexArray(0);
-
-    return mesh;
   }
-};
+  glGenVertexArrays(1, &mesh->vao);
+  glGenBuffers(1, &mesh->v_vbo);
+  glGenBuffers(1, &mesh->vt_vbo);
+  glGenBuffers(1, &mesh->vn_vbo);
+  glGenBuffers(1, &mesh->el_vbo);
+
+  glBindVertexArray(mesh->vao);
+
+  // Vertices
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->v_vbo);
+  glBufferData(GL_ARRAY_BUFFER, attributes->v.size() * sizeof(glm::vec3),
+                attributes->v.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(
+      0,                  // attribute
+      3,                  // size
+      GL_FLOAT,           // type
+      GL_FALSE,           // normalized?
+      0,                  // stride
+      (void*)0            // array buffer offset
+      );
+
+  // UVs
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vt_vbo);
+  glBufferData(GL_ARRAY_BUFFER, attributes->vt.size() * sizeof(glm::vec2),
+                attributes->vt.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(
+      1,                  // attribute
+      2,                  // size
+      GL_FLOAT,           // type
+      GL_FALSE,           // normalized?
+      0,                  // stride
+      (void*)0            // array buffer offset
+      );
+
+  // Normals
+  glBindBuffer(GL_ARRAY_BUFFER, mesh->vn_vbo);
+  glBufferData(GL_ARRAY_BUFFER, attributes->vn.size() * sizeof(glm::vec3),
+                attributes->vn.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(
+      2,                  // attribute
+      3,                  // size
+      GL_FLOAT,           // type
+      GL_FALSE,           // normalized?
+      0,                  // stride
+      (void*)0            // array buffer offset
+      );
+
+  // Indices
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->el_vbo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                attributes->indices.size() * sizeof(uint32_t),
+                attributes->indices.data(), GL_STATIC_DRAW);
+
+  glBindVertexArray(0);
+
+  return mesh;
+}
 
 qbResult process_line(MeshBuilder* builder, const std::string& token,
                                         const std::string& line) {
   if (token == "v") {
     glm::vec3 v = {0, 0, 0};
     if (SSCANF(line.c_str(), "%f %f %f", &v.x, &v.y, &v.z) == 3) {
-      std::cout << "read vertex" << line << std::endl;
-      builder->add_vertex(v);
+      builder->add_vertex(std::move(v));
     }
   } else if (token == "vt") {
     glm::vec2 vt = {0, 0};
     if (SSCANF(line.c_str(), "%f %f", &vt.x, &vt.y) == 2) {
-      std::cout << "read texture" << line << std::endl;
-      builder->add_texture(vt);
+      builder->add_texture(std::move(vt));
     }
   } else if (token == "vn") {
     glm::vec3 vn = {0, 0, 0};
     if (SSCANF(line.c_str(), "%f %f %f", &vn.x, &vn.y, &vn.z) == 3) {
-      std::cout << "read normal" << line << std::endl;
-      builder->add_normal(vn);
+      builder->add_normal(std::move(vn));
     }
   } else if (token == "f") {
-    Face face;
+    MeshBuilder::Face face;
     if (SSCANF(line.c_str(),
                  "%d/%d/%d %d/%d/%d %d/%d/%d",
                  &face.v[0], &face.vt[0], &face.vn[0],
                  &face.v[1], &face.vt[1], &face.vn[1],
                  &face.v[2], &face.vt[2], &face.vn[2]) == 9) {
-      std::cout << "read face: " << line << std::endl;
       // Convert from 1-indexing to 0-indexing.
       for (int i = 0; i < 3; ++i) {
         --face.v[i];
         --face.vn[i];
         --face.vt[i];
       }
-      builder->add_face(face);
+      builder->add_face(std::move(face));
     }
   } else if (token != "#") {
     // Bad format
@@ -294,7 +293,6 @@ qbResult qb_mesh_load(qbMesh* mesh, const char*, const char* filename) {
     return qbResult::QB_UNKNOWN;
   }
   file.close();
-  std::cout << "Done reading mesh file\n";
   *mesh = builder.build();
   return qbResult::QB_OK;
 }

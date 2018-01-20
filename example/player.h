@@ -21,6 +21,8 @@ void move_down(float speed);
 
 glm::mat4 perspective();
 
+qbComponent Component();
+
 }  // namespace player
 
 #endif  // PLAYER__H

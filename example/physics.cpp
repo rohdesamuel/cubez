@@ -1,5 +1,6 @@
 #include "physics.h"
-
+#include "ball.h"
+#include "player.h"
 #include <atomic>
 #include <iostream>
 
@@ -51,16 +52,21 @@ void initialize(const Settings&) {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setpriority(attr, QB_MIN_PRIORITY);
-    qb_systemattr_addsource(attr, transforms_);
-    qb_systemattr_addsink(attr, transforms_);
+    qb_systemattr_addmutable(attr, transforms_);
     qb_systemattr_setfunction(attr,
-        [](qbElement* elements, qbFrame*) {
-          Transform t;
-          qb_element_read(elements[0], &t);
+        [](qbInstance* insts, qbFrame*) {
+          Transform* t;
+          qb_instance_getmutable(insts[0], &t);
 
-          t.p += t.v;
+          /*if (qb_instance_hascomponent(insts[0], player::Component())) {
+            std::cout << "player: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
+          } else if (qb_instance_hascomponent(insts[0], ball::Component())) {
+            std::cout << "ball: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
+          } else {
+            std::cout << "else: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
+          }*/
 
-          qb_element_write(elements[0]);
+          t->p += t->v;
         });
     qb_system_create(&move_system, attr);
     qb_systemattr_destroy(&attr);
@@ -68,13 +74,13 @@ void initialize(const Settings&) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, collidable_);
-    qb_systemattr_addsource(attr, collidable_);
+    qb_systemattr_addmutable(attr, collidable_);
+    qb_systemattr_addmutable(attr, collidable_);
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
-        [](qbElement* e, qbFrame*) {
-          qbEntity e_a = qb_element_getentity(e[0]);
-          qbEntity e_b = qb_element_getentity(e[1]);
+        [](qbInstance* insts, qbFrame*) {
+          qbEntity e_a = qb_instance_getentity(insts[0]);
+          qbEntity e_b = qb_instance_getentity(insts[1]);
 
           if (e_a == e_b) {
             return;
@@ -83,8 +89,8 @@ void initialize(const Settings&) {
           Transform* a;
           Transform* b;
 
-          qb_entity_getcomponent(e_a, transforms_, &a);
-          qb_entity_getcomponent(e_b, transforms_, &b);
+          qb_instance_getcomponent(insts[0], transforms_, &a);
+          qb_instance_getcomponent(insts[1], transforms_, &b);
 
           glm::vec3 r = a->p - b->p;
 
@@ -135,13 +141,6 @@ void initialize(const Settings&) {
     qb_event_subscribe(impulse_event, impulse_system);
     qb_eventattr_destroy(&attr);
   }
-}
-
-void send_impulse(qbEntity entity, glm::vec3 p) {
-  qbId id = qb_entity_getid(entity);
-
-  Impulse message{id, p};
-  qb_event_send(impulse_event, &message);
 }
 
 qbComponent component() {

@@ -3,6 +3,7 @@
 
 #include "inc/cubez.h"
 #include <glm/glm.hpp>
+#include <vector>
 
 typedef struct qbMesh_* qbMesh;
 
@@ -51,5 +52,36 @@ qbResult qb_material_find(qbMaterial* material, const char* material_name);
 qbResult qb_material_use(qbMaterial material);
 qbShader qb_material_getshader(qbMaterial material);
 qbResult qb_material_destroy(qbMaterial* material);
+
+class MeshBuilder {
+public:
+  // Zero-based indexing of vertex attributes.
+  struct Face {
+    int v[3];
+    int vn[3];
+    int vt[3];
+  };
+
+  int add_vertex(glm::vec3&& v);
+
+  int add_texture(glm::vec2&& vt);
+
+  int add_normal(glm::vec3&& vn);
+
+  int add_face(Face&& face);
+
+  int add_face(std::vector<glm::vec3>&& vertices,
+    std::vector<glm::vec2>&& textures,
+    std::vector<glm::vec3>&& normals);
+
+  qbMesh build();
+
+private:
+  std::vector<glm::vec3> v_;
+  std::vector<glm::vec2> vt_;
+  std::vector<glm::vec3> vn_;
+  std::vector<Face> f_;
+
+};
 
 #endif   // MESH__H

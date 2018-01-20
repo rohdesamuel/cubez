@@ -39,12 +39,12 @@ void initialize(const Settings& settings) {
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, Ball);
     qb_component_create(&ball_component, attr);
-    qb_instance_ondestroy(ball_component, [](qbEntity entity, qbComponent,
-                                              void*) {
+    qb_instance_ondestroy(ball_component, [](qbInstance inst) {
+      //std::cout << "ball qb_instance_ondestroy\n";
         physics::Transform* transform;
-        qb_entity_getcomponent(entity, physics::component(), &transform);
-        if (qb_entity_hascomponent(entity, Explodable)) {
-          for (int i = 0; i < 10; ++i) {
+        qb_instance_getcomponent(inst, physics::component(), &transform);
+        if (qb_instance_hascomponent(inst, Explodable)) {
+          for (int i = 0; i < 100; ++i) {
             ball::create(transform->p,
                          {((float)(rand() % 500) - 250.0f) / 250.0f,
                           ((float)(rand() % 500) - 250.0f) / 250.0f,
@@ -57,23 +57,21 @@ void initialize(const Settings& settings) {
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addsource(attr, ball_component);
-    qb_systemattr_addsink(attr, ball_component);
+    qb_systemattr_addmutable(attr, ball_component);
     qb_systemattr_setfunction(attr,
-        [](qbElement* els, qbFrame*) {
-          Ball ball;
-          qb_element_read(els[0], &ball);
+        [](qbInstance* insts, qbFrame*) {
+          qbInstance inst = insts[0];
 
+          Ball* ball;
+          qb_instance_getmutable(inst, &ball);
 
-          qbEntity e = qb_element_getentity(els[0]);
           physics::Transform* t;
-          qb_entity_getcomponent(e, physics::component(), &t);
+          qb_instance_getcomponent(inst, physics::component(), &t);
 
-          --ball.death_counter;
-          if (ball.death_counter < 0 || (t->p.z <= -48 && qb_entity_hascomponent(e, Explodable))) {
-            qb_entity_destroy(&e);
-          } else {
-            qb_element_write(els[0]);
+          --ball->death_counter;
+          if (ball->death_counter < 0 || (t->p.z <= -48 && qb_instance_hascomponent(inst, Explodable))) {
+            //std::cout << "death by counter for " << qb_instance_getentity(inst) << "\n";
+            qb_entity_destroy(qb_instance_getentity(inst));
           }
         });
     qbSystem s;
@@ -90,7 +88,7 @@ void initialize(const Settings& settings) {
           physics::Collision* c = (physics::Collision*)frame->event;
           if (qb_entity_hascomponent(c->a, ball_component) == QB_OK &&
               qb_entity_hascomponent(c->b, ball_component) == QB_OK) {
-            qb_entity_destroy(&c->a);
+            qb_entity_destroy(c->a);
           }
         });
 
@@ -110,7 +108,7 @@ void create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool collidable) {
   qb_entityattr_create(&attr);
 
   Ball b;
-  b.death_counter = 100 + (rand() % 10) - (rand() % 10);
+  b.death_counter = explodable ? 5 : 100;// 00 + (rand() % 10) - (rand() % 10);
   qb_entityattr_addcomponent(attr, ball_component, &b);
 
   physics::Transform t{pos, vel, false};
