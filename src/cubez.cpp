@@ -3,6 +3,7 @@
 #include "private_universe.h"
 #include "byte_vector.h"
 #include "component.h"
+#include "system_impl.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -91,50 +92,6 @@ size_t qb_component_getcount(qbComponent component) {
   return component->instances.Size();
 }
 
-qbResult qb_instance_oncreate(qbComponent component,
-                               qbInstanceOnCreate on_create) {
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_create);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-        qbInstanceOnCreateEvent_* event =
-            (qbInstanceOnCreateEvent_*)frame->event;
-        qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
-        on_create(event->entity, event->component,
-                  event->component->instances[event->entity]);
-      });
-  qbSystem system;
-  qb_system_create(&system, attr);
-
-  component->instances.SubcsribeToOnCreate(system);
-
-  qb_systemattr_destroy(&attr);
-  return QB_OK;
-}
-
-qbResult qb_instance_ondestroy(qbComponent component,
-                                qbInstanceOnDestroy on_destroy) {
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_destroy);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-        qbInstanceOnDestroyEvent_* event =
-            (qbInstanceOnDestroyEvent_*)frame->event;
-        qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
-        on_destroy(event->entity, event->component,
-                   event->component->instances[event->entity]);
-      });
-  qbSystem system;
-  qb_system_create(&system, attr);
-
-  component->instances.SubcsribeToOnDestroy(system);
-
-  qb_systemattr_destroy(&attr);
-  return QB_OK;
-}
-
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
   *attr = (qbEntityAttr)calloc(1, sizeof(qbEntityAttr_));
   new (*attr) qbEntityAttr_;
@@ -154,32 +111,11 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 }
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
-#ifdef __ENGINE_DEBUG__
-  DEBUG_ASSERT(!attr->component_list.empty(),
-               QB_ERROR_ENTITYATTR_COMPONENTS_ARE_EMPTY);
-#endif
   return AS_PRIVATE(entity_create(entity, *attr));
 }
 
-qbResult qb_entity_destroy(qbEntity* entity) {
-  if (entity) {
-    return AS_PRIVATE(entity_destroy(entity));
-  }
-  return QB_ERROR_NULL_POINTER;
-}
-
-qbResult qb_entity_find(qbEntity* entity, qbId entity_id) {
-  return AS_PRIVATE(entity_find(entity, entity_id));
-}
-
-qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component,
-                                void* buffer) {
-  if (component->instances.Has(entity)) {
-    *(void**)buffer = component->instances[entity];
-  } else {
-    *(void**)buffer = nullptr;
-  }
-  return QB_OK;
+qbResult qb_entity_destroy(qbEntity entity) {
+  return AS_PRIVATE(entity_destroy(entity));
 }
 
 bool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
@@ -216,13 +152,15 @@ qbResult qb_systemattr_setprogram(qbSystemAttr attr, const char* program) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_addsource(qbSystemAttr attr, qbComponent component) {
-  attr->sources.push_back(component);
+qbResult qb_systemattr_addconst(qbSystemAttr attr, qbComponent component) {
+  attr->constants.push_back(component);
+  attr->components.push_back(component);
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_addsink(qbSystemAttr attr, qbComponent component) {
-  attr->sinks.push_back(component);
+qbResult qb_systemattr_addmutable(qbSystemAttr attr, qbComponent component) {
+  attr->mutables.push_back(component);
+  attr->components.push_back(component);
 	return qbResult::QB_OK;
 }
 
@@ -256,7 +194,6 @@ qbResult qb_systemattr_setuserstate(qbSystemAttr attr, void* state) {
   attr->state = state;
 	return qbResult::QB_OK;
 }
-
 
 qbResult qb_system_create(qbSystem* system, qbSystemAttr attr) {
   if (!attr->program) {
@@ -331,24 +268,84 @@ qbResult qb_event_sendsync(qbEvent event, void* message) {
   return AS_PRIVATE(event_sendsync(event, message));
 }
 
-qbId qb_element_getid(qbElement element) {
-  return element->id;
-}
+qbResult qb_instance_oncreate(qbComponent component,
+  qbInstanceOnCreate on_create) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_create);
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+    qbInstanceOnCreateEvent_* event =
+      (qbInstanceOnCreateEvent_*)frame->event;
+    qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
+    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(event->entity, event->component);
+    on_create(&instance);
+  });
+  qbSystem system;
+  qb_system_create(&system, attr);
 
-qbEntity qb_element_getentity(qbElement element) {
-  return element->id;
-}
+  component->instances.SubcsribeToOnCreate(system);
 
-qbResult qb_element_read(qbElement element, void* buffer) {
-  memmove(buffer,
-          element->read_buffer,
-          element->size);
-  element->user_buffer = buffer;
+  qb_systemattr_destroy(&attr);
   return QB_OK;
 }
 
-qbResult qb_element_write(qbElement element) {
-  memmove(element->component->instances[element->id],
-          element->user_buffer, element->size);
+qbResult qb_instance_ondestroy(qbComponent component,
+  qbInstanceOnDestroy on_destroy) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_destroy);
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+    qbInstanceOnDestroyEvent_* event =
+      (qbInstanceOnDestroyEvent_*)frame->event;
+    qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
+    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(event->entity, event->component);
+    on_destroy(&instance);
+  });
+  qbSystem system;
+  qb_system_create(&system, attr);
+
+  component->instances.SubcsribeToOnDestroy(system);
+
+  qb_systemattr_destroy(&attr);
   return QB_OK;
+}
+
+qbEntity qb_instance_getentity(qbInstance instance) {
+  return instance->entity;
+}
+
+qbResult qb_instance_getconst(qbInstance instance, void* pbuffer) {
+#ifdef __ENGINE_DEBUG__
+  if (!instance->is_mutable) {
+    *(void**)pbuffer = instance->data;
+  } else {
+    *(void**)pbuffer = nullptr;
+  }
+#endif
+  *(void**)pbuffer = instance->data;
+  return QB_OK;
+}
+
+qbResult qb_instance_getmutable(qbInstance instance, void* pbuffer) {
+#ifdef __ENGINE_DEBUG__
+  if (instance->is_mutable) {
+    *(void**)pbuffer = instance->data;
+  } else {
+    *(void**)pbuffer = nullptr;
+  }
+#endif
+  *(void**)pbuffer = instance->data;
+  return QB_OK;
+}
+
+qbResult qb_instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer) {
+  *(void**)pbuffer = SystemImpl::FromRaw(instance->system)->
+    FindInstanceData(instance, component);
+  return QB_OK;
+}
+
+bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
+  return component->instances.Has(instance->entity);
 }

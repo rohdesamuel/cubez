@@ -78,32 +78,9 @@ typedef struct qbComponentAttr_* qbComponentAttr;
 typedef struct qbSystem_* qbSystem;
 typedef struct qbSystemAttr_* qbSystemAttr;
 typedef struct qbElement_* qbElement;
+typedef struct qbInstance_* qbInstance;
 typedef struct qbEventAttr_* qbEventAttr;
 typedef struct qbEvent_* qbEvent;
-typedef struct qbCollectionAttr_* qbCollectionAttr;
-typedef struct qbCollection_* qbCollection;
-
-typedef qbHandle (*qbInsert)(struct qbCollectionInterface*, void* key, void* value);
-typedef uint64_t (*qbCount)(struct qbCollectionInterface*);
-typedef uint8_t* (*qbData)(struct qbCollectionInterface*);
-typedef void* (*qbValueByOffset)(struct qbCollectionInterface*, uint64_t offset);
-typedef void* (*qbValueByHandle)(struct qbCollectionInterface*, qbHandle handle);
-typedef void* (*qbValueById)(struct qbCollectionInterface*, qbId entity_id);
-typedef void (*qbRemoveByOffset)(struct qbCollectionInterface*, uint64_t offset);
-typedef void (*qbRemoveByHandle)(struct qbCollectionInterface*, qbHandle handle);
-typedef void (*qbRemoveById)(struct qbCollectionInterface*, qbId entity_id);
-
-struct qbCollectionInterface {
-  void* collection;
-
-  qbInsert insert;
-
-  qbValueByOffset by_offset;
-  qbValueById by_id;
-
-  qbRemoveByOffset remove_by_offset;
-  qbRemoveById remove_by_id;
-};
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
@@ -122,15 +99,25 @@ DLLEXPORT qbResult qb_component_destroy(qbComponent* component);
 
 DLLEXPORT size_t qb_component_getcount(qbComponent component);
 
+///////////////////////////////////////////////////////////
+////////////////////////  Instances  //////////////////////
+///////////////////////////////////////////////////////////
+
 // Triggers fn when a component is created. If created when an entity is
 // created, then it is triggered after all components have been instantiated.
 DLLEXPORT qbResult qb_instance_oncreate(qbComponent component,
-    void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
+                                        void(*fn)(qbInstance instance));
 
 // Triggers fn when a component is destroyed. Is triggered before before memory
 // is freed.
 DLLEXPORT qbResult qb_instance_ondestroy(qbComponent component,
-    void(*fn)(qbEntity parent_entity, qbComponent component, void* instance_data));
+                                         void(*fn)(qbInstance instance));
+
+DLLEXPORT qbEntity qb_instance_getentity(qbInstance instance);
+DLLEXPORT qbResult qb_instance_getconst(qbInstance instance, void* pbuffer);
+DLLEXPORT qbResult qb_instance_getmutable(qbInstance instance, void* pbuffer);
+DLLEXPORT qbResult qb_instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer);
+DLLEXPORT bool qb_instance_hascomponent(qbInstance instance, qbComponent component);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Entities  ///////////////////////
@@ -142,16 +129,12 @@ DLLEXPORT qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent com
                                     void* instance_data);
 
 DLLEXPORT qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr);
-DLLEXPORT qbResult qb_entity_destroy(qbEntity* entity);
-DLLEXPORT qbResult qb_entity_find(qbEntity* entity, qbId entity_id);
-DLLEXPORT qbResult qb_entity_getcomponent(qbEntity entity, qbComponent component, void* buffer);
-
-DLLEXPORT bool qb_entity_hascomponent(qbEntity entity, qbComponent component);
+DLLEXPORT qbResult qb_entity_destroy(qbEntity entity);
 
 DLLEXPORT qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
                                           void* instance_data);
 DLLEXPORT qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component);
-DLLEXPORT qbId qb_entity_getid(qbEntity entity);
+DLLEXPORT bool qb_entity_hascomponent(qbEntity entity, qbComponent component);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -166,6 +149,7 @@ enum qbTrigger {
 };
 
 struct qbFrame {
+  qbSystem system;
   void* event;
   void* state;
 };
@@ -176,15 +160,17 @@ enum qbComponentJoin {
   QB_JOIN_CROSS,
 };
 
-typedef void (*qbTransform)(qbElement* elements, qbFrame* frame);
+typedef void (*qbTransform)(qbInstance* instances, qbFrame* frame);
 
 typedef void (*qbCallback)(qbFrame* frame);
 
 DLLEXPORT qbResult qb_systemattr_create(qbSystemAttr* attr);
 DLLEXPORT qbResult qb_systemattr_destroy(qbSystemAttr* attr);
 DLLEXPORT qbResult qb_systemattr_setprogram(qbSystemAttr attr, const char* program);
-DLLEXPORT qbResult qb_systemattr_addsource(qbSystemAttr attr, qbComponent component);
-DLLEXPORT qbResult qb_systemattr_addsink(qbSystemAttr attr, qbComponent component);
+
+DLLEXPORT qbResult qb_systemattr_addconst(qbSystemAttr attr, qbComponent component);
+DLLEXPORT qbResult qb_systemattr_addmutable(qbSystemAttr attr, qbComponent component);
+
 DLLEXPORT qbResult qb_systemattr_setfunction(qbSystemAttr attr, qbTransform transform);
 DLLEXPORT qbResult qb_systemattr_setcallback(qbSystemAttr attr, qbCallback callback);
 
@@ -219,22 +205,9 @@ DLLEXPORT qbResult qb_event_flushall(qbProgram program);
 DLLEXPORT qbResult qb_event_subscribe(qbEvent event, qbSystem system);
 DLLEXPORT qbResult qb_event_unsubscribe(qbEvent event, qbSystem system);
 
-DLLEXPORT qbResult qb_event_subscribewith(qbEvent event, qbSystem system,
-                                qbComponent component);
-
 // Thread-safe.
-DLLEXPORT qbResult qb_event_sendto(qbEvent event, qbComponent component, void* message);
 DLLEXPORT qbResult qb_event_send(qbEvent event, void* message);
 DLLEXPORT qbResult qb_event_sendsync(qbEvent event, void* message);
-
-///////////////////////////////////////////////////////////
-//////////////////////  Elements  //////////////////////
-///////////////////////////////////////////////////////////
-
-DLLEXPORT qbId qb_element_getid(qbElement element);
-DLLEXPORT qbEntity qb_element_getentity(qbElement element);
-DLLEXPORT qbResult qb_element_read(qbElement element, void* buffer);
-DLLEXPORT qbResult qb_element_write(qbElement element);
 
 END_EXTERN_C
 

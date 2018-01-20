@@ -13,40 +13,8 @@ struct qbEntityId_ {
   qbHandle* handle;
 };
 
-struct qbAccessor {
-  // REQUIRED
-  qbValueByOffset offset;
-
-  // REQUIRED
-  qbValueByHandle handle;
-
-  // REQUIRED
-  qbValueById id;
-};
-
-struct qbIterator {
-  // REQUIRED
-  // Function that returns the beginning of the data to iterate over
-  qbData data;
-
-  // REQUIRED
-  // Size of step when iterating over data
-  size_t stride;
-
-  size_t size;
-
-  // OPTIONAL
-  // Offset into data to start iterating from. Default 0
-  uint32_t offset;
-};
-
-typedef void(*qbInstanceOnCreate)(qbEntity parent_entity,
-                                   qbComponent to_destroy,
-                                   void* instance_data);
-
-typedef void(*qbInstanceOnDestroy)(qbEntity parent_entity,
-                                    qbComponent to_destroy,
-                                    void* instance_data);
+typedef void(*qbInstanceOnCreate)(qbInstance instance);
+typedef void(*qbInstanceOnDestroy)(qbInstance instancea);
 
 struct qbInstanceOnCreateEvent_ {
   qbId entity;
@@ -67,7 +35,6 @@ struct qbComponentAttr_ {
   const char* program;
   const char* name;
   size_t data_size;
-  qbCollection impl;
 };
 
 struct qbSystemAttr_ {
@@ -82,23 +49,15 @@ struct qbSystemAttr_ {
   void* state;
   qbComponentJoin join;
 
-  std::vector<qbComponent_*> sources;
-  std::vector<qbComponent_*> sinks;
+  std::vector<qbComponent_*> constants;
+  std::vector<qbComponent_*> mutables;
+  std::vector<qbComponent_*> components;
 };
 
 enum qbIndexedBy {
   QB_INDEXEDBY_KEY,
   QB_INDEXEDBY_OFFSET,
   QB_INDEXEDBY_HANDLE,
-};
-
-struct qbElement_ {
-  qbId id;
-  qbComponent component;
-
-  void* read_buffer;
-  void* user_buffer;
-  size_t size;
 };
 
 struct qbExecutionPolicy_ {
@@ -129,16 +88,12 @@ struct qbEntityAttr_ {
 };
 
 struct qbInstance_ {
+  qbSystem system;
   qbComponent component;
-  qbHandle instance_handle;
+  qbEntity entity;
   void* data;
-};
 
-struct qbEntity_ {
-  qbId id;
-  uint32_t instance_count;
-
-  qbEvent destroy_event;
+  bool is_mutable;
 };
 
 struct qbEventAttr_ {
