@@ -9,6 +9,7 @@
 #define SPARSE_MAP__H
 
 #include <vector>
+#include "block_vector.h"
 #include "byte_vector.h"
 #include "common.h"
 
@@ -55,6 +56,43 @@ public:
     friend class SparseMap<Value_>;
   };
 
+  class const_iterator {
+  public:
+    const_iterator operator++() {
+      ++index_;
+      return *this;
+    }
+
+    const_iterator operator+(size_t delta) {
+      index_ = std::min(map_->size(), index_ + delta);
+      return *this;
+    }
+
+    const_iterator operator+=(size_t delta) {
+      return *this + delta;
+    }
+
+    bool operator==(const iterator& other) const {
+      return map_ == other.map_ && index_ == other.index_;
+    }
+
+    bool operator!=(const iterator& other) const {
+      return !(*this == other);
+    }
+
+    std::pair<qbId, Value_*> operator*() {
+      return{ map_->dense_[index_], map_->dense_values_[index_] };
+    }
+
+  private:
+    const_iterator(const SparseMap<Value_>* map, size_t index) : map_(map), index_(index) {}
+
+    const SparseMap<Value_>* map_;
+    size_t index_;
+
+    friend class SparseMap<Value_>;
+  };
+
   SparseMap() : sparse_(16, -1) {}
 
   SparseMap(const SparseMap<Value_>& other) {
@@ -82,6 +120,7 @@ public:
   void reserve(size_t size) {
     sparse_.reserve(size);
     dense_.reserve(size);
+    dense_values_.reserve(size);
   }
 
   Value& operator[](uint64_t key) {
@@ -131,6 +170,12 @@ public:
     sparse_[dense_.back()] = sparse_[key];
     dense_.pop_back();
     sparse_[key] = -1;
+  }
+
+  void clear() {
+    dense_values_.resize(0);
+    sparse_.resize(0);
+    dense_.resize(0);
   }
 
   bool has(uint64_t key) {
@@ -185,11 +230,11 @@ public:
       return *this + delta;
     }
 
-    bool operator==(const iterator& other) {
+    bool operator==(const iterator& other) const {
       return map_ == other.map_ && index_ == other.index_;
     }
 
-    bool operator!=(const iterator& other) {
+    bool operator!=(const iterator& other) const {
       return !(*this == other);
     }
 
@@ -206,7 +251,42 @@ public:
     friend class SparseMap<void>;
   };
 
-  SparseMap() {}
+  class const_iterator {
+  public:
+    const_iterator operator++() {
+      ++index_;
+      return *this;
+    }
+
+    const_iterator operator+(size_t delta) {
+      index_ = std::min(map_->size(), index_ + delta);
+      return *this;
+    }
+
+    const_iterator operator+=(size_t delta) {
+      return *this + delta;
+    }
+
+    bool operator==(const iterator& other) const {
+      return map_ == other.map_ && index_ == other.index_;
+    }
+
+    bool operator!=(const iterator& other) const {
+      return !(*this == other);
+    }
+
+    std::pair<qbId, const void*> operator*() {
+      return{ map_->dense_[index_], map_->dense_values_[index_] };
+    }
+
+  private:
+    const_iterator(const SparseMap<void>* map, size_t index) : map_(map), index_(index) {}
+
+    const SparseMap<void>* map_;
+    size_t index_;
+
+    friend class SparseMap<void>;
+  };
 
   SparseMap(size_t element_size)
     : element_size_(element_size), sparse_(16, -1), 
@@ -237,6 +317,7 @@ public:
   void reserve(size_t size) {
     sparse_.reserve(size);
     dense_.reserve(size);
+    dense_values_.reserve(size);
   }
 
   void* operator[](uint64_t key) {
@@ -256,6 +337,14 @@ public:
 
   iterator end() {
     return iterator{ this, size() };
+  }
+
+  const_iterator begin() const {
+    return const_iterator{ this, 0 };
+  }
+
+  const_iterator end() const {
+    return const_iterator{ this, size() };
   }
 
   void insert(uint64_t key, void* value) {
@@ -279,7 +368,13 @@ public:
     sparse_[key] = -1;
   }
 
-  bool has(uint64_t key) {
+  void clear() {
+    dense_values_.resize(0);
+    sparse_.resize(0);
+    dense_.resize(0);
+  }
+
+  bool has(uint64_t key) const {
     if (key >= sparse_.size()) {
       return false;
     }
@@ -309,7 +404,7 @@ private:
 
   size_t element_size_;
   std::vector<qbId> sparse_;
-  ByteVector dense_values_;
+  BlockVector dense_values_;
   std::vector<uint64_t> dense_;
 };
 
