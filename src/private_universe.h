@@ -115,6 +115,10 @@ class PrivateUniverse {
                                   void* instance_data);
   qbResult entity_removecomponent(qbEntity entity, qbComponent component);
 
+  // Instance manipulation.
+  qbResult instance_oncreate(qbComponent component, qbSystem system);
+  qbResult instance_ondestroy(qbComponent component, qbSystem system);
+
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);
 

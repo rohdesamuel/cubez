@@ -7,22 +7,20 @@
 
 class FrameBuffer;
 class Component {
+  typedef SparseMap<void, ByteVector> InstanceMap;
  public:
-  typedef typename SparseMap<void>::iterator iterator;
+  typedef typename InstanceMap::iterator iterator;
+  typedef typename InstanceMap::const_iterator const_iterator;
 
-  Component(FrameBuffer* buffer, qbComponent parent, qbId id, size_t instance_size);
+  Component(FrameBuffer* buffer, qbId id, size_t instance_size);
+
   class ComponentBuffer* MakeBuffer();
 
+  Component* Clone();
   void Merge(ComponentBuffer* update);
 
   qbResult Create(qbId entity, void* value);
   qbResult Destroy(qbId entity);
-
-  qbResult SendInstanceCreateNotification(qbEntity entity);
-  qbResult SendInstanceDestroyNotification(qbEntity entity);
-
-  qbResult SubcsribeToOnCreate(qbSystem system);
-  qbResult SubcsribeToOnDestroy(qbSystem system);
 
   void* operator[](qbId entity);
   const void* operator[](qbId entity) const;
@@ -40,16 +38,13 @@ class Component {
   iterator begin();
   iterator end();
 
+  const_iterator begin() const;
+  const_iterator end() const;
+
  private:
   FrameBuffer* frame_buffer_;
-
-  qbComponent parent_;
   qbId id_;
-  
-  SparseMap<void> instances_;
-
-  qbEvent on_create_;
-  qbEvent on_destroy_;
+  InstanceMap instances_;
 };
 
 class ComponentBuffer {
@@ -71,7 +66,7 @@ public:
   void Clear();
 
 private:
-  SparseMap<void> insert_or_update_;
+  SparseMap<void, BlockVector> insert_or_update_;
   SparseSet destroyed_;
   Component* component_;
 

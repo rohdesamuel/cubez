@@ -14,7 +14,6 @@
 
 class SparseSet {
 public:
-
   class iterator {
   public:
     iterator operator++() {

@@ -12,6 +12,15 @@ EntityRegistry::EntityRegistry(ComponentRegistry* component_registry, FrameBuffe
 void EntityRegistry::Init() {
 }
 
+EntityRegistry* EntityRegistry::Clone() {
+  EntityRegistry* ret = new EntityRegistry(component_registry_, frame_buffer_);
+  long id = id_;
+  ret->id_ = id;
+  ret->entities_ = entities_;
+  ret->free_entity_ids_ = free_entity_ids_;
+  return ret;
+}
+
 // Creates an entity. Entity will be available for use next frame. Sends a
 // ComponentCreateEvent after all components have been created.
 qbResult EntityRegistry::CreateEntity(qbEntity* entity,

@@ -1,33 +1,38 @@
+#include "apex_memmove.h"
 #include "component.h"
 #include "defs.h"
 #include "frame_buffer.h"
 
-Component::Component(FrameBuffer* buffer, qbComponent parent, qbId id, size_t instance_size)
-    : frame_buffer_(buffer), parent_(parent), id_(id), instances_(instance_size) {
-  {
-    qbEventAttr attr;
-    qb_eventattr_create(&attr);
-    qb_eventattr_setmessagetype(attr, qbInstanceOnCreateEvent_);
-    qb_event_create(&on_create_, attr);
-    qb_eventattr_destroy(&attr);
-  }
-  {
-    qbEventAttr attr;
-    qb_eventattr_create(&attr);
-    qb_eventattr_setmessagetype(attr, qbInstanceOnDestroyEvent_);
-    qb_event_create(&on_destroy_, attr);
-    qb_eventattr_destroy(&attr);
-  }
-}
+#include <omp.h>
+
+Component::Component(FrameBuffer* buffer, qbId id, size_t instance_size)
+    : frame_buffer_(buffer), id_(id), instances_(instance_size) {}
 
 ComponentBuffer* Component::MakeBuffer() {
   return new ComponentBuffer{ this };
 }
 
+Component* Component::Clone() {
+  Component* ret = new Component(frame_buffer_, id_, instances_.element_size());
+  *ret = *this;
+  return ret;
+}
+
 void Component::Merge(ComponentBuffer* update) {
+  instances_.reserve(update->insert_or_update_.capacity());
+
   for (auto pair : update->insert_or_update_) {
-    memmove(instances_[pair.first], pair.second, ElementSize());
+    if (!instances_.has(pair.first)) {
+      instances_.insert(pair.first, nullptr);
+    }
   }
+
+#pragma omp parallel for
+  for (int64_t i = 0; i < update->insert_or_update_.size(); ++i) {
+    auto it = update->insert_or_update_.begin() + i;
+    apex::memmove(instances_[(*it).first], (*it).second, ElementSize());
+  }
+
   for (auto id : update->destroyed_) {
     if (instances_.has(id)) {
       instances_.erase(id);
@@ -43,14 +48,6 @@ qbResult Component::Destroy(qbId entity) {
   return frame_buffer_->Component(id_)->Destroy(entity);
 }
 
-qbResult Component::SubcsribeToOnCreate(qbSystem system) {
-  return qb_event_subscribe(on_create_, system);
-}
-
-qbResult Component::SubcsribeToOnDestroy(qbSystem system) {
-  return qb_event_subscribe(on_destroy_, system);
-}
-
 void* Component::operator[](qbId entity) {
   void* result = frame_buffer_->Component(id_)->FindOrCreate(entity, instances_[entity]);
   if (result) {
@@ -60,10 +57,6 @@ void* Component::operator[](qbId entity) {
 }
 
 const void* Component::operator[](qbId entity) const {
-  const void* result = frame_buffer_->Component(id_)->Find(entity);
-  if (result) {
-    return result;
-  }
   return instances_[entity];
 }
 
@@ -94,22 +87,6 @@ void Component::Reserve(size_t count) {
   return instances_.reserve(count);
 }
 
-qbResult Component::SendInstanceCreateNotification(qbEntity entity) {
-  qbInstanceOnCreateEvent_ event;
-  event.entity = entity;
-  event.component = parent_;
-
-  return qb_event_sendsync(on_create_, &event);
-}
-
-qbResult Component::SendInstanceDestroyNotification(qbEntity entity) {
-  qbInstanceOnDestroyEvent_ event;
-  event.entity = entity;
-  event.component = parent_;
-
-  return qb_event_sendsync(on_destroy_, &event);
-}
-
 qbId Component::Id() const {
   return id_;
 }
@@ -119,6 +96,14 @@ Component::iterator Component::begin() {
 }
 
 Component::iterator Component::end() {
+  return instances_.end();
+}
+
+Component::const_iterator Component::begin() const {
+  return instances_.begin();
+}
+
+Component::const_iterator Component::end() const {
   return instances_.end();
 }
 

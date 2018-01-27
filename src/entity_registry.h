@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -18,6 +17,7 @@ class EntityRegistry {
   EntityRegistry(ComponentRegistry* component_registry, FrameBuffer* frame_buffer);
 
   void Init();
+  EntityRegistry* Clone();
 
   // Creates an entity. Entity will be available for use next frame. Sends a
   // ComponentCreateEvent after all components have been created.

@@ -11,19 +11,21 @@
 class ComponentRegistry {
  public:
   ComponentRegistry();
+  ~ComponentRegistry();
 
   void Init();
+  ComponentRegistry* Clone();
+
+  qbResult Create(qbComponent* component, qbComponentAttr attr,
+    FrameBuffer* frame_buffer);
 
   Component& operator[](qbId component) {
-    return components_[component]->instances;
+    return *(Component*)components_[component];
   }
 
   const Component& operator[](qbId component) const {
-    return components_[component]->instances;
+    return *(Component*)components_[component];
   }
-
-  qbResult ComponentCreate(qbComponent* component, qbComponentAttr attr,
-                           FrameBuffer* frame_buffer);
 
   qbResult CreateInstancesFor(
       qbEntity entity, const std::vector<qbComponentInstance_>& instances);
@@ -34,8 +36,17 @@ class ComponentRegistry {
   int DestroyInstancesFor(qbEntity entity);
   qbResult DestroyInstanceFor(qbEntity entity, qbComponent component);
 
+  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component);
+  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component);
+
  private:
-  SparseMap<qbComponent> components_;
+  qbResult SendInstanceCreateNotification(qbEntity entity, qbComponent component);
+  qbResult SendInstanceDestroyNotification(qbEntity entity, qbComponent component);
+
+  std::vector<qbEvent> instance_create_events_;
+  std::vector<qbEvent> instance_destroy_events_;
+  SparseMap<Component*, TypedBlockVector<Component*>> components_;
+
   std::atomic_long id_;
 };
 

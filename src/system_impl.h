@@ -27,7 +27,6 @@ class SystemImpl {
   void Run_N(qbFrame* f);
 
   qbSystem system_;
-  ComponentRegistry* component_registry_;
   std::vector<qbComponent> components_;
 
   qbComponentJoin join_;

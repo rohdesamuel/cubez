@@ -1,4 +1,11 @@
 #include "private_universe.h"
+#include "snapshot.h"
+#include "timer.h"
+
+#ifdef __COMPILE_AS_WINDOWS__
+#undef CreateEvent
+#undef SendMessage
+#endif
 
 typedef Runner::State RunState;
 
@@ -249,7 +256,17 @@ qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
   qbProgram* program = programs_->GetProgram(attr->program);
-  qbResult result = components_->ComponentCreate(component, attr, &buffer_);  
+  qbResult result = components_->Create(component, attr, &buffer_);  
   buffer_.RegisterComponent(program->id, &(*component)->instances);
   return result;
+}
+
+qbResult PrivateUniverse::instance_oncreate(qbComponent component, qbSystem system) {
+  components_->SubcsribeToOnCreate(system, component);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::instance_ondestroy(qbComponent component, qbSystem system) {
+  components_->SubcsribeToOnDestroy(system, component);
+  return QB_OK;
 }
