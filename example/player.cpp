@@ -119,13 +119,11 @@ void initialize(const Settings& settings) {
           }
 
           if (player->fire_bullets) {
-            for (int i = 0; i < 10; ++i) {
-              glm::vec3 vel = glm::vec3(
-                render::qb_camera_getorientation()
-                * glm::vec4{ 1000.0, 0.0, 0.0, 1.0 });
+            glm::vec3 vel = glm::vec3(
+              render::qb_camera_getorientation()
+              * glm::vec4{ 2500.0, 0.0, 0.0, 1.0 });
 
-              ball::create(t->p, vel, true, false);
-            }
+            ball::create(t->p, vel, true, false);
           }
           
           render::qb_camera_setposition(t->p);

@@ -317,7 +317,6 @@ int main(int, char* []) {
     current_time = new_time;
 
     accumulator += frame_time;
-
     while (accumulator >= dt) {
       input::handle_input([](SDL_Event*) {
           render::shutdown();
@@ -357,10 +356,10 @@ int main(int, char* []) {
 
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
-    if (rand() % 100000 == 0) {
+    if (rand() % 10 == 0) {
       ball::create({(float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f,
-                    (float)(rand() % 500) - 250.0f}, {});
+                    (float)(rand() % 500) - 250.0f}, {}, true, true);
     }
       
 

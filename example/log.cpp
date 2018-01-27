@@ -23,7 +23,7 @@ void initialize() {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-    qb_systemattr_setprogram(attr, kStdout);
+    qb_systemattr_setprogram(attr, program_id);
     qb_systemattr_setcallback(attr,
         [](qbFrame* f) {
           std::cout << (char*)(f->event) << std::endl;
@@ -35,7 +35,7 @@ void initialize() {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setprogram(attr, kStdout);
+    qb_eventattr_setprogram(attr, program_id);
     qb_eventattr_setmessagesize(attr, MAX_CHARS);
     qb_event_create(&std_out, attr);
     qb_event_subscribe(std_out, system_out);

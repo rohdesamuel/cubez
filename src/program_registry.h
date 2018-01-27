@@ -20,8 +20,6 @@ class ProgramRegistry {
 
   qbResult JoinProgram(qbId program);
 
-  qbProgram* GetProgram(const char* program);
-
   qbProgram* GetProgram(qbId id);
 
   void Run();
@@ -31,9 +29,10 @@ class ProgramRegistry {
  private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
+  std::atomic_long id_;
   ComponentRegistry* component_registry_;
   FrameBuffer* frame_buffer_;
-  std::map<size_t, qbProgram*> programs_;
+  SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;
 };

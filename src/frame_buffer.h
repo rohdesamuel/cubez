@@ -15,7 +15,7 @@ public:
 
   void RegisterComponent(qbId program, class Component* component);
 
-  const SparseMap<ComponentBuffer*>& ComponentBuffers() const;
+  const SparseMap<ComponentBuffer*, std::vector<ComponentBuffer*>>& ComponentBuffers() const;
 
   ComponentBuffer* Component(qbId component_id);
 
@@ -27,14 +27,14 @@ public:
 
 private:
   struct FrameState {
-    SparseMap<ComponentBuffer*> components_;
+    SparseMap<ComponentBuffer*, std::vector<ComponentBuffer*>> components_;
     std::vector<qbEntity> created_entities_;
     std::vector<qbEntity> destroyed_entities_;
   };
 
   EntityRegistry* entity_registry_;
 
-  std::unordered_map<qbId, FrameState> state_;
+  SparseMap<FrameState, std::vector<FrameState>> state_;
 };
 
 #endif  // FRAME_BUFFER__H

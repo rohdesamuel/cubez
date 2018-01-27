@@ -11,15 +11,7 @@ ProgramRegistry::ProgramRegistry(ComponentRegistry* component_registry,
 }
 
 qbId ProgramRegistry::CreateProgram(const char* program) {
-  std::hash<std::string> hasher;
-  qbId id = hasher(program);
-
-  DEBUG_OP(
-    auto it = programs_.find(id);
-    if (it != programs_.end()) {
-      return -1;
-    }
-  );
+  qbId id = id_++;
 
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
@@ -27,12 +19,14 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
 }
 
 qbResult ProgramRegistry::DetatchProgram(qbId program) {
-  qbProgram* to_detach = GetProgram(program);
-  std::unique_ptr<ProgramThread> program_thread(
+  if (programs_.has(program)) {
+    qbProgram* to_detach = GetProgram(program);
+    std::unique_ptr<ProgramThread> program_thread(
       new ProgramThread(to_detach));
-  program_thread->Run();
-  detached_[program] = std::move(program_thread);
-  programs_.erase(programs_.find(program));
+    program_thread->Run();
+    detached_[program] = std::move(program_thread);
+    programs_.erase(program);
+  }
   return QB_OK;
 }
 
@@ -42,16 +36,10 @@ qbResult ProgramRegistry::JoinProgram(qbId program) {
   return QB_OK;
 }
 
-qbProgram* ProgramRegistry::GetProgram(const char* program) {
-  std::hash<std::string> hasher;
-  qbId id = hasher(std::string(program));
-  if (id == -1) {
+qbProgram* ProgramRegistry::GetProgram(qbId id) {
+  if (!programs_.has(id)) {
     return nullptr;
   }
-  return programs_[id];
-}
-
-qbProgram* ProgramRegistry::GetProgram(qbId id) {
   return programs_[id];
 }
 

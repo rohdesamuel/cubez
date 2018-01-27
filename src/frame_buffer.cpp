@@ -15,12 +15,12 @@ void FrameBuffer::RegisterComponent(qbId program, class Component* component) {
   state_[program].components_[component->Id()] = component->MakeBuffer();
 }
 
-const SparseMap<ComponentBuffer*>& FrameBuffer::ComponentBuffers() const {
-  return state_.at(PrivateUniverse::program_id).components_;
+const SparseMap<ComponentBuffer*, std::vector<ComponentBuffer*>>& FrameBuffer::ComponentBuffers() const {
+  return state_[PrivateUniverse::program_id].components_;
 }
 
 ComponentBuffer* FrameBuffer::Component(qbId component_id) {
-  return state_.at(PrivateUniverse::program_id).components_[component_id];
+  return state_[PrivateUniverse::program_id].components_[component_id];
 }
 
 void FrameBuffer::ResolveDeltas() {
@@ -39,9 +39,9 @@ void FrameBuffer::ResolveDeltas() {
 }
 
 void FrameBuffer::CreateEntity(qbEntity entity) {
-  state_.at(PrivateUniverse::program_id).created_entities_.push_back(entity);
+  state_[PrivateUniverse::program_id].created_entities_.push_back(entity);
 }
 
 void FrameBuffer::DestroyEntity(qbEntity entity) {
-  state_.at(PrivateUniverse::program_id).destroyed_entities_.push_back(entity);
+  state_[PrivateUniverse::program_id].destroyed_entities_.push_back(entity);
 }

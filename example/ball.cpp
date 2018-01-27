@@ -44,11 +44,11 @@ void initialize(const Settings& settings) {
         physics::Transform* transform;
         qb_instance_getcomponent(inst, physics::component(), &transform);
         if (qb_instance_hascomponent(inst, Explodable)) {
-          for (int i = 0; i < 100; ++i) {
+          for (int i = 0; i < 1000; ++i) {
             ball::create(transform->p,
-                         {((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f,
-                          ((float)(rand() % 500) - 250.0f) / 250.0f}, false, false);
+                         {((float)(rand() % 500) - 250.0f) / 25.0f,
+                          ((float)(rand() % 500) - 250.0f) / 25.0f,
+                          ((float)(rand() % 500) - 250.0f) / 25.0f}, false, false);
           }
         }
       });
@@ -67,6 +67,7 @@ void initialize(const Settings& settings) {
 
           physics::Transform* t;
           qb_instance_getcomponent(inst, physics::component(), &t);
+          t->v.z -= 0.25f;
 
           --ball->death_counter;
           if (ball->death_counter < 0 || (t->p.z <= -48 && qb_instance_hascomponent(inst, Explodable))) {
@@ -86,8 +87,8 @@ void initialize(const Settings& settings) {
     qb_systemattr_setcallback(attr,
         [](qbFrame* frame) {
           physics::Collision* c = (physics::Collision*)frame->event;
-          if (qb_entity_hascomponent(c->a, ball_component) == QB_OK &&
-              qb_entity_hascomponent(c->b, ball_component) == QB_OK) {
+          if (qb_entity_hascomponent(c->a, ball_component) &&
+              qb_entity_hascomponent(c->b, ball_component)) {
             qb_entity_destroy(c->a);
           }
         });
@@ -108,7 +109,7 @@ void create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool collidable) {
   qb_entityattr_create(&attr);
 
   Ball b;
-  b.death_counter = explodable ? 5 : 100;// 00 + (rand() % 10) - (rand() % 10);
+  b.death_counter = explodable ? 1 : 100 + (rand() % 25) - (rand() % 10);
   qb_entityattr_addcomponent(attr, ball_component, &b);
 
   physics::Transform t{pos, vel, false};
@@ -116,7 +117,7 @@ void create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool collidable) {
 
   qb_entityattr_addcomponent(attr, render::component(), &render_state);
 
-  if (collidable) {
+  if (false) {
     physics::Collidable c;
     qb_entityattr_addcomponent(attr, physics::collidable(), &c);
   }

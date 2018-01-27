@@ -32,13 +32,13 @@ struct qbComponent_ {
 };
 
 struct qbComponentAttr_ {
-  const char* program;
+  qbId program;
   const char* name;
   size_t data_size;
 };
 
 struct qbSystemAttr_ {
-  const char* program;
+  qbId program;
   
   qbTransform transform;
   qbCallback callback;
@@ -97,7 +97,7 @@ struct qbInstance_ {
 };
 
 struct qbEventAttr_ {
-  const char* program;
+  qbId program;
   size_t message_size;
 };
 

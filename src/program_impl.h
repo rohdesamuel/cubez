@@ -43,7 +43,7 @@ class ProgramImpl {
   EventRegistry events_;
   ComponentRegistry* component_registry_;
 
-  SparseMap<ComponentBuffer*> mutables_;
+  SparseMap<ComponentBuffer*, std::vector<ComponentBuffer*>> mutables_;
   std::vector<qbSystem> systems_;
   std::vector<qbSystem> loop_systems_;
   std::set<qbSystem> event_systems_;

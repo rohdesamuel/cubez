@@ -66,7 +66,7 @@ qbResult qb_componentattr_destroy(qbComponentAttr* attr) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_componentattr_setprogram(qbComponentAttr attr, const char* program) {
+qbResult qb_componentattr_setprogram(qbComponentAttr attr, qbId program) {
   attr->program = program;
 	return qbResult::QB_OK;
 }
@@ -79,7 +79,7 @@ qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t size) {
 qbResult qb_component_create(
     qbComponent* component, qbComponentAttr attr) {
   if (!attr->program) {
-    attr->program = "";
+    attr->program = 0;
   }
   return AS_PRIVATE(component_create(component, attr));
 }
@@ -147,7 +147,7 @@ qbResult qb_systemattr_destroy(qbSystemAttr* attr) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_setprogram(qbSystemAttr attr, const char* program) {
+qbResult qb_systemattr_setprogram(qbSystemAttr attr, qbId program) {
   attr->program = program;
 	return qbResult::QB_OK;
 }
@@ -197,7 +197,7 @@ qbResult qb_systemattr_setuserstate(qbSystemAttr attr, void* state) {
 
 qbResult qb_system_create(qbSystem* system, qbSystemAttr attr) {
   if (!attr->program) {
-    attr->program = "";
+    attr->program = 0;
   }
 #ifdef __ENGINE_DEBUG__
   DEBUG_ASSERT(attr->transform || attr->callback,
@@ -223,7 +223,7 @@ qbResult qb_eventattr_destroy(qbEventAttr* attr) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_eventattr_setprogram(qbEventAttr attr, const char* program) {
+qbResult qb_eventattr_setprogram(qbEventAttr attr, qbId program) {
   attr->program = program;
 	return qbResult::QB_OK;
 }
@@ -235,7 +235,7 @@ qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size) {
 
 qbResult qb_event_create(qbEvent* event, qbEventAttr attr) {
   if (!attr->program) {
-    attr->program = "";
+    attr->program = 0;
   }
 #ifdef __ENGINE_DEBUG__
   DEBUG_ASSERT(attr->message_size > 0,
@@ -269,7 +269,7 @@ qbResult qb_event_sendsync(qbEvent event, void* message) {
 }
 
 qbResult qb_instance_oncreate(qbComponent component,
-  qbInstanceOnCreate on_create) {
+                              qbInstanceOnCreate on_create) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
@@ -284,14 +284,14 @@ qbResult qb_instance_oncreate(qbComponent component,
   qbSystem system;
   qb_system_create(&system, attr);
 
-  component->instances.SubcsribeToOnCreate(system);
+  AS_PRIVATE(instance_oncreate(component, system));
 
   qb_systemattr_destroy(&attr);
   return QB_OK;
 }
 
 qbResult qb_instance_ondestroy(qbComponent component,
-  qbInstanceOnDestroy on_destroy) {
+                               qbInstanceOnDestroy on_destroy) {
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
@@ -306,7 +306,7 @@ qbResult qb_instance_ondestroy(qbComponent component,
   qbSystem system;
   qb_system_create(&system, attr);
 
-  component->instances.SubcsribeToOnDestroy(system);
+  AS_PRIVATE(instance_ondestroy(component, system));
 
   qb_systemattr_destroy(&attr);
   return QB_OK;

@@ -74,15 +74,18 @@ bool check_for_gl_errors() {
   return true;
 }
 
-void render_event_handler(qbInstance* insts, qbFrame*) {
+void render_event_handler(qbInstance* insts, qbFrame* f) {
+  RenderEvent* e = (RenderEvent*)f->event;
+
   qbRenderable* renderable;
   qb_instance_getconst(insts[0], &renderable);
   
   physics::Transform* transform;
   qb_instance_getconst(insts[1], &transform);
+  glm::vec3 v = transform->v * (float)e->alpha;
 
   glm::mat4 mvp;
-  glm::mat4 m = glm::translate(glm::mat4(1.0f), transform->p);
+  glm::mat4 m = glm::translate(glm::mat4(1.0f), transform->p + v);
 
   qb_material_use((*renderable)->material);
 

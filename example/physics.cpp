@@ -58,14 +58,6 @@ void initialize(const Settings&) {
           Transform* t;
           qb_instance_getmutable(insts[0], &t);
 
-          /*if (qb_instance_hascomponent(insts[0], player::Component())) {
-            std::cout << "player: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
-          } else if (qb_instance_hascomponent(insts[0], ball::Component())) {
-            std::cout << "ball: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
-          } else {
-            std::cout << "else: " << t->v.x << ", " << t->v.y << ", " << t->v.z << std::endl;
-          }*/
-
           t->p += t->v;
         });
     qb_system_create(&move_system, attr);
@@ -94,7 +86,7 @@ void initialize(const Settings&) {
 
           glm::vec3 r = a->p - b->p;
 
-          if (glm::length(r) < 32.0f) {
+          if (glm::dot(r, r) < 32 * 32) {
             Collision event{e_a, e_b};
             qb_event_send(collision_event_, &event);
           }
