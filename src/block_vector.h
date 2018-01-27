@@ -1,11 +1,18 @@
 #ifndef BLOCK_VECTOR__H
 #define BLOCK_VECTOR__H
 
+#include "apex_memmove.h"
 #include "common.h"
 
 #include <algorithm>
 #include <cstring>
 #include <vector>
+
+#ifdef __COMPILE_AS_WINDOWS__
+#include <malloc.h>
+#else
+#include <stdlib.h>
+#endif
 
 class BlockVector {
 public:
@@ -38,10 +45,10 @@ public:
   typedef const iterator const_iterator;
   typedef uint64_t Index;
 
-  BlockVector() : count_(0), capacity_(0), elem_size_(0), page_size_(4096) {}
+  BlockVector() : count_(0), capacity_(0), elem_size_(0) {}
 
-  BlockVector(size_t element_size, size_t page_size = 4096) :
-    count_(0), capacity_(0), elem_size_(element_size), page_size_(page_size) {
+  BlockVector(size_t element_size) :
+    count_(0), capacity_(0), elem_size_(element_size) {
     elems_.push_back(alloc_block());
     capacity_ = elem_size_ == 0 ? 0 : page_size_ / elem_size_;
     size_t initial_capacity = 8;
@@ -60,7 +67,7 @@ public:
 
   ~BlockVector() {
     for (void* e : elems_) {
-      free(e);
+      ALIGNED_FREE(e);
     }
   }
 
@@ -168,7 +175,7 @@ public:
     ++count_;
     resize_capacity(count_ + 1);
     if (data) {
-      std::memmove((*this)[count_ - 1], data, elem_size_);
+      apex::memmove((*this)[count_ - 1], data, elem_size_);
     }
   }
 
@@ -178,7 +185,7 @@ public:
       resize_capacity(count_ + 1);
     }
     if (data) {
-      std::memcpy((*this)[count_ - 1], data, elem_size_);
+      apex::memcpy((*this)[count_ - 1], data, elem_size_);
     }
   }
 
@@ -212,7 +219,7 @@ private:
   }
 
   void* alloc_block() {
-    return malloc(page_size_ + elem_size_);
+    return ALIGNED_ALLOC(page_size_ + elem_size_, page_size_);
   }
 
   void copy(const BlockVector& other) {
@@ -222,8 +229,8 @@ private:
     *(size_t*)(&elem_size_) = other.elem_size_;
     *(size_t*)(&page_size_) = other.page_size_;
     for (void* e : other.elems_) {
-      void* copy = malloc(page_size_);
-      std::memcpy(copy, e, page_size_);
+      void* copy = alloc_block();
+      apex::memmove(copy, e, page_size_);
       elems_.push_back(copy);
     }
   }
@@ -243,7 +250,124 @@ private:
   size_t count_;
   size_t capacity_;
   const size_t elem_size_;
-  const size_t page_size_;
+  const size_t page_size_ = 4096;
+};
+
+template<class Ty_>
+class TypedBlockVector {
+public:
+  typedef BlockVector::iterator iterator;
+  typedef BlockVector::const_iterator const_iterator;
+  typedef BlockVector::Index Index;
+
+  TypedBlockVector() : elems_(sizeof(Ty_)) {
+    elems_.reserve(8);
+  }
+
+  TypedBlockVector(const TypedBlockVector& other) {
+    copy(other);
+  }
+
+  TypedBlockVector(TypedBlockVector&& other) {
+    move(std::move(other));
+  }
+
+  TypedBlockVector& operator=(const TypedBlockVector& other) {
+    elems_ = other.elems_;
+  }
+
+  TypedBlockVector& operator=(TypedBlockVector&& other) {
+    elems_ = std::move(other.elems_);
+  }
+
+  Ty_& operator[](Index index) {
+    return *(Ty_*)elems_[index];
+  }
+
+  const Ty_& operator[](Index index) const {
+    return *(Ty_*)elems_[index];
+  }
+
+  iterator begin() {
+    return iterator(this, 0);
+  }
+
+  iterator end() {
+    return iterator(this, count_);
+  }
+
+  // Returns the addres to the first element.
+  Ty_& front() {
+    return *(Ty_*)elems_.front();
+  }
+
+  // Returns the address to the last element.
+  Ty_& back() {
+    return *(Ty_*)elems_.back();
+  }
+
+  // Returns the addres to the first element.
+  const Ty_& front() const {
+    return *(Ty_*)elems_.front();
+  }
+
+  // Returns the address to the last element.
+  const Ty_& back() const {
+    return *(Ty_*)elems_.back();
+  }
+
+  Ty_& at(Index index) {
+    return *(Ty_*)elems_.at(index);
+  }
+
+  const Ty_& at(Index index) const {
+    return *(Ty_*)elems_.at(index);
+  }
+
+  bool empty() const {
+    return elems_.empty();
+  }
+
+  size_t size() const {
+    return elems_.size();
+  }
+
+  size_t element_size() const {
+    return elems_.element_size();
+  }
+
+  void reserve(size_t count) {
+    elems_.reserve();
+  }
+
+  void clear() {
+    elems_.clear();
+  }
+
+  void resize(size_t count) {
+    elems_.resize(count);
+  }
+
+  size_t capacity() const {
+    return elems_.capacity();
+  }
+
+  void push_back(Ty_&& data) {
+    elems_.push_back((void*)nullptr);
+    *(Ty_*)elems_.back() = std::move(data);
+  }
+
+  void push_back(const Ty_& data) {
+    elems_.push_back((void*)nullptr);
+    *(Ty_*)elems_.back() = data;
+  }
+
+  void pop_back() {
+    elems_.pop_back();
+  }
+
+private:
+  BlockVector elems_;
 };
 
 #endif  // BLOCK_VECTOR__H
