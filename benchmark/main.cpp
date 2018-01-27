@@ -86,7 +86,7 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addconst(attr, position_component);
+    qb_systemattr_addmutable(attr, position_component);
     qb_systemattr_setfunction(attr,
       [](qbInstance*, qbFrame*) {
         *Count() += 1;
