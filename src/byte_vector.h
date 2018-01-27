@@ -1,6 +1,7 @@
 #ifndef BYTE_VECTOR__H
 #define BYTE_VECTOR__H
 
+#include "apex_memmove.h"
 #include "common.h"
 #include <algorithm>
 #include <cstring>
@@ -42,7 +43,7 @@ class ByteVector {
   ByteVector(size_t element_size) :
       elems_(nullptr), count_(0), capacity_(0), elem_size_(element_size) {
     size_t initial_capacity = 8;
-    elems_ = (uint8_t*)calloc(initial_capacity, elem_size_);
+    elems_ = (uint8_t*)ALIGNED_ALLOC(initial_capacity * elem_size_, 4096);
     reserve(initial_capacity);
   }
 
@@ -55,7 +56,7 @@ class ByteVector {
   }
 
   ~ByteVector() {
-    free(elems_);
+    ALIGNED_FREE(elems_);
   }
 
   ByteVector& operator=(const ByteVector& other) {
@@ -171,7 +172,7 @@ class ByteVector {
       resize_capacity(capacity_ + 1);
     }
     if (data) {
-      std::memmove((*this)[count_], data, elem_size_);
+      apex::memmove((*this)[count_], data, elem_size_);
     }
     ++count_;
   }
@@ -181,7 +182,7 @@ class ByteVector {
       resize_capacity(capacity_ + 1);
     }
     if (data) {
-      std::memcpy((*this)[count_], data, elem_size_);
+      apex::memmove((*this)[count_], data, elem_size_);
     }
     ++count_;
   }
@@ -222,14 +223,17 @@ class ByteVector {
     if (capacity_ == new_capacity) {
       return;
     }
-    elems_ = (uint8_t*)realloc(elems_, new_capacity * elem_size_);
+    uint8_t* new_elems = (uint8_t*)ALIGNED_ALLOC(new_capacity * elem_size_, 4096);
+    apex::memmove(new_elems, elems_, capacity_ * elem_size_);
+    ALIGNED_FREE(elems_);
+    elems_ = new_elems;
     capacity_ = new_capacity;
   }
 
   void copy(const ByteVector& other) {
     count_ = other.count_;
     reserve(count_);
-    memcpy(elems_, other.elems_, other.size() * other.element_size());
+    apex::memmove(elems_, other.elems_, other.size() * other.element_size());
     *(size_t*)(&elem_size_) = other.elem_size_;
   }
 
@@ -250,5 +254,182 @@ class ByteVector {
   const size_t elem_size_;
 };
 
-#endif  // BYTE_VECTOR__H
+template<class Ty_>
+class TypedByteVector {
+public:
+  class iterator {
+  public:
+    iterator(ByteVector::iterator it) : it_(it) {}
 
+    Ty_& operator*() {
+      return *(Ty_*)(*it_);
+    }
+
+    iterator operator++() {
+      ++it_;
+      return *this;
+    }
+
+    bool operator==(const iterator& other) {
+      return it_ == other.it_;
+    }
+
+    bool operator!=(const iterator& other) {
+      return !(*this == other);
+    }
+
+  private:
+    ByteVector::iterator it_;
+  };
+  class const_iterator {
+  public:
+    const_iterator(ByteVector::const_iterator it) : it_(it) {}
+
+    const Ty_& operator*() {
+      return *(Ty_*)(*it_);
+    }
+
+    const_iterator operator++() {
+      ++it_;
+      return *this;
+    }
+
+    bool operator==(const const_iterator& other) {
+      return it_ == other.it_;
+    }
+
+    bool operator!=(const const_iterator& other) {
+      return !(*this == other);
+    }
+
+  private:
+    ByteVector::const_iterator it_;
+  };
+
+  typedef ByteVector::Index Index;
+
+  TypedByteVector() : container_(sizeof(Ty_)) {}
+
+  TypedByteVector(const TypedByteVector& other) {
+    container_ = other.container_;
+  }
+
+  TypedByteVector(TypedByteVector&& other) {
+    container_ = std::move(other.container_);
+  }
+
+  TypedByteVector& operator=(const TypedByteVector& other) {
+    if (this != &other) {
+      container_ = other.container_;
+    }
+    return *this;
+  }
+
+  TypedByteVector& operator=(TypedByteVector&& other) {
+    if (this != &other) {
+      container_ = std::move(other.container_);
+    }
+    return *this;
+  }
+
+  Ty_& operator[](Index index) {
+    return *(Ty_*)container_[index];
+  }
+
+  const Ty_& operator[](Index index) const {
+    return *(Ty_*)container_[index];
+  }
+
+  iterator begin() {
+    return iterator(container_.begin());
+  }
+
+  iterator end() {
+    return iterator(container_.end());
+  }
+
+  const_iterator begin() const {
+    return const_iterator(container_.begin());
+  }
+
+  const_iterator end() const {
+    return const_iterator(container_.end());
+  }
+
+  // Returns the addres to the first element.
+  Ty_& front() {
+    return *(Ty_*)container_.front();
+  }
+
+  // Returns the address to the last element.
+  Ty_& back() {
+    return *(Ty_*)container_.back();
+  }
+
+  // Returns the addres to the first element.
+  const Ty_& front() const {
+    return *(Ty_*)container_.front();
+  }
+
+  // Returns the address to the last element.
+  const Ty_& back() const {
+    return *(Ty_*)container_.back();
+  }
+
+  Ty_& at(Index index) {
+    return (*this)[index];
+  }
+
+  const Ty_& at(Index index) const {
+    return container_.at(index);
+  }
+
+  uint8_t* data() const {
+    return container_.data();
+  }
+
+  bool empty() const {
+    return container_.empty();
+  }
+
+  size_t size() const {
+    return container_.size();
+  }
+
+  size_t element_size() const {
+    return container_.element_size();
+  }
+
+  void reserve(size_t count) {
+    container_.reserve(count);
+  }
+
+  void clear() {
+    container_.clear();
+  }
+
+  void resize(size_t count) {
+    container_.resize(count);
+  }
+
+  size_t capacity() const {
+    return container_.capacity();
+  }
+
+  void push_back(Ty_&& data) {
+    container_.push_back(&data);
+  }
+
+  void push_back(const Ty_& data) {
+    container_.push_back(&data);
+  }
+
+  void pop_back() {
+    container_.pop_back();
+  }
+
+private:
+  ByteVector container_;
+};
+
+#endif  // BYTE_VECTOR__H
