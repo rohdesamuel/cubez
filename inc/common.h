@@ -65,10 +65,14 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define DLLEXPORT __declspec(dllexport)
 #define STRDUP _strdup
 #define SSCANF sscanf_s
+#define ALIGNED_ALLOC _aligned_malloc
+#define ALIGNED_FREE _aligned_free
 #else
 #define DLLEXPORT
 #define STRDUP strdup
 #define SSCANF sscanf
+#define ALIGNED_ALLOC std::aligned_alloc
+#define ALIGNED_FREE free
 #endif
 
 #ifndef __COMPILE_AS_WINDOWS__

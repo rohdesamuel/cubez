@@ -92,7 +92,7 @@ DLLEXPORT qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t siz
 #define qb_componentattr_setdatatype(attr, type) \
     qb_componentattr_setdatasize(attr, sizeof(type))
 
-DLLEXPORT qbResult qb_componentattr_setprogram(qbComponentAttr attr, const char* program);
+DLLEXPORT qbResult qb_componentattr_setprogram(qbComponentAttr attr, qbId program);
 
 DLLEXPORT qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 DLLEXPORT qbResult qb_component_destroy(qbComponent* component);
@@ -166,7 +166,7 @@ typedef void (*qbCallback)(qbFrame* frame);
 
 DLLEXPORT qbResult qb_systemattr_create(qbSystemAttr* attr);
 DLLEXPORT qbResult qb_systemattr_destroy(qbSystemAttr* attr);
-DLLEXPORT qbResult qb_systemattr_setprogram(qbSystemAttr attr, const char* program);
+DLLEXPORT qbResult qb_systemattr_setprogram(qbSystemAttr attr, qbId program);
 
 DLLEXPORT qbResult qb_systemattr_addconst(qbSystemAttr attr, qbComponent component);
 DLLEXPORT qbResult qb_systemattr_addmutable(qbSystemAttr attr, qbComponent component);
@@ -190,7 +190,7 @@ DLLEXPORT qbResult qb_system_disable(qbSystem system);
 
 DLLEXPORT qbResult qb_eventattr_create(qbEventAttr* attr);
 DLLEXPORT qbResult qb_eventattr_destroy(qbEventAttr* attr);
-DLLEXPORT qbResult qb_eventattr_setprogram(qbEventAttr attr, const char* program);
+DLLEXPORT qbResult qb_eventattr_setprogram(qbEventAttr attr, qbId program);
 DLLEXPORT qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
 #define qb_eventattr_setmessagetype(attr, type) \
     qb_eventattr_setmessagesize(attr, sizeof(type))
