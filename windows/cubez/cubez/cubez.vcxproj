@@ -87,6 +87,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -96,6 +97,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -109,6 +111,7 @@
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -126,6 +129,7 @@
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -135,14 +139,13 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\pool.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />
+    <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />
     <ClInclude Include="..\..\..\src\block_vector.h" />
     <ClInclude Include="..\..\..\src\buddy_system_allocator.h" />
     <ClInclude Include="..\..\..\src\byte_queue.h" />
     <ClInclude Include="..\..\..\src\byte_vector.h" />
-    <ClInclude Include="..\..\..\src\channel.h" />
     <ClInclude Include="..\..\..\src\component.h" />
     <ClInclude Include="..\..\..\src\component_registry.h" />
     <ClInclude Include="..\..\..\src\concurrentqueue.h" />
@@ -152,8 +155,7 @@
     <ClInclude Include="..\..\..\src\event_registry.h" />
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\frame_buffer.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_hash.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_map.h" />
+    <ClInclude Include="..\..\..\src\snapshot.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
     <ClInclude Include="..\..\..\src\sparse_set.h" />
     <ClInclude Include="..\..\..\src\memory_pool.h" />
@@ -165,6 +167,7 @@
     <ClInclude Include="..\..\..\src\thread_pool.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\apex_memmove.cpp" />
     <ClCompile Include="..\..\..\src\component.cpp" />
     <ClCompile Include="..\..\..\src\component_registry.cpp" />
     <ClCompile Include="..\..\..\src\cubez.cpp" />
@@ -178,6 +181,7 @@
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
+    <ClCompile Include="..\..\..\src\snapshot.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\timer.cpp" />
   </ItemGroup>

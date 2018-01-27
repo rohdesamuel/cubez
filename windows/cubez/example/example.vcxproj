@@ -163,8 +163,6 @@
     <ClInclude Include="..\..\..\example\shader.h" />
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\pool.h" />
-    <ClInclude Include="..\..\..\inc\table.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
