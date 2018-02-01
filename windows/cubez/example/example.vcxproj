@@ -89,7 +89,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -102,7 +102,7 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -118,7 +118,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -134,7 +134,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -147,9 +147,11 @@
     <ClCompile Include="..\..\..\example\log.cpp" />
     <ClCompile Include="..\..\..\example\main.cpp" />
     <ClCompile Include="..\..\..\example\mesh.cpp" />
+    <ClCompile Include="..\..\..\example\network.cpp" />
     <ClCompile Include="..\..\..\example\physics.cpp" />
     <ClCompile Include="..\..\..\example\player.cpp" />
     <ClCompile Include="..\..\..\example\render.cpp" />
+    <ClCompile Include="..\..\..\example\socket.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\example\ball.h" />
@@ -157,10 +159,12 @@
     <ClInclude Include="..\..\..\example\input.h" />
     <ClInclude Include="..\..\..\example\log.h" />
     <ClInclude Include="..\..\..\example\mesh.h" />
+    <ClInclude Include="..\..\..\example\network.h" />
     <ClInclude Include="..\..\..\example\physics.h" />
     <ClInclude Include="..\..\..\example\player.h" />
     <ClInclude Include="..\..\..\example\render.h" />
     <ClInclude Include="..\..\..\example\shader.h" />
+    <ClInclude Include="..\..\..\example\socket.h" />
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />

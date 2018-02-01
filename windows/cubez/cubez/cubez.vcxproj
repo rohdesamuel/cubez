@@ -156,6 +156,7 @@
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\frame_buffer.h" />
     <ClInclude Include="..\..\..\src\snapshot.h" />
+    <ClInclude Include="..\..\..\src\socket.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
     <ClInclude Include="..\..\..\src\sparse_set.h" />
     <ClInclude Include="..\..\..\src\memory_pool.h" />

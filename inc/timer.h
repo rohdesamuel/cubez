@@ -6,6 +6,7 @@
 #include "common.h"
 
 #ifdef __COMPILE_AS_WINDOWS__
+#define _WINSOCKAPI_
 #include <Windows.h>
 #undef min
 #undef max
