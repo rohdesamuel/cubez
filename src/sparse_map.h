@@ -15,8 +15,6 @@
 
 template<class Value_, class Container_>
 class SparseMap {
-  typedef SparseMap<Value_, Container_> MapType;
-
 public:
   typedef uint64_t Key;
   typedef Value_ Value;
@@ -50,12 +48,12 @@ public:
     }
 
   private:
-    iterator(MapType* map, size_t index) : map_(map), index_(index) {}
+    iterator(SparseMap* map, size_t index) : map_(map), index_(index) {}
 
-    MapType* map_;
+    SparseMap* map_;
     size_t index_;
 
-    friend class MapType;
+    friend class SparseMap;
   };
 
   class const_iterator {
@@ -87,32 +85,32 @@ public:
     }
 
   private:
-    const_iterator(MapType* map, size_t index) : map_(map), index_(index) {}
+    const_iterator(SparseMap* map, size_t index) : map_(map), index_(index) {}
 
-    MapType* map_;
+    SparseMap* map_;
     size_t index_;
 
-    friend class MapType;
+    friend class SparseMap;
   };
 
   SparseMap() : sparse_(16, -1) {}
 
-  SparseMap(const MapType& other) {
+  SparseMap(const SparseMap& other) {
     copy(other);
   }
 
-  SparseMap(MapType&& other) {
+  SparseMap(SparseMap&& other) {
     move(other);
   }
 
-  SparseMap& operator=(const MapType& other) {
+  SparseMap& operator=(const SparseMap& other) {
     if (this != &other) {
       copy(other);
     }
     return *this;
   }
 
-  SparseMap& operator=(MapType&& other) {
+  SparseMap& operator=(SparseMap&& other) {
     if (this != &other) {
       move(other);
     }
@@ -205,13 +203,13 @@ public:
   }
 
 private:
-  void copy(const MapType& other) {
+  void copy(const SparseMap& other) {
     dense_values_ = other.dense_values_;
     sparse_ = other.sparse_;
     dense_ = other.dense_;
   }
 
-  void move(const MapType& other) {
+  void move(const SparseMap& other) {
     dense_values_ = std::move(other.dense_values_);
     sparse_ = std::move(other.sparse_);
     dense_ = std::move(other.dense_);
@@ -224,7 +222,6 @@ private:
 
 template<class Container_>
 class SparseMap<void, Container_> {
-  typedef SparseMap<void, Container_> MapType;
 public:
   typedef uint64_t Key;
 
@@ -257,12 +254,12 @@ public:
     }
 
   private:
-    iterator(MapType* map, size_t index) : map_(map), index_(index) {}
+    iterator(SparseMap* map, size_t index) : map_(map), index_(index) {}
 
-    MapType* map_;
+    SparseMap* map_;
     size_t index_;
 
-    friend class MapType;
+    friend class SparseMap;
   };
 
   class const_iterator {
@@ -294,34 +291,34 @@ public:
     }
 
   private:
-    const_iterator(const MapType& map, size_t index) : map_(map), index_(index) {}
+    const_iterator(const SparseMap& map, size_t index) : map_(map), index_(index) {}
 
-    const MapType& map_;
+    const SparseMap& map_;
     size_t index_;
 
-    friend class MapType;
+    friend class SparseMap;
   };
 
   SparseMap(size_t element_size)
     : element_size_(element_size), sparse_(16, -1),
     dense_values_(element_size) {}
 
-  SparseMap(const MapType& other) : dense_values_(other.element_size_) {
+  SparseMap(const SparseMap& other) : dense_values_(other.element_size_) {
     copy(other);
   }
 
-  SparseMap(MapType&& other) : dense_values_(other.element_size_) {
+  SparseMap(SparseMap&& other) : dense_values_(other.element_size_) {
     move(other);
   }
 
-  SparseMap& operator=(const MapType& other) {
+  SparseMap& operator=(const SparseMap& other) {
     if (this != &other) {
       copy(other);
     }
     return *this;
   }
 
-  SparseMap& operator=(MapType&& other) {
+  SparseMap& operator=(SparseMap&& other) {
     if (this != &other) {
       move(other);
     }
@@ -409,13 +406,13 @@ public:
   }
 
 private:
-  void copy(const MapType& other) {
+  void copy(const SparseMap& other) {
     dense_values_ = other.dense_values_;
     sparse_ = other.sparse_;
     dense_ = other.dense_;
   }
 
-  void move(const MapType& other) {
+  void move(const SparseMap& other) {
     dense_values_ = std::move(other.dense_values_);
     sparse_ = std::move(other.sparse_);
     dense_ = std::move(other.dense_);
