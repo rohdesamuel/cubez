@@ -35,7 +35,32 @@ class ByteVector {
     uint8_t* pos_;
     size_t stride_;
   };
-  typedef const iterator const_iterator;
+
+  class const_iterator {
+   public:
+    const_iterator(uint8_t* first_element, size_t stride) :
+        pos_(first_element), stride_(stride) {}
+    const void* operator*() {
+      return pos_;
+    }
+
+    const_iterator operator++() {
+      pos_ += stride_;
+      return *this;
+    }
+
+    bool operator==(const const_iterator& other) {
+      return pos_ == other.pos_;
+    }
+
+    bool operator!=(const const_iterator& other) {
+      return !(*this == other);
+    }
+
+   private:
+    uint8_t* pos_;
+    size_t stride_;
+  };
   typedef uint64_t Index;
 
   ByteVector() : elems_(nullptr), count_(0), capacity_(0), elem_size_(0) { }
@@ -90,11 +115,11 @@ class ByteVector {
   }
 
   const_iterator begin() const {
-    return iterator((uint8_t*)front(), elem_size_);
+    return const_iterator((uint8_t*)front(), elem_size_);
   }
 
   const_iterator end() const {
-    return iterator((uint8_t*)(elems_ + count_ * elem_size_), elem_size_);
+    return const_iterator((uint8_t*)(elems_ + count_ * elem_size_), elem_size_);
   }
 
   // Returns the addres to the first element.
