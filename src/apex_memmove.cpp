@@ -1622,7 +1622,7 @@ namespace apex
 				#define bit_SSSE3  (1 << 9)
 				#define bit_SSE4_2 (1 << 20)
 			#else
-				unsigned int cpuid[4];									//	GCC / LLVM (Clang)
+				unsigned int cpuid[4] = {0};									//	GCC / LLVM (Clang)
 				__get_cpuid(1, &cpuid[0], &cpuid[1], &cpuid[2], &cpuid[3]);
 			#endif
 			#if defined(_M_X64) || defined(__x86_64__)					//	64-bit
