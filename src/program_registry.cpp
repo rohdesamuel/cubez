@@ -8,6 +8,7 @@ ProgramRegistry::ProgramRegistry(ComponentRegistry* component_registry,
     component_registry_(component_registry),
     frame_buffer_(buffer),
     program_threads_(std::thread::hardware_concurrency()) {
+  id_ = 0;
 }
 
 qbId ProgramRegistry::CreateProgram(const char* program) {
@@ -48,11 +49,11 @@ void ProgramRegistry::Run() {
 
   frame_buffer_->ResolveDeltas();
 
-  for (auto& program : programs_) {
+  for (auto program : programs_) {
     ProgramImpl::FromRaw(program.second)->Ready();
   }
 
-  for (auto& program : programs_) {
+  for (auto program : programs_) {
     ProgramImpl* p = ProgramImpl::FromRaw(program.second);
     programs.push_back(program_threads_.enqueue(
       [p]() {
@@ -67,7 +68,7 @@ void ProgramRegistry::Run() {
     }
   }
 
-  for (auto& program : programs_) {
+  for (auto program : programs_) {
     ProgramImpl::FromRaw(program.second)->Done();
   }
 }
