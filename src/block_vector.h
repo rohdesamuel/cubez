@@ -289,11 +289,11 @@ public:
   }
 
   iterator begin() {
-    return iterator(this, 0);
+    return elems_.begin();
   }
 
   iterator end() {
-    return iterator(this, count_);
+    return elems_.end();
   }
 
   // Returns the addres to the first element.
@@ -337,7 +337,7 @@ public:
   }
 
   void reserve(size_t count) {
-    elems_.reserve();
+    elems_.reserve(count);
   }
 
   void clear() {

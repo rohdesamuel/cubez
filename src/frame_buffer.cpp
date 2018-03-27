@@ -24,15 +24,15 @@ ComponentBuffer* FrameBuffer::Component(qbId component_id) {
 }
 
 void FrameBuffer::ResolveDeltas() {
-  for (auto& pair : state_) {
+  for (auto pair : state_) {
     entity_registry_->Resolve(pair.second.created_entities_,
                               pair.second.destroyed_entities_);
     pair.second.created_entities_.resize(0);
     pair.second.destroyed_entities_.resize(0);
   }
 
-  for (auto& pair : state_) {
-    for (auto& buffer_pair : pair.second.components_) {
+  for (auto pair : state_) {
+    for (auto buffer_pair : pair.second.components_) {
       buffer_pair.second->Resolve();
     }
   }

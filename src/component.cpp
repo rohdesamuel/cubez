@@ -28,7 +28,7 @@ void Component::Merge(ComponentBuffer* update) {
   }
 
 #pragma omp parallel for
-  for (int64_t i = 0; i < update->insert_or_update_.size(); ++i) {
+  for (int64_t i = 0; i < (int64_t)update->insert_or_update_.size(); ++i) {
     auto it = update->insert_or_update_.begin() + i;
     apex::memmove(instances_[(*it).first], (*it).second, ElementSize());
   }
