@@ -11,6 +11,7 @@
 #include "shader.h"
 #include "network.h"
 #include "socket.h"
+#include "xdr.h"
 
 #include <algorithm>
 #include <thread>
@@ -50,7 +51,7 @@ void check_for_gl_errors() {
   }
 }
 
-void initialize_universe(qbUniverse* uni) {
+void initialize_universe(qbUniverse* uni, const std::string& resource_path) {
   qb_init(uni);
 
   {
@@ -93,10 +94,15 @@ void initialize_universe(qbUniverse* uni) {
   qbMaterial ball_material;
   {
     // Load resources.
-    std::cout << "Loading resources.\n";
-    qb_shader_load(&mesh_shader, "mesh_shader", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\mesh.vs", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\mesh.fs");
-    qb_texture_load(&ball_texture, "ball_texture", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\ball.bmp");
-    qb_mesh_load(&block_mesh, "block_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\block.obj");
+    std::cout << "Loading resources at " << resource_path << "\n";
+    qb_shader_load(&mesh_shader,
+                   (resource_path + "mesh_shader").c_str(),
+                   (resource_path + "mesh.vs").c_str(),
+                   (resource_path + "mesh.fs").c_str());
+    qb_texture_load(&ball_texture, "ball_texture",
+                    (resource_path + "ball.bmp").c_str());
+    qb_mesh_load(&block_mesh, "block_mesh",
+                 (resource_path + "block.obj").c_str());
     qbMaterialAttr attr;
     qb_materialattr_create(&attr);
 
@@ -141,8 +147,8 @@ void initialize_universe(qbUniverse* uni) {
     qb_entityattr_addcomponent(attr, physics::component(), &t);
 
     qbMesh mesh;
-    qb_mesh_load(&mesh, "floor_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\floor.obj");
-    render::qbRenderable renderable = render::create(mesh, ball_material);
+    qb_mesh_load(&mesh, "floor_mesh", (resource_path + "floor.obj").c_str());
+    //render::qbRenderable renderable = render::create(mesh, ball_material);
     //qb_entityattr_addcomponent(attr, render::component(), &renderable);
 
     qbEntity unused;
@@ -181,7 +187,6 @@ void initialize_universe(qbUniverse* uni) {
 
     const float branching_prob = 0.005f;
     const int num_branches = 3;
-    const float max_distance = width / 2;
 
     while(!mountain_generators.empty()) {
       auto it = mountain_generators.begin();
@@ -294,20 +299,25 @@ void initialize_universe(qbUniverse* uni) {
   }
 }
 
-int main(int, char* []) {
+int main(int, char* argc[]) {
+  std::string resource_path = argc[1];
+
   // Create and initialize the game engine.
   qbUniverse uni;
-  initialize_universe(&uni);
+  initialize_universe(&uni, resource_path);
 
   auto receiver = Socket::Create(25000);
-  //auto sender = Socket::Create("104.198.164.47", 25000);
-  auto sender = Socket::Create("127.0.0.1", 25000);
+  auto sender = Socket::Create("127.0.0.1", 25001);
+  while (1) {
+    char buffer[128] = { '\0' };
+    std::cout << "sent " << sender->Send("hello world!", strlen("hello world!"))
+              << " bytes with message: " << "hello world!" << std::endl;
+    std::cout << "waiting for ack... "
+              << (receiver->Receive(buffer, 128) == 1 ? "done" : "nope")
+              << "\n";
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
 
-  char buffer[128] = { '\0' };
-  std::cout << "sent " << sender->Send("hello world!", strlen("hello world!"))
-            << " bytes with message: " << "hello world!" << std::endl;
-  std::cout << "received " << receiver->Receive(buffer, 128)
-            << " bytes with message: " << buffer << std::endl;
 
   qb_start();
   int frame = 0;

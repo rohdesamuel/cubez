@@ -75,9 +75,7 @@ flags = [
 './tests/gmock/include',
 # Custom flags...
 '-I',
-'..',
-'-I',
-'src/shared',
+'../inc',
 '-fopenmp'
 ]
 

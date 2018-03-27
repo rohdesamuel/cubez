@@ -81,10 +81,42 @@ typedef struct qbElement_* qbElement;
 typedef struct qbInstance_* qbInstance;
 typedef struct qbEventAttr_* qbEventAttr;
 typedef struct qbEvent_* qbEvent;
+typedef struct qbStream_* qbStream;
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
 ///////////////////////////////////////////////////////////
+
+// 
+// Component update packet structure
+// Byte
+// 0-------1-------2-------3-------4-------5-------6-------7-------
+// [                       packet sequence #                      ]
+// [                          game frame #                        ]
+// [        component id          ][   # of component instances   ]
+// [                   entity             ][ size of entity data  ]
+// [                             data                             ]
+// 
+struct EntityHeader {
+  int64_t entity_id : 48;
+  int64_t length : 16;
+  uint8_t* data;
+};
+
+struct ComponentHeader {
+  int64_t component_id : 32;
+  int64_t length : 32;
+  EntityHeader* entities;
+};
+
+struct PacketHeader {
+  int64_t packet_sequence;
+  int64_t frame_number;
+  ComponentHeader* components;
+};
+
+DLLEXPORT int32_t qb_stream_write(qbStream stream, uint8_t* buffer, size_t size);
+DLLEXPORT uint8_t* qb_stream_read(qbStream stream);
 
 DLLEXPORT qbResult qb_componentattr_create(qbComponentAttr* attr);
 DLLEXPORT qbResult qb_componentattr_destroy(qbComponentAttr* attr);
@@ -93,6 +125,10 @@ DLLEXPORT qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t siz
     qb_componentattr_setdatasize(attr, sizeof(type))
 
 DLLEXPORT qbResult qb_componentattr_setprogram(qbComponentAttr attr, qbId program);
+DLLEXPORT qbResult qb_componentattr_setsynchronized(
+    qbComponentAttr attr,
+    void(*pack)(qbInstance instance, qbStream stream),
+    void(*unpack)(qbInstance instance, qbStream stream));
 
 DLLEXPORT qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 DLLEXPORT qbResult qb_component_destroy(qbComponent* component);

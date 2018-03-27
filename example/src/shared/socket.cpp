@@ -2,10 +2,14 @@
 #include "socket.h"
 
 #include <iostream>
+#include <memory.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #include <Ws2tcpip.h>
 #else
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
 #endif
 
 const size_t MAX_PACKET_SIZE = 65507;
@@ -14,6 +18,8 @@ const size_t MAX_PACKET_SIZE = 65507;
 Socket::Socket(SOCKET socket, sockaddr_in receiver)
     : socket_(socket), receiver_(receiver) { }
 #else
+Socket::Socket(int socket, sockaddr_in receiver)
+    : socket_(socket), receiver_(receiver) { }
 #endif
 
 /** static */
@@ -31,6 +37,18 @@ std::unique_ptr<Socket> Socket::Create(const char* address, uint16_t port) {
 
   return std::make_unique<Socket>(sock, receiver);
 #else
+  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock == -1) {
+    perror("Socket::Create(address, port) error");
+    return nullptr;
+  }
+  sockaddr_in receiver;
+  memset(&receiver, 0, sizeof(sockaddr_in));
+  receiver.sin_family = AF_INET;
+  receiver.sin_port = htons(port);
+  inet_pton(AF_INET, address, &receiver.sin_addr.s_addr);
+
+  return std::make_unique<Socket>(sock, receiver);
 #endif
 }
 
@@ -54,6 +72,24 @@ std::unique_ptr<Socket> Socket::Create(uint16_t port) {
 
   return std::make_unique<Socket>(sock, receiver);
 #else
+  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock == -1) {
+    perror("Socket::Create(port) error");
+    return nullptr;
+  }
+  sockaddr_in receiver;
+  memset(&receiver, 0, sizeof(sockaddr_in));
+  receiver.sin_family = AF_INET;
+  receiver.sin_port = htons(port);
+  receiver.sin_addr.s_addr = INADDR_ANY;
+
+  int result = bind(sock, (struct sockaddr*)&receiver, sizeof(receiver));
+  if (result != 0) {
+    perror("Socket::Create(port) error");
+  }
+
+  return std::make_unique<Socket>(sock, receiver);
+
 #endif
 }
 
@@ -64,7 +100,7 @@ Socket::~Socket() {
 #endif
 }
 
-int Socket::Send(char* buff, size_t length) {
+int Socket::Send(const char* buff, size_t length) {
 #ifdef __COMPILE_AS_WINDOWS__
   int result = sendto(socket_, buff, length, 0, (SOCKADDR*)(&receiver_),
                       sizeof(receiver_));
@@ -75,6 +111,14 @@ int Socket::Send(char* buff, size_t length) {
 #endif
   return result;
 #else
+  int result = sendto(socket_, buff, length, 0, (struct sockaddr*)(&receiver_),
+                      sizeof(receiver_));
+#ifdef __ENGINE_DEBUG__
+  if (result == -1) {
+    perror("Socket::Send(buff, length)");
+  }
+#endif
+  return result;
 #endif
 }
 
@@ -89,5 +133,12 @@ int Socket::Receive(char* buff, size_t length) {
 #endif
   return result;
 #else
+  int result = recvfrom(socket_, buff, length, 0, nullptr, nullptr);
+#ifdef __ENGINE_DEBUG__
+  if (result == -1) {
+    perror("Socket::Receive(buff, length)");
+  }
+#endif
+  return result;
 #endif
 }

@@ -104,7 +104,8 @@ void initialize(const Settings& settings) {
   std::cout << "Finished initializing ball\n";
 }
 
-void create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool collidable) {
+void create(glm::vec3 pos, glm::vec3 vel, bool explodable,
+            bool /** collidable */) {
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
 

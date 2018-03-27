@@ -1,6 +1,8 @@
 #include "physics.h"
 #include "ball.h"
 #include "player.h"
+#include "xdr.h"
+
 #include <atomic>
 #include <iostream>
 
@@ -27,6 +29,27 @@ void initialize(const Settings&) {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, physics::Transform);
+    qb_componentattr_setsynchronized(attr,
+        [](qbInstance instance, qbStream stream) {
+          Transform* t;
+          qb_instance_getcomponent(instance, component(), &t);
+                                     
+          uint8_t buffer[128];
+          uint8_t* write_pos = buffer;
+          write_pos += network::pack::Array(write_pos, (float*)&t->p, 3);
+          write_pos += network::pack::Array(write_pos, (float*)&t->v, 3);
+
+          qb_stream_write(stream, buffer, write_pos - buffer);
+        },
+        [](qbInstance instance, qbStream stream) {
+          Transform* t;
+          qb_instance_getcomponent(instance, component(), &t);
+
+          uint8_t* buffer = qb_stream_read(stream);
+          buffer += network::unpack::Array(buffer, (float*)&t->p, 3);
+          buffer += network::unpack::Array(buffer, (float*)&t->v, 3);
+        });
+
 
     qb_component_create(&transforms_, attr);
     qb_componentattr_destroy(&attr);
