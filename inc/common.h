@@ -71,7 +71,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define DLLEXPORT
 #define STRDUP strdup
 #define SSCANF sscanf
-#define ALIGNED_ALLOC std::aligned_alloc
+#define ALIGNED_ALLOC(size, alignment) aligned_alloc((alignment), (size))
 #define ALIGNED_FREE free
 #endif
 
