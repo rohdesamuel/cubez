@@ -26,4 +26,3 @@ qbProgram* ProgramThread::Release() {
   }
   return program_;
 }
-

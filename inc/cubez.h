@@ -91,28 +91,45 @@ typedef struct qbStream_* qbStream;
 // Component update packet structure
 // Byte
 // 0-------1-------2-------3-------4-------5-------6-------7-------
-// [                       packet sequence #                      ]
+// [           packet id           ][      packet sequence #      ]
 // [                          game frame #                        ]
 // [        component id          ][   # of component instances   ]
-// [                   entity             ][ size of entity data  ]
+// [                   entity             ][  size of entity data ]
 // [                             data                             ]
 // 
-struct EntityHeader {
-  int64_t entity_id : 48;
-  int64_t length : 16;
+struct qbInstanceHeader {
+  uint32_t entity_id;
   uint8_t* data;
 };
 
-struct ComponentHeader {
-  int64_t component_id : 32;
-  int64_t length : 32;
-  EntityHeader* entities;
+struct qbComponentHeader {
+  uint32_t component_id;
+  uint32_t instance_size;
+  uint32_t instances_length;
+  qbInstanceHeader* instances;
 };
 
-struct PacketHeader {
-  int64_t packet_sequence;
-  int64_t frame_number;
-  ComponentHeader* components;
+struct qbStateUpdateHeader {
+  uint64_t frame_number;
+  uint8_t components_length;
+  qbComponentHeader* components;
+};
+
+enum qbPacketType {
+  QB_PACKET_TYPE_UNKNOWN = 0,
+  QB_PACKET_TYPE_ACK,
+  QB_PACKET_TYPE_CONNECT,
+  QB_PACKET_TYPE_DISCONNECT,
+  QB_PACKET_TYPE_STATE_UPDATE,
+};
+
+struct qbPacketHeader {
+  uint16_t id;
+  uint16_t sequence;
+  qbPacketType packet_type;
+  union {
+
+  };
 };
 
 DLLEXPORT int32_t qb_stream_write(qbStream stream, uint8_t* buffer, size_t size);
