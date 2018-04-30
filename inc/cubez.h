@@ -81,10 +81,59 @@ typedef struct qbElement_* qbElement;
 typedef struct qbInstance_* qbInstance;
 typedef struct qbEventAttr_* qbEventAttr;
 typedef struct qbEvent_* qbEvent;
+typedef struct qbStream_* qbStream;
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
 ///////////////////////////////////////////////////////////
+
+// 
+// Component update packet structure
+// Byte
+// 0-------1-------2-------3-------4-------5-------6-------7-------
+// [           packet id           ][      packet sequence #      ]
+// [                          game frame #                        ]
+// [        component id          ][   # of component instances   ]
+// [                   entity             ][  size of entity data ]
+// [                             data                             ]
+// 
+struct qbInstanceHeader {
+  uint32_t entity_id;
+  uint8_t* data;
+};
+
+struct qbComponentHeader {
+  uint32_t component_id;
+  uint32_t instance_size;
+  uint32_t instances_length;
+  qbInstanceHeader* instances;
+};
+
+struct qbStateUpdateHeader {
+  uint64_t frame_number;
+  uint8_t components_length;
+  qbComponentHeader* components;
+};
+
+enum qbPacketType {
+  QB_PACKET_TYPE_UNKNOWN = 0,
+  QB_PACKET_TYPE_ACK,
+  QB_PACKET_TYPE_CONNECT,
+  QB_PACKET_TYPE_DISCONNECT,
+  QB_PACKET_TYPE_STATE_UPDATE,
+};
+
+struct qbPacketHeader {
+  uint16_t id;
+  uint16_t sequence;
+  qbPacketType packet_type;
+  union {
+
+  };
+};
+
+DLLEXPORT int32_t qb_stream_write(qbStream stream, uint8_t* buffer, size_t size);
+DLLEXPORT uint8_t* qb_stream_read(qbStream stream);
 
 DLLEXPORT qbResult qb_componentattr_create(qbComponentAttr* attr);
 DLLEXPORT qbResult qb_componentattr_destroy(qbComponentAttr* attr);
@@ -93,6 +142,10 @@ DLLEXPORT qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t siz
     qb_componentattr_setdatasize(attr, sizeof(type))
 
 DLLEXPORT qbResult qb_componentattr_setprogram(qbComponentAttr attr, qbId program);
+DLLEXPORT qbResult qb_componentattr_setsynchronized(
+    qbComponentAttr attr,
+    void(*pack)(qbInstance instance, qbStream stream),
+    void(*unpack)(qbInstance instance, qbStream stream));
 
 DLLEXPORT qbResult qb_component_create(qbComponent* component, qbComponentAttr attr);
 DLLEXPORT qbResult qb_component_destroy(qbComponent* component);
