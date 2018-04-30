@@ -76,8 +76,6 @@ flags = [
 # Custom flags...
 '-I',
 '..',
-'-I',
-'src/shared',
 '-fopenmp'
 ]
 

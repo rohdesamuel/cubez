@@ -7,9 +7,6 @@
 #ifdef __COMPILE_AS_WINDOWS__
 #include <winsock2.h>
 #else
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #endif
 
 extern const size_t MAX_PACKET_SIZE;
@@ -25,13 +22,12 @@ public:
   // Closes the socket.
   ~Socket();
 
-  int Send(const char* buff, size_t length);
+  int Send(char* buff, size_t length);
   int Receive(char* buff, size_t length);
 
 #ifdef __COMPILE_AS_WINDOWS__
   Socket(SOCKET sock, sockaddr_in receiver);
 #else
-  Socket(int sock, sockaddr_in receiver);
 #endif
 
 private:
@@ -39,8 +35,6 @@ private:
   SOCKET socket_;
   sockaddr_in receiver_;
 #else
-  int socket_;
-  sockaddr_in receiver_;
 #endif
 };
 

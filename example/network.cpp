@@ -6,17 +6,16 @@
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <Ws2tcpip.h>
-
-WSADATA wsa_data;
 #else
 #endif
 
 #include <iostream>
 
+WSADATA wsa_data;
+
 namespace network {
 
 void initialize() {
-  std::cout << "initializing network\n";
 #ifdef __COMPILE_AS_WINDOWS__
   int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
   if (result != NO_ERROR) {

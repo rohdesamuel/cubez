@@ -61,7 +61,7 @@ qbResult qb_componentattr_create(qbComponentAttr* attr) {
 }
 
 qbResult qb_componentattr_destroy(qbComponentAttr* attr) {
-  free(*attr);
+  delete *attr;
   *attr = nullptr;
 	return qbResult::QB_OK;
 }
@@ -93,7 +93,8 @@ size_t qb_component_getcount(qbComponent component) {
 }
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
-  *attr = new qbEntityAttr_;
+  *attr = (qbEntityAttr)calloc(1, sizeof(qbEntityAttr_));
+  new (*attr) qbEntityAttr_;
 	return qbResult::QB_OK;
 }
 
@@ -135,14 +136,8 @@ qbId qb_entity_getid(qbEntity entity) {
 }
 
 qbResult qb_systemattr_create(qbSystemAttr* attr) {
-  *attr = new qbSystemAttr_;
-  (*attr)->program = 0;
-  (*attr)->transform = nullptr;
-  (*attr)->callback = nullptr;
-  (*attr)->trigger = qbTrigger::QB_TRIGGER_LOOP;
-  (*attr)->priority = 0;
-  (*attr)->state = nullptr;
-  (*attr)->join = qbComponentJoin::QB_JOIN_INNER;
+  *attr = (qbSystemAttr)calloc(1, sizeof(qbSystemAttr_));
+  new (*attr) qbSystemAttr_;
 	return qbResult::QB_OK;
 }
 
@@ -217,9 +212,8 @@ qbResult qb_system_destroy(qbSystem*) {
 }
 
 qbResult qb_eventattr_create(qbEventAttr* attr) {
-  *attr = new qbEventAttr_;
-  (*attr)->program = 0;
-  (*attr)->message_size = 0;
+  *attr = (qbEventAttr)calloc(1, sizeof(qbEventAttr_));
+  new (*attr) qbEventAttr_;
 	return qbResult::QB_OK;
 }
 
