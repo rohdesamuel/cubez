@@ -52,13 +52,13 @@ struct qbMaterialTexture_ {
 };
 
 struct qbMaterialAttr_ {
+  glm::vec4 color;
   qbShader shader;
   std::vector<qbMaterialTexture_> textures;
 };
 
 struct qbMaterial_ {
   glm::vec4 color;
-
   qbShader shader;
   std::vector<qbMaterialTexture_> textures;
 };
@@ -323,6 +323,11 @@ qbResult qb_materialattr_setshader(qbMaterialAttr attr, qbShader shader) {
   return QB_OK;
 }
 
+qbResult qb_materialattr_setcolor(qbMaterialAttr attr, glm::vec4 color) {
+  attr->color = color;
+  return QB_OK;
+}
+
 qbResult qb_materialattr_addtexture(qbMaterialAttr attr,
     qbTexture texture, glm::vec2 offset, glm::vec2 scale) {
   attr->textures.push_back({texture, offset, scale});
@@ -334,7 +339,8 @@ qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr) {
 
   (*material)->shader = attr->shader;
   (*material)->textures = attr->textures;
-  
+  (*material)->color = attr->color;
+
   return QB_OK;
 }
 
@@ -346,10 +352,18 @@ qbResult qb_material_use(qbMaterial material) {
   ShaderProgram shaders(material->shader->shader_id);
   shaders.use();
 
-  if (!material->textures.empty()) {
+  if (material->textures.empty()) {
+    glUniform1i(glGetUniformLocation(shaders.id(), "uColorMode"), 1);
+    glUniform4f(glGetUniformLocation(shaders.id(), "uDefaultColor"),
+                material->color.r,
+                material->color.g,
+                material->color.b,
+                material->color.a);
+  } else {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, material->textures[0].texture->texture_id);
     glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
+    glUniform1i(glGetUniformLocation(shaders.id(), "uColorMode"), 2);
   }
   return QB_OK;
 }

@@ -91,6 +91,7 @@ void initialize_universe(qbUniverse* uni) {
   qbTexture ball_texture;
   qbMesh block_mesh;
   qbMaterial ball_material;
+  qbMaterial red_material;
   {
     // Load resources.
     std::cout << "Loading resources.\n";
@@ -99,18 +100,25 @@ void initialize_universe(qbUniverse* uni) {
     qb_mesh_load(&block_mesh, "block_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\block.obj");
     qbMaterialAttr attr;
     qb_materialattr_create(&attr);
-
+    qb_materialattr_setcolor(attr, glm::vec4{ 1.0, 0.0, 1.0, 1.0 });
     qb_materialattr_addtexture(attr, ball_texture, {0, 0}, {0, 0});
     qb_materialattr_setshader(attr, mesh_shader);
     qb_material_create(&ball_material, attr);
-
+    qb_materialattr_destroy(&attr);
+  }
+  {
+    qbMaterialAttr attr;
+    qb_materialattr_create(&attr);
+    qb_materialattr_setcolor(attr, glm::vec4{ 1.0, 0.0, 0.0, 1.0 });
+    qb_materialattr_setshader(attr, mesh_shader);
+    qb_material_create(&red_material, attr);
     qb_materialattr_destroy(&attr);
   }
 
   {
     ball::Settings settings;
     settings.mesh = block_mesh;
-    settings.material = ball_material;
+    settings.material = red_material;
 
     ball::initialize(settings);
 
@@ -143,7 +151,6 @@ void initialize_universe(qbUniverse* uni) {
     qbMesh mesh;
     qb_mesh_load(&mesh, "floor_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\floor.obj");
     render::qbRenderable renderable = render::create(mesh, ball_material);
-    //qb_entityattr_addcomponent(attr, render::component(), &renderable);
 
     qbEntity unused;
     qb_entity_create(&unused, attr);

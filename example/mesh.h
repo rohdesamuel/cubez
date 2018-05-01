@@ -46,6 +46,7 @@ qbResult qb_materialattr_destroy(qbMaterialAttr* attr);
 qbResult qb_materialattr_setshader(qbMaterialAttr attr, qbShader shader);
 qbResult qb_materialattr_addtexture(qbMaterialAttr attr,
     qbTexture texture, glm::vec2 offset, glm::vec2 scale);
+qbResult qb_materialattr_setcolor(qbMaterialAttr attr, glm::vec4 color);
 
 qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr);
 qbResult qb_material_find(qbMaterial* material, const char* material_name);
