@@ -1,58 +1,40 @@
 #include "apex_memmove.h"
 #include "component.h"
 #include "defs.h"
-#include "frame_buffer.h"
 
 #include <omp.h>
 
-Component::Component(FrameBuffer* buffer, qbId id, size_t instance_size)
-    : frame_buffer_(buffer), id_(id), instances_(instance_size) {}
-
-ComponentBuffer* Component::MakeBuffer() {
-  return new ComponentBuffer{ this };
-}
+Component::Component(qbId id, size_t instance_size, bool is_shared)
+    : id_(id), instances_(instance_size), is_shared_(is_shared) {}
 
 Component* Component::Clone() {
-  Component* ret = new Component(frame_buffer_, id_, instances_.element_size());
-  *ret = *this;
+  Component* ret = new Component(id_, instances_.element_size(), is_shared_);
+  ret->instances_ = instances_;
   return ret;
 }
 
-void Component::Merge(ComponentBuffer* update) {
-  instances_.reserve(update->insert_or_update_.capacity());
-
-  for (auto pair : update->insert_or_update_) {
-    if (!instances_.has(pair.first)) {
-      instances_.insert(pair.first, nullptr);
-    }
-  }
-
-#pragma omp parallel for
-  for (int64_t i = 0; i < (int64_t)update->insert_or_update_.size(); ++i) {
-    auto it = update->insert_or_update_.begin() + i;
-    apex::memmove(instances_[(*it).first], (*it).second, ElementSize());
-  }
-
-  for (auto id : update->destroyed_) {
-    if (instances_.has(id)) {
-      instances_.erase(id);
+void Component::Merge(const Component& other) {
+  size_t size = instances_.element_size();
+  for (const auto& pair : other) {
+    const void* src = pair.second;
+    void* dst = instances_[pair.first];
+    if (memcmp(src, dst, size) != 0) {
+      memcpy(dst, src, size);
     }
   }
 }
 
 qbResult Component::Create(qbId entity, void* value) {
-  return frame_buffer_->Component(id_)->Create(entity, value);
+  instances_.insert(entity, value);
+  return QB_OK;
 }
 
 qbResult Component::Destroy(qbId entity) {
-  return frame_buffer_->Component(id_)->Destroy(entity);
+  instances_.erase(entity);
+  return QB_OK;
 }
 
 void* Component::operator[](qbId entity) {
-  void* result = frame_buffer_->Component(id_)->FindOrCreate(entity, instances_[entity]);
-  if (result) {
-    return result;
-  }
   return instances_[entity];
 }
 
@@ -65,10 +47,7 @@ const void* Component::at(qbId entity) const {
 }
 
 bool Component::Has(qbId entity) const {
-  if (instances_.has(entity)) {
-    return true;
-  }
-  return frame_buffer_->Component(id_)->Has(entity);
+  return instances_.has(entity);
 }
 
 bool Component::Empty() const {
@@ -107,43 +86,26 @@ Component::const_iterator Component::end() const {
   return instances_.end();
 }
 
-ComponentBuffer::ComponentBuffer(Component* component)
-  : insert_or_update_(component->ElementSize()), component_(component) {}
-
-void* ComponentBuffer::FindOrCreate(qbId entity, void* value) {
-  if (!insert_or_update_.has(entity)) {
-    insert_or_update_.insert(entity, value);
+void Component::Lock(bool is_mutable) {
+  if (!is_shared_) {
+    return;
   }
-  return insert_or_update_[entity];
-}
 
-const void* ComponentBuffer::Find(qbId entity) {
-  if (insert_or_update_.has(entity)) {
-    return insert_or_update_[entity];
+  if (is_mutable) {
+    mu_.lock();
+  } else {
+    mu_.lock_shared();
   }
-  return nullptr;
 }
 
-qbResult ComponentBuffer::Create(qbId entity, void* value) {
-  insert_or_update_.insert(entity, value);
-  return QB_OK;
-}
+void Component::Unlock(bool is_mutable) {
+  if (!is_shared_) {
+    return;
+  }
 
-qbResult ComponentBuffer::Destroy(qbId entity) {
-  destroyed_.insert(entity);
-  return QB_OK;
-}
-
-bool ComponentBuffer::Has(qbId entity) {
-  return destroyed_.has(entity) ? false : insert_or_update_.has(entity);
-}
-
-void ComponentBuffer::Clear() {
-  insert_or_update_.clear();
-  destroyed_.clear();
-}
-
-void ComponentBuffer::Resolve() {
-  component_->Merge(this);
-  Clear();
+  if (is_mutable) {
+    mu_.unlock();
+  } else {
+    mu_.unlock_shared();
+  }
 }

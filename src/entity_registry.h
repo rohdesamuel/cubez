@@ -5,16 +5,16 @@
 #include "memory_pool.h"
 #include "component_registry.h"
 #include "sparse_set.h"
-#include "frame_buffer.h"
 
 #include <algorithm>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
 
+class GameState;
 class EntityRegistry {
  public:
-  EntityRegistry(ComponentRegistry* component_registry, FrameBuffer* frame_buffer);
+  EntityRegistry();
 
   void Init();
   EntityRegistry* Clone();
@@ -28,24 +28,29 @@ class EntityRegistry {
   // removed. Frees entity memory after all components have been destroyed.
   qbResult DestroyEntity(qbEntity entity);
 
-  qbResult AddComponent(qbId entity, qbComponent component,
-                        void* instance_data);
-
-  qbResult RemoveComponent(qbId entity, qbComponent component);
-
   qbResult Find(qbEntity* entity, qbId entity_id);
 
   void Resolve(const std::vector<qbEntity>& created,
                const std::vector<qbEntity>& destroyed);
 
+  template<template<class Ty_> class Container_>
+  void Resolve(const Container_<qbEntity>& created,
+               const Container_<qbEntity>& destroyed) {
+    for (qbEntity entity : destroyed) {
+      if (entities_.has(entity)) {
+        entities_.erase(entity);
+        free_entity_ids_.push_back(entity);
+      }
+    }
+    for (qbEntity entity : created) {
+      entities_.insert(entity);
+    }
+  }
+
  private:
   qbId AllocEntity();
 
   std::atomic_long id_;
-  
-  FrameBuffer* frame_buffer_;
-  ComponentRegistry* component_registry_;
-
   SparseSet entities_;
   std::vector<size_t> free_entity_ids_;
 

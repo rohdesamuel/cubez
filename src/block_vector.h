@@ -256,8 +256,59 @@ private:
 template<class Ty_>
 class TypedBlockVector {
 public:
-  typedef BlockVector::iterator iterator;
-  typedef BlockVector::const_iterator const_iterator;
+  class iterator {
+  public:
+    iterator(TypedBlockVector* vector, size_t index)
+      : vector_(vector), index_(index) {}
+
+    Ty_& operator*() {
+      return (*vector_)[index_];
+    }
+
+    iterator operator++() {
+      ++index_;
+      return *this;
+    }
+
+    bool operator==(const iterator& other) {
+      return index_ == other.index_;
+    }
+
+    bool operator!=(const iterator& other) {
+      return !(*this == other);
+    }
+
+  private:
+    TypedBlockVector* vector_;
+    size_t index_;
+  };
+  class const_iterator {
+  public:
+    const_iterator(TypedBlockVector* vector, size_t index)
+      : vector_(vector), index_(index) {}
+
+    const Ty_& operator*() {
+      return (*vector_)[index_];
+    }
+
+    iterator operator++() {
+      ++index_;
+      return *this;
+    }
+
+    bool operator==(const iterator& other) {
+      return index_ == other.index_;
+    }
+
+    bool operator!=(const iterator& other) {
+      return !(*this == other);
+    }
+
+  private:
+    TypedBlockVector* vector_;
+    size_t index_;
+  };
+
   typedef BlockVector::Index Index;
 
   TypedBlockVector() : elems_(sizeof(Ty_)) {
@@ -289,11 +340,19 @@ public:
   }
 
   iterator begin() {
-    return elems_.begin();
+    return iterator(this, 0);
   }
 
   iterator end() {
-    return elems_.end();
+    return iterator(this, elems_.size());
+  }
+
+  const_iterator begin() const {
+    return const_iterator(this, 0);
+  }
+
+  const_iterator end() const {
+    return const_iterator(this, elems_.size());
   }
 
   // Returns the addres to the first element.
@@ -345,7 +404,11 @@ public:
   }
 
   void resize(size_t count) {
+    size_t old_size = size();
     elems_.resize(count);
+    for (size_t i = old_size; i < count; ++i) {
+      new ((Ty_*)elems_[i]) Ty_();
+    }
   }
 
   size_t capacity() const {

@@ -1,4 +1,5 @@
 #include "private_universe.h"
+#include "system_impl.h"
 #include "snapshot.h"
 #include "timer.h"
 
@@ -10,6 +11,8 @@
 typedef Runner::State RunState;
 
 thread_local qbId PrivateUniverse::program_id;
+
+extern qbUniverse* universe_;
 
 void Runner::wait_until(const std::vector<State>& allowed) {
   while (std::find(allowed.begin(), allowed.end(), state_) == allowed.end());
@@ -91,23 +94,18 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
   return QB_ERROR_BAD_RUN_STATE;
 }
 
-PrivateUniverse::PrivateUniverse() {
-  components_ = std::make_unique<ComponentRegistry>();
-
-  programs_ = std::make_unique<ProgramRegistry>(components_.get(), &buffer_);
-
-  entities_ = std::make_unique<EntityRegistry>(components_.get(), &buffer_);
+PrivateUniverse::PrivateUniverse()
+  : baseline_(std::make_unique<EntityRegistry>(),
+              std::make_unique<ComponentRegistry>()) {
+  programs_ = std::make_unique<ProgramRegistry>();
 
   // Create the default program.
-  program_id = create_program("");
+  create_program("");
 }
 
 PrivateUniverse::~PrivateUniverse() {}
 
 qbResult PrivateUniverse::init() {
-  buffer_.Init(entities_.get());
-  components_->Init();
-  entities_->Init();
   return runner_.transition(RunState::STOPPED, RunState::INITIALIZED);
 }
 
@@ -118,7 +116,8 @@ qbResult PrivateUniverse::start() {
 qbResult PrivateUniverse::loop() {
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
-  programs_->Run();
+  Baseline()->Flush();
+  programs_->Run(Baseline());
 
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
@@ -128,17 +127,15 @@ qbResult PrivateUniverse::stop() {
 }
 
 qbId PrivateUniverse::create_program(const char* name) {
-  qbId program = programs_->CreateProgram(name);
-  buffer_.RegisterProgram(program);
-  return program;
+  return programs_->CreateProgram(name);
 }
 
 qbResult PrivateUniverse::run_program(qbId program) {
-  return programs_->RunProgram(program);
+  return programs_->RunProgram(program, Baseline());
 }
 
 qbResult PrivateUniverse::detach_program(qbId program) {
-  return programs_->DetatchProgram(program);
+  return programs_->DetatchProgram(program, [this]() { return Baseline(); });
 }
 
 qbResult PrivateUniverse::join_program(qbId program) {
@@ -207,7 +204,7 @@ qbResult PrivateUniverse::event_flushall(qbProgram program) {
 
   qbProgram* p = programs_->GetProgram(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  ProgramImpl::FromRaw(p)->FlushAllEvents();
+  ProgramImpl::FromRaw(p)->FlushAllEvents(Baseline());
 	return qbResult::QB_OK;
 }
 
@@ -228,45 +225,129 @@ qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Event*)event->event)->SendMessageSync(message);
+  return ((Event*)event->event)->SendMessageSync(message, Baseline());
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
-  return entities_->CreateEntity(entity, attr);
+  return Baseline()->EntityCreate(entity, attr);
 }
 
 qbResult PrivateUniverse::entity_destroy(qbEntity entity) {
-  return entities_->DestroyEntity(entity);
+  return Baseline()->EntityDestroy(entity);
 }
 
 qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
-  return entities_->Find(entity, entity_id);
+  return Baseline()->EntityFind(entity, entity_id);
+}
+
+bool PrivateUniverse::entity_hascomponent(qbEntity entity,
+                                          qbComponent component) {
+  return Baseline()->EntityHasComponent(entity, component);
 }
 
 qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
                                               qbComponent component,
                                               void* instance_data) {
-  return entities_->AddComponent(entity, component, instance_data);
+  return Baseline()->EntityAddComponent(entity, component,
+                                                       instance_data);
 }
 
 qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
                                                 qbComponent component) {
-  return entities_->RemoveComponent(entity, component);
+  return Baseline()->EntityRemoveComponent(entity, component);
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  qbProgram* program = programs_->GetProgram(attr->program);
-  qbResult result = components_->Create(component, attr, &buffer_);  
-  buffer_.RegisterComponent(program->id, &(*component)->instances);
-  return result;
+  return Baseline()->ComponentCreate(component, attr);
 }
 
-qbResult PrivateUniverse::instance_oncreate(qbComponent component, qbSystem system) {
-  components_->SubcsribeToOnCreate(system, component);
+size_t PrivateUniverse::component_getcount(qbComponent component) {
+  return Baseline()->ComponentGetCount(component);
+}
+
+qbResult PrivateUniverse::instance_oncreate(qbComponent component,
+                                            qbInstanceOnCreate on_create) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_create);
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+    qbInstanceOnCreateEvent_* event =
+      (qbInstanceOnCreateEvent_*)frame->event;
+    qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
+    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
+      event->entity, event->component, event->state);
+    on_create(&instance);
+  });
+  qbSystem system;
+  qb_system_create(&system, attr);
+
+  Baseline()->ComponentSubscribeToOnCreate(system, component);
+  qb_systemattr_destroy(&attr);
   return QB_OK;
 }
 
-qbResult PrivateUniverse::instance_ondestroy(qbComponent component, qbSystem system) {
-  components_->SubcsribeToOnDestroy(system, component);
+qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
+                                             qbInstanceOnDestroy on_destroy) {
+  qbSystemAttr attr;
+  qb_systemattr_create(&attr);
+  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+  qb_systemattr_setuserstate(attr, (void*)on_destroy);
+  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+    qbInstanceOnDestroyEvent_* event =
+      (qbInstanceOnDestroyEvent_*)frame->event;
+    qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
+    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
+      event->entity, event->component, event->state);
+    on_destroy(&instance);
+  });
+  qbSystem system;
+  qb_system_create(&system, attr);
+
+  Baseline()->ComponentSubscribeToOnDestroy(system, component);
+  qb_systemattr_destroy(&attr);
+
   return QB_OK;
+}
+
+qbResult PrivateUniverse::instance_getconst(qbInstance instance, void* pbuffer) {
+  if (instance->is_mutable) {
+    *(void**)pbuffer = nullptr;
+  } else {
+    *(void**)pbuffer = instance->data;
+  }
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::instance_getmutable(qbInstance instance, void* pbuffer) {
+  if (instance->is_mutable) {
+    *(void**)pbuffer = instance->data;
+  } else {
+    *(void**)pbuffer = nullptr;
+  }
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::instance_getcomponent(qbInstance instance,
+                                                qbComponent component,
+                                                void* pbuffer) {
+  *(void**)pbuffer = instance->state->ComponentGetEntityData(
+    component, instance->entity);
+  return QB_OK;
+}
+
+bool PrivateUniverse::instance_hascomponent(qbInstance instance, qbComponent component) {
+  return instance->state->EntityHasComponent(instance->entity, component);
+}
+
+qbBarrier PrivateUniverse::barrier_create() {
+  qbBarrier barrier = new qbBarrier_();
+  barrier->impl = new Barrier();
+  return barrier;
+}
+
+void PrivateUniverse::barrier_destroy(qbBarrier barrier) {
+  barriers_.erase(std::find(barriers_.begin(), barriers_.end(), barrier));
+  delete (Barrier*)(barrier)->impl;
+  delete barrier;
 }

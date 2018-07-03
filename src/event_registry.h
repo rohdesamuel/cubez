@@ -4,6 +4,7 @@
 #include "event.h"
 #include "defs.h"
 #include "byte_queue.h"
+#include "game_state.h"
 
 #include <mutex>
 #include <unordered_map>
@@ -22,7 +23,7 @@ class EventRegistry {
   // Thread-safe.
   void Unsubscribe(qbEvent event, qbSystem system);
 
-  void FlushAll();
+  void FlushAll(GameState* state);
 
  private:
   void AllocEvent(qbId id, qbEvent* event, Event* channel);

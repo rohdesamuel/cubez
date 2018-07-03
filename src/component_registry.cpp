@@ -1,7 +1,7 @@
 #include "component_registry.h"
 
 #include "component.h"
-
+#include "game_state.h"
 ComponentRegistry::ComponentRegistry() : id_(0) {}
 
 ComponentRegistry::~ComponentRegistry() {
@@ -22,11 +22,11 @@ ComponentRegistry* ComponentRegistry::Clone() {
   return ret;
 }
 
-qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr,
-                                   FrameBuffer* frame_buffer) {
+qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr) {
   qbId new_id = id_++;
 
-  components_[new_id] = new Component(frame_buffer, new_id, attr->data_size);
+  *component = new_id;
+  components_[new_id] = new Component(new_id, attr->data_size, attr->is_shared);
   {
     instance_create_events_.resize(new_id + 1);
     qbEvent& on_create = instance_create_events_[new_id];
@@ -47,18 +47,21 @@ qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr,
     qb_event_create(&on_destroy, attr);
     qb_eventattr_destroy(&attr);
   }
-  *component = (qbComponent)(components_[new_id]);
+  
   return qbResult::QB_OK;
 }
 
 qbResult ComponentRegistry::CreateInstancesFor(
-    qbEntity entity, const std::vector<qbComponentInstance_>& instances) {
+    qbEntity entity, const std::vector<qbComponentInstance_>& instances,
+    GameState* state) {
   for (auto& instance : instances) {
-    instance.component->instances.Create(entity, instance.data);
+    Component* component = components_[instance.component];
+    component->Create(entity, instance.data);
   }
 
   for (auto& instance : instances) {
-    SendInstanceCreateNotification(entity, instance.component);
+    Component* component = components_[instance.component];
+    SendInstanceCreateNotification(entity, component, state);
   }
 
   return QB_OK;
@@ -66,66 +69,75 @@ qbResult ComponentRegistry::CreateInstancesFor(
 
 qbResult ComponentRegistry::CreateInstanceFor(qbEntity entity,
                                               qbComponent component,
-                                              void* instance_data) {
-  component->instances.Create(entity, instance_data);
-  SendInstanceCreateNotification(entity, component);
+                                              void* instance_data,
+                                              GameState* state) {
+  Component* c = components_[component];
+  c->Create(entity, instance_data);
+  SendInstanceCreateNotification(entity, c, state);
   return QB_OK;
 }
 
-int ComponentRegistry::DestroyInstancesFor(qbEntity entity) {
+int ComponentRegistry::DestroyInstancesFor(qbEntity entity, GameState* state) {
   int destroyed_instances = 0;
-  for (auto it = components_.begin(); it != components_.end(); ++it) {
-    qbComponent component = (qbComponent)(*it).second;
-    if (component->instances.Has(entity)) {
-      SendInstanceDestroyNotification(entity, component);
+  for (auto component_pair : components_) {
+    Component* component = component_pair.second;
+    if (component->Has(entity)) {
+      SendInstanceDestroyNotification(entity, component, state);
     }
   }
 
-  for (auto it = components_.begin(); it != components_.end(); ++it) {
-    qbComponent component = (qbComponent)(*it).second;
-    if (component->instances.Has(entity)) {
-      component->instances.Destroy(entity);
+  for (auto component_pair : components_) {
+    Component* component = component_pair.second;
+    if (component->Has(entity)) {
+      component->Destroy(entity);
       ++destroyed_instances;
     }
   }
   return destroyed_instances;
 }
 
-qbResult ComponentRegistry::DestroyInstanceFor(qbEntity entity,
-                                               qbComponent component) {
-  SendInstanceDestroyNotification(entity, component);
-  component->instances.Destroy(entity);
-  return QB_OK;
+int ComponentRegistry::DestroyInstanceFor(qbEntity entity,
+                                          qbComponent component,
+                                          GameState* state) {
+  Component* c = components_[component];
+  if (c->Has(entity)) {
+    SendInstanceDestroyNotification(entity, c, state);
+    c->Destroy(entity);
+    return 1;
+  }
+  return 0;
 }
 
 qbResult ComponentRegistry::SendInstanceCreateNotification(
-    qbEntity entity, qbComponent component) {
+    qbEntity entity, Component* component, GameState* state) {
   qbInstanceOnCreateEvent_ event;
   event.entity = entity;
   event.component = component;
+  event.state = state;
 
   return qb_event_sendsync(
-      instance_create_events_[component->instances.Id()], &event);
+      instance_create_events_[component->Id()], &event);
 }
 
 qbResult ComponentRegistry::SendInstanceDestroyNotification(
-    qbEntity entity, qbComponent component) {
+    qbEntity entity, Component* component, GameState* state) {
   qbInstanceOnDestroyEvent_ event;
   event.entity = entity;
   event.component = component;
+  event.state = state;
 
   return qb_event_sendsync(
-      instance_destroy_events_[component->instances.Id()], &event);
+      instance_destroy_events_[component->Id()], &event);
 }
 
 qbResult ComponentRegistry::SubcsribeToOnCreate(qbSystem system,
-                                                qbComponent component) {
+                                                qbComponent component) const {
   return qb_event_subscribe(
-      instance_create_events_[component->instances.Id()], system);
+      instance_create_events_[component], system);
 }
 
 qbResult ComponentRegistry::SubcsribeToOnDestroy(qbSystem system,
-                                                 qbComponent component) {
+                                                 qbComponent component) const {
   return qb_event_subscribe(
-      instance_destroy_events_[component->instances.Id()], system);
+      instance_destroy_events_[component], system);
 }

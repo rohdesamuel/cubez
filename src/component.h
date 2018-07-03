@@ -5,19 +5,19 @@
 #include "sparse_map.h"
 #include "sparse_set.h"
 
-class FrameBuffer;
+#include <shared_mutex>
+
+// Not thread-safe. 
 class Component {
   typedef SparseMap<void, ByteVector> InstanceMap;
  public:
   typedef typename InstanceMap::iterator iterator;
   typedef typename InstanceMap::const_iterator const_iterator;
 
-  Component(FrameBuffer* buffer, qbId id, size_t instance_size);
-
-  class ComponentBuffer* MakeBuffer();
+  Component(qbId id, size_t instance_size, bool is_shared);
 
   Component* Clone();
-  void Merge(ComponentBuffer* update);
+  void Merge(const Component& other);
 
   qbResult Create(qbId entity, void* value);
   qbResult Destroy(qbId entity);
@@ -35,6 +35,9 @@ class Component {
   size_t ElementSize() const;
   qbId Id() const;
 
+  void Lock(bool is_mutable=false);
+  void Unlock(bool is_mutable = false);
+
   iterator begin();
   iterator end();
 
@@ -42,35 +45,11 @@ class Component {
   const_iterator end() const;
 
  private:
-  FrameBuffer* frame_buffer_;
   qbId id_;
   InstanceMap instances_;
-};
 
-class ComponentBuffer {
-public:
-  ComponentBuffer(Component* component);
-
-  void* FindOrCreate(qbId entity, void* value);
-
-  const void* Find(qbId entity);
-
-  qbResult Create(qbId entity, void* value);
-
-  qbResult Destroy(qbId entity);
-
-  bool Has(qbId entity);
-
-  void Resolve();
-
-  void Clear();
-
-private:
-  SparseMap<void, BlockVector> insert_or_update_;
-  SparseSet destroyed_;
-  Component* component_;
-
-  friend class Component;
+  std::shared_mutex mu_;
+  const bool is_shared_;
 };
 
 #endif

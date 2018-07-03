@@ -7,34 +7,37 @@
 #include "sparse_map.h"
 
 #include <vector>
-
-
-struct qbEntityId_ {
-  qbHandle* handle;
-};
+#include <functional>
 
 typedef void(*qbInstanceOnCreate)(qbInstance instance);
 typedef void(*qbInstanceOnDestroy)(qbInstance instancea);
 
 struct qbInstanceOnCreateEvent_ {
   qbId entity;
-  qbComponent component;
+  Component* component;
+  class GameState* state;
 };
 
 struct qbInstanceOnDestroyEvent_ {
   qbId entity;
-  qbComponent component;
-};
-
-// All components are keyed on an entity id.
-struct qbComponent_ {
-  Component instances;
+  Component* component;
+  class GameState* state;
 };
 
 struct qbComponentAttr_ {
-  qbId program;
   const char* name;
   size_t data_size;
+  bool is_shared;
+};
+
+struct qbBarrier_ {
+  void* impl;
+};
+
+struct qbTicket_ {
+  void* impl;
+  std::function<void(void)> lock;
+  std::function<void(void)> unlock;
 };
 
 struct qbSystemAttr_ {
@@ -49,9 +52,10 @@ struct qbSystemAttr_ {
   void* state;
   qbComponentJoin join;
 
-  std::vector<qbComponent_*> constants;
-  std::vector<qbComponent_*> mutables;
-  std::vector<qbComponent_*> components;
+  std::vector<qbComponent> constants;
+  std::vector<qbComponent> mutables;
+  std::vector<qbComponent> components;
+  std::vector<qbTicket_*> tickets;
 };
 
 enum qbIndexedBy {
@@ -88,12 +92,15 @@ struct qbEntityAttr_ {
 };
 
 struct qbInstance_ {
+  qbInstance_(bool is_mutable = false) : is_mutable(is_mutable) {};
+
   qbSystem system;
-  qbComponent component;
+  Component* component;
   qbEntity entity;
   void* data;
+  class GameState* state;
 
-  bool is_mutable;
+  const bool is_mutable;
 };
 
 struct qbEventAttr_ {

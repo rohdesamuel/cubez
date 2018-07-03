@@ -6,6 +6,7 @@
 #include "byte_vector.h"
 #include "byte_queue.h"
 #include "memory_pool.h"
+#include "game_state.h"
 
 #include <mutex>
 #include <queue>
@@ -24,7 +25,7 @@ class Event {
   qbResult SendMessage(void* message);
 
   // Thread-safe.
-  qbResult SendMessageSync(void* message);
+  qbResult SendMessageSync(void* message, GameState* state);
 
   // Not thread-safe.
   void AddHandler(qbSystem s);
@@ -33,7 +34,7 @@ class Event {
   void RemoveHandler(qbSystem s);
 
   // Not thread-safe.
-  void Flush(size_t index);
+  void Flush(size_t index, GameState* state);
 
  private:
   // Allocates a message to send. Moves the data pointed to by initial_val

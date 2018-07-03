@@ -10,7 +10,8 @@ EventRegistry::~EventRegistry() { }
 qbResult EventRegistry::CreateEvent(qbEvent* event, qbEventAttr attr) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
   qbId event_id = events_.size();
-  events_.push_back(new Event(program_, event_id, message_queue_, attr->message_size));
+  events_.push_back(new Event(program_, event_id, message_queue_,
+                              attr->message_size));
   AllocEvent(event_id, event, events_[event_id]);
   return qbResult::QB_OK;
 }
@@ -25,11 +26,11 @@ void EventRegistry::Unsubscribe(qbEvent event, qbSystem system) {
   FindEvent(event)->RemoveHandler(system);
 }
 
-void EventRegistry::FlushAll() {
+void EventRegistry::FlushAll(GameState* state) {
   Event::Message msg;
   while (!message_queue_->empty()) {
     msg = *(Event::Message*)message_queue_->front();
-    events_[msg.handler]->Flush(msg.index);
+    events_[msg.handler]->Flush(msg.index, state);
     message_queue_->pop();
   }
 }

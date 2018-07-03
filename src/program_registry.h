@@ -12,26 +12,24 @@
 
 class ProgramRegistry {
  public:
-  ProgramRegistry(ComponentRegistry* component_registry, FrameBuffer* buffer);
+  ProgramRegistry();
 
   qbId CreateProgram(const char* program);
 
-  qbResult DetatchProgram(qbId program);
+  qbResult DetatchProgram(qbId program, const std::function<GameState*()>& game_state_fn);
 
   qbResult JoinProgram(qbId program);
 
   qbProgram* GetProgram(qbId id);
 
-  void Run();
+  void Run(GameState* state);
 
-  qbResult RunProgram(qbId program);
+  qbResult RunProgram(qbId program, GameState* state);
 
  private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
   std::atomic_long id_;
-  ComponentRegistry* component_registry_;
-  FrameBuffer* frame_buffer_;
   SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;

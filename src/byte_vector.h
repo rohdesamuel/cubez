@@ -248,8 +248,13 @@ class ByteVector {
     if (capacity_ == new_capacity) {
       return;
     }
+
     uint8_t* new_elems = (uint8_t*)ALIGNED_ALLOC(new_capacity * elem_size_, 4096);
-    apex::memmove(new_elems, elems_, capacity_ * elem_size_);
+    if (new_capacity > capacity_) {
+      apex::memmove(new_elems, elems_, capacity_ * elem_size_);
+    } else {
+      apex::memmove(new_elems, elems_, new_capacity * elem_size_);
+    }
     ALIGNED_FREE(elems_);
     elems_ = new_elems;
     capacity_ = new_capacity;

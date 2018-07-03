@@ -3,11 +3,8 @@
 
 #include <cstring>
 
-Event::Event(
-  qbId program,
-  qbId id,
-  ByteQueue* message_queue,
-  size_t size)
+Event::Event(qbId program, qbId id, ByteQueue* message_queue,
+             size_t size)
   : program_(program),
     id_(id),
     message_queue_(message_queue),
@@ -40,9 +37,9 @@ qbResult Event::SendMessage(void* message) {
   return qbResult::QB_OK;
 }
 
-qbResult Event::SendMessageSync(void* message) {
+qbResult Event::SendMessageSync(void* message, GameState* state) {
   for (const auto& handler : handlers_) {
-    (SystemImpl::FromRaw(handler))->Run(message);
+    (SystemImpl::FromRaw(handler))->Run(state, message);
   }
 
   return qbResult::QB_OK;
@@ -56,10 +53,10 @@ void Event::RemoveHandler(qbSystem s) {
   handlers_.erase(std::find(handlers_.begin(), handlers_.end(), s));
 }
 
-void Event::Flush(size_t index) {
+void Event::Flush(size_t index, GameState* state) {
   for (const auto& handler : handlers_) {
     void* m = mem_buffer_[index];
-    SystemImpl::FromRaw(handler)->Run(m);
+    SystemImpl::FromRaw(handler)->Run(state, m);
   }
   FreeMessage(index);
 }

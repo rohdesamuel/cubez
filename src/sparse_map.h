@@ -81,13 +81,13 @@ public:
     }
 
     std::pair<qbId, const Value_&> operator*() {
-      return{ map_->dense_[index_], map_->dense_values_[index_] };
+      return std::make_pair(map_->dense_.at(index_), map_->dense_values_.at(index_));
     }
 
   private:
-    const_iterator(SparseMap* map, size_t index) : map_(map), index_(index) {}
+    const_iterator(const SparseMap* map, size_t index) : map_(map), index_(index) {}
 
-    SparseMap* map_;
+    const SparseMap* map_;
     size_t index_;
 
     friend class SparseMap;
@@ -287,7 +287,7 @@ public:
     }
 
     std::pair<qbId, const void*> operator*() const {
-      return{ map_->dense_[index_], map_->dense_values_[index_] };
+      return{ map_.dense_[index_], map_.dense_values_[index_] };
     }
 
   private:

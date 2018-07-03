@@ -1,25 +1,24 @@
 #include "system_impl.h"
 
-SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system) :
-  system_(system), join_(attr.join),
-  user_state_(attr.state), transform_(attr.transform),
+SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<qbComponent> components) :
+  system_(system), 
+  components_(components), join_(attr.join),
+  user_state_(attr.state),
+  tickets_(attr.tickets),
+  transform_(attr.transform),
   callback_(attr.callback) {
 
-  components_ = std::move(attr.components);
-
-  size_t i = 0;
   for(auto component : components_) {
     qbInstance_ instance;
     instance.data = nullptr;
     instance.system = system_;
     if (std::find(attr.constants.begin(), attr.constants.end(), component) != attr.constants.end()) {
-      instance.is_mutable = false;
+      *(bool*)&instance.is_mutable = false;
     } else {
-      instance.is_mutable = true;
+      *(bool*)&instance.is_mutable = true;
     }
 
     instances_.push_back(instance);
-    ++i;
   }
 
   for (auto& element : instances_) {
@@ -31,7 +30,7 @@ SystemImpl* SystemImpl::FromRaw(qbSystem system) {
   return (SystemImpl*)(((char*)system) + sizeof(qbSystem_));
 }
 
-void SystemImpl::Run(void* event) {
+void SystemImpl::Run(GameState* game_state, void* event) {
   size_t source_size = components_.size();
   qbFrame frame;
   frame.system = system_;
@@ -39,12 +38,31 @@ void SystemImpl::Run(void* event) {
   frame.state = system_->user_state;
 
   if (transform_) {
+    for (auto& t: tickets_) {
+      t->lock();
+    }
     if (source_size == 0) {
       Run_0(&frame);
     } else if (source_size == 1) {
-      Run_1(&frame);
+      Component* c = game_state->ComponentGet(components_[0]);
+      c->Lock(instances_[0].is_mutable);
+      Run_1(c, &frame, game_state);
+      c->Unlock(instances_[0].is_mutable);
     } else if (source_size > 1) {
-      Run_N(&frame);
+      thread_local static std::vector<Component*> components;
+      components.resize(0);
+      size_t index = 0;
+      for (auto component : components_) {
+        Component* c = game_state->ComponentGet(component);
+        c->Lock(instances_[index].is_mutable);
+        components.push_back(c);
+        c->Unlock(instances_[index].is_mutable);
+        ++index;
+      }
+      Run_N(components, &frame, game_state);
+    }
+    for (auto& t : tickets_) {
+      t->unlock();
     }
   }
 
@@ -53,48 +71,45 @@ void SystemImpl::Run(void* event) {
   }
 }
 
-void* SystemImpl::FindInstanceData(qbInstance instance, qbComponent component) {
-  return component->instances[instance->entity];
-}
-
-qbInstance_ SystemImpl::FindInstance(qbEntity entity, qbComponent component) {
+qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component, GameState* state) {
   qbInstance_ instance;
-  instance.is_mutable = false;
   instance.system = system_;
-  CopyToInstance(component, entity, &instance);
+  CopyToInstance(component, entity, &instance, state);
   return instance;
 }
 
-void SystemImpl::CopyToInstance(qbComponent component, qbEntity entity, qbInstance instance) {
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state) {
   instance->entity = entity;
   instance->data = instance->is_mutable
-      ? component->instances[entity]
-      : (void*)component->instances.at(entity);
+      ? (*component)[entity]
+      : (void*)component->at(entity);
   instance->component = component;
+  instance->state = state;
+}
+
+void SystemImpl::RunTransform(qbInstance* instances, qbFrame* frame) {
+  transform_(instances, frame);
 }
 
 void SystemImpl::Run_0(qbFrame* f) {
-  transform_(nullptr, f);
+  RunTransform(nullptr, f);
 }
 
-void SystemImpl::Run_1(qbFrame* f) {
-  qbComponent component = components_[0];
-  auto& instances = component->instances;
-
-  for (auto id_component : instances) {
-    CopyToInstance(component, id_component.first, &instances_[0]);
-    transform_(instance_data_.data(), f);
+void SystemImpl::Run_1(Component* component, qbFrame* f, GameState* state) {
+  for (auto id_component : *component) {
+    CopyToInstance(component, id_component.first, &instances_[0], state);
+    RunTransform(instance_data_.data(), f);
   }
 }
 
-void SystemImpl::Run_N(qbFrame* f) {
-  qbComponent source = components_[0];
+void SystemImpl::Run_N(const std::vector<Component*>& components, qbFrame* f, GameState* state) {
+  Component* source = components[0];
   switch(join_) {
     case qbComponentJoin::QB_JOIN_INNER: {
       uint64_t min = 0xFFFFFFFFFFFFFFFF;
       for (size_t i = 0; i < components_.size(); ++i) {
-        qbComponent src = components_[i];
-        uint64_t maybe_min = src->instances.Size();
+        Component* src = components[i];
+        uint64_t maybe_min = src->Size();
         if (maybe_min < min) {
           min = maybe_min;
           source = src;
@@ -102,29 +117,29 @@ void SystemImpl::Run_N(qbFrame* f) {
       }
     } break;
     case qbComponentJoin::QB_JOIN_LEFT:
-      source = components_[0];
+      source = components[0];
     break;
     case qbComponentJoin::QB_JOIN_CROSS: {
       static std::vector<size_t> indices(components_.size(), 0);
 
-      for (qbComponent component : components_) {
-        if (component->instances.Size() == 0) {
+      for (Component* component : components) {
+        if (component->Size() == 0) {
           return;
         }
       }
 
       while (1) {
         for (size_t i = 0; i < indices.size(); ++i) {
-          qbComponent src = components_[i];
-          auto it = src->instances.begin() + indices[i];
-          CopyToInstance(src, (*it).first, &instances_[i]);
+          Component* src = components[i];
+          auto it = src->begin() + indices[i];
+          CopyToInstance(src, (*it).first, &instances_[i], state);
         }
-        transform_(instance_data_.data(), f);
+        RunTransform(instance_data_.data(), f);
 
         bool all_zero = true;
         ++indices[0];
         for (size_t i = 0; i < indices.size(); ++i) {
-          if (indices[i] >= components_[i]->instances.Size()) {
+          if (indices[i] >= components[i]->Size()) {
             indices[i] = 0;
             if (i + 1 < indices.size()) {
               ++indices[i + 1];
@@ -141,20 +156,20 @@ void SystemImpl::Run_N(qbFrame* f) {
   switch(join_) {
     case qbComponentJoin::QB_JOIN_LEFT:
     case qbComponentJoin::QB_JOIN_INNER: {
-      for (auto id_component : source->instances) {
+      for (auto id_component : *source) {
         qbId entity_id = id_component.first;
         bool should_continue = false;
         for (size_t j = 0; j < components_.size(); ++j) {
-          qbComponent c = components_[j];
-          if (!c->instances.Has(entity_id)) {
+          Component* c = components[j];
+          if (!c->Has(entity_id)) {
             should_continue = true;
             break;
           }
-          CopyToInstance(c, entity_id, &instances_[j]);
+          CopyToInstance(c, entity_id, &instances_[j], state);
         }
         if (should_continue) continue;
 
-        transform_(instance_data_.data(), f);
+        RunTransform(instance_data_.data(), f);
       }
     } break;
     default:

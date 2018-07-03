@@ -57,6 +57,7 @@ qbResult qb_system_disable(qbSystem system) {
 qbResult qb_componentattr_create(qbComponentAttr* attr) {
   *attr = (qbComponentAttr)calloc(1, sizeof(qbComponentAttr_));
   new (*attr) qbComponentAttr_;
+  (*attr)->is_shared = false;
 	return qbResult::QB_OK;
 }
 
@@ -66,21 +67,18 @@ qbResult qb_componentattr_destroy(qbComponentAttr* attr) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_componentattr_setprogram(qbComponentAttr attr, qbId program) {
-  attr->program = program;
-	return qbResult::QB_OK;
-}
-
 qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t size) {
   attr->data_size = size;
 	return qbResult::QB_OK;
 }
 
+qbResult qb_componentattr_setshared(qbComponentAttr attr) {
+  attr->is_shared = true;
+  return qbResult::QB_OK;
+}
+
 qbResult qb_component_create(
     qbComponent* component, qbComponentAttr attr) {
-  if (!attr->program) {
-    attr->program = 0;
-  }
   return AS_PRIVATE(component_create(component, attr));
 }
 
@@ -89,7 +87,7 @@ qbResult qb_component_destroy(qbComponent*) {
 }
 
 size_t qb_component_getcount(qbComponent component) {
-  return component->instances.Size();
+  return AS_PRIVATE(component_getcount(component));
 }
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
@@ -119,7 +117,7 @@ qbResult qb_entity_destroy(qbEntity entity) {
 }
 
 bool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
-  return component->instances.Has(entity);
+  return AS_PRIVATE(entity_hascomponent(entity, component));
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
@@ -133,6 +131,16 @@ qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
 
 qbId qb_entity_getid(qbEntity entity) {
   return entity;
+}
+
+qbResult qb_barrier_create(qbBarrier* barrier) {
+  *barrier = AS_PRIVATE(barrier_create());
+  return QB_OK;
+}
+
+qbResult qb_barrier_destroy(qbBarrier* barrier) {
+  AS_PRIVATE(barrier_destroy(*barrier));
+  return QB_OK;
 }
 
 qbResult qb_systemattr_create(qbSystemAttr* attr) {
@@ -193,6 +201,17 @@ qbResult qb_systemattr_setjoin(qbSystemAttr attr, qbComponentJoin join) {
 qbResult qb_systemattr_setuserstate(qbSystemAttr attr, void* state) {
   attr->state = state;
 	return qbResult::QB_OK;
+}
+
+qbResult qb_systemattr_addbarrier(qbSystemAttr attr,
+                                  qbBarrier barrier) {
+  qbTicket_* t = new qbTicket_;
+  t->impl = ((Barrier*)barrier->impl)->MakeTicket().release();
+
+  t->lock = [ticket{ t->impl }]() { ((Barrier::Ticket*)ticket)->lock(); };
+  t->unlock = [ticket{ t->impl }]() { ((Barrier::Ticket*)ticket)->unlock(); };
+  attr->tickets.push_back(t);
+  return QB_OK;
 }
 
 qbResult qb_system_create(qbSystem* system, qbSystemAttr attr) {
@@ -270,46 +289,12 @@ qbResult qb_event_sendsync(qbEvent event, void* message) {
 
 qbResult qb_instance_oncreate(qbComponent component,
                               qbInstanceOnCreate on_create) {
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_create);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-    qbInstanceOnCreateEvent_* event =
-      (qbInstanceOnCreateEvent_*)frame->event;
-    qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
-    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(event->entity, event->component);
-    on_create(&instance);
-  });
-  qbSystem system;
-  qb_system_create(&system, attr);
-
-  AS_PRIVATE(instance_oncreate(component, system));
-
-  qb_systemattr_destroy(&attr);
-  return QB_OK;
+  return AS_PRIVATE(instance_oncreate(component, on_create));
 }
 
 qbResult qb_instance_ondestroy(qbComponent component,
                                qbInstanceOnDestroy on_destroy) {
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_destroy);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
-    qbInstanceOnDestroyEvent_* event =
-      (qbInstanceOnDestroyEvent_*)frame->event;
-    qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
-    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(event->entity, event->component);
-    on_destroy(&instance);
-  });
-  qbSystem system;
-  qb_system_create(&system, attr);
-
-  AS_PRIVATE(instance_ondestroy(component, system));
-
-  qb_systemattr_destroy(&attr);
-  return QB_OK;
+  return AS_PRIVATE(instance_ondestroy(component, on_destroy));
 }
 
 qbEntity qb_instance_getentity(qbInstance instance) {
@@ -317,35 +302,18 @@ qbEntity qb_instance_getentity(qbInstance instance) {
 }
 
 qbResult qb_instance_getconst(qbInstance instance, void* pbuffer) {
-#ifdef __ENGINE_DEBUG__
-  if (!instance->is_mutable) {
-    *(void**)pbuffer = instance->data;
-  } else {
-    *(void**)pbuffer = nullptr;
-  }
-#endif
-  *(void**)pbuffer = instance->data;
-  return QB_OK;
+  return AS_PRIVATE(instance_getconst(instance, pbuffer));
 }
 
 qbResult qb_instance_getmutable(qbInstance instance, void* pbuffer) {
-#ifdef __ENGINE_DEBUG__
-  if (instance->is_mutable) {
-    *(void**)pbuffer = instance->data;
-  } else {
-    *(void**)pbuffer = nullptr;
-  }
-#endif
-  *(void**)pbuffer = instance->data;
-  return QB_OK;
+  return AS_PRIVATE(instance_getmutable(instance, pbuffer));
 }
 
 qbResult qb_instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer) {
-  *(void**)pbuffer = SystemImpl::FromRaw(instance->system)->
-    FindInstanceData(instance, component);
-  return QB_OK;
+  return AS_PRIVATE(instance_getcomponent(instance, component, pbuffer));
 }
 
 bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
-  return component->instances.Has(instance->entity);
+  return AS_PRIVATE(instance_hascomponent(instance, component));
 }
+

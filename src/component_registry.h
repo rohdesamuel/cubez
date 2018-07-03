@@ -3,11 +3,11 @@
 
 #include "defs.h"
 #include "sparse_map.h"
-#include "frame_buffer.h"
 
 #include <atomic>
 #include <unordered_map>
 
+class GameState;
 class ComponentRegistry {
  public:
   ComponentRegistry();
@@ -16,8 +16,7 @@ class ComponentRegistry {
   void Init();
   ComponentRegistry* Clone();
 
-  qbResult Create(qbComponent* component, qbComponentAttr attr,
-    FrameBuffer* frame_buffer);
+  qbResult Create(qbComponent* component, qbComponentAttr attr);
 
   Component& operator[](qbId component) {
     return *(Component*)components_[component];
@@ -28,20 +27,22 @@ class ComponentRegistry {
   }
 
   qbResult CreateInstancesFor(
-      qbEntity entity, const std::vector<qbComponentInstance_>& instances);
+    qbEntity entity, const std::vector<qbComponentInstance_>& instances,
+    GameState* state);
 
   qbResult CreateInstanceFor(qbEntity entity, qbComponent component,
-                             void* instance_data);
+                             void* instance_data, GameState* state);
 
-  int DestroyInstancesFor(qbEntity entity);
-  qbResult DestroyInstanceFor(qbEntity entity, qbComponent component);
+  int DestroyInstancesFor(qbEntity entity, GameState* state);
+  int DestroyInstanceFor(qbEntity entity, qbComponent component,
+                         GameState* state);
 
-  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component);
-  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component);
+  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component) const;
+  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component) const;
 
  private:
-  qbResult SendInstanceCreateNotification(qbEntity entity, qbComponent component);
-  qbResult SendInstanceDestroyNotification(qbEntity entity, qbComponent component);
+  qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state);
+  qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state);
 
   std::vector<qbEvent> instance_create_events_;
   std::vector<qbEvent> instance_destroy_events_;

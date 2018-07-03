@@ -14,7 +14,7 @@ class ProgramThread {
 
   ~ProgramThread();
 
-  void Run();
+  void Run(const std::function<GameState*()>& game_state_fn);
   
   qbProgram* Release();
 

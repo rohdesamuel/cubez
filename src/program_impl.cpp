@@ -1,17 +1,15 @@
 #include "program_impl.h"
 #include "system_impl.h"
 
-ProgramImpl::ProgramImpl(qbProgram* program,
-                         ComponentRegistry* component_registry)
+ProgramImpl::ProgramImpl(qbProgram* program)
     : program_(program),
-      events_(program->id),
-      component_registry_(component_registry) {}
+      events_(program->id) {}
 
 ProgramImpl* ProgramImpl::FromRaw(qbProgram* program) {
   return (ProgramImpl*)program->self;
 }
 
-qbId ProgramImpl::Id() {
+qbId ProgramImpl::Id() const {
   return program_->id;
 }
 
@@ -20,17 +18,12 @@ const char* ProgramImpl::Name() {
 }
 
 qbSystem ProgramImpl::CreateSystem(const qbSystemAttr_& attr) {
-  // Create fake components to buffer all deltas.
   for (qbComponent component : attr.mutables) {
-    mutables_[component->instances.Id()] = std::move(component->instances.MakeBuffer());
+    mutables_.insert(component);
   }
 
   qbSystem system = AllocSystem(systems_.size(), attr);
   systems_.push_back(system);
-  if (!attr.mutables.empty()) {
-    mutating_systems_.insert(system);
-  }
-
   EnableSystem(system);
   return system;
 }
@@ -61,7 +54,6 @@ qbResult ProgramImpl::DisableSystem(qbSystem system) {
   } else {
     event_systems_.erase(system);
   }
-  mutating_systems_.erase(system);
   return QB_OK;
 }
 
@@ -73,8 +65,8 @@ qbResult ProgramImpl::CreateEvent(qbEvent* event, qbEventAttr attr) {
   return events_.CreateEvent(event, attr);
 }
 
-void ProgramImpl::FlushAllEvents() {
-  events_.FlushAll();
+void ProgramImpl::FlushAllEvents(GameState* state) {
+  events_.FlushAll(state);
 }
 
 void ProgramImpl::SubscribeTo(qbEvent event, qbSystem system) {
@@ -89,10 +81,10 @@ void ProgramImpl::Ready() {
   // Give copy of components.
 }
 
-void ProgramImpl::Run() {
-  events_.FlushAll();
+void ProgramImpl::Run(GameState* state) {
+  events_.FlushAll(state);
   for(qbSystem p : loop_systems_) {
-    SystemImpl::FromRaw(p)->Run();
+    SystemImpl::FromRaw(p)->Run(state);
   }
 }
 
@@ -109,7 +101,8 @@ qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {
   p->user_state = attr.state;
 
   SystemImpl* impl = SystemImpl::FromRaw(p);
-  new (impl) SystemImpl(attr, p);
+
+  new (impl) SystemImpl(attr, p, attr.components);
 
   return p;
 }

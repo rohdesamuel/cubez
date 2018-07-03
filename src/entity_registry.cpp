@@ -3,8 +3,9 @@
 #include <cstring>
 #include <iostream>
 
-EntityRegistry::EntityRegistry(ComponentRegistry* component_registry, FrameBuffer* frame_buffer)
-    : id_(0), frame_buffer_(frame_buffer), component_registry_(component_registry) {
+#include "game_state.h"
+EntityRegistry::EntityRegistry()
+    : id_(0) {
   entities_.reserve(100000);
   free_entity_ids_.reserve(10000);
 }
@@ -13,7 +14,7 @@ void EntityRegistry::Init() {
 }
 
 EntityRegistry* EntityRegistry::Clone() {
-  EntityRegistry* ret = new EntityRegistry(component_registry_, frame_buffer_);
+  EntityRegistry* ret = new EntityRegistry();
   long id = id_;
   ret->id_ = id;
   ret->entities_ = entities_;
@@ -26,12 +27,10 @@ EntityRegistry* EntityRegistry::Clone() {
 qbResult EntityRegistry::CreateEntity(qbEntity* entity,
                                       const qbEntityAttr_& attr) {
   qbId new_id = AllocEntity();
+  entities_.insert(new_id);
 
   LOG(INFO, "CreateEntity " << new_id << "\n");
   *entity = new_id;
-
-  frame_buffer_->CreateEntity(*entity);
-  component_registry_->CreateInstancesFor(*entity, attr.component_list);
 
   return qbResult::QB_OK;
 }
@@ -41,22 +40,11 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
 // removed. Frees entity memory after all components have been destroyed.
 qbResult EntityRegistry::DestroyEntity(qbEntity entity) {
   LOG(INFO, "Destroying instances for " << (entity) << "\n");
-  component_registry_->DestroyInstancesFor(entity);
-
-  LOG(INFO, "Send DestroyEntity Event for " << (entity) << "\n");
-  frame_buffer_->DestroyEntity(entity);
- 
+  if (entities_.has(entity)) {
+    entities_.erase(entity);
+    free_entity_ids_.push_back(entity);
+  }
   return QB_OK;
-}
-
-qbResult EntityRegistry::AddComponent(qbId entity, qbComponent component,
-                                      void* instance_data) {
-  return component_registry_->CreateInstanceFor(entity, component,
-                                                instance_data);
-}
-
-qbResult EntityRegistry::RemoveComponent(qbId entity, qbComponent component) {
-  return component_registry_->DestroyInstanceFor(entity, component);
 }
 
 qbResult EntityRegistry::Find(qbEntity* entity, qbId entity_id) {

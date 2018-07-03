@@ -6,7 +6,6 @@
 #include "component_registry.h"
 #include "entity_registry.h"
 #include "program_registry.h"
-#include "frame_buffer.h"
 
 #include <mutex>
 
@@ -85,8 +84,6 @@ class PrivateUniverse {
   // qbSystem manipulation.
   qbResult system_create(qbSystem* system, const qbSystemAttr_& attr);
 
-  qbResult alloc_system(const struct qbSystemCreateInfo* create_info,
-                        qbSystem* system);
   qbSystem copy_system(qbSystem system, const char* dest);
   qbResult free_system(qbSystem system);
 
@@ -111,34 +108,44 @@ class PrivateUniverse {
   qbResult entity_create(qbEntity* entity, const qbEntityAttr_& attr);
   qbResult entity_destroy(qbEntity entity);
   qbResult entity_find(qbEntity* entity, qbId entity_id);
+  bool entity_hascomponent(qbEntity entity, qbComponent component);
   qbResult entity_addcomponent(qbEntity entity, qbComponent component,
-                                  void* instance_data);
+                               void* instance_data);
   qbResult entity_removecomponent(qbEntity entity, qbComponent component);
 
   // Instance manipulation.
-  qbResult instance_oncreate(qbComponent component, qbSystem system);
-  qbResult instance_ondestroy(qbComponent component, qbSystem system);
+  qbResult instance_oncreate(qbComponent component,
+                             qbInstanceOnCreate on_create);
+  qbResult instance_ondestroy(qbComponent component,
+                              qbInstanceOnDestroy on_destroy);
+  bool instance_hascomponent(qbInstance instance, qbComponent component);
+  qbResult instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer);
+  qbResult instance_getconst(qbInstance instance, void* pbuffer);
+  qbResult instance_getmutable(qbInstance instance, void* pbuffer);
 
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);
+  size_t component_getcount(qbComponent component);
+
+  // Synchronization methods.
+  qbBarrier barrier_create();
+  void barrier_destroy(qbBarrier barrier);
 
   // Current program id of running thread.
   static thread_local qbId program_id;
 
  private:
+  GameState* Baseline() {
+    return &baseline_;
+  }
+
   Runner runner_;
 
   // Must be initialized first.
   std::unique_ptr<ProgramRegistry> programs_;
+  GameState baseline_;
 
-  // Must be initialized after the CollectionRegistry.
-  std::unique_ptr<ComponentRegistry> components_;
-
-  // Must be initialized after the ComponentRegistry and ProgramRegistry.
-  std::unique_ptr<EntityRegistry> entities_;
-  
-  // Mutable buffers.
-  FrameBuffer buffer_;
+  std::vector<qbBarrier> barriers_;
 };
 
 #endif  // PRIVATE_UNIVERSE__H
