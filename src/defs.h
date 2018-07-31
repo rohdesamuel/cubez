@@ -45,6 +45,7 @@ struct qbSystemAttr_ {
   
   qbTransform transform;
   qbCallback callback;
+  qbCondition condition;
 
   qbTrigger trigger;
   int16_t priority;

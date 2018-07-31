@@ -117,9 +117,9 @@ DLLEXPORT qbResult      qb_instance_ondestroy(qbComponent component,
                                               void(*fn)(qbInstance instance));
 
 // Gets a read-only view of a component instance for the given entity.
-DLLEXPORT qbResult      qb_instance_find(qbInstance* instance,
-                                         qbComponent component,
-                                         qbEntity entity);
+DLLEXPORT qbResult      qb_instance_find(qbComponent component,
+                                         qbEntity entity,
+                                         void* pbuffer);
 
 // Returns the entity that contains this component instance.
 DLLEXPORT qbEntity      qb_instance_getentity(qbInstance instance);
@@ -262,6 +262,11 @@ DLLEXPORT qbResult      qb_systemattr_setfunction(qbSystemAttr attr,
 typedef void(*qbCallback)(qbFrame* frame);
 DLLEXPORT qbResult      qb_systemattr_setcallback(qbSystemAttr attr,
                                                   qbCallback callback);
+
+// Allows the system to execute if the specified condition returns true.
+typedef bool(*qbCondition)(qbFrame* frame);
+DLLEXPORT qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
+                                                   qbCondition condition);
 
 // ======== qbTrigger ========
 enum qbTrigger {

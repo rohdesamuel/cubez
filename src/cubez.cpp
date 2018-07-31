@@ -182,6 +182,11 @@ qbResult qb_systemattr_setcallback(qbSystemAttr attr, qbCallback callback) {
 	return qbResult::QB_OK;
 }
 
+qbResult qb_systemattr_setcondition(qbSystemAttr attr, qbCondition condition) {
+  attr->condition = condition;
+  return qbResult::QB_OK;
+}
+
 qbResult qb_systemattr_settrigger(qbSystemAttr attr, qbTrigger trigger) {
   attr->trigger = trigger;
 	return qbResult::QB_OK;
@@ -317,3 +322,6 @@ bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
   return AS_PRIVATE(instance_hascomponent(instance, component));
 }
 
+qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
+  return AS_PRIVATE(instance_find(component, entity, pbuffer));
+}

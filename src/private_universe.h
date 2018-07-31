@@ -122,6 +122,7 @@ class PrivateUniverse {
   qbResult instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer);
   qbResult instance_getconst(qbInstance instance, void* pbuffer);
   qbResult instance_getmutable(qbInstance instance, void* pbuffer);
+  qbResult instance_find(qbComponent component, qbEntity entity, void* pbuffer);
 
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);

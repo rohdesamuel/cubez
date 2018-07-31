@@ -39,6 +39,7 @@ class SystemImpl {
 
   qbTransform transform_;
   qbCallback callback_;
+  qbCondition condition_;
 };
 
 

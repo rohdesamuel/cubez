@@ -9,7 +9,7 @@
 
 // Not thread-safe. 
 class Component {
-  typedef SparseMap<void, ByteVector> InstanceMap;
+  typedef SparseMap<void, BlockVector> InstanceMap;
  public:
   typedef typename InstanceMap::iterator iterator;
   typedef typename InstanceMap::const_iterator const_iterator;

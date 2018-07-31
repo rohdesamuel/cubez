@@ -331,13 +331,17 @@ qbResult PrivateUniverse::instance_getmutable(qbInstance instance, void* pbuffer
 qbResult PrivateUniverse::instance_getcomponent(qbInstance instance,
                                                 qbComponent component,
                                                 void* pbuffer) {
-  *(void**)pbuffer = instance->state->ComponentGetEntityData(
-    component, instance->entity);
+  *(void**)pbuffer = Baseline()->ComponentGetEntityData(component, instance->entity);
   return QB_OK;
 }
 
 bool PrivateUniverse::instance_hascomponent(qbInstance instance, qbComponent component) {
-  return instance->state->EntityHasComponent(instance->entity, component);
+  return Baseline()->EntityHasComponent(instance->entity, component);
+}
+
+qbResult PrivateUniverse::instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
+  *(void**)pbuffer = Baseline()->ComponentGetEntityData(component, entity);
+  return QB_OK;
 }
 
 qbBarrier PrivateUniverse::barrier_create() {

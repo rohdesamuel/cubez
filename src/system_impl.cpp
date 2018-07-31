@@ -6,7 +6,8 @@ SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<q
   user_state_(attr.state),
   tickets_(attr.tickets),
   transform_(attr.transform),
-  callback_(attr.callback) {
+  callback_(attr.callback),
+  condition_(attr.condition) {
 
   for(auto component : components_) {
     qbInstance_ instance;
@@ -36,6 +37,10 @@ void SystemImpl::Run(GameState* game_state, void* event) {
   frame.system = system_;
   frame.event = event;
   frame.state = system_->user_state;
+
+  if (condition_ && !condition_(&frame)) {
+    return;
+  }
 
   if (transform_) {
     for (auto& t: tickets_) {
