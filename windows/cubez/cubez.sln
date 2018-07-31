@@ -16,6 +16,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "benchmark", "benchmark\benc
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testspace", "testspace\testspace.vcxproj", "{50D17382-C8FD-49CE-B513-6B7AF45743C7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{1A4F920A-804C-41A7-9A38-533348444A5F} = {1A4F920A-804C-41A7-9A38-533348444A5F}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpg", "rpg\rpg.vcxproj", "{E26F3BE2-DFC4-42EC-B347-801DED136B7A}"
 EndProject

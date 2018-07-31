@@ -2,11 +2,35 @@
 #define MESH__H
 
 #include "inc/cubez.h"
+
 #include <glm/glm.hpp>
 #include <vector>
 
-typedef struct qbMesh_* qbMesh;
+struct qbMeshAttributes_ {
+  std::vector<glm::vec3> v;
+  std::vector<glm::vec3> vn;
+  std::vector<glm::vec2> vt;
+  std::vector<uint32_t> indices;
+};
 
+enum qbRenderMode {
+  QB_POINTS,
+  QB_LINES,
+  QB_TRIANGLES
+};
+
+struct qbMesh_ {
+  uint32_t vao;
+  uint32_t el_vbo;
+  uint32_t v_vbo;
+  uint32_t vn_vbo;
+  uint32_t vt_vbo;
+  
+  qbRenderMode render_mode;
+  qbMeshAttributes_* attributes;
+};
+
+typedef struct qbMesh_* qbMesh;
 typedef struct qbMaterialAttr_* qbMaterialAttr;
 typedef struct qbMaterial_* qbMaterial;
 typedef struct qbShader_* qbShader;
@@ -14,7 +38,12 @@ typedef struct qbTexture_* qbTexture;
 
 qbResult qb_mesh_load(qbMesh* mesh, const char* mesh_name,
                       const char* filename);
-qbResult qb_mesh_find(qbMesh* mesh, const char* mesh_name);
+qbResult qb_mesh_find(qbMesh mesh, const char* mesh_name);
+uint32_t qb_mesh_getvbuffer(qbMesh mesh);
+uint32_t qb_mesh_getvtbuffer(qbMesh mesh);
+uint32_t qb_mesh_getvnbuffer(qbMesh mesh);
+
+
 qbResult qb_mesh_destroy();
 
 qbResult qb_mesh_draw(qbMesh mesh, qbMaterial shader);
@@ -49,40 +78,10 @@ qbResult qb_materialattr_addtexture(qbMaterialAttr attr,
 qbResult qb_materialattr_setcolor(qbMaterialAttr attr, glm::vec4 color);
 
 qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr);
+qbResult qb_material_setcolor(qbMaterial attr, glm::vec4 color);
 qbResult qb_material_find(qbMaterial* material, const char* material_name);
 qbResult qb_material_use(qbMaterial material);
 qbShader qb_material_getshader(qbMaterial material);
 qbResult qb_material_destroy(qbMaterial* material);
-
-class MeshBuilder {
-public:
-  // Zero-based indexing of vertex attributes.
-  struct Face {
-    int v[3];
-    int vn[3];
-    int vt[3];
-  };
-
-  int add_vertex(glm::vec3&& v);
-
-  int add_texture(glm::vec2&& vt);
-
-  int add_normal(glm::vec3&& vn);
-
-  int add_face(Face&& face);
-
-  int add_face(std::vector<glm::vec3>&& vertices,
-    std::vector<glm::vec2>&& textures,
-    std::vector<glm::vec3>&& normals);
-
-  qbMesh build();
-
-private:
-  std::vector<glm::vec3> v_;
-  std::vector<glm::vec2> vt_;
-  std::vector<glm::vec3> vn_;
-  std::vector<Face> f_;
-
-};
 
 #endif   // MESH__H

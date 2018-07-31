@@ -6,11 +6,13 @@
 #include "player.h"
 #include "log.h"
 #include "mesh.h"
+#include "mesh_builder.h"
 #include "input.h"
 #include "render.h"
 #include "shader.h"
 #include "network.h"
 #include "socket.h"
+#include "planet.h"
 
 #include <algorithm>
 #include <thread>
@@ -69,8 +71,8 @@ void initialize_universe(qbUniverse* uni) {
   {
     render::Settings s;
     s.title = "Cubez example";
-    s.width = 800;
-    s.height = 600;
+    s.width = 1200;
+    s.height = 800;
     s.znear = 0.1f;
     s.zfar = 10000.0f;
     s.fov = 70.0f;
@@ -89,15 +91,17 @@ void initialize_universe(qbUniverse* uni) {
 
   qbShader mesh_shader;
   qbTexture ball_texture;
-  qbMesh block_mesh;
+  MeshBuilder block_mesh;
   qbMaterial ball_material;
   qbMaterial red_material;
   {
     // Load resources.
     std::cout << "Loading resources.\n";
     qb_shader_load(&mesh_shader, "mesh_shader", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\mesh.vs", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\mesh.fs");
-    qb_texture_load(&ball_texture, "ball_texture", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\ball.bmp");
-    qb_mesh_load(&block_mesh, "block_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\block.obj");
+    qb_texture_load(&ball_texture, "ball_texture", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\soccer_ball.bmp");
+    //qb_mesh_load(&block_mesh, "block_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\block.obj");
+    block_mesh = MeshBuilder::FromFile("C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\block.obj");
+
     qbMaterialAttr attr;
     qb_materialattr_create(&attr);
     qb_materialattr_setcolor(attr, glm::vec4{ 1.0, 0.0, 1.0, 1.0 });
@@ -117,28 +121,12 @@ void initialize_universe(qbUniverse* uni) {
 
   {
     ball::Settings settings;
-    settings.mesh = block_mesh;
-    settings.material = red_material;
+    settings.mesh = block_mesh.BuildRenderable(qbRenderMode::QB_TRIANGLES);
+    settings.collision_mesh = new Mesh(block_mesh.BuildMesh());
+    settings.material = ball_material;
+    settings.material_exploded = red_material;
 
     ball::initialize(settings);
-
-    ball::create({0.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f}, true);
-    ball::create({800.0f, 0.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({0.0f, 600.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({800.0f, 600.0f, 0.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({0.0f, 0.0f, 100.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({800.0f, 0.0f, 100.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({0.0f, 600.0f, 100.0f},
-                 {0.0f, 0.0f, 0.0f});
-    ball::create({800.0f, 600.0f, 100.0f},
-                 {0.0f, 0.0f, 0.0f});
-
     check_for_gl_errors();
   }
   {
@@ -164,6 +152,13 @@ void initialize_universe(qbUniverse* uni) {
     player::initialize(settings);
     check_for_gl_errors();
   }
+  {
+    planet::Settings settings;
+    settings.shader = mesh_shader;
+    settings.resource_folder = "C:\\Users\\Sam\\Source\\Repos\\cubez\\example\\";
+    planet::Initialize(settings);
+  }
+
   {
     qbMesh terrain;
     MeshBuilder builder;
@@ -218,16 +213,16 @@ void initialize_universe(qbUniverse* uni) {
 
     for (size_t y = 0; y < height; ++y) {
       for (size_t x = 0; x < width; ++x) {
-        builder.add_vertex(glm::vec3{ x, y, (*height_map)[y][x] } * scale);
+        builder.AddVertex(glm::vec3{ x, y, (*height_map)[y][x] } * scale);
       }
     }
 
-    builder.add_texture({ 0, 0 });
-    builder.add_texture({ 1, 0 });
-    builder.add_texture({ 1, 1 });
-    builder.add_texture({ 0, 1 });
+    builder.AddTexture({ 0, 0 });
+    builder.AddTexture({ 1, 0 });
+    builder.AddTexture({ 1, 1 });
+    builder.AddTexture({ 0, 1 });
 
-    builder.add_normal({ 0, 0, 1 });
+    builder.AddNormal({ 0, 0, 1 });
 
     auto coord_to_index = [height](size_t x, size_t y) {
       return y * height + x;
@@ -245,7 +240,7 @@ void initialize_universe(qbUniverse* uni) {
           face.vt[1] = 1;
           face.vt[2] = 2;
 
-          builder.add_face(std::move(face));
+          builder.AddFace(std::move(face));
         }
         {
           MeshBuilder::Face face;
@@ -258,7 +253,7 @@ void initialize_universe(qbUniverse* uni) {
           face.vt[1] = 3;
           face.vt[2] = 0;
 
-          builder.add_face(std::move(face));
+          builder.AddFace(std::move(face));
         }
       }
     }
@@ -283,16 +278,16 @@ void initialize_universe(qbUniverse* uni) {
       }
     }
 #endif
-    terrain = builder.build();
+    terrain = builder.BuildRenderable(qbRenderMode::QB_TRIANGLES);
 
     qbEntityAttr e_attr;
     qb_entityattr_create(&e_attr);
 
-    physics::Transform t{ { 0.0f, 0.0f, -32.0f }, {}, true };
+    physics::Transform t{ { 0.0f, 0.0f, 0.0f }, {}, true };
     qb_entityattr_addcomponent(e_attr, physics::component(), &t);
 
-    render::qbRenderable renderable = render::create(terrain, ball_material);
-    qb_entityattr_addcomponent(e_attr, render::component(), &renderable);
+    //render::qbRenderable renderable = render::create(terrain, ball_material);
+    //qb_entityattr_addcomponent(e_attr, render::component(), &renderable);
 
     qbEntity entity;
     qb_entity_create(&entity, e_attr);
@@ -322,8 +317,6 @@ int main(int, char* []) {
   WindowTimer update_timer(50);
   WindowTimer render_timer(50);
 
-  glViewport(0, 0, 800, 600);
-
   double t = 0.0;
   const double dt = 0.01;
   double current_time = Timer::now() * 0.000000001;
@@ -340,14 +333,15 @@ int main(int, char* []) {
     current_time = new_time;
 
     accumulator += frame_time;
+    
+    input::handle_input([](SDL_Event*) {
+      network::shutdown();
+      render::shutdown();
+      SDL_Quit();
+      qb_stop();
+      exit(0);
+    });
     while (accumulator >= dt) {
-      input::handle_input([](SDL_Event*) {
-          network::shutdown();
-          render::shutdown();
-          SDL_Quit();
-          qb_stop();
-          exit(0);
-        });
       update_timer.start();
       qb_loop();
       update_timer.stop();
@@ -380,7 +374,7 @@ int main(int, char* []) {
 
     prev_trigger = trigger;
     trigger = int64_t(time - start_time) / 1000000000;
-    if (rand() % 10 == 0) {
+    if (rand() % 1000000000 == 0) {
       ball::create({(float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f,
                     (float)(rand() % 500) - 250.0f}, {}, true, true);
@@ -388,6 +382,9 @@ int main(int, char* []) {
       
 
     if (trigger % period == 0 && prev_trigger != trigger) {
+      if ((int)(1e9 / update_timer.get_avg_elapsed_ns()) < 60) {
+        std::cout << "BAD FPS\n";
+      }
     //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
       std::cout << "Ball count " << qb_component_getcount(ball::Component()) << std::endl;
       double total = 15 * 1e6;

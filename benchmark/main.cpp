@@ -78,6 +78,7 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
 
     for (uint64_t i = 0; i < count; ++i) {
       qbEntity entity;
+      ++p.p.x;
       qb_entity_create(&entity, attr);
     }
 
@@ -88,8 +89,11 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
     qb_systemattr_create(&attr);
     qb_systemattr_addmutable(attr, position_component);
     qb_systemattr_setfunction(attr,
-      [](qbInstance*, qbFrame*) {
-        *Count() += 1;
+      [](qbInstance* instance, qbFrame*) {        
+
+        PositionComponent p;
+        qb_instance_getmutable(*instance, &p);
+        *Count() += p.p.x;
       });
 
     qbSystem system;
@@ -159,3 +163,66 @@ int main() {
   qb_stop();
   while (1);
 }
+
+/*
+Before
+#1
+Total elapsed: 462616369ns
+Elapsed per iteration: 462616369ns
+Total elapsed: 0.462616s
+Elapsed per iteration: 0.462616s
+
+#2
+Total elapsed: 480803490ns
+Elapsed per iteration: 480803490ns
+Total elapsed: 0.480803s
+Elapsed per iteration: 0.480803s
+
+#3
+Total elapsed: 456288546ns
+Elapsed per iteration: 456288546ns
+Total elapsed: 0.456289s
+Elapsed per iteration: 0.456289s
+
+#4
+Total elapsed: 461743162ns
+Elapsed per iteration: 461743162ns
+Total elapsed: 0.461743s
+Elapsed per iteration: 0.461743s
+
+#5
+Total elapsed: 457279816ns
+Elapsed per iteration: 457279816ns
+Total elapsed: 0.45728s
+Elapsed per iteration: 0.45728s
+
+
+After
+#1
+Total elapsed: 40476674ns
+Elapsed per iteration: 40476674ns
+Total elapsed: 0.0404767s
+Elapsed per iteration: 0.0404767s
+
+#2
+Total elapsed: 43829517ns
+Elapsed per iteration: 43829517ns
+Total elapsed: 0.0438295s
+Elapsed per iteration: 0.0438295s
+
+#3
+
+
+#4
+
+
+#5
+
+
+After2
+#1
+Total elapsed: 66839651ns
+Elapsed per iteration: 66839651ns
+Total elapsed: 0.0668397s
+Elapsed per iteration: 0.0668397s
+*/

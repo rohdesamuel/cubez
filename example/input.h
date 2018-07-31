@@ -86,6 +86,11 @@ struct InputEvent {
   qbKey key;
 };
 
+enum qbMouseState {
+  QB_MOUSE_UP,
+  QB_MOUSE_DOWN
+};
+
 enum qbMouseEvent {
   QB_MOUSE_EVENT_MOTION,
   QB_MOUSE_EVENT_BUTTON,
@@ -125,8 +130,8 @@ bool is_mouse_pressed(qbButton mouse_button);
 void get_mouse_position(int* x, int* y);
 
 qbKey keycode_from_sdl(SDL_Keycode sdl_key);
-qbButton button_from_sdl(uint8_t sdl_key);
-uint8_t button_to_sdl(qbButton button);
+qbButton button_from_sdl(uint32_t sdl_key);
+uint32_t button_to_sdl(qbButton button);
 
 }  // namespace input
 

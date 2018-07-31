@@ -4,8 +4,10 @@
 #include "constants.h"
 
 #include "inc/cubez.h"
+#include "mesh_builder.h"
 
 #include <glm/glm.hpp>
+#include <vector>
 
 namespace physics {
 
@@ -20,12 +22,22 @@ struct Impulse {
   glm::vec3 p;
 };
 
-struct Collision {
+struct qbCollision {
   qbEntity a;
   qbEntity b;
 };
 
-struct Collidable {
+struct qbCollisionMesh {
+  std::vector<glm::vec3> convex_hull;
+
+  glm::vec3 max;
+  glm::vec3 min;
+};
+
+struct qbCollidable {
+  Mesh* collision_mesh;
+
+  float r;
 };
 
 struct Settings {
@@ -39,7 +51,7 @@ void send_impulse(qbEntity entity, glm::vec3 p);
 
 qbComponent component();
 qbComponent collidable();
-qbComponent movable();
+qbComponent collision();
 
 qbResult on_collision(qbSystem system);
 

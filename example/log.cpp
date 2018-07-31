@@ -46,8 +46,8 @@ void initialize() {
 }
 
 void out(const std::string& s) {
-  int num_msgs = 1 + (s.length() / MAX_CHARS);
-  for (int i = 0; i < num_msgs; ++i) {
+  size_t num_msgs = 1 + (s.length() / MAX_CHARS);
+  for (size_t i = 0; i < num_msgs; ++i) {
     std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
     memcpy(msg_buffer, to_send.c_str(), std::strlen(to_send.c_str()));
     qb_event_send(std_out, msg_buffer);

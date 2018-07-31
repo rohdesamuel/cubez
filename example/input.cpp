@@ -1,5 +1,6 @@
 #include "input.h"
-
+#include "gui.h"
+#include <iostream>
 #include <unordered_map>
 
 namespace input {
@@ -33,18 +34,23 @@ void initialize() {
 
 void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
   SDL_Event e;
+  nk_input_begin(gui::Context());
   while (SDL_PollEvent(&e)) {
+    //ImGui_ImplSDL2_ProcessEvent(&e);
+    nk_sdl_handle_event(&e);
     if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-      if (e.key.keysym.sym == SDLK_ESCAPE) {
-        shutdown_handler(&e);
-      } else {
+      if (e.type == SDL_KEYDOWN) {
         if (e.key.keysym.sym == SDLK_LCTRL) {
-          if (e.key.state == SDL_PRESSED) {
+          if (SDL_GetRelativeMouseMode()) {
             SDL_SetRelativeMouseMode(SDL_FALSE);
           } else {
             SDL_SetRelativeMouseMode(SDL_TRUE);
           }
         }
+      }
+      if (e.key.keysym.sym == SDLK_ESCAPE) {
+        shutdown_handler(&e);
+      } else {
         SDL_Keycode key = e.key.keysym.sym;
         input::send_key_event(input::keycode_from_sdl(key),
             e.key.state == SDL_PRESSED);
@@ -61,6 +67,7 @@ void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
 
     }
   }
+  nk_input_end(gui::Context());
 }
 
 qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
@@ -92,6 +99,20 @@ qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
     case SDLK_x: return QB_KEY_X;
     case SDLK_y: return QB_KEY_Y;
     case SDLK_z: return QB_KEY_Z;
+    case SDLK_LEFTBRACKET: return QB_KEY_LBACKET;
+    case SDLK_KP_LEFTBRACE: return QB_KEY_LBRACE;
+    case SDLK_LSHIFT: return QB_KEY_LSHIFT;
+    case SDLK_LALT: return QB_KEY_LALT;
+    case SDLK_LCTRL: return QB_KEY_LCTRL;
+    case SDLK_RIGHTBRACKET: return QB_KEY_RBACKET;
+    case SDLK_KP_RIGHTBRACE: return QB_KEY_RBRACE;
+    case SDLK_RSHIFT: return QB_KEY_RSHIFT;
+    case SDLK_RALT: return QB_KEY_RALT;
+    case SDLK_RCTRL: return QB_KEY_RCTRL;
+    case SDLK_UP: return QB_KEY_UP;
+    case SDLK_DOWN: return QB_KEY_DOWN;
+    case SDLK_LEFT: return QB_KEY_LEFT;
+    case SDLK_RIGHT: return QB_KEY_RIGHT;
     default: return QB_KEY_UNKNOWN;
   }
 }
@@ -142,14 +163,15 @@ bool is_key_pressed(qbKey key) {
 }
 
 bool is_mouse_pressed(qbButton mouse_button) {
-  return SDL_GetMouseState(nullptr, nullptr) & button_to_sdl(mouse_button);
+  //std::cout << SDL_GetMouseState(nullptr, nullptr) << std::endl;
+  return (SDL_GetMouseState(nullptr, nullptr) & (1 << (button_to_sdl(mouse_button) - 1))) != 0;
 }
 
 void get_mouse_position(int* x, int* y) {
   SDL_GetMouseState(x, y);
 }
 
-uint8_t button_to_sdl(qbButton button) {
+uint32_t button_to_sdl(qbButton button) {
   switch (button) {
     case QB_BUTTON_LEFT: return SDL_BUTTON_LEFT;
     case QB_BUTTON_MIDDLE: return SDL_BUTTON_MIDDLE;
@@ -160,7 +182,7 @@ uint8_t button_to_sdl(qbButton button) {
   return SDL_BUTTON_LEFT;
 }
 
-qbButton button_from_sdl(uint8_t sdl_key) {
+qbButton button_from_sdl(uint32_t sdl_key) {
   switch (sdl_key) {
     case SDL_BUTTON_LEFT: return QB_BUTTON_LEFT;
     case SDL_BUTTON_MIDDLE: return QB_BUTTON_MIDDLE;

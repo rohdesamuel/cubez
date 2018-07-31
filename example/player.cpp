@@ -5,9 +5,12 @@
 #include "render.h"
 #include "shader.h"
 #include "ball.h"
+#include "mesh_builder.h"
+#include "collision_utils.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <GL/glew.h>
+#include "gui.h"
 
 namespace player {
 
@@ -16,13 +19,22 @@ qbComponent players;
 qbEntity main_player;
 qbSystem on_key_event;
 
+Mesh* collision_mesh;
+
 struct Player {
   bool fire_bullets;
+  bool place_block;
 };
 
 qbComponent Component() {
   return players;
 }
+
+float dir = 0.0f;
+float zdir = 45.0f;
+float dis = 100.0f;
+qbEntity selected = -1;
+std::pair<qbEntity, qbEntity> selected_with_mouse_drag;
 
 void initialize(const Settings& settings) {
   {
@@ -43,9 +55,25 @@ void initialize(const Settings& settings) {
     physics::Transform t;
     t.p = settings.start_pos;
     t.v = {0, 0, 0};
+    t.is_fixed = false;
+
+    MeshBuilder builder;
+    builder.AddVertex({ -2, -2, 0 });
+    builder.AddVertex({ -2,  2, 0 });
+    builder.AddVertex({  2, -2, 0 });
+    builder.AddVertex({  2,  2, 0 });
+    builder.AddVertex({ -2, -2, 8 });
+    builder.AddVertex({ -2,  2, 8 });
+    builder.AddVertex({  2, -2, 8 });
+    builder.AddVertex({  2,  2, 8 });
+    collision_mesh = new Mesh(std::move(builder.BuildMesh()));
+
+    physics::qbCollidable collidable;
+    collidable.collision_mesh = collision_mesh;
 
     qb_entityattr_addcomponent(attr, players, &p);
     qb_entityattr_addcomponent(attr, physics::component(), &t);
+    //qb_entityattr_addcomponent(attr, physics::collidable(), &collidable);
 
     qb_entity_create(&main_player, attr);
 
@@ -66,72 +94,97 @@ void initialize(const Settings& settings) {
           physics::Transform* t;
           qb_instance_getmutable(insts[1], &t);
 
-          glm::mat4 rot = render::qb_camera_getorientation();
-
-          glm::vec3 impulse = glm::vec3(rot * glm::vec4{1.0f, 0.0f, 0.0f, 1.0f});
-          glm::vec3 impulse_l = glm::vec3(rot * glm::vec4{0.0f, 1.0f, 0.0f, 1.0f});
-          glm::vec3 impulse_r = glm::vec3(rot * glm::vec4{0.0f, -1.0f, 0.0f, 1.0f});
-
-          impulse = glm::normalize(impulse);
-          impulse_r = glm::normalize(impulse_r);
-          impulse_l = glm::normalize(impulse_l);
-
-          float floor_level = 8.0f;
-          bool on_ground = t->p.z < floor_level + 0.01f;
-
-          impulse *= on_ground ? 1.0f : 0.01f;
-          impulse_l *= on_ground ? 1.0f : 0.01f;
-          impulse_r *= on_ground ? 1.0f : 0.01f;
-
-          if (input::is_key_pressed(QB_KEY_W)) {
-            t->v += impulse;
+          if (SDL_GetRelativeMouseMode()) {
+            float speed = 1.0f;
+            glm::vec3 origin = render::qb_camera_getorigin();
+            if (input::is_key_pressed(QB_KEY_W)) {
+              origin.x -= speed * glm::cos(glm::radians(dir));
+              origin.y -= speed * glm::sin(glm::radians(dir));
+            }
+            if (input::is_key_pressed(QB_KEY_S)) {
+              origin.x += speed * glm::cos(glm::radians(dir));
+              origin.y += speed * glm::sin(glm::radians(dir));
+            }
+            if (input::is_key_pressed(QB_KEY_A)) {
+              origin.x += speed * glm::cos(glm::radians(dir - 90));
+              origin.y += speed * glm::sin(glm::radians(dir - 90));
+            }
+            if (input::is_key_pressed(QB_KEY_D)) {
+              origin.x += speed * glm::cos(glm::radians(dir + 90));
+              origin.y += speed * glm::sin(glm::radians(dir + 90));
+            }
+            render::qb_camera_setorigin(origin);
           }
-          if (input::is_key_pressed(QB_KEY_S)) {
-            t->v -= impulse;
-          }
-          if (input::is_key_pressed(QB_KEY_A)) {
-            t->v += impulse_l;
-          }
-          if (input::is_key_pressed(QB_KEY_D)) {
-            t->v += impulse_r;
-          }
-
-          if (input::is_key_pressed(QB_KEY_I)) {
-            render::qb_camera_incpitch(0.5f);
-          }
-          if (input::is_key_pressed(QB_KEY_K)) {
-            render::qb_camera_incpitch(-0.5f);
-          }
-          if (input::is_key_pressed(QB_KEY_J)) {
-            render::qb_camera_incyaw(0.5f);
-          }
-          if (input::is_key_pressed(QB_KEY_L)) {
-            render::qb_camera_incyaw(-0.5f);
-          }
-
-          t->v.z -= 0.1f;
-
-          if (on_ground) {
-            t->p.z = floor_level;
-            t->v.z = 0;
-            t->v.x -= t->v.x * 0.25f;
-            t->v.y -= t->v.y * 0.25f;
-          }
-
-          if (player->fire_bullets) {
-            glm::vec3 vel = glm::vec3(
-              render::qb_camera_getorientation()
-              * glm::vec4{ 2500.0, 0.0, 0.0, 1.0 });
-
-            ball::create(t->p, vel, true, false);
-          }
-          
+          t->p.x = dis * glm::sin(glm::radians(zdir)) * glm::cos(glm::radians(dir));
+          t->p.y = dis * glm::sin(glm::radians(zdir)) * glm::sin(glm::radians(dir));
+          t->p.z = dis * glm::cos(glm::radians(zdir));
           render::qb_camera_setposition(t->p);
         });
 
     qbSystem unused;
     qb_system_create(&unused, attr);
     qb_systemattr_destroy(&attr);
+  }
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addconst(attr, physics::collidable());
+    qb_systemattr_addconst(attr, physics::component());
+    qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+    qb_systemattr_setcondition(attr, [](qbFrame* f) {
+      input::MouseEvent* e = (input::MouseEvent*)f->event;
+      bool should_run = e->event_type == input::qbMouseEvent::QB_MOUSE_EVENT_BUTTON && !nk_window_is_any_hovered(gui::Context());
+      if (should_run) {
+        selected = -1;
+      }
+      return should_run;
+    });
+    qb_systemattr_setfunction(attr,
+                              [](qbInstance* insts, qbFrame* f) {
+      input::MouseEvent* mouse_event = (input::MouseEvent*)f->event;
+      input::MouseButtonEvent* e = &mouse_event->button_event;
+      
+      physics::qbCollidable* c;
+      qb_instance_getconst(insts[0], &c);
+
+      physics::Transform* t;
+      qb_instance_getconst(insts[1], &t);
+
+      glm::vec3 orig = render::qb_camera_getposition() + render::qb_camera_getorigin();
+      int x, y;
+      input::get_mouse_position(&x, &y);
+
+      glm::vec3 dir;
+      render::qb_camera_screentoworld({ x, y }, &dir);
+      dir = glm::normalize(dir);
+      Ray ray(std::move(orig), std::move(dir));
+
+      if (collision_utils::CollidesWith(t->p, *c->collision_mesh, ray)) {
+        qbEntity new_selected = qb_instance_getentity(insts[0]);
+        if (e->mouse_button == qbButton::QB_BUTTON_LEFT) {
+          selected = new_selected;
+        }
+        if (e->mouse_button == qbButton::QB_BUTTON_LEFT) {
+          if (e->state == input::qbMouseState::QB_MOUSE_DOWN) {
+            selected_with_mouse_drag.first = new_selected;
+          } else {
+            selected_with_mouse_drag.second = new_selected;
+          }
+        }
+        if (input::is_key_pressed(qbKey::QB_KEY_LALT)) {
+          physics::Transform* other;
+          qb_instance_find(physics::component(), selected, &other);
+          render::qb_camera_setorigin(other->p);
+        }
+      }
+    });
+
+    qbSystem selection;
+    qb_system_create(&selection, attr);
+    qb_systemattr_destroy(&attr);
+
+    input::on_mouse_event(selection);
   }
   {
     qbSystemAttr attr;
@@ -150,8 +203,8 @@ void initialize(const Settings& settings) {
           physics::Transform* t;
           qb_instance_getmutable(insts[1], &t);
 
-          if (!e->was_pressed && e->is_pressed && t->p.z <= 8.01f) {
-            t->v.z += 5.0f;
+          if (e->key == QB_KEY_SPACE) {// && !e->was_pressed && e->is_pressed && t->p.z <= 8.01f) {
+            //t->v.z += 2.0f;
           }
         });
     qbSystem unused;
@@ -170,13 +223,16 @@ void initialize(const Settings& settings) {
         [](qbInstance* insts, qbFrame* f) {
           input::MouseEvent* e = (input::MouseEvent*)f->event;
           if (e->event_type == input::QB_MOUSE_EVENT_MOTION) {
-            render::qb_camera_incyaw(-(float)(e->motion_event.xrel) * 0.25f);
-            render::qb_camera_incpitch((float)(e->motion_event.yrel) * 0.25f);
+            dir += (-(float)(e->motion_event.xrel) * 0.25f);
+            zdir += ((float)(e->motion_event.yrel) * 0.25f);
+            zdir = std::max(std::min(zdir, 90.0f), 1.0f);
           } else {
             Player* p;
             qb_instance_getmutable(insts[0], &p);
             if (e->button_event.mouse_button == qbButton::QB_BUTTON_LEFT) {
-              p->fire_bullets = e->button_event.state == 1;
+              //p->fire_bullets = e->button_event.state == 1;
+            } else if (e->button_event.mouse_button == qbButton::QB_BUTTON_RIGHT) {
+              //p->place_block = e->button_event.state == 1;
             }
           }
         });
@@ -190,6 +246,14 @@ void initialize(const Settings& settings) {
     qb_systemattr_destroy(&attr);
   }
   std::cout << "Finished initializing player\n";
+}
+
+qbEntity SelectedEntity() {
+  return selected;
+}
+
+std::pair<qbEntity, qbEntity> SelectedEntityMouseDrag() {
+  return selected_with_mouse_drag;
 }
 
 }  // namespace player

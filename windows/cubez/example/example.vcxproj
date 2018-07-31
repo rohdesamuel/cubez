@@ -143,28 +143,53 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\ball.cpp" />
+    <ClCompile Include="..\..\..\example\collision_utils.cpp" />
+    <ClCompile Include="..\..\..\example\gjk.cpp" />
+    <ClCompile Include="..\..\..\example\gui.cpp" />
+    <ClCompile Include="..\..\..\example\imgui\imgui.cpp" />
+    <ClCompile Include="..\..\..\example\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\..\..\example\imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="..\..\..\example\imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="..\..\..\example\input.cpp" />
     <ClCompile Include="..\..\..\example\log.cpp" />
     <ClCompile Include="..\..\..\example\main.cpp" />
     <ClCompile Include="..\..\..\example\mesh.cpp" />
+    <ClCompile Include="..\..\..\example\mesh_builder.cpp" />
     <ClCompile Include="..\..\..\example\network.cpp" />
     <ClCompile Include="..\..\..\example\physics.cpp" />
+    <ClCompile Include="..\..\..\example\planet.cpp" />
     <ClCompile Include="..\..\..\example\player.cpp" />
     <ClCompile Include="..\..\..\example\render.cpp" />
     <ClCompile Include="..\..\..\example\socket.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\example\ball.h" />
+    <ClInclude Include="..\..\..\example\collision_utils.h" />
     <ClInclude Include="..\..\..\example\constants.h" />
+    <ClInclude Include="..\..\..\example\gjk.h" />
+    <ClInclude Include="..\..\..\example\gui.h" />
+    <ClInclude Include="..\..\..\example\imgui\imconfig.h" />
+    <ClInclude Include="..\..\..\example\imgui\imgui.h" />
+    <ClInclude Include="..\..\..\example\imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="..\..\..\example\imgui\imgui_impl_sdl.h" />
+    <ClInclude Include="..\..\..\example\imgui\imgui_internal.h" />
+    <ClInclude Include="..\..\..\example\imgui\stb_rect_pack.h" />
+    <ClInclude Include="..\..\..\example\imgui\stb_textedit.h" />
+    <ClInclude Include="..\..\..\example\imgui\stb_truetype.h" />
     <ClInclude Include="..\..\..\example\input.h" />
     <ClInclude Include="..\..\..\example\log.h" />
     <ClInclude Include="..\..\..\example\mesh.h" />
+    <ClInclude Include="..\..\..\example\mesh_builder.h" />
     <ClInclude Include="..\..\..\example\network.h" />
+    <ClInclude Include="..\..\..\example\nuklear\nuklear.h" />
+    <ClInclude Include="..\..\..\example\nuklear\nuklear_sdl_gl3.h" />
     <ClInclude Include="..\..\..\example\physics.h" />
+    <ClInclude Include="..\..\..\example\planet.h" />
     <ClInclude Include="..\..\..\example\player.h" />
     <ClInclude Include="..\..\..\example\render.h" />
     <ClInclude Include="..\..\..\example\shader.h" />
     <ClInclude Include="..\..\..\example\socket.h" />
+    <ClInclude Include="..\..\..\example\stb_image.h" />
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />

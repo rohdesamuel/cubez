@@ -1,6 +1,8 @@
 #include "mesh.h"
+#include "mesh_builder.h"
 #include "render.h"
 #include "shader.h"
+#include "physics.h"
 
 #include <glm/glm.hpp>
 #include <GL/glew.h>
@@ -14,35 +16,10 @@
 #include <array>
 #include <vector>
 
-struct VertexAttribute {
-  glm::vec3 v;
-  glm::vec3 vn;
-  glm::vec2 vt;
-
-  bool operator<(const VertexAttribute& other) const {
-    return memcmp(this, &other, sizeof(VertexAttribute)) > 0;
-  }
-};
-
-struct qbMeshAttributes_ {
-  std::vector<glm::vec3> v;
-  std::vector<glm::vec3> vn;
-  std::vector<glm::vec2> vt;
-  std::vector<uint32_t> indices;
-};
-
 struct qbCollisionMesh_ {
+  glm::vec3 max;
+  glm::vec3 min;
   float r;
-};
-
-struct qbMesh_ {
-  uint32_t vao;
-  uint32_t el_vbo;
-  uint32_t v_vbo;
-  uint32_t vn_vbo;
-  uint32_t vt_vbo;
-
-  qbMeshAttributes_* attributes;
 };
 
 struct qbMaterialTexture_ {
@@ -79,14 +56,13 @@ uint32_t load_texture(const std::string& file) {
 
   // Load the image from the file into SDL's surface representation
   SDL_Surface* surf = SDL_LoadBMP(file.c_str());
-
   if (!surf) {
     std::cout << "Could not load texture " << file << std::endl;
   }
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
   
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, surf->w, surf->h, 0, GL_RGB, GL_UNSIGNED_BYTE, surf->pixels);
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -96,150 +72,22 @@ uint32_t load_texture(const std::string& file) {
   return texture;
 }
 
-
-int MeshBuilder::add_vertex(glm::vec3&& v) {
-  v_.push_back(v);
-  return v_.size() - 1;
-}
-
-int MeshBuilder::add_texture(glm::vec2&& vt) {
-  vt_.push_back(vt);
-  return vt_.size() - 1;
-}
-
-int MeshBuilder::add_normal(glm::vec3&& vn) {
-  vn_.push_back(vn);
-  return vn_.size() - 1;
-}
-
-int MeshBuilder::add_face(Face&& face) {
-  f_.push_back(face);
-  return f_.size() - 1;
-}
-
-int MeshBuilder::add_face(std::vector<glm::vec3>&& vertices,
-  std::vector<glm::vec2>&& textures,
-  std::vector<glm::vec3>&& normals) {
-  Face f;
-  for (size_t i = 0; i < vertices.size(); ++i) {
-    f.v[i] = add_vertex(std::move(vertices[i]));
-  }
-  for (size_t i = 0; i < textures.size(); ++i) {
-    f.vt[i] = add_texture(std::move(textures[i]));
-  }
-  for (size_t i = 0; i < normals.size(); ++i) {
-    f.vn[i] = add_normal(std::move(normals[i]));
-  }
-  f_.push_back(std::move(f));
-  return f_.size() - 1;
-}
-
-qbMesh MeshBuilder::build() {
-  qbMesh mesh = new qbMesh_;
-  qbMeshAttributes_* attributes = new qbMeshAttributes_;
-  mesh->attributes = attributes;
-
-  std::map<VertexAttribute, uint32_t> mapped_indices;
-
-  for (const Face& face : f_) {
-    for (int i = 0; i < 3; ++i) {
-      const glm::vec3& v = v_[face.v[i]];
-      const glm::vec2& vt = vt_[face.vt[i]];
-      const glm::vec3& vn = vn_[face.vn[i]];
-
-      VertexAttribute attr = {v, vn, vt};
-
-      auto it = mapped_indices.find(attr);
-      if (it == mapped_indices.end()) {
-        attributes->v.push_back(v_[face.v[i]]);
-        attributes->vn.push_back(vn_[face.vn[i]]);
-        attributes->vt.push_back(vt_[face.vt[i]]);
-
-        uint32_t new_index = attributes->v.size() - 1;
-        attributes->indices.push_back(new_index);
-        mapped_indices[attr] = new_index;
-      } else {
-        attributes->indices.push_back(it->second);
-      }
-    }
-  }
-  glGenVertexArrays(1, &mesh->vao);
-  glGenBuffers(1, &mesh->v_vbo);
-  glGenBuffers(1, &mesh->vt_vbo);
-  glGenBuffers(1, &mesh->vn_vbo);
-  glGenBuffers(1, &mesh->el_vbo);
-
-  glBindVertexArray(mesh->vao);
-
-  // Vertices
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->v_vbo);
-  glBufferData(GL_ARRAY_BUFFER, attributes->v.size() * sizeof(glm::vec3),
-                attributes->v.data(), GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(
-      0,                  // attribute
-      3,                  // size
-      GL_FLOAT,           // type
-      GL_FALSE,           // normalized?
-      0,                  // stride
-      (void*)0            // array buffer offset
-      );
-
-  // UVs
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vt_vbo);
-  glBufferData(GL_ARRAY_BUFFER, attributes->vt.size() * sizeof(glm::vec2),
-                attributes->vt.data(), GL_STATIC_DRAW);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(
-      1,                  // attribute
-      2,                  // size
-      GL_FLOAT,           // type
-      GL_FALSE,           // normalized?
-      0,                  // stride
-      (void*)0            // array buffer offset
-      );
-
-  // Normals
-  glBindBuffer(GL_ARRAY_BUFFER, mesh->vn_vbo);
-  glBufferData(GL_ARRAY_BUFFER, attributes->vn.size() * sizeof(glm::vec3),
-                attributes->vn.data(), GL_STATIC_DRAW);
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(
-      2,                  // attribute
-      3,                  // size
-      GL_FLOAT,           // type
-      GL_FALSE,           // normalized?
-      0,                  // stride
-      (void*)0            // array buffer offset
-      );
-
-  // Indices
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->el_vbo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                attributes->indices.size() * sizeof(uint32_t),
-                attributes->indices.data(), GL_STATIC_DRAW);
-
-  glBindVertexArray(0);
-
-  return mesh;
-}
-
-qbResult process_line(MeshBuilder* builder, const std::string& token,
-                                        const std::string& line) {
+qbResult process_line(MeshBuilder* builder, const std::string& token, 
+                      const std::string& line) {
   if (token == "v") {
     glm::vec3 v = {0, 0, 0};
     if (SSCANF(line.c_str(), "%f %f %f", &v.x, &v.y, &v.z) == 3) {
-      builder->add_vertex(std::move(v));
+      builder->AddVertex(std::move(v));
     }
   } else if (token == "vt") {
     glm::vec2 vt = {0, 0};
     if (SSCANF(line.c_str(), "%f %f", &vt.x, &vt.y) == 2) {
-      builder->add_texture(std::move(vt));
+      builder->AddTexture(std::move(vt));
     }
   } else if (token == "vn") {
     glm::vec3 vn = {0, 0, 0};
     if (SSCANF(line.c_str(), "%f %f %f", &vn.x, &vn.y, &vn.z) == 3) {
-      builder->add_normal(std::move(vn));
+      builder->AddNormal(std::move(vn));
     }
   } else if (token == "f") {
     MeshBuilder::Face face;
@@ -254,7 +102,7 @@ qbResult process_line(MeshBuilder* builder, const std::string& token,
         --face.vn[i];
         --face.vt[i];
       }
-      builder->add_face(std::move(face));
+      builder->AddFace(std::move(face));
     }
   } else if (token != "#") {
     // Bad format
@@ -293,7 +141,7 @@ qbResult qb_mesh_load(qbMesh* mesh, const char*, const char* filename) {
     return qbResult::QB_UNKNOWN;
   }
   file.close();
-  *mesh = builder.build();
+  *mesh = builder.BuildRenderable(qbRenderMode::QB_TRIANGLES);
   return qbResult::QB_OK;
 }
 
@@ -302,9 +150,35 @@ qbResult qb_mesh_destroy();
 qbResult qb_mesh_draw(qbMesh mesh, qbMaterial) {
   glBindVertexArray(mesh->vao);
   size_t count = mesh->attributes->indices.size();
-  glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, (void*)0);
+
+  GLenum render_mode = GL_TRIANGLES;
+  switch (mesh->render_mode) {
+  case QB_POINTS:
+    render_mode = GL_POINTS;
+    break;
+  case QB_LINES:
+    render_mode = GL_LINES;
+    break;
+  case QB_TRIANGLES:
+    render_mode = GL_TRIANGLES;
+    break;
+  }
+
+  glDrawElements(render_mode, count, GL_UNSIGNED_INT, (void*)0);
   glBindVertexArray(0);
   return QB_OK;
+}
+
+uint32_t qb_mesh_getvbuffer(qbMesh mesh) {
+  return mesh->v_vbo;
+}
+
+uint32_t qb_mesh_getvtbuffer(qbMesh mesh) {
+  return mesh->vt_vbo;
+}
+
+uint32_t qb_mesh_getvnbuffer(qbMesh mesh) {
+  return mesh->vn_vbo;
 }
 
 qbResult qb_materialattr_create(qbMaterialAttr* attr) {
@@ -345,6 +219,11 @@ qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr) {
 }
 
 qbResult qb_material_destroy(qbMaterial*) {
+  return QB_OK;
+}
+
+qbResult qb_material_setcolor(qbMaterial material, glm::vec4 color) {
+  material->color = color;
   return QB_OK;
 }
 

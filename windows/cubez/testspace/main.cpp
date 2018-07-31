@@ -30,7 +30,7 @@ void initialize() {
   }
 #endif
 }
-
+#if 0
 enum class Command : int32_t {
   UNKNOWN = 0,
   ACK,
@@ -429,5 +429,12 @@ int main() {
     //network::pack::String((uint8_t*)buff, 256, line.c_str());
     //socket->Send(buff, strlen(buff));
   }
+  return 0;
+}
+
+#endif
+
+int main()
+{
   return 0;
 }

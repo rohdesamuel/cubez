@@ -23,6 +23,9 @@ glm::mat4 perspective();
 
 qbComponent Component();
 
+qbEntity SelectedEntity();
+std::pair<qbEntity, qbEntity> SelectedEntityMouseDrag();
+
 }  // namespace player
 
 #endif  // PLAYER__H

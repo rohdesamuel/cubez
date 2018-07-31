@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Imgui Files">
+      <UniqueIdentifier>{a97bd154-03b8-483c-aef9-fb364c3231d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Nuklear">
+      <UniqueIdentifier>{207eabdf-7033-4d6e-9c35-0d6cb7e57cf5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp">
@@ -48,6 +54,33 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\example\network.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\mesh_builder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\collision_utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\gjk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\planet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\imgui\imgui.cpp">
+      <Filter>Imgui Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\imgui\imgui_draw.cpp">
+      <Filter>Imgui Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\imgui\imgui_impl_opengl3.cpp">
+      <Filter>Imgui Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\imgui\imgui_impl_sdl.cpp">
+      <Filter>Imgui Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\gui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -92,6 +125,54 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\example\socket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\mesh_builder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\collision_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\gjk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\planet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\imconfig.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\imgui.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\imgui_internal.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\stb_rect_pack.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\stb_textedit.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\stb_truetype.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\imgui_impl_opengl3.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\imgui\imgui_impl_sdl.h">
+      <Filter>Imgui Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\nuklear\nuklear.h">
+      <Filter>Nuklear</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\nuklear\nuklear_sdl_gl3.h">
+      <Filter>Nuklear</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\gui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\stb_image.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
