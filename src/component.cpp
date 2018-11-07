@@ -30,7 +30,9 @@ qbResult Component::Create(qbId entity, void* value) {
 }
 
 qbResult Component::Destroy(qbId entity) {
-  instances_.erase(entity);
+  if (instances_.has(entity)) {
+    instances_.erase(entity);
+  }
   return QB_OK;
 }
 

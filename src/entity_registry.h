@@ -28,7 +28,9 @@ class EntityRegistry {
   // removed. Frees entity memory after all components have been destroyed.
   qbResult DestroyEntity(qbEntity entity);
 
-  qbResult Find(qbEntity* entity, qbId entity_id);
+  qbResult Find(qbEntity entity, qbEntity* found);
+
+  bool Has(qbEntity entity);
 
   void Resolve(const std::vector<qbEntity>& created,
                const std::vector<qbEntity>& destroyed);

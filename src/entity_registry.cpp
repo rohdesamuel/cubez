@@ -47,12 +47,16 @@ qbResult EntityRegistry::DestroyEntity(qbEntity entity) {
   return QB_OK;
 }
 
-qbResult EntityRegistry::Find(qbEntity* entity, qbId entity_id) {
-  if (!entities_.has(entity_id)) {
+qbResult EntityRegistry::Find(qbEntity entity, qbEntity* found) {
+  if (!entities_.has(entity)) {
     return QB_ERROR_NOT_FOUND;
   }
-  *entity = entity_id;
+  *found = entity;
   return QB_OK;
+}
+
+bool EntityRegistry::Has(qbEntity entity) {
+  return entities_.has(entity);
 }
 
 void EntityRegistry::Resolve(const std::vector<qbEntity>& created,

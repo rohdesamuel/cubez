@@ -38,13 +38,16 @@ qbResult GameState::EntityDestroy(qbEntity entity) {
 }
 
 qbResult GameState::EntityDestroyInternal(qbEntity entity) {
-  components_->DestroyInstancesFor(entity, this);
-  qbResult result = entities_->DestroyEntity(entity);
+  qbResult result = QB_OK;
+  if (entities_->Has(entity)) {
+    components_->DestroyInstancesFor(entity, this);
+    result = entities_->DestroyEntity(entity);
+  }
   return result;
 }
 
 qbResult GameState::EntityFind(qbEntity* entity, qbId entity_id) {
-  return entities_->Find(entity, entity_id);
+  return entities_->Find(entity_id, entity);
 }
 
 bool GameState::EntityHasComponent(qbEntity entity, qbComponent component) {
