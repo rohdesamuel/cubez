@@ -64,7 +64,7 @@ void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
             e.motion.xrel, e.motion.yrel);
       }
     } else if (e.type == SDL_QUIT) {
-
+      shutdown_handler(&e);
     }
   }
   nk_input_end(gui::Context());

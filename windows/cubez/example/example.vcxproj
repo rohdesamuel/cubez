@@ -143,6 +143,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\ball.cpp" />
+    <ClCompile Include="..\..\..\example\celestial_object.cpp" />
     <ClCompile Include="..\..\..\example\collision_utils.cpp" />
     <ClCompile Include="..\..\..\example\gjk.cpp" />
     <ClCompile Include="..\..\..\example\gui.cpp" />
@@ -151,6 +152,7 @@
     <ClCompile Include="..\..\..\example\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="..\..\..\example\imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="..\..\..\example\input.cpp" />
+    <ClCompile Include="..\..\..\example\items.cpp" />
     <ClCompile Include="..\..\..\example\log.cpp" />
     <ClCompile Include="..\..\..\example\main.cpp" />
     <ClCompile Include="..\..\..\example\mesh.cpp" />
@@ -164,8 +166,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\example\ball.h" />
+    <ClInclude Include="..\..\..\example\building_grid.h" />
     <ClInclude Include="..\..\..\example\collision_utils.h" />
-    <ClInclude Include="..\..\..\example\constants.h" />
+    <ClInclude Include="..\..\..\example\entity.h" />
     <ClInclude Include="..\..\..\example\gjk.h" />
     <ClInclude Include="..\..\..\example\gui.h" />
     <ClInclude Include="..\..\..\example\imgui\imconfig.h" />
@@ -177,6 +180,7 @@
     <ClInclude Include="..\..\..\example\imgui\stb_textedit.h" />
     <ClInclude Include="..\..\..\example\imgui\stb_truetype.h" />
     <ClInclude Include="..\..\..\example\input.h" />
+    <ClInclude Include="..\..\..\example\items.h" />
     <ClInclude Include="..\..\..\example\log.h" />
     <ClInclude Include="..\..\..\example\mesh.h" />
     <ClInclude Include="..\..\..\example\mesh_builder.h" />
@@ -190,6 +194,7 @@
     <ClInclude Include="..\..\..\example\shader.h" />
     <ClInclude Include="..\..\..\example\socket.h" />
     <ClInclude Include="..\..\..\example\stb_image.h" />
+    <ClInclude Include="..\..\..\example\celestial_object.h" />
     <ClInclude Include="..\..\..\inc\common.h" />
     <ClInclude Include="..\..\..\inc\cubez.h" />
     <ClInclude Include="..\..\..\inc\timer.h" />

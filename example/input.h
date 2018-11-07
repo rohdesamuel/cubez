@@ -1,7 +1,6 @@
 #ifndef INPUT__H
 #define INPUT__H
 
-#include "constants.h"
 #include "inc/common.h"
 #include "inc/cubez.h"
 
@@ -77,7 +76,7 @@ namespace input {
 
 void initialize();
 
-#define  QB_KEY_RELEASED 0
+#define QB_KEY_RELEASED 0
 #define QB_KEY_PRESSED 1
 
 struct InputEvent {

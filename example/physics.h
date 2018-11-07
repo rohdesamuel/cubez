@@ -1,8 +1,6 @@
 #ifndef PHYSICS__H
 #define PHYSICS__H
 
-#include "constants.h"
-
 #include "inc/cubez.h"
 #include "mesh_builder.h"
 

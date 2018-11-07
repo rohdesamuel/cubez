@@ -6,7 +6,6 @@
 #include "planet.h"
 
 #include "gui.h"
-#include "constants.h"
 
 #include <atomic>
 #include <glm/gtc/matrix_transform.hpp>
