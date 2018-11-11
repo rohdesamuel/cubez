@@ -26,7 +26,7 @@ qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr)
   qbId new_id = id_++;
 
   *component = new_id;
-  components_[new_id] = new Component(new_id, attr->data_size, attr->is_shared);
+  components_[new_id] = new Component(new_id, attr->data_size, attr->is_shared, attr->type);
   {
     instance_create_events_.resize(new_id + 1);
     qbEvent& on_create = instance_create_events_[new_id];

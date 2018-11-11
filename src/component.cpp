@@ -4,11 +4,11 @@
 
 #include <omp.h>
 
-Component::Component(qbId id, size_t instance_size, bool is_shared)
-    : id_(id), instances_(instance_size), is_shared_(is_shared) {}
+Component::Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type)
+    : id_(id), instances_(instance_size), is_shared_(is_shared), type_(type) {}
 
 Component* Component::Clone() {
-  Component* ret = new Component(id_, instances_.element_size(), is_shared_);
+  Component* ret = new Component(id_, instances_.element_size(), is_shared_, type_);
   ret->instances_ = instances_;
   return ret;
 }
@@ -31,6 +31,14 @@ qbResult Component::Create(qbId entity, void* value) {
 
 qbResult Component::Destroy(qbId entity) {
   if (instances_.has(entity)) {
+    if (type_ == qbComponentType::QB_COMPONENT_TYPE_COMPOSITE) {
+      qbEntity* entities = (qbEntity*)instances_[entity];
+      for (size_t i = 0; i < instances_.size() / sizeof(qbEntity); ++i) {
+        qb_entity_destroy(entities[i]);
+      }
+    } else if (type_ == qbComponentType::QB_COMPONENT_TYPE_POINTER) {
+      free(*(void**)instances_[entity]);
+    }
     instances_.erase(entity);
   }
   return QB_OK;

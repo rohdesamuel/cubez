@@ -58,6 +58,7 @@ qbResult qb_componentattr_create(qbComponentAttr* attr) {
   *attr = (qbComponentAttr)calloc(1, sizeof(qbComponentAttr_));
   new (*attr) qbComponentAttr_;
   (*attr)->is_shared = false;
+  (*attr)->type = qbComponentType::QB_COMPONENT_TYPE_RAW;
 	return qbResult::QB_OK;
 }
 
@@ -69,6 +70,11 @@ qbResult qb_componentattr_destroy(qbComponentAttr* attr) {
 
 qbResult qb_componentattr_setdatasize(qbComponentAttr attr, size_t size) {
   attr->data_size = size;
+  return qbResult::QB_OK;
+}
+
+qbResult qb_componentattr_settype(qbComponentAttr attr, qbComponentType type) {
+  attr->type = type;
 	return qbResult::QB_OK;
 }
 

@@ -28,6 +28,7 @@ struct qbComponentAttr_ {
   const char* name;
   size_t data_size;
   bool is_shared;
+  qbComponentType type;
 };
 
 struct qbBarrier_ {

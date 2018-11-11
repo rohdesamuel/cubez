@@ -68,6 +68,20 @@ typedef struct qbBarrierOrder_* qbBarrierOrder;
 ///////////////////////  Components  //////////////////////
 ///////////////////////////////////////////////////////////
 
+// ======== qbComponentType ========
+enum qbComponentType {
+  // A piece of serializable memory.
+  QB_COMPONENT_TYPE_RAW = 0,
+
+  // A pointer to a piece of memory. Will be freed when instance is destroyed.
+  // Pointer must not be allocated with new or new[] operators.
+  QB_COMPONENT_TYPE_POINTER,
+
+  // A struct only comprised of "qbEntity"s as its members. Will destroy all
+  // entities inside of the struct.
+  QB_COMPONENT_TYPE_COMPOSITE,
+};
+
 // ======== qbComponentAttr ========
 // Creates a new qbComponentAttr object for qbComponent creation.
 DLLEXPORT qbResult      qb_componentattr_create(qbComponentAttr* attr);
@@ -79,13 +93,17 @@ DLLEXPORT qbResult      qb_componentattr_destroy(qbComponentAttr* attr);
 DLLEXPORT qbResult      qb_componentattr_setdatasize(qbComponentAttr attr,
                                                      size_t size);
 
+// Sets the component type which tells the engine how to destroy the component.
+DLLEXPORT qbResult      qb_componentattr_settype(qbComponentAttr attr,
+                                                 qbComponentType type);
+
+// Sets the component to be shared across programs with a reader/writer lock.
+DLLEXPORT qbResult      qb_componentattr_setshared(qbComponentAttr attr);
+
 // Sets the data type for the component.
 // Same as qb_componentattr_setdatasize(attr, sizeof(type)).
 #define qb_componentattr_setdatatype(attr, type) \
     qb_componentattr_setdatasize(attr, sizeof(type))
-
-// Sets the component to be shared across programs with a reader/writer lock.
-DLLEXPORT qbResult      qb_componentattr_setshared(qbComponentAttr attr);
 
 // ======== qbComponent ========
 // Creates a new qbComponent with the specified attributes.
@@ -241,6 +259,7 @@ enum qbComponentJoin {
   QB_JOIN_LEFT,
   QB_JOIN_CROSS,
 };
+
 // Instructs the execution of the system to join together multiple components.
 DLLEXPORT qbResult      qb_systemattr_setjoin(qbSystemAttr attr,
                                               qbComponentJoin join);

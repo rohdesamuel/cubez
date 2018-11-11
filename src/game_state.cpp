@@ -11,17 +11,19 @@ GameState::GameState(std::unique_ptr<EntityRegistry> entities,
 
 void GameState::Flush() {
   for (auto& removed_components : removed_components_) {
-    for (auto& removed : removed_components) {
+    while (!removed_components.empty()) {
+      auto& removed = removed_components.back();
       EntityRemoveComponentInternal(removed.first, removed.second);
+      removed_components.pop_back();
     }
-    removed_components.clear();
   }
 
   for (auto& destroyed_entities : destroyed_entities_) {
-    for (auto& destroyed : destroyed_entities) {
+    while (!destroyed_entities.empty()) {
+      auto& destroyed = destroyed_entities.back();
       EntityDestroyInternal(destroyed);
+      destroyed_entities.pop_back();
     }
-    destroyed_entities.clear();
   }
 }
 

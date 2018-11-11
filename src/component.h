@@ -14,7 +14,7 @@ class Component {
   typedef typename InstanceMap::iterator iterator;
   typedef typename InstanceMap::const_iterator const_iterator;
 
-  Component(qbId id, size_t instance_size, bool is_shared);
+  Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type);
 
   Component* Clone();
   void Merge(const Component& other);
@@ -50,6 +50,7 @@ class Component {
 
   std::shared_mutex mu_;
   const bool is_shared_;
+  qbComponentType type_;
 };
 
 #endif
