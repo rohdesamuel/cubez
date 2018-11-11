@@ -23,6 +23,16 @@ qb_component_create(component, attr); \
 qb_componentattr_destroy(&attr); \
 }
 
+#define InitializeComponentWithType(component, data, type) \
+{ \
+qbComponentAttr attr; \
+qb_componentattr_create(&attr); \
+qb_componentattr_setdatatype(attr, data); \
+qb_componentattr_settype(attr, type); \
+qb_component_create(component, attr); \
+qb_componentattr_destroy(&attr); \
+}
+
 namespace planet
 {
 
@@ -82,6 +92,7 @@ qbComponent mine_component;
 qbComponent item_component;
 qbComponent item_list_component;
 qbComponent cell_ref_component;
+qbComponent administration_component;
 
 struct Orbit {
   qbEntity parent = -1;
@@ -139,7 +150,7 @@ struct Blueprint {
   Blueprint(const std::string& name, int energy_cost, int tick_cost, std::set<Item> requires,
             std::set<Item> produces)
     : name(name), energy_cost(energy_cost), tick_cost(tick_cost), requires(requires),
-      produces(produces) { }
+    produces(produces) {}
 
   const std::string name;
   const int energy_cost;
@@ -188,7 +199,7 @@ struct Buffer {
     item_.amount = new_amount;
     item_.type = item->type;
     item->amount -= amount_added;
-    
+
     return amount_added;
   }
 
@@ -221,7 +232,7 @@ struct Buffer {
   bool Empty() {
     return item_.amount == 0;
   }
-  
+
   bool Full() {
     return item_.amount == capacity_;
   }
@@ -301,7 +312,7 @@ public:
     return buffers_.find(type);
   }
 
-  typename decltype(buffers_)::const_iterator find(ItemType type) const{
+  typename decltype(buffers_)::const_iterator find(ItemType type) const {
     return buffers_.find(type);
   }
 
@@ -324,7 +335,7 @@ public:
 
 struct BuildingType {
   BuildingType(const std::string& name, ItemType type, glm::ivec2 size,
-               struct nk_image img, Blueprint* blueprint):
+               struct nk_image img, Blueprint* blueprint) :
     name(name), type(type), size(size), img(img), blueprint(blueprint) {}
 
   const std::string name;
@@ -336,6 +347,10 @@ struct BuildingType {
 
 struct Mine {
   Item item;
+};
+
+struct Administration {
+  Item energy;
 };
 
 template<class Component_>
@@ -592,7 +607,7 @@ public:
   };
 
   Producer(Blueprint* bp) : blueprint_(bp),
-      state_(State::WAITING), produce_trigger_(0) {}
+    state_(State::WAITING), produce_trigger_(0) {}
 
   static void Produce(qbInstance* insts, qbFrame*) {
     Producer** producer_p;
@@ -701,7 +716,7 @@ void InitializeBlueprints(std::unordered_map<std::string, Blueprint*>* bps) {
     1,  // Tick cost
     { { IntermediateType::METAL, 1 },
       { IntermediateType::CRYSTAL, 1 } },  // Required products
-    { { IntermediateType::ELECTRONICS, 1 } }  // Produces
+      { { IntermediateType::ELECTRONICS, 1 } }  // Produces
   );
 
   (*bps)["FACTORY"] = new Blueprint(
@@ -710,7 +725,7 @@ void InitializeBlueprints(std::unordered_map<std::string, Blueprint*>* bps) {
     10,  // Tick cost
     { { IntermediateType::METAL, 10 },
       { IntermediateType::CRYSTAL, 10 } },  // Required products
-    { { ProductionType::FACTORY, 1 } }  // Produces
+      { { ProductionType::FACTORY, 1 } }  // Produces
   );
 
   (*bps)["SOLAR_PLANT"] = new Blueprint(
@@ -938,11 +953,12 @@ qbEntity CreateMine(PlanetaryGrid* grid, glm::ivec2 pos, Item item_to_mine) {
 qbEntity CreateProducer(PlanetaryGrid* grid, glm::ivec2 pos, const std::string& bp) {
   qbEntity ret = -1;
   Blueprint* blueprint = blueprints[bp];
-  if (blueprint) {    
+  if (blueprint) {
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
 
-    Producer* producer = new Producer(blueprint);
+    Producer* producer = (Producer*)malloc(sizeof(Producer));
+    new(producer) Producer(blueprint);
     qb_entityattr_addcomponent(attr, producer_component, &producer);
 
     CellRef ref;
@@ -1122,6 +1138,20 @@ qbEntity CreateTradeRoute(qbEntity source, qbEntity sink, ItemType type) {
   return ret;
 }
 
+qbEntity CreateAdministration() {
+  qbEntity ret;
+
+  qbEntityAttr attr;
+  qb_entityattr_create(&attr);
+
+  Administration admin;
+  qb_entityattr_addcomponent(attr, administration_component, &admin);
+  ret = qb_entity_create(&ret, attr);
+
+  qb_entityattr_destroy(&attr);
+  return ret;
+}
+
 void Initialize(const Settings& settings) {
   InitializeBuildingImages(settings, &building_images);
   InitializeBlueprints(&blueprints);
@@ -1130,8 +1160,6 @@ void Initialize(const Settings& settings) {
   shader = settings.shader;
   InitializeComponent(&orbit_component, Orbit);
   InitializeComponent(&colorable_component, Colorable);
-  //InitializeComponent(&trade_route_component, TradeRoute);
-  //InitializeComponent(&trade_ship_component, TradeShip);
   InitializeComponent(&suicidal_component, Suicidal);
   InitializeComponent(&storage_component, Storage*);
   InitializeComponent(&input_storage_component, Storage*);
@@ -1142,8 +1170,8 @@ void Initialize(const Settings& settings) {
   InitializeComponent(&transporter_component, Transporter);
   InitializeComponent(&mine_component, Mine);
   InitializeComponent(&item_component, Item);
-  InitializeComponent(&item_list_component, ComponentList<Item>);
   InitializeComponent(&cell_ref_component, CellRef);
+  InitializeComponent(&administration_component, Administration);
 
   {
     qbMaterialAttr attr;
@@ -1585,7 +1613,7 @@ BuildingType* SelectBuildingComboBoxWidget() {
   return selected_building;
 }
 
-glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_building, int draw_size) {
+glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_building, int draw_size, bool* show_admin) {
   static int rotation = 0;
 
   if (!qb_entity_hascomponent(selected, planetary_grid_component)) {
@@ -1699,17 +1727,13 @@ glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_buildin
         Building* b = nullptr;
         if (selected_building->blueprint) {
           if (selected_building->name == "ORE PROCESSING") {
-            qbEntity producer = CreateProducer(grid, ret, "METAL");
-            b = new Building(selected_building, producer);
+            b = new Building(selected_building, CreateProducer(grid, ret, "METAL"));
           } else if (selected_building->name == "MINERAL PROCESSING") {
-            qbEntity producer = CreateProducer(grid, ret, "CRYSTAL");
-            b = new Building(selected_building, producer);
+            b = new Building(selected_building, CreateProducer(grid, ret, "CRYSTAL"));
           } else if ((ProductionType)selected_building->type == ProductionType::FACTORY) {
-            qbEntity producer = CreateProducer(grid, ret, "ELECTRONICS");
-            b = new Building(selected_building, producer);
+            b = new Building(selected_building, CreateProducer(grid, ret, "ELECTRONICS"));
           } else if ((ProductionType)selected_building->type == ProductionType::SOLAR_PLANT) {
-            qbEntity producer = CreateProducer(grid, ret, "SOLAR GENERATOR");
-            b = new Building(selected_building, producer);
+            b = new Building(selected_building, CreateProducer(grid, ret, "SOLAR GENERATOR"));
           }
         } else {
           if ((LogisticsType)selected_building->type == LogisticsType::TRANSPORTER) {
@@ -1729,6 +1753,8 @@ glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_buildin
             Item item_to_mine(ore_count > mineral_count ? ResourceType::ORE : ResourceType::MINERAL, 10);
             qbEntity mine = CreateMine(grid, ret, item_to_mine);
             b = new Building(selected_building, mine);
+          } else if ((ProductionType)selected_building->type == ProductionType::ADMINISTRATION) {
+            b = new Building(selected_building, CreateAdministration());
           }
         }
 
@@ -1736,6 +1762,9 @@ glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_buildin
                                                  ret,
                                                  selected_building->size,
                                                  rotation);
+      } else if (input::is_mouse_pressed(qbButton::QB_BUTTON_LEFT) && !grid->IsEmpty(ret) &&
+                 (ProductionType)grid->At(ret)->building->Type()->type == ProductionType::ADMINISTRATION) {
+        *show_admin = true;
       }
 
       if (input::is_mouse_pressed(qbButton::QB_BUTTON_RIGHT)) {
@@ -1755,10 +1784,15 @@ glm::ivec2 PlanetaryGridWidget(qbEntity selected, BuildingType* selected_buildin
       }
     }
   }
+
+
+
   return ret;
 }
 
 void RenderPlanetPopup() {
+  static bool show_admin = false;
+
   qbEntity selected = player::SelectedEntity();
   if (selected >= 0) {
     static BuildingType* selected_building = nullptr;
@@ -1773,8 +1807,36 @@ void RenderPlanetPopup() {
         nk_layout_row_dynamic(gui::Context(), 20, 1);
         nk_label(gui::Context(), "No planet selected", NK_TEXT_LEFT);
       }
-      PlanetaryGridWidget(selected, selected_building, 10);
+      PlanetaryGridWidget(selected, selected_building, 10, &show_admin);
       selected_building = SelectBuildingComboBoxWidget();
+    }
+    nk_end(gui::Context());
+  }
+
+  if (show_admin) {
+    auto ctx = gui::Context();
+    ctx->style.window.spacing = nk_vec2(0, 0);
+    ctx->style.window.padding = nk_vec2(0, 0);
+    //ctx->style.window.fixed_background = nk_style_item_color(nk_rgb(255, 255, 0));
+    if (nk_begin(gui::Context(), "Planetary Administration", nk_rect(410, 10, 400, 600),
+                 NK_WINDOW_BORDER | NK_WINDOW_TITLE | NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE | NK_WINDOW_DYNAMIC)) {
+
+      nk_command_buffer* canvas = nk_window_get_canvas(gui::Context());
+      {
+        struct nk_rect total_space;
+        total_space = nk_window_get_content_region(ctx);
+        nk_layout_row_dynamic(ctx, total_space.h, 1);
+        nk_widget(&total_space, ctx);
+        auto bounds = nk_window_get_bounds(ctx);
+
+        canvas = nk_window_get_canvas(ctx);
+        nk_fill_rect(canvas, nk_rect(bounds.x + 10, bounds.y + 10, 200, 600), 0, nk_rgb(255, 0, 255));
+        nk_fill_rect(canvas, nk_rect(250, 20, 100, 100), 0, nk_rgb(0, 0, 255));
+        nk_fill_circle(canvas, nk_rect(20, 250, 100, 100), nk_rgb(255, 0, 0));
+      }
+
+    } else {
+      show_admin = false;
     }
     nk_end(gui::Context());
   }
