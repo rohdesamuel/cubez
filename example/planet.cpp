@@ -52,8 +52,7 @@ glm::ivec2 BuildingRotationToPoint(uint8_t rotation) {
   return{ 0, 0 };
 }
 
-static struct nk_image
-LoadImage(const std::string& filename) {
+GLuint LoadImage(const std::string& filename) {
   int x, y, n;
   GLuint tex;
   unsigned char *data = stbi_load(filename.c_str(), &x, &y, &n, 0);
@@ -70,7 +69,7 @@ LoadImage(const std::string& filename) {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
   //  glGenerateMipmap(GL_TEXTURE_2D);
   stbi_image_free(data);
-  return nk_image_id((int)tex);
+  return tex;
 }
 
 }
@@ -335,13 +334,13 @@ public:
 
 struct BuildingType {
   BuildingType(const std::string& name, ItemType type, glm::ivec2 size,
-               struct nk_image img, Blueprint* blueprint) :
+               GLuint img, Blueprint* blueprint) :
     name(name), type(type), size(size), img(img), blueprint(blueprint) {}
 
   const std::string name;
   const ItemType type;
   const glm::ivec2 size;
-  const struct nk_image img;
+  const GLuint img;
   const Blueprint* const blueprint;
 };
 
@@ -683,7 +682,7 @@ render::qbRenderable dot_renderable;
 
 std::unordered_map<std::string, Blueprint*> blueprints;
 std::unordered_map<std::string, BuildingType*> buildings;
-std::unordered_map<ItemType, struct nk_image> building_images;
+std::unordered_map<ItemType, GLuint> building_images;
 
 void InitializeBlueprints(std::unordered_map<std::string, Blueprint*>* bps) {
   (*bps)["METAL"] = new Blueprint(
@@ -737,7 +736,7 @@ void InitializeBlueprints(std::unordered_map<std::string, Blueprint*>* bps) {
   );
 }
 
-void InitializeBuildings(const std::unordered_map<ItemType, struct nk_image>& images,
+void InitializeBuildings(const std::unordered_map<ItemType, GLuint>& images,
                          std::unordered_map<std::string, BuildingType*>* buildings) {
   (*buildings)["MINE"] = new BuildingType(
     "MINE",
@@ -853,7 +852,7 @@ void InitializeBuildings(const std::unordered_map<ItemType, struct nk_image>& im
   );
 }
 
-void InitializeBuildingImages(const Settings& settings, std::unordered_map<ItemType, struct nk_image>* images) {
+void InitializeBuildingImages(const Settings& settings, std::unordered_map<ItemType, GLuint>* images) {
   (*images)[(ItemType)ProductionType::MINE] = LoadImage(settings.resource_folder + "mine.png");
   (*images)[(ItemType)ProductionType::PROCESSOR] = LoadImage(settings.resource_folder + "processing_facility.png");
   (*images)[(ItemType)ProductionType::CITY] = LoadImage(settings.resource_folder + "mine.png");
@@ -1592,7 +1591,7 @@ void Initialize(const Settings& settings) {
   //CreateTradeRoute(planet_entity, moon_entity, (ItemType)IntermediateType::METAL);
   //CreateTradeRoute(moon_entity, other_planet_entity, (ItemType)IntermediateType::METAL);
 }
-
+#if 0
 BuildingType* SelectBuildingComboBoxWidget() {
   static BuildingType* selected_building = nullptr;
 
@@ -1841,59 +1840,6 @@ void RenderPlanetPopup() {
     nk_end(gui::Context());
   }
 }
-
-/*
-void UICreateTradeRoute() {
-static planet::ItemType trade_route_type = planet::ItemType::NONE;
-static float payload_amount = 0.0f;
-ImGui::InputFloat("Payload Amount", &payload_amount);
-if (ImGui::BeginMenu("Create Trade Route")) {
-if (ImGui::BeginMenu("Resources")) {
-if (ImGui::MenuItem("Ore")) trade_route_type = (ItemType)ResourceType::ORE;
-if (ImGui::MenuItem("Mineral")) trade_route_type = (ItemType)ResourceType::MINERAL;
-if (ImGui::MenuItem("Gas")) trade_route_type = (ItemType)ResourceType::GAS;
-if (ImGui::MenuItem("Water")) trade_route_type = (ItemType)ResourceType::WATER;
-if (ImGui::MenuItem("Food")) trade_route_type = (ItemType)ResourceType::FOOD;
-if (ImGui::MenuItem("Energy")) trade_route_type = (ItemType)ResourceType::ENERGY;
-ImGui::EndMenu();
-}
-if (ImGui::BeginMenu("Itermediade Products")) {
-if (ImGui::MenuItem("Metal")) trade_route_type = (ItemType)IntermediateType::METAL;
-if (ImGui::MenuItem("Crystal")) trade_route_type = (ItemType)IntermediateType::CRYSTAL;
-if (ImGui::MenuItem("Polymer")) trade_route_type = (ItemType)IntermediateType::POLYMER;
-if (ImGui::MenuItem("Consumer Goods")) trade_route_type = (ItemType)IntermediateType::CONSUMER_GOODS;
-if (ImGui::MenuItem("Science")) trade_route_type = (ItemType)IntermediateType::SCIENCE;
-if (ImGui::MenuItem("Electronics")) trade_route_type = (ItemType)IntermediateType::ELECTRONICS;
-ImGui::EndMenu();
-}
-if (ImGui::BeginMenu("Production")) {
-if (ImGui::MenuItem("City")) trade_route_type = (ItemType)ProductionType::CITY;
-if (ImGui::MenuItem("Entertainment")) trade_route_type = (ItemType)ProductionType::ENTERTAINMENT;
-if (ImGui::MenuItem("Farm")) trade_route_type = (ItemType)ProductionType::FARM;
-if (ImGui::MenuItem("Mine")) trade_route_type = (ItemType)ProductionType::MINE;
-if (ImGui::MenuItem("Processing Center")) trade_route_type = (ItemType)ProductionType::PROCESSING;
-if (ImGui::MenuItem("Factory")) trade_route_type = (ItemType)ProductionType::FACTORY;
-if (ImGui::MenuItem("Academy")) trade_route_type = (ItemType)ProductionType::ACADEMY;
-ImGui::EndMenu();
-}
-if (ImGui::BeginMenu("Logistics")) {
-if (ImGui::MenuItem("Storage")) trade_route_type = (ItemType)LogisticsType::STORAGE;
-ImGui::EndMenu();
-}
-ImGui::EndMenu();
-}
-
-auto selected = player::SelectedEntityMouseDrag();
-ImGui::Text("Source: %d", selected.first);
-ImGui::Text("Destination: %d", selected.second);
-
-if (trade_route_type != planet::ItemType::NONE) {
-planet::CreateTradeRoute(selected.first, selected.second, trade_route_type);
-trade_route_type = planet::ItemType::NONE;
-}
-ImGui::Separator();
-}
-*/
-
+#endif
 
 }

@@ -105,7 +105,6 @@ void render_event_handler(qbInstance* insts, qbFrame* f) {
 }
 
 void present(RenderEvent* event) {
-  planet::RenderPlanetPopup();
   qb_render_makecurrent();
 
   // Initial rotation matrix.
@@ -131,6 +130,9 @@ void present(RenderEvent* event) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   qb_event_sendsync(render_event, event);
+
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_DEPTH_TEST);
   gui::Render();
   SDL_GL_SwapWindow(win);
   qb_render_makenull();
@@ -145,13 +147,12 @@ void initialize_context(const Settings& settings) {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
   
   // Request an OpenGL 3.3 context
-  const char* glsl_version = "#version 130";
   SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
   SDL_GL_SetAttribute(
-      SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 
@@ -173,21 +174,18 @@ void initialize_context(const Settings& settings) {
     exit(1);
   }
 
-  gui::Initialize(win);
-
-  glCullFace(GL_BACK);
-  glFrontFace(GL_CCW);
-  glEnable(GL_CULL_FACE);
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-
-  glClearColor(0.1, 0.1, 0.1, 0.0);
 
   std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
   // that error here and carry on.
   glGetError();
+
+  gui::Settings gui_settings;
+  gui_settings.asset_dir = "/assets";
+  gui_settings.width = settings.width;
+  gui_settings.height = settings.height;
+  gui::Initialize(win, gui_settings);
 
   SDL_GL_SwapWindow(win);
 }

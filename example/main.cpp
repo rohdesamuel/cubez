@@ -89,6 +89,7 @@ void initialize_universe(qbUniverse* uni) {
     input::initialize();
   }
 
+#if 1
   qbShader mesh_shader;
   qbTexture ball_texture;
   MeshBuilder block_mesh;
@@ -294,6 +295,7 @@ void initialize_universe(qbUniverse* uni) {
 
     qb_entityattr_destroy(&e_attr);
   }
+#endif
 }
 
 int main(int, char* []) {

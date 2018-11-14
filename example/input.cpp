@@ -34,10 +34,8 @@ void initialize() {
 
 void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
   SDL_Event e;
-  nk_input_begin(gui::Context());
   while (SDL_PollEvent(&e)) {
-    //ImGui_ImplSDL2_ProcessEvent(&e);
-    nk_sdl_handle_event(&e);
+    gui::HandleInput(&e);
     if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
       if (e.type == SDL_KEYDOWN) {
         if (e.key.keysym.sym == SDLK_LCTRL) {
@@ -67,7 +65,6 @@ void handle_input(std::function<void(SDL_Event*)> shutdown_handler) {
       shutdown_handler(&e);
     }
   }
-  nk_input_end(gui::Context());
 }
 
 qbKey keycode_from_sdl(SDL_Keycode sdl_key) {

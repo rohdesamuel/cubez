@@ -134,7 +134,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setcondition(attr, [](qbFrame* f) {
       input::MouseEvent* e = (input::MouseEvent*)f->event;
-      bool should_run = e->event_type == input::qbMouseEvent::QB_MOUSE_EVENT_BUTTON && !nk_window_is_any_hovered(gui::Context());
+      bool should_run = e->event_type == input::qbMouseEvent::QB_MOUSE_EVENT_BUTTON;
       if (should_run) {
         selected = -1;
       }
