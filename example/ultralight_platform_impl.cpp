@@ -1,4 +1,4 @@
-#include "inc/common.h"
+#include <cubez/cubez.h>
 
 #include <Framework/Overlay.cpp>
 #ifdef __COMPILE_AS_WINDOWS__

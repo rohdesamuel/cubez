@@ -5,7 +5,7 @@
 
 #include <glm/glm.hpp>
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 #include "mesh.h"
 #include "mesh_builder.h"
 

@@ -1,8 +1,7 @@
 #ifndef INPUT__H
 #define INPUT__H
 
-#include "inc/common.h"
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 
 #include <functional>
 #include <SDL2/SDL_events.h>

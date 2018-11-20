@@ -1,7 +1,7 @@
 #ifndef MESH__H
 #define MESH__H
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 
 #include <glm/glm.hpp>
 #include <vector>

@@ -1,9 +1,8 @@
 #ifndef DEFS__H
 #define DEFS__H
 
-#include "common.h"
+#include "cubez/cubez.h"
 #include "component.h"
-#include "cubez.h"
 #include "sparse_map.h"
 
 #include <vector>

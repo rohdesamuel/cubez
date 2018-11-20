@@ -1,4 +1,3 @@
-#define __ENGINE_DEBUG__
 #include "socket.h"
 
 #include <iostream>

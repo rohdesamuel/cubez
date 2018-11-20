@@ -10,7 +10,7 @@
 
 #include <vector>
 
-#include "common.h"
+#include <cubez/cubez.h>
 
 class SparseSet {
 public:

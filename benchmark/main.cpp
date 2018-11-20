@@ -1,5 +1,5 @@
-#include "inc/cubez.h"
-#include "inc/timer.h"
+#include <cubez/cubez.h>
+#include <cubez/timer.h>
 
 #include <omp.h>
 #include <unordered_map>

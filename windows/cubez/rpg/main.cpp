@@ -1,4 +1,4 @@
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 
 int main() {
   qbUniverse u;

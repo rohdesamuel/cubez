@@ -4,8 +4,7 @@
 #include <GL/glew.h>
 #include <SDL2/SDL_opengl.h>
 
-#include "inc/cubez.h"
-#include "inc/common.h"
+#include <cubez/cubez.h>
 
 #include <fstream>
 #include <iostream>

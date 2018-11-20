@@ -1,8 +1,7 @@
 #ifndef LOG__H
 #define LOG__H
 
-#include "inc/cubez.h"
-#include "inc/common.h"
+#include <cubez/cubez.h>
 #include <string>
 
 namespace logging {

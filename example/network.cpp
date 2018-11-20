@@ -1,6 +1,6 @@
 #include "network.h"
 
-#include "inc/common.h"
+#include <cubez/cubez.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define WIN32_LEAN_AND_MEAN

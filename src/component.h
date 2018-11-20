@@ -1,7 +1,7 @@
 #ifndef COMPONENT__H
 #define COMPONENT__H
 
-#include "cubez.h"
+#include <cubez/cubez.h>
 #include "sparse_map.h"
 #include "sparse_set.h"
 

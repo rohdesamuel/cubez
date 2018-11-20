@@ -1,9 +1,10 @@
 #include "ball.h"
 
+#include <cubez/timer.h>
+
 #include "physics.h"
 #include "render.h"
 #include "shader.h"
-#include "inc/timer.h"
 #include "mesh_builder.h"
 
 #include <atomic>

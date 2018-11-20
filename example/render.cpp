@@ -131,8 +131,6 @@ void present(RenderEvent* event) {
 
   qb_event_sendsync(render_event, event);
 
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_DEPTH_TEST);
   gui::Render();
   SDL_GL_SwapWindow(win);
   qb_render_makenull();

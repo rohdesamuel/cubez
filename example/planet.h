@@ -1,7 +1,7 @@
 #ifndef PLANET__H
 #define PLANET__H
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 #include "items.h"
 #include "mesh.h"
 

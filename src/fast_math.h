@@ -1,7 +1,7 @@
 #ifndef FAST_MATH__H
 #define FAST_MATH__H
 
-#include "common.h"
+#include <cubez/common.h>
 
 int32_t log_2(uint64_t v);
 

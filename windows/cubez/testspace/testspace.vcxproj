@@ -89,10 +89,10 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez;C:\GLM\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>Ws2_32.lib;cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -101,10 +101,10 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez;C:\GLM\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>Ws2_32.lib;cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -115,12 +115,12 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez;C:\GLM\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>Ws2_32.lib;cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -131,12 +131,12 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez;C:\GLM\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>Ws2_32.lib;cubez.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

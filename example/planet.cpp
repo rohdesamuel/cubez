@@ -52,7 +52,8 @@ glm::ivec2 BuildingRotationToPoint(uint8_t rotation) {
   return{ 0, 0 };
 }
 
-GLuint LoadImage(const std::string& filename) {
+GLuint LoadImage(const std::string&) {
+#if 0
   int x, y, n;
   GLuint tex;
   unsigned char *data = stbi_load(filename.c_str(), &x, &y, &n, 0);
@@ -68,8 +69,10 @@ GLuint LoadImage(const std::string& filename) {
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);*/
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
   //  glGenerateMipmap(GL_TEXTURE_2D);
-  stbi_image_free(data);
+  //stbi_image_free(data);
   return tex;
+#endif
+  return 0;
 }
 
 }

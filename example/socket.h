@@ -1,7 +1,7 @@
 #ifndef SOCKET__H
 #define SOCKET__H
 
-#include "inc/common.h"
+#include <cubez/cubez.h>
 #include <memory>
 
 #ifdef __COMPILE_AS_WINDOWS__

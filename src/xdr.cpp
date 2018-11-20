@@ -1,4 +1,4 @@
-#include "xdr.h"
+#include <cubez/xdr.h>
 #ifdef __COMPILE_AS_LINUX__
 #include <arpa/inet.h>
 #else

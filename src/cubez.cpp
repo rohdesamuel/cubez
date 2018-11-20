@@ -1,4 +1,4 @@
-#include "cubez.h"
+#include <cubez/cubez.h>
 #include "defs.h"
 #include "private_universe.h"
 #include "byte_vector.h"

@@ -1,4 +1,4 @@
-#include "inc/common.h"
+#include <cubez/cubez.h>
 #include "cubez_gpu_driver.h"
 #include "empty_overlay.h"
 
@@ -33,7 +33,7 @@ namespace gui {
 SDL_Window* win;
 ultralight::RefPtr<ultralight::Renderer> renderer;
 std::unique_ptr<cubez::CubezGpuDriver> driver;
-std::unique_ptr<cubez::EmptyOverlay> empty_overlay;
+std::vector<std::unique_ptr<cubez::EmptyOverlay>> overlays;
 
 void Initialize(SDL_Window* sdl_window, Settings settings) {
   win = sdl_window;
@@ -54,14 +54,15 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
   platform.set_file_system(framework::CreatePlatformFileSystem(settings.asset_dir));
 
   renderer = ultralight::Renderer::Create();
-
-  empty_overlay = std::make_unique<cubez::EmptyOverlay>(*renderer.get(), driver.get(), 500, 500, 0, 0, 1.0f);
 }
 
 void Shutdown() {
 }
 
 void Render() {
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_DEPTH_TEST);
+
   renderer->Update();
   driver->BeginSynchronize();
   renderer->Render();
@@ -70,15 +71,19 @@ void Render() {
   if (driver->HasCommandsPending()) {    
     driver->DrawCommandList();
   }
-  empty_overlay->Draw();
-}
-
-SDL_Window* Window() {
-  return win;
+  for (auto& overlay : overlays) {
+    overlay->Draw();
+  }
 }
 
 void HandleInput(SDL_Event*) {
-
 }
+
+Window OpenWindow(const std::string& file, glm::vec2 pos, glm::vec2 size) {
+  overlays.push_back(std::make_unique<cubez::EmptyOverlay>(*renderer.get(), driver.get(), 500, 500, 100, 100, 1.0f));
+  return overlays.back().get();
+}
+
+void CloseWindow(Window window);
 
 }

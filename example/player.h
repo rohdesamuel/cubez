@@ -1,7 +1,7 @@
 #ifndef PLAYER__H
 #define PLAYER__H
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 
 #include <glm/glm.hpp>
 #include <string>

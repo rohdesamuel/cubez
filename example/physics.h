@@ -1,7 +1,7 @@
 #ifndef PHYSICS__H
 #define PHYSICS__H
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 #include "mesh_builder.h"
 
 #include <glm/glm.hpp>

@@ -8,10 +8,10 @@
 #ifndef SPARSE_MAP__H
 #define SPARSE_MAP__H
 
+#include <cubez/cubez.h>
 #include <vector>
 #include "block_vector.h"
 #include "byte_vector.h"
-#include "common.h"
 
 template<class Value_, class Container_>
 class SparseMap {

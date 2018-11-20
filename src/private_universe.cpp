@@ -1,7 +1,7 @@
 #include "private_universe.h"
 #include "system_impl.h"
 #include "snapshot.h"
-#include "timer.h"
+#include <cubez/timer.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #undef CreateEvent

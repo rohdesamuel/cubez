@@ -1,6 +1,4 @@
-#include "inc/cubez.h"
-#include "inc/socket.h"
-#include "inc/xdr.h"
+#include <cubez/cubez.h>
 #include "concurrentqueue.h"
 
 #include <iostream>

@@ -47,7 +47,7 @@ void Overlay::FireMouseEvent(const ultralight::MouseEvent& evt) {
 }
 
 void Overlay::FireScrollEvent(const ultralight::ScrollEvent& evt) {
-  //if (has_hover_)
+  if (has_hover_)
     view()->FireScrollEvent(evt);
 }
 

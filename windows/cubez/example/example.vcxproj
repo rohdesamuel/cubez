@@ -86,10 +86,11 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -99,10 +100,11 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -113,12 +115,13 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -129,12 +132,13 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -145,12 +149,10 @@
     <ClCompile Include="..\..\..\example\ball.cpp" />
     <ClCompile Include="..\..\..\example\celestial_object.cpp" />
     <ClCompile Include="..\..\..\example\collision_utils.cpp" />
+    <ClCompile Include="..\..\..\example\cubez_gpu_driver.cpp" />
+    <ClCompile Include="..\..\..\example\empty_overlay.cpp" />
     <ClCompile Include="..\..\..\example\gjk.cpp" />
     <ClCompile Include="..\..\..\example\gui.cpp" />
-    <ClCompile Include="..\..\..\example\imgui\imgui.cpp" />
-    <ClCompile Include="..\..\..\example\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\..\..\example\imgui\imgui_impl_opengl3.cpp" />
-    <ClCompile Include="..\..\..\example\imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="..\..\..\example\input.cpp" />
     <ClCompile Include="..\..\..\example\items.cpp" />
     <ClCompile Include="..\..\..\example\log.cpp" />
@@ -163,30 +165,23 @@
     <ClCompile Include="..\..\..\example\player.cpp" />
     <ClCompile Include="..\..\..\example\render.cpp" />
     <ClCompile Include="..\..\..\example\socket.cpp" />
+    <ClCompile Include="..\..\..\example\ultralight_platform_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\example\ball.h" />
     <ClInclude Include="..\..\..\example\building_grid.h" />
     <ClInclude Include="..\..\..\example\collision_utils.h" />
+    <ClInclude Include="..\..\..\example\cubez_gpu_driver.h" />
+    <ClInclude Include="..\..\..\example\empty_overlay.h" />
     <ClInclude Include="..\..\..\example\entity.h" />
     <ClInclude Include="..\..\..\example\gjk.h" />
     <ClInclude Include="..\..\..\example\gui.h" />
-    <ClInclude Include="..\..\..\example\imgui\imconfig.h" />
-    <ClInclude Include="..\..\..\example\imgui\imgui.h" />
-    <ClInclude Include="..\..\..\example\imgui\imgui_impl_opengl3.h" />
-    <ClInclude Include="..\..\..\example\imgui\imgui_impl_sdl.h" />
-    <ClInclude Include="..\..\..\example\imgui\imgui_internal.h" />
-    <ClInclude Include="..\..\..\example\imgui\stb_rect_pack.h" />
-    <ClInclude Include="..\..\..\example\imgui\stb_textedit.h" />
-    <ClInclude Include="..\..\..\example\imgui\stb_truetype.h" />
     <ClInclude Include="..\..\..\example\input.h" />
     <ClInclude Include="..\..\..\example\items.h" />
     <ClInclude Include="..\..\..\example\log.h" />
     <ClInclude Include="..\..\..\example\mesh.h" />
     <ClInclude Include="..\..\..\example\mesh_builder.h" />
     <ClInclude Include="..\..\..\example\network.h" />
-    <ClInclude Include="..\..\..\example\nuklear\nuklear.h" />
-    <ClInclude Include="..\..\..\example\nuklear\nuklear_sdl_gl3.h" />
     <ClInclude Include="..\..\..\example\physics.h" />
     <ClInclude Include="..\..\..\example\planet.h" />
     <ClInclude Include="..\..\..\example\player.h" />

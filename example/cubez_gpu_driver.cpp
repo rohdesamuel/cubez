@@ -322,9 +322,9 @@ void CubezGpuDriver::UpdateGeometry(uint32_t geometry_id,
 }
 
 void CubezGpuDriver::DrawGeometry(uint32_t geometry_id,
-                               uint32_t indices_count,
-                               uint32_t indices_offset,
-                               const ultralight::GPUState& state) {
+                                  uint32_t indices_count,
+                                  uint32_t indices_offset,
+                                  const ultralight::GPUState& state) {
   if (programs_.empty())
     LoadPrograms();
 

@@ -2,7 +2,7 @@
 #define BYTE_VECTOR__H
 
 #include "apex_memmove.h"
-#include "common.h"
+#include <cubez/cubez.h>
 #include <algorithm>
 #include <cstring>
 #include <string>

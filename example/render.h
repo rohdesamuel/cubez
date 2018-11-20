@@ -11,7 +11,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
-#include "inc/cubez.h"
+#include <cubez/cubez.h>
 #include "mesh.h"
 
 namespace render {
