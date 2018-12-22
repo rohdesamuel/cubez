@@ -10,8 +10,6 @@
 #include "input.h"
 #include "render.h"
 #include "shader.h"
-#include "network.h"
-#include "socket.h"
 #include "planet.h"
 
 #include <algorithm>
@@ -57,10 +55,6 @@ void initialize_universe(qbUniverse* uni) {
 
   {
     logging::initialize();
-  }
-
-  {
-    network::initialize();
   }
 
   {
@@ -337,7 +331,6 @@ int main(int, char* []) {
     accumulator += frame_time;
     
     input::handle_input([](SDL_Event*) {
-      network::shutdown();
       render::shutdown();
       SDL_Quit();
       qb_stop();
