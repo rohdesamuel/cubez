@@ -1,6 +1,7 @@
 #include "collision_utils.h"
 #include "gjk.h"
 
+#include <algorithm>
 #include <iostream>
 
 class Simplex {
@@ -185,7 +186,7 @@ bool CheckAabb(const glm::vec3& a_origin, const glm::vec3& b_origin,
     a_origin.z + a.Min().z <= b_origin.z + b.Max().z && a_origin.z + a.Max().z >= b_origin.z + b.Min().z;
 }
 
-bool CheckGjk(const glm::vec3& a_origin, const glm::vec3& b_origin,
+bool CheckGjk(const glm::vec3& /* a_origin */, const glm::vec3& /* b_origin */,
          const Mesh& a, const Mesh& b) {
   /*
   http://allenchou.net/2013/12/game-physics-collision-detection-gjk/

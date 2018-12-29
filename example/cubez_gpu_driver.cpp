@@ -443,7 +443,6 @@ void CubezGpuDriver::LoadPrograms(void) {
 }
 
 void CubezGpuDriver::DestroyPrograms(void) {
-  GLenum ErrorCheckValue = glGetError();
   glUseProgram(0);
   for (auto i = programs_.begin(); i != programs_.end(); i++) {
     ProgramEntry& prog = i->second;
@@ -458,7 +457,6 @@ void CubezGpuDriver::DestroyPrograms(void) {
 
 void CubezGpuDriver::LoadProgram(ProgramType type,
                               const char* vert, const char* frag) {
-  GLenum ErrorCheckValue = glGetError();
   ProgramEntry prog;
   prog.vert_shader_id = LoadShaderFromFile(GL_VERTEX_SHADER, vert);
   prog.frag_shader_id = LoadShaderFromFile(GL_FRAGMENT_SHADER, frag);

@@ -8,6 +8,6 @@
 #include <Framework/platform/win/FontLoaderWin.cpp>
 #elif defined(__COMPILE_AS_LINUX__)
 #define FRAMEWORK_PLATFORM_LINUX
-#include <Framework/platform/linux/FileSystemLinux.cpp>
-#include <Framework/platform/linux/FontLoaderLinux.cpp>
+#include <Framework/platform/common/FileSystemBasic.cpp>
+#include <Framework/platform/common/FontLoaderRoboto.cpp>
 #endif

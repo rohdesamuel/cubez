@@ -94,4 +94,5 @@ private:
 
 };
 
-#endif MESH_BUILDER__H  // MESH_BUILDER__H
+#endif  // MESH_BUILDER__H
+

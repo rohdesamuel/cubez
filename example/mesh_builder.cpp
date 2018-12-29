@@ -9,6 +9,7 @@
 #include <map>
 #include <set>
 #include <fstream>
+#include <cstring>
 #include <string>
 
 struct VertexAttribute {
@@ -116,8 +117,6 @@ MeshBuilder MeshBuilder::FromFile(const std::string& filename) {
 
 cleanup:
   file.close();
-
-success:
   return builder;
 }
 
@@ -235,8 +234,6 @@ MeshBuilder MeshBuilder::Box(float x, float y, float z) {
   MeshBuilder builder;
   
   glm::vec3 center = 0.5f * glm::vec3{ x, y, z };
-  float l = glm::length(center);
-
   int p1 = builder.AddVertex(glm::vec3{ 0, 0, z } - center);
   int p2 = builder.AddVertex(glm::vec3{ 0, y, z } - center);
   int p3 = builder.AddVertex(glm::vec3{ x, y, z } - center);
@@ -567,8 +564,13 @@ qbMesh MeshBuilder::BuildRenderable(qbRenderMode render_mode) {
 }
 
 void MeshBuilder::Reset() {
-  std::swap(v_, std::vector<glm::vec3>{});
-  std::swap(vt_, std::vector<glm::vec2>{});
-  std::swap(vn_, std::vector<glm::vec3>{});
-  std::swap(f_, std::vector<Face>{});
+  decltype(v_) empty_v;
+  decltype(vt_) empty_vt;
+  decltype(vn_) empty_vn;
+  decltype(f_) empty_f;
+
+  std::swap(v_, empty_v);
+  std::swap(vt_, empty_vt);
+  std::swap(vn_, empty_vn);
+  std::swap(f_, empty_f);
 }

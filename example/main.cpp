@@ -297,16 +297,6 @@ int main(int, char* []) {
   qbUniverse uni;
   initialize_universe(&uni);
 
-  auto receiver = Socket::Create(25000);
-  //auto sender = Socket::Create("104.198.164.47", 25000);
-  auto sender = Socket::Create("127.0.0.1", 25000);
-
-  char buffer[128] = { '\0' };
-  std::cout << "sent " << sender->Send("hello world!", strlen("hello world!"))
-            << " bytes with message: " << "hello world!" << std::endl;
-  std::cout << "received " << receiver->Receive(buffer, 128)
-            << " bytes with message: " << buffer << std::endl;
-
   qb_start();
   int frame = 0;
   WindowTimer fps_timer(50);
