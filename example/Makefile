@@ -1,7 +1,8 @@
 # Directories
 INC_DIRS=../include	../deps/include
 LIB_DIRS=../deps/linux ../lib
-OBJ=obj
+OBJ_DIR=obj
+SRC_DIR=src
 
 # Libraries
 LIBS=X11
@@ -22,28 +23,29 @@ LIBS_ALL=$(foreach LIB, $(LIBS), -l$(LIB))
 # Arguments
 CC=g++
 OPTIONS=-fno-exceptions -fno-rtti  -fopenmp -DGLM_ENABLE_EXPERIMENTAL -O3 -std=c++17 #-Wall -Wextra -Werror -ggdb
-SOURCES=$(wildcard src/*.cpp)
-OBJECTS=$(SOURCES:src/%.cpp=$(OBJ)/%.o)
+SOURCES=$(wildcard ${SRC_DIR}/*.cpp)
+OBJECTS=$(SOURCES:${SRC_DIR}/%.cpp=$(OBJ_DIR)/%.o)
 TARGET=example
 
 all: $(TARGET)
 	
 $(TARGET): $(OBJECTS)
-	@echo "\nLinking..."
-	@${CC} ${OPTIONS} ${INC_DIRS_ALL} ${LIB_DIRS_ALL} -Wl,-rpath,'$$ORIGIN/../deps/linux' -o $@ $^ ${LIBS_ALL}
-	@echo "DONE!"
+	@printf "\nLinking..."
+	@cp ../deps/linux/* lib/
+	@${CC} ${OPTIONS} ${INC_DIRS_ALL} ${LIB_DIRS_ALL} -Wl,-rpath,'$$ORIGIN/lib' -o $@ $^ ${LIBS_ALL}
+	@echo "Done"
 	@echo "Made "${TARGET}
 
-${OBJ}/%.o: src/%.cpp src/%.h
+${OBJ_DIR}/%.o: ${SRC_DIR}/%.cpp ${SRC_DIR}/%.h
 	@echo "Making "$@
-	@$(CC) ${OPTIONS} ${INC_DIRS_ALL} ${LIB_DIRS_ALL} -Wl,-rpath,'$$ORIGIN/../deps/linux' -c $< -o $@ ${LIBS_ALL}
+	@$(CC) ${OPTIONS} ${INC_DIRS_ALL} -c $< -o $@
 
-${OBJ}/%.o: src/%.cpp
+${OBJ_DIR}/%.o: ${SRC_DIR}/%.cpp
 	@echo "Making "$@
-	@$(CC) ${OPTIONS} ${INC_DIRS_ALL} ${LIB_DIRS_ALL} -Wl,-rpath,'$$ORIGIN/../deps/linux' -c $< -o $@ ${LIBS_ALL}
+	@$(CC) ${OPTIONS} ${INC_DIRS_ALL} -c $< -o $@
 
 clean:
-	rm -f $(OBJ)/*.o $(TARGET)
+	rm -f ${OBJ_DIR}/*.o $(TARGET) obj/*
 
 config:
 	@echo "Includes:\n\t"${INC_DIRS}
