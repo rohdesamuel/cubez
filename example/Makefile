@@ -45,7 +45,7 @@ ${OBJ_DIR}/%.o: ${SRC_DIR}/%.cpp
 	@$(CC) ${OPTIONS} ${INC_DIRS_ALL} -c $< -o $@
 
 clean:
-	rm -f ${OBJ_DIR}/*.o $(TARGET) obj/*
+	rm -f ${OBJ_DIR}/*.o $(TARGET) lib/*
 
 config:
 	@echo "Includes:\n\t"${INC_DIRS}
