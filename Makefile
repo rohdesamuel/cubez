@@ -3,6 +3,8 @@ INC_DIR = include
 SRC_DIR = src
 LIB_DIR = lib
 OBJ_DIR = obj
+
+# Flags
 CPP_STD = c++17
 
 # Versioning
