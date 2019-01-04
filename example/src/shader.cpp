@@ -1,4 +1,12 @@
 #include "shader.h"
+#include <filesystem>
+
+#ifdef __COMPILE_AS_WINDOWS__
+namespace std
+{
+namespace filesystem = std::experimental::filesystem;
+}
+#endif  // __COMPILE_AS_WINDOWS__
 
 GLuint ShaderProgram::create_shader(const char* shader, GLenum shader_type) {
   GLuint s = glCreateShader(shader_type);
@@ -56,10 +64,13 @@ ShaderProgram::ShaderProgram(GLuint program) : program_(program) {}
 
 ShaderProgram ShaderProgram::load_from_file(const std::string& vs_file,
                                             const std::string& fs_file) {
+  
+  auto cwd = std::filesystem::current_path();
+  
   std::string vs;
   std::string fs;
   {
-    std::ifstream t(vs_file);
+    std::ifstream t(std::filesystem::current_path().append(vs_file).generic_string());
 
     t.seekg(0, std::ios::end);   
     vs.reserve(t.tellg());
@@ -69,7 +80,7 @@ ShaderProgram ShaderProgram::load_from_file(const std::string& vs_file,
         std::istreambuf_iterator<char>());
   }
   {
-    std::ifstream t(fs_file);
+    std::ifstream t(std::filesystem::current_path().append(fs_file));
 
     t.seekg(0, std::ios::end);   
     fs.reserve(t.tellg());

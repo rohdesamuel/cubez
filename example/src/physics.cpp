@@ -117,6 +117,7 @@ void initialize(const Settings&) {
           }
         });
     qb_system_create(&collision_system, attr);
+    qb_system_disable(collision_system);
     qb_systemattr_destroy(&attr);
   }
 

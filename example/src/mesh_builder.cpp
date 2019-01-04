@@ -1,5 +1,6 @@
 #include "mesh_builder.h"
 #include "collision_utils.h"
+#include "render.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
@@ -11,6 +12,7 @@
 #include <fstream>
 #include <cstring>
 #include <string>
+#include <iostream>
 
 struct VertexAttribute {
   glm::vec3 v;
@@ -23,6 +25,19 @@ struct VertexAttribute {
 };
 
 namespace {
+bool check_for_gl_errors() {
+  GLenum error = glGetError();
+  if (error == GL_NO_ERROR) {
+    return false;
+  }
+  while (error != GL_NO_ERROR) {
+    const GLubyte* error_str = gluErrorString(error);
+    std::cout << "Error(" << error << "): " << error_str << std::endl;
+    error = glGetError();
+  }
+  return true;
+}
+
 qbResult process_line(MeshBuilder* builder, const std::string& token,
                       const std::string& line) {
   if (token == "v") {
@@ -495,6 +510,8 @@ qbMesh MeshBuilder::BuildRenderable(qbRenderMode render_mode) {
   memset(mesh, 0, sizeof(qbMesh_));
   mesh->attributes = new qbMeshAttributes_;
   mesh->render_mode = render_mode;
+
+  render::qb_render_makecurrent();
 
   glGenVertexArrays(1, &mesh->vao);
   glGenBuffers(1, &mesh->el_vbo);

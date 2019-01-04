@@ -69,12 +69,13 @@ qbResult Runner::assert_in_state(const std::vector<State>& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
     return QB_OK;
   }
-  LOG(ERROR, "Runner is in bad state: " << (int)state_ << "\nAllowed to be in { ");
   DEBUG_OP(
+      std::string allowed_states = ""
       for (auto state : allowed) {
-        LOG(ERROR, (int)state << " ");
-      });
-  LOG(ERROR, "}\n");
+        allowed_states += state + "\n";
+      }
+      INFO("Runner is in bad state: " << (int)state_ << "\nAllowed to be in { " << allowed_states << "\n");
+  );
   
   return QB_ERROR_BAD_RUN_STATE;
 }
@@ -83,13 +84,13 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
   if (std::find(allowed.begin(), allowed.end(), state_) != allowed.end()) {
     return QB_OK;
   }
-  LOG(ERROR, "Runner is in bad state: " << (int)state_ << "\nAllowed to be in { ");
-  
   DEBUG_OP(
-      for (auto state : allowed) {
-        LOG(ERROR, (int)state << " ");
-      });
-  LOG(ERROR, "}\n");
+    std::string allowed_states = ""
+    for (auto state : allowed) {
+      allowed_states += state + "\n";
+    }
+  INFO("Runner is in bad state: " << (int)state_ << "\nAllowed to be in { " << allowed_states << "\n");
+  );
   
   return QB_ERROR_BAD_RUN_STATE;
 }

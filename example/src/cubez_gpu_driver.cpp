@@ -1,4 +1,5 @@
 #include "cubez_gpu_driver.h"
+#include <cubez/common.h>
 
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/FileSystem.h>
@@ -8,24 +9,6 @@
 #include <sstream>
 
 #define SHADER_PATH "shaders/"
-
-#ifdef _DEBUG
-#if _WIN32
-#define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#else
-#define INFO(x) { std::cerr << "[INFO] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#endif
-#else
-#define INFO(x)
-#endif
-
-#if _WIN32
-#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  __debugbreak(); std::cin.get(); exit(-1); }
-#else
-#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  std::cin.get(); exit(-1); }
-#endif
 
 static void ReadFile(const char* filepath, std::string& result) {
   // To maintain predictable behavior across platforms we use
@@ -90,7 +73,7 @@ static GLuint LoadShaderFromFile(GLenum shader_type, const char* filename) {
   if (compileStatus == GL_FALSE)
     FATAL("Unable to compile shader. Filename: " << filename << "\n\tError:"
           << glErrorString(glGetError()) << "\n\tLog: " << GetShaderLog(shader_id))
-    return shader_id;
+  return shader_id;
 }
 
 #ifdef _DEBUG

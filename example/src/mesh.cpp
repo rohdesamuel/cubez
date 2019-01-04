@@ -68,7 +68,6 @@ uint32_t load_texture(const std::string& file) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   SDL_FreeSurface(surf);
-
   return texture;
 }
 

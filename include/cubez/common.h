@@ -18,6 +18,12 @@
 #define __COMPILE_AS_64__
 #endif  // defined _WIN64 || defined __LP64__
 
+#if (defined __WIN32__ || defined __CYGWIN32__ || defined _WIN32 || defined _WIN64 || defined _MSC_VER)
+#define __COMPILE_AS_WINDOWS__
+#elif (defined __linux__ || defined __GNUC__)
+#define __COMPILE_AS_LINUX__
+#endif
+
 #ifdef __ENGINE_DEBUG__
 #ifdef __COMPILE_AS_WINDOWS__
 #define _CRTDBG_MAP_ALLOC
@@ -33,15 +39,20 @@ do{ if (!(expr)) { std::cerr << #expr << std::endl; exit(exit_code);} } while (0
 #define ASSERT_NOT_NULL(var) \
 DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
-#define ERROR cerr
-#define INFO cout
-#define LOG(to, str) std::to << str
+#ifdef __COMPILE_AS_WINDOWS__
+#define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
+#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  __debugbreak(); std::cin.get(); exit(-1); }
+#else
+#define INFO(x) { std::cerr << "[INFO] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
+#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  std::cin.get(); exit(-1); }
+#endif  // __COMPILE_AS_WINDOWS__
 
 #else
 
-#define ERR cerr
-#define INFO cout
-#define LOG(to, str) do{} while(0)
+#define INFO(x)
+#define FATAL(x)
 
 #define DEBUG_ASSERT(expr, exit_code) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
@@ -54,12 +65,6 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define END_EXTERN_C }
 #include <cstdint>
 #endif  // ifdef __cplusplus
-
-#if (defined __WIN32__ || defined __CYGWIN32__ || defined _WIN32 || defined _WIN64 || defined _MSC_VER)
-#define __COMPILE_AS_WINDOWS__
-#elif (defined __linux__ || defined __GNUC__)
-#define __COMPILE_AS_LINUX__
-#endif
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define DLLEXPORT __declspec(dllexport)

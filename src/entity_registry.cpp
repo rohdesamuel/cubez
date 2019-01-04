@@ -29,7 +29,7 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
   qbId new_id = AllocEntity();
   entities_.insert(new_id);
 
-  LOG(INFO, "CreateEntity " << new_id << "\n");
+  INFO("CreateEntity " << new_id << "\n");
   *entity = new_id;
 
   return qbResult::QB_OK;
@@ -39,7 +39,7 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
 // destroyed next frame. Sends a ComponentDestroyEvent before components are
 // removed. Frees entity memory after all components have been destroyed.
 qbResult EntityRegistry::DestroyEntity(qbEntity entity) {
-  LOG(INFO, "Destroying instances for " << (entity) << "\n");
+  INFO("Destroying instances for " << (entity) << "\n");
   if (entities_.has(entity)) {
     entities_.erase(entity);
     free_entity_ids_.push_back(entity);
