@@ -159,11 +159,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\inc\common.h" />
-    <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\socket.h" />
-    <ClInclude Include="..\..\..\inc\timer.h" />
-    <ClInclude Include="..\..\..\inc\xdr.h" />
+    <ClInclude Include="..\..\..\include\cubez\common.h" />
+    <ClInclude Include="..\..\..\include\cubez\cubez.h" />
+    <ClInclude Include="..\..\..\include\cubez\socket.h" />
+    <ClInclude Include="..\..\..\include\cubez\timer.h" />
+    <ClInclude Include="..\..\..\include\cubez\xdr.h" />
     <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
     <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />

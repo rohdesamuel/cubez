@@ -101,6 +101,9 @@
     <ClCompile Include="..\..\..\example\ultralight_platform_impl.cpp">
       <Filter>Source Files\ultralight</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\example\overlay.cpp">
+      <Filter>Source Files\ultralight</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\example\player.h">
@@ -129,12 +132,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\example\collision_utils.h">
       <Filter>Header Files\utils</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\cubez.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\timer.h">
-      <Filter>Header Files\cubez</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\example\input.h">
       <Filter>Header Files\modules</Filter>
@@ -176,6 +173,24 @@
       <Filter>Header Files\ultralight</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\example\empty_overlay.h">
+      <Filter>Header Files\ultralight</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\common.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\cubez.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\socket.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\timer.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\xdr.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\overlay.h">
       <Filter>Header Files\ultralight</Filter>
     </ClInclude>
   </ItemGroup>

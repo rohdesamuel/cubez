@@ -160,6 +160,7 @@
     <ClCompile Include="..\..\..\example\mesh.cpp" />
     <ClCompile Include="..\..\..\example\mesh_builder.cpp" />
     <ClCompile Include="..\..\..\example\network.cpp" />
+    <ClCompile Include="..\..\..\example\overlay.cpp" />
     <ClCompile Include="..\..\..\example\physics.cpp" />
     <ClCompile Include="..\..\..\example\planet.cpp" />
     <ClCompile Include="..\..\..\example\player.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="..\..\..\example\mesh.h" />
     <ClInclude Include="..\..\..\example\mesh_builder.h" />
     <ClInclude Include="..\..\..\example\network.h" />
+    <ClInclude Include="..\..\..\example\overlay.h" />
     <ClInclude Include="..\..\..\example\physics.h" />
     <ClInclude Include="..\..\..\example\planet.h" />
     <ClInclude Include="..\..\..\example\player.h" />
@@ -190,9 +192,12 @@
     <ClInclude Include="..\..\..\example\socket.h" />
     <ClInclude Include="..\..\..\example\stb_image.h" />
     <ClInclude Include="..\..\..\example\celestial_object.h" />
+    <ClInclude Include="..\..\..\include\cubez\common.h" />
+    <ClInclude Include="..\..\..\include\cubez\cubez.h" />
+    <ClInclude Include="..\..\..\include\cubez\socket.h" />
+    <ClInclude Include="..\..\..\include\cubez\timer.h" />
+    <ClInclude Include="..\..\..\include\cubez\xdr.h" />
     <ClInclude Include="..\..\..\inc\common.h" />
-    <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
