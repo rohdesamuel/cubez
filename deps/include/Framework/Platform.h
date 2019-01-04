@@ -40,6 +40,12 @@ struct PlatformWindowConfig {
 };
 typedef GLFWwindow* PlatformWindowHandle;
 }
+#elif defined(FRAMEWORK_PLATFORM_LINUX)
+namespace framework {
+class PlatformGPUContext;
+struct PlatformWindowConfig;
+struct PlatformWindowHandle;
+}
 
 #else
 static_assert(false, "Undefined Framework Platform.");
