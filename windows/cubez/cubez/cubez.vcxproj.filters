@@ -158,12 +158,6 @@
     <ClCompile Include="..\..\..\src\apex_memmove.cpp">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\xdr.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\socket.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\game_state.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

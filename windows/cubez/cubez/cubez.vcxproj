@@ -208,10 +208,8 @@
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
     <ClCompile Include="..\..\..\src\snapshot.cpp" />
-    <ClCompile Include="..\..\..\src\socket.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\timer.cpp" />
-    <ClCompile Include="..\..\..\src\xdr.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

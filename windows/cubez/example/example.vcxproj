@@ -85,7 +85,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_MBCS;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -99,7 +99,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_MBCS;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -116,6 +116,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -133,6 +134,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -146,58 +148,49 @@
     <Image Include="..\..\..\example\ball.bmp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\example\ball.cpp" />
-    <ClCompile Include="..\..\..\example\celestial_object.cpp" />
-    <ClCompile Include="..\..\..\example\collision_utils.cpp" />
-    <ClCompile Include="..\..\..\example\cubez_gpu_driver.cpp" />
-    <ClCompile Include="..\..\..\example\empty_overlay.cpp" />
-    <ClCompile Include="..\..\..\example\gjk.cpp" />
-    <ClCompile Include="..\..\..\example\gui.cpp" />
-    <ClCompile Include="..\..\..\example\input.cpp" />
-    <ClCompile Include="..\..\..\example\items.cpp" />
-    <ClCompile Include="..\..\..\example\log.cpp" />
-    <ClCompile Include="..\..\..\example\main.cpp" />
-    <ClCompile Include="..\..\..\example\mesh.cpp" />
-    <ClCompile Include="..\..\..\example\mesh_builder.cpp" />
-    <ClCompile Include="..\..\..\example\network.cpp" />
-    <ClCompile Include="..\..\..\example\overlay.cpp" />
-    <ClCompile Include="..\..\..\example\physics.cpp" />
-    <ClCompile Include="..\..\..\example\planet.cpp" />
-    <ClCompile Include="..\..\..\example\player.cpp" />
-    <ClCompile Include="..\..\..\example\render.cpp" />
-    <ClCompile Include="..\..\..\example\socket.cpp" />
-    <ClCompile Include="..\..\..\example\ultralight_platform_impl.cpp" />
+    <ClCompile Include="..\..\..\example\src\ball.cpp" />
+    <ClCompile Include="..\..\..\example\src\celestial_object.cpp" />
+    <ClCompile Include="..\..\..\example\src\collision_utils.cpp" />
+    <ClCompile Include="..\..\..\example\src\cubez_gpu_driver.cpp" />
+    <ClCompile Include="..\..\..\example\src\gjk.cpp" />
+    <ClCompile Include="..\..\..\example\src\gui.cpp" />
+    <ClCompile Include="..\..\..\example\src\input.cpp" />
+    <ClCompile Include="..\..\..\example\src\items.cpp" />
+    <ClCompile Include="..\..\..\example\src\log.cpp" />
+    <ClCompile Include="..\..\..\example\src\main.cpp" />
+    <ClCompile Include="..\..\..\example\src\mesh.cpp" />
+    <ClCompile Include="..\..\..\example\src\mesh_builder.cpp" />
+    <ClCompile Include="..\..\..\example\src\overlay.cpp" />
+    <ClCompile Include="..\..\..\example\src\physics.cpp" />
+    <ClCompile Include="..\..\..\example\src\planet.cpp" />
+    <ClCompile Include="..\..\..\example\src\player.cpp" />
+    <ClCompile Include="..\..\..\example\src\render.cpp" />
+    <ClCompile Include="..\..\..\example\src\shader.cpp" />
+    <ClCompile Include="..\..\..\example\src\ultralight_platform_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\example\ball.h" />
-    <ClInclude Include="..\..\..\example\building_grid.h" />
-    <ClInclude Include="..\..\..\example\collision_utils.h" />
-    <ClInclude Include="..\..\..\example\cubez_gpu_driver.h" />
-    <ClInclude Include="..\..\..\example\empty_overlay.h" />
-    <ClInclude Include="..\..\..\example\entity.h" />
-    <ClInclude Include="..\..\..\example\gjk.h" />
-    <ClInclude Include="..\..\..\example\gui.h" />
-    <ClInclude Include="..\..\..\example\input.h" />
-    <ClInclude Include="..\..\..\example\items.h" />
-    <ClInclude Include="..\..\..\example\log.h" />
-    <ClInclude Include="..\..\..\example\mesh.h" />
-    <ClInclude Include="..\..\..\example\mesh_builder.h" />
-    <ClInclude Include="..\..\..\example\network.h" />
-    <ClInclude Include="..\..\..\example\overlay.h" />
-    <ClInclude Include="..\..\..\example\physics.h" />
-    <ClInclude Include="..\..\..\example\planet.h" />
-    <ClInclude Include="..\..\..\example\player.h" />
-    <ClInclude Include="..\..\..\example\render.h" />
-    <ClInclude Include="..\..\..\example\shader.h" />
-    <ClInclude Include="..\..\..\example\socket.h" />
-    <ClInclude Include="..\..\..\example\stb_image.h" />
-    <ClInclude Include="..\..\..\example\celestial_object.h" />
+    <ClInclude Include="..\..\..\example\src\ball.h" />
+    <ClInclude Include="..\..\..\example\src\building_grid.h" />
+    <ClInclude Include="..\..\..\example\src\celestial_object.h" />
+    <ClInclude Include="..\..\..\example\src\collision_utils.h" />
+    <ClInclude Include="..\..\..\example\src\cubez_gpu_driver.h" />
+    <ClInclude Include="..\..\..\example\src\gjk.h" />
+    <ClInclude Include="..\..\..\example\src\gui.h" />
+    <ClInclude Include="..\..\..\example\src\input.h" />
+    <ClInclude Include="..\..\..\example\src\items.h" />
+    <ClInclude Include="..\..\..\example\src\log.h" />
+    <ClInclude Include="..\..\..\example\src\mesh.h" />
+    <ClInclude Include="..\..\..\example\src\mesh_builder.h" />
+    <ClInclude Include="..\..\..\example\src\overlay.h" />
+    <ClInclude Include="..\..\..\example\src\physics.h" />
+    <ClInclude Include="..\..\..\example\src\planet.h" />
+    <ClInclude Include="..\..\..\example\src\player.h" />
+    <ClInclude Include="..\..\..\example\src\render.h" />
+    <ClInclude Include="..\..\..\example\src\shader.h" />
+    <ClInclude Include="..\..\..\example\src\stb_image.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
-    <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\timer.h" />
-    <ClInclude Include="..\..\..\include\cubez\xdr.h" />
-    <ClInclude Include="..\..\..\inc\common.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
