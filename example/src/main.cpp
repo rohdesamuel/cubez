@@ -11,6 +11,7 @@
 #include "render.h"
 #include "shader.h"
 #include "planet.h"
+#include "gui.h"
 
 #include <algorithm>
 #include <thread>
@@ -196,11 +197,34 @@ void initialize_universe(qbUniverse* uni) {
     player::initialize(settings);
     check_for_gl_errors();
   }
-  {
+  auto new_game = [mesh_shader](const framework::JSObject&, const framework::JSArgs&) {
     planet::Settings settings;
     settings.shader = mesh_shader;
     settings.resource_folder = "resources/";
     planet::Initialize(settings);
+
+    return framework::JSValue();
+  };
+
+  {
+    glm::vec2 menu_size(200, 500);
+    glm::vec2 menu_pos(
+      (render::window_width() / 2) - (menu_size.x / 2),
+      (render::window_height() / 2) - (menu_size.y / 2)
+     );
+
+    gui::JSCallbackMap callbacks;
+    callbacks["NewGame"] = new_game;
+
+    gui::FromHtml(R"(
+<html>
+<body style='all:initial'>
+<div style='width:100%;background-color:grey;text-align:center;vertical-align: middle;' onclick='NewGame()'> New Game </div>
+<div style='width:100%;'> Load Game </div>
+<div style='width:100%;'> Exit </div>
+</body>
+</html>
+    )", menu_pos, menu_size, callbacks);
   }
 
 #endif

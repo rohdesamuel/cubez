@@ -1,5 +1,6 @@
 #include <cubez/cubez.h>
 #include "cubez_gpu_driver.h"
+#include "overlay.h"
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -31,9 +32,8 @@
 
 namespace gui {
 
+Context context;
 SDL_Window* win;
-ultralight::RefPtr<ultralight::Renderer> renderer;
-std::unique_ptr<cubez::CubezGpuDriver> driver;
 std::vector<std::unique_ptr<framework::Overlay>> overlays;
 
 void Initialize(SDL_Window* sdl_window, Settings settings) {
@@ -47,16 +47,14 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
   config.use_distance_field_fonts = config.device_scale_hint != 1.0f; // Only use SDF fonts for high-DPI
   config.use_distance_field_paths = true;
 
-  driver = std::make_unique<cubez::CubezGpuDriver>(settings.width, settings.height, 1.0);
+  context.driver = std::make_unique<cubez::CubezGpuDriver>(settings.width, settings.height, 1.0);
 
   platform.set_config(config);
-  platform.set_gpu_driver(driver.get());
+  platform.set_gpu_driver(context.driver.get());
   platform.set_font_loader(framework::CreatePlatformFontLoader());
   platform.set_file_system(framework::CreatePlatformFileSystem(settings.asset_dir));
 
-  renderer = ultralight::Renderer::Create();
-
-  OpenWindow("", {}, {});
+  context.renderer = ultralight::Renderer::Create();
 }
 
 void Shutdown() {
@@ -66,24 +64,62 @@ void Render() {
   glDisable(GL_CULL_FACE);
   glDisable(GL_DEPTH_TEST);
 
-  renderer->Update();
-  driver->BeginSynchronize();
-  renderer->Render();
-  driver->EndSynchronize();
+  context.renderer->Update();
+  context.driver->BeginSynchronize();
+  context.renderer->Render();
+  context.driver->EndSynchronize();
 
-  if (driver->HasCommandsPending()) {    
-    driver->DrawCommandList();
+  if (context.driver->HasCommandsPending()) {
+    context.driver->DrawCommandList();
   }
   for (auto& overlay : overlays) {
     overlay->Draw();
   }
 }
 
-void HandleInput(SDL_Event*) {
+void HandleInput(SDL_Event* e) {
+  ultralight::KeyEvent key_event;
+  ultralight::MouseEvent mouse_event;
+  if (e->type == SDL_MOUSEBUTTONDOWN) {
+    mouse_event.type = ultralight::MouseEvent::kType_MouseDown;
+    mouse_event.button = ultralight::MouseEvent::Button::kButton_Left;
+    mouse_event.x = e->button.x;
+    mouse_event.y = e->button.y;
+    for (auto& overlay : overlays) {
+      overlay->FireMouseEvent(mouse_event);
+    }
+  } else if (e->type == SDL_MOUSEBUTTONUP) {
+    mouse_event.type = ultralight::MouseEvent::kType_MouseUp;
+    mouse_event.button = ultralight::MouseEvent::Button::kButton_Left;
+    mouse_event.x = e->button.x;
+    mouse_event.y = e->button.y;
+    for (auto& overlay : overlays) {
+      overlay->FireMouseEvent(mouse_event);
+    }
+  }
 }
 
-Window OpenWindow(const std::string&, glm::vec2, glm::vec2) {
-  overlays.push_back(std::make_unique<cubez::EmptyOverlay>(*renderer.get(), driver.get(), 500, 500, 100, 100, 1.0f));
+Window FromFile(const std::string& file, glm::vec2 pos, glm::vec2 size, JSCallbackMap callback_map) {
+  cubez::Overlay::Properties properties;
+  properties.size = size;
+  properties.pos = pos;
+  properties.scale = 1.0f;
+
+  auto overlay = cubez::Overlay::FromFile(file, context, std::move(properties), std::move(callback_map));
+
+  overlays.push_back(std::move(overlay));
+  return overlays.back().get();
+}
+
+Window FromHtml(const std::string& html, glm::vec2 pos, glm::vec2 size, JSCallbackMap callback_map) {
+  cubez::Overlay::Properties properties;
+  properties.size = size;
+  properties.pos = pos;
+  properties.scale = 1.0f;
+
+  auto overlay = cubez::Overlay::FromHtml(html, context, std::move(properties), std::move(callback_map));
+
+  overlays.push_back(std::move(overlay));
   return overlays.back().get();
 }
 

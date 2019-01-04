@@ -222,7 +222,7 @@ void initialize(const Settings& settings) {
     qb_systemattr_setfunction(attr,
         [](qbInstance* insts, qbFrame* f) {
           input::MouseEvent* e = (input::MouseEvent*)f->event;
-          if (e->event_type == input::QB_MOUSE_EVENT_MOTION) {
+          if (e->event_type == input::QB_MOUSE_EVENT_MOTION && input::is_mouse_pressed(QB_BUTTON_LEFT)) {
             dir += (-(float)(e->motion_event.xrel) * 0.25f);
             zdir += ((float)(e->motion_event.yrel) * 0.25f);
             zdir = std::max(std::min(zdir, 90.0f), 1.0f);
