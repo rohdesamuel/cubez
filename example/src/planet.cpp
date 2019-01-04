@@ -592,7 +592,7 @@ public:
 
 private:
   bool IsOutOfBounds(glm::ivec2 p) const {
-    return p.x >= grid_size_ || p.y >= grid_size_;
+    return p.x >= (int)grid_size_ || p.y >= (int)grid_size_;
   }
 
   const size_t grid_size_;
@@ -1087,7 +1087,7 @@ qbEntity CreateStation(qbEntity parent, float station_size, float orbit_radius,
     qb_entityattr_addcomponent(attr, storage_component, &new_storage);
 
     PlanetaryGrid::Builder grid_builder(8);
-    PlanetaryGrid* grid = new PlanetaryGrid(std::move(grid_builder.Build()));
+    PlanetaryGrid* grid = new PlanetaryGrid(grid_builder.Build());
     qb_entityattr_addcomponent(attr, planetary_grid_component, &grid);
 
     qb_entity_create(&ret, attr);
@@ -1464,7 +1464,7 @@ void Initialize(const Settings& settings) {
       }
     }
 
-    PlanetaryGrid* grid = new PlanetaryGrid(std::move(builder.Build()));
+    PlanetaryGrid* grid = new PlanetaryGrid(builder.Build());
     sun = CreatePlanet(
       -1,  // parent
       20,  // planet_radius
@@ -1476,8 +1476,9 @@ void Initialize(const Settings& settings) {
     );
   }
 
-  qbEntity estation_1 = CreateStation(sun, 1, 50, 0.0005f, 90, glm::vec3{ 1, 1, 0 });
-  qbEntity estation_2 = CreateStation(sun, 1, 50, 0.0001f, 270, glm::vec3{ 1, 1, 0 });
+  // Solar power stations.
+  CreateStation(sun, 1, 50, 0.0005f, 90, glm::vec3{ 1, 1, 0 });
+  CreateStation(sun, 1, 50, 0.0001f, 270, glm::vec3{ 1, 1, 0 });
 
   qbEntity planet_entity;
   {
@@ -1505,7 +1506,7 @@ void Initialize(const Settings& settings) {
       }
     }
 
-    PlanetaryGrid* grid = new PlanetaryGrid(std::move(builder.Build()));
+    PlanetaryGrid* grid = new PlanetaryGrid(builder.Build());
     planet_entity = CreatePlanet(
       sun,  // parent
       10,  // planet_radius
@@ -1543,7 +1544,7 @@ void Initialize(const Settings& settings) {
       }
     }
 
-    PlanetaryGrid* grid = new PlanetaryGrid(std::move(builder.Build()));
+    PlanetaryGrid* grid = new PlanetaryGrid(builder.Build());
     moon_entity = CreatePlanet(
       planet_entity,  // parent
       1,  // planet_radius
@@ -1556,7 +1557,8 @@ void Initialize(const Settings& settings) {
   }
 
 
-  qbEntity moon_station_entity = CreateStation(planet_entity, 0.05f, 0.125f, 2, 180, { 0.2, 0.2, 0.2 });
+  // Moon space station
+  CreateStation(planet_entity, 0.05f, 0.125f, 2, 180, { 0.2, 0.2, 0.2 });
 
   qbEntity other_planet_entity;
   {
@@ -1574,7 +1576,7 @@ void Initialize(const Settings& settings) {
       }
     }
 
-    PlanetaryGrid* grid = new PlanetaryGrid(std::move(builder.Build()));
+    PlanetaryGrid* grid = new PlanetaryGrid(builder.Build());
     other_planet_entity = CreatePlanet(
       sun,  // parent
       5,  // planet_radius

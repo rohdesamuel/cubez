@@ -17,8 +17,8 @@
 #include <Framework/platform/win/FontLoaderWin.h>
 #elif defined(__COMPILE_AS_LINUX__)
 #define FRAMEWORK_PLATFORM_LINUX
-#include <Framework/platform/linux/FileSystemLinux.h>
-#include <Framework/platform/linux/FontLoaderLinux.h>
+#include <Framework/platform/common/FileSystemBasic.h>
+#include <Framework/platform/common/FontLoaderRoboto.h>
 #endif
 #include <Framework/Platform.h>
 #include <Framework/Overlay.h>
@@ -27,6 +27,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "gui.h"
+#include "empty_overlay.h"
 
 namespace gui {
 
@@ -54,6 +55,8 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
   platform.set_file_system(framework::CreatePlatformFileSystem(settings.asset_dir));
 
   renderer = ultralight::Renderer::Create();
+
+  OpenWindow("", {}, {});
 }
 
 void Shutdown() {
@@ -80,9 +83,8 @@ void HandleInput(SDL_Event*) {
 }
 
 Window OpenWindow(const std::string&, glm::vec2, glm::vec2) {
-  // overlays.push_back(std::make_unique<cubez::EmptyOverlay>(*renderer.get(), driver.get(), 500, 500, 100, 100, 1.0f));
-  // return overlays.back().get();
-  return nullptr;
+  overlays.push_back(std::make_unique<cubez::EmptyOverlay>(*renderer.get(), driver.get(), 500, 500, 100, 100, 1.0f));
+  return overlays.back().get();
 }
 
 void CloseWindow(Window window);

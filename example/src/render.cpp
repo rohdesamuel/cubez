@@ -180,7 +180,7 @@ void initialize_context(const Settings& settings) {
   glGetError();
 
   gui::Settings gui_settings;
-  gui_settings.asset_dir = "/assets";
+  gui_settings.asset_dir = "./resources";
   gui_settings.width = settings.width;
   gui_settings.height = settings.height;
   gui::Initialize(win, gui_settings);

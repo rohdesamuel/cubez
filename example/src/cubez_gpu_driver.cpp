@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream>
 
-#define SHADER_PATH "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Debug\\glsl\\"
+#define SHADER_PATH "shaders/"
 
 #ifdef _DEBUG
 #if _WIN32

@@ -11,8 +11,9 @@ EmptyOverlay::EmptyOverlay(ultralight::Ref<ultralight::Renderer> renderer, ultra
       <head>
         <title>Hello World</title>
       </head>
-      <body style="background-color:red">
-        <div style="background-color:blue;width:100px;height:100px;">
+      <body style="background-color:red;opacity:0.5">
+        <div style="background-color:blue;width:100px;height:100px;opacity:0.5;">
+        div
         </div>
         text
       </body>
