@@ -4,7 +4,10 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
+
+#define GLM_GTX_extented_min_max
 #include <glm/gtx/component_wise.hpp>
+#include <glm/gtx/extended_min_max.hpp>
 #include <GL/glew.h>
 #include <algorithm>
 #include <map>
@@ -354,8 +357,8 @@ Mesh MeshBuilder::BuildMesh() {
   Mesh mesh;
 
   std::set<glm::vec3, VectorCompare> verts;
-  glm::vec3 max;
-  glm::vec3 min;
+  glm::vec3 max(std::numeric_limits<float>::min());
+  glm::vec3 min(std::numeric_limits<float>::max());
 
   for (const glm::vec3& v: v_) {
     max.x = std::max(max.x, v.x);
