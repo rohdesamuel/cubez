@@ -9,7 +9,7 @@ namespace framework {
 class Overlay {
 public:
   Overlay(ultralight::Ref<ultralight::Renderer> renderer, ultralight::GPUDriver* driver,
-    int width, int height, int x, int y, float scale);
+    int width, int height, int x, int y, float scale, float alpha);
   virtual ~Overlay();
 
   ultralight::Ref<ultralight::View> view() { return view_; }
@@ -51,6 +51,7 @@ protected:
   bool needs_update_;
   uint32_t geometry_id_;
   ultralight::GPUState gpu_state_;
+  char alpha_;
 };
 
 }  // namespace framework

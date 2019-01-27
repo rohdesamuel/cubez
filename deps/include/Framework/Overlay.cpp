@@ -10,9 +10,9 @@ static ultralight::IndexType patternCCW[] = { 0, 3, 1, 1, 3, 2 };
 
 Overlay::Overlay(ultralight::Ref<ultralight::Renderer> renderer,
   ultralight::GPUDriver* driver,
-  int width, int height, int x, int y, float scale) :
-  view_(renderer->CreateView(width, height, false)), width_(width), height_(height),
-  x_(x), y_(y), needs_update_(true), driver_(driver) {
+  int width, int height, int x, int y, float scale, float alpha) :
+  view_(renderer->CreateView(width, height, alpha != 0.0f)), width_(width), height_(height),
+  x_(x), y_(y), needs_update_(true), driver_(driver), alpha_(alpha) {
 }
 
 Overlay::~Overlay() {
@@ -98,7 +98,7 @@ void Overlay::UpdateGeometry() {
   v.color[0] = 255;
   v.color[1] = 255;
   v.color[2] = 255;
-  v.color[3] = 255;
+  v.color[3] = (char)(alpha_ * 255);
 
   float left = static_cast<float>(x_);
   float top = static_cast<float>(y_);
