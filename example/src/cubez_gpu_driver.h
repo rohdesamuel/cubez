@@ -12,6 +12,7 @@ namespace cubez
 
 typedef ultralight::ShaderType ProgramType;
 
+// Not thread-safe.
 class CubezGpuDriver : public ultralight::GPUDriver {
 public:
   CubezGpuDriver(GLuint viewport_width, GLuint viewport_height, GLfloat scale);
