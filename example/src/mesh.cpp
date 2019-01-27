@@ -15,6 +15,13 @@
 #include <tuple>
 #include <array>
 #include <vector>
+#include <cubez/cubez.h>
+
+#ifdef _DEBUG
+#define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
+#else
+#define CHECK_GL()
+#endif   
 
 struct qbCollisionMesh_ {
   glm::vec3 max;
@@ -148,6 +155,7 @@ qbResult qb_mesh_destroy();
 
 qbResult qb_mesh_draw(qbMesh mesh, qbMaterial) {
   glBindVertexArray(mesh->vao);
+  CHECK_GL();
   size_t count = mesh->attributes->indices.size();
 
   GLenum render_mode = GL_TRIANGLES;
@@ -164,6 +172,7 @@ qbResult qb_mesh_draw(qbMesh mesh, qbMaterial) {
   }
 
   glDrawElements(render_mode, count, GL_UNSIGNED_INT, (void*)0);
+  CHECK_GL();
   glBindVertexArray(0);
   return QB_OK;
 }
@@ -237,11 +246,13 @@ qbResult qb_material_use(qbMaterial material) {
                 material->color.g,
                 material->color.b,
                 material->color.a);
+    CHECK_GL();
   } else {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, material->textures[0].texture->texture_id);
     glUniform1i(glGetUniformLocation(shaders.id(), "uTexture"), 0);
     glUniform1i(glGetUniformLocation(shaders.id(), "uColorMode"), 2);
+    CHECK_GL();
   }
   return QB_OK;
 }
