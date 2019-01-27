@@ -39,6 +39,9 @@
     <Image Include="..\..\..\example\ball.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="..\..\..\example\resources\transporter.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\src\render.cpp">
@@ -86,9 +89,6 @@
     <ClCompile Include="..\..\..\example\src\player.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\src\celestial_object.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\example\src\items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -97,6 +97,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\example\src\shader.cpp">
       <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\texture_overlay.cpp">
+      <Filter>Source Files\ultralight</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -166,5 +169,37 @@
     <ClInclude Include="..\..\..\example\src\planet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\example\src\texture_overlay.h">
+      <Filter>Header Files\ultralight</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\shaders\ps\fill.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mainmenu.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\game.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\planetary_grid.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh_fb.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh_fb.vs">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

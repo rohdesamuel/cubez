@@ -150,10 +150,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp" />
+    <Image Include="..\..\..\example\resources\transporter.png" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\src\ball.cpp" />
-    <ClCompile Include="..\..\..\example\src\celestial_object.cpp" />
     <ClCompile Include="..\..\..\example\src\collision_utils.cpp" />
     <ClCompile Include="..\..\..\example\src\cubez_gpu_driver.cpp" />
     <ClCompile Include="..\..\..\example\src\gjk.cpp" />
@@ -170,6 +170,7 @@
     <ClCompile Include="..\..\..\example\src\player.cpp" />
     <ClCompile Include="..\..\..\example\src\render.cpp" />
     <ClCompile Include="..\..\..\example\src\shader.cpp" />
+    <ClCompile Include="..\..\..\example\src\texture_overlay.cpp" />
     <ClCompile Include="..\..\..\example\src\ultralight_platform_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -192,9 +193,21 @@
     <ClInclude Include="..\..\..\example\src\render.h" />
     <ClInclude Include="..\..\..\example\src\shader.h" />
     <ClInclude Include="..\..\..\example\src\stb_image.h" />
+    <ClInclude Include="..\..\..\example\src\texture_overlay.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
     <ClInclude Include="..\..\..\include\cubez\timer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\example\resources\game.html" />
+    <None Include="..\..\..\example\resources\mainmenu.html" />
+    <None Include="..\..\..\example\resources\mesh.fs" />
+    <None Include="..\..\..\example\resources\mesh.vs" />
+    <None Include="..\..\..\example\resources\mesh_fb.fs" />
+    <None Include="..\..\..\example\resources\mesh_fb.vs" />
+    <None Include="..\..\..\example\resources\planetary_grid.html" />
+    <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
+    <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
