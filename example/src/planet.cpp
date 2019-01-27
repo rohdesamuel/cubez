@@ -1449,10 +1449,69 @@ void Initialize(const Settings& settings) {
 
     qb_systemattr_destroy(&attr);
   }
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+
+    qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+      input::MouseEvent* event = (input::MouseEvent*)frame->event;
+
+      if (event->event_type != input::QB_MOUSE_EVENT_BUTTON) {
+        return;
+      }
+
+      if (event->button_event.state != input::QB_MOUSE_DOWN) {
+        return;
+      }
+
+      qbEntity selected = player::SelectedEntity();
+      if (!qb_entity_hascomponent(selected, planetary_grid_component)) {
+        return;
+      }
+
+      PlanetaryGrid** pGrid;
+      qb_instance_find(planetary_grid_component, selected, &pGrid);
+
+      PlanetaryGrid* grid = *pGrid;
+
+      glm::vec2 pos = { 128 + 64, 128 };
+      glm::vec2 size = -pos + glm::vec2{ render::window_width(), render::window_height() } - glm::vec2{ 64, 64 };
+
+      gui::JSCallbackMap callbacks;
+    
+      callbacks["GetGridSize"] = [grid](const framework::JSObject&, const framework::JSArgs&) {
+        return framework::JSValue(grid->Size());
+      };
+      callbacks["GetGridType"] = [grid](const framework::JSObject&, const framework::JSArgs& args) -> framework::JSValue {
+        auto x = args[0].ToInteger();
+        auto y = args[1].ToInteger();
+        PlanetaryGrid::Cell* cell = grid->At({ x, y });
+        switch (cell->tile.resource.type) {
+          case ResourceType::ORE:
+            return "ORE";
+          case ResourceType::MINERAL:
+            return "MNL";
+          case ResourceType::GAS:
+            return "GAS";
+          default:
+            return "";
+        }
+        return "NONE";
+      };
+      gui::FromFile("file:///planetary_grid.html", pos, size, callbacks);
+    });
+    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
+
+    qbSystem system;
+    qb_system_create(&system, attr);
+    input::on_mouse_event(system);
+
+    qb_systemattr_destroy(&attr);
+  }
 
   qbEntity sun;
   {
-    size_t planet_size = 32;
+    size_t planet_size = 50;
     PlanetaryGrid::Builder builder(planet_size);
     for (uint8_t x = 0; x < planet_size; ++x) {
       for (uint8_t y = 0; y < planet_size; ++y) {
