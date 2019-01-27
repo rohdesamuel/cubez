@@ -63,6 +63,7 @@ typedef struct qbEvent_* qbEvent;
 typedef struct qbStream_* qbStream;
 typedef struct qbBarrier_* qbBarrier;
 typedef struct qbBarrierOrder_* qbBarrierOrder;
+typedef struct qbScene_* qbScene;
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
@@ -385,6 +386,28 @@ DLLEXPORT qbResult      qb_event_send(qbEvent event,
 // systems.
 DLLEXPORT qbResult      qb_event_sendsync(qbEvent event,
                                           void* message);
+
+///////////////////////////////////////////////////////////
+/////////////////////////  Scenes  ////////////////////////
+///////////////////////////////////////////////////////////
+
+DLLEXPORT qbResult      qb_scene_create(qbScene* scene);
+
+DLLEXPORT qbResult      qb_scene_load(qbScene* scene,
+                                      const char* file);
+
+DLLEXPORT qbResult      qb_scene_destroy(qbScene* scene);
+
+DLLEXPORT qbResult      qb_scene_ondestroy(qbScene scene,
+                                           void(*fn)(qbScene scene));
+
+DLLEXPORT qbResult      qb_scene_enable(qbScene scene);
+
+DLLEXPORT qbResult      qb_scene_disable(qbScene scene);
+
+DLLEXPORT qbResult      qb_scene_push(qbScene scene);
+
+DLLEXPORT qbResult      qb_scene_pop();
 
 END_EXTERN_C
 
