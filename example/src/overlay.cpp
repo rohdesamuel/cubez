@@ -39,7 +39,7 @@ std::unique_ptr<Overlay> Overlay::FromFile(
 Overlay::Overlay(const gui::Context& context, Properties&& properties, gui::JSCallbackMap callbacks) :
   framework::Overlay(*context.renderer, context.driver.get(),
                      properties.size.x, properties.size.y,
-                     properties.pos.x, properties.pos.y, properties.scale),
+                     properties.pos.x, properties.pos.y, properties.scale, true),
   callbacks_(callbacks) {
 }
 
