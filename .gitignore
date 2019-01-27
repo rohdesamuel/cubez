@@ -29,3 +29,6 @@
 
 # IDE files
 *.swp
+*.iobj
+*.ipdb
+*.dat
