@@ -197,6 +197,20 @@ void initialize_universe(qbUniverse* uni) {
     player::initialize(settings);
     check_for_gl_errors();
   }
+
+  /*
+  
+  qbScene main_menu_scene;
+
+  qb_scene_create(&main_menu_scene);
+  qb_scene_push(main_menu_scene);
+
+  
+
+  qb_scene_pop();
+
+  */
+
   auto new_game = [mesh_shader](const framework::JSObject&, const framework::JSArgs&) {
     planet::Settings settings;
     settings.shader = mesh_shader;
@@ -205,26 +219,20 @@ void initialize_universe(qbUniverse* uni) {
 
     return framework::JSValue();
   };
-
   {
-    glm::vec2 menu_size(200, 500);
-    glm::vec2 menu_pos(
-      (render::window_width() / 2) - (menu_size.x / 2),
-      (render::window_height() / 2) - (menu_size.y / 2)
-     );
+    planet::Settings settings;
+    settings.shader = mesh_shader;
+    settings.resource_folder = "resources/";
+    planet::Initialize(settings);
+  }
+  {
+    glm::vec2 menu_size(render::window_width(), render::window_height());
+    glm::vec2 menu_pos(0, 0);
 
     gui::JSCallbackMap callbacks;
     callbacks["NewGame"] = new_game;
 
-    gui::FromHtml(R"(
-<html>
-<body style='all:initial'>
-<div style='width:100%;background-color:grey;text-align:center;vertical-align: middle;' onclick='NewGame()'> New Game </div>
-<div style='width:100%;'> Load Game </div>
-<div style='width:100%;'> Exit </div>
-</body>
-</html>
-    )", menu_pos, menu_size, callbacks);
+    //gui::FromFile("file:///game.html", menu_pos, menu_size, callbacks);
   }
 
 #endif
@@ -246,6 +254,8 @@ int main(int, char* []) {
   double current_time = Timer::now() * 0.000000001;
   double start_time = Timer::now();
   double accumulator = 0.0;
+  gui::qbRenderTarget target;
+  gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 });
 
   qb_loop();
   while (1) {
