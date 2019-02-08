@@ -67,12 +67,18 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #endif  // ifdef __cplusplus
 
 #ifdef __COMPILE_AS_WINDOWS__
-#define DLLEXPORT __declspec(dllexport)
+#ifdef __BUILDING_DLL__
+#define API __declspec(dllexport)
+#else 
+#define API __declspec(dllimport)
+#endif  // _EXPORT_BUILD
 #define STRCPY strcpy_s
 #define STRDUP _strdup
 #define SSCANF sscanf_s
 #define ALIGNED_ALLOC _aligned_malloc
 #define ALIGNED_FREE _aligned_free
+#define ENABLE_OPTIMIZATIONS _Pragma(optimize( "", on ))
+#define DISABLE_OPTIMIZATIONS _Pragma(optimize( "", off ))
 #else
 #define DLLEXPORT
 #define STRCPY strcpy

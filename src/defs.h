@@ -4,12 +4,17 @@
 #include "cubez/cubez.h"
 #include "component.h"
 #include "sparse_map.h"
+#include "coro.h"
 
 #include <vector>
 #include <functional>
 
 typedef void(*qbInstanceOnCreate)(qbInstance instance);
 typedef void(*qbInstanceOnDestroy)(qbInstance instancea);
+
+struct qbCoro_ {
+  Coro main;
+};
 
 struct qbInstanceOnCreateEvent_ {
   qbId entity;

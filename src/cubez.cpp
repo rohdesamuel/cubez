@@ -7,11 +7,15 @@
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
+const qbVar qbNone = { QB_TAG_VOID, 0 };
 static qbUniverse* universe_ = nullptr;
+Coro main;
 
 qbResult qb_init(qbUniverse* u) {
   universe_ = u;
   universe_->self = new PrivateUniverse();
+
+  main = coro_init();
 
   return AS_PRIVATE(init());
 }
@@ -330,4 +334,58 @@ bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
 
 qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
   return AS_PRIVATE(instance_find(component, entity, pbuffer));
+}
+
+qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
+  qbCoro ret = new qbCoro_();
+  ret->main = coro_new(entry);
+  return ret;
+}
+
+qbResult qb_coro_destroy(qbCoro* coro) {
+  delete *coro;
+  return QB_OK;
+}
+
+qbVar qb_coro_run(qbCoro coro, qbVar var) {
+  return coro_call(coro->main, var);
+}
+
+qbVar qb_coro_yield(qbVar var) {
+  return coro_yield(var);
+}
+
+qbVar qbVoid(void* p) {
+  qbVar v;
+  v.tag = QB_TAG_VOID;
+  v.p = p;
+  return v;
+}
+
+qbVar qbUint(uint64_t u) {
+  qbVar v;
+  v.tag = QB_TAG_UINT;
+  v.u = u;
+  return v;
+}
+
+qbVar qbInt(int64_t i) {
+  qbVar v;
+  v.tag = QB_TAG_INT;
+  v.i = i;
+  return v;
+}
+
+qbVar qbDouble(double d) {
+  qbVar v;
+  v.tag = QB_TAG_DOUBLE;
+  v.d = d;
+  return v;
+}
+
+qbVar qbChar(char c) {
+  qbVar v;
+  v.tag = QB_TAG_CHAR;
+  v.c = c;
+  return v;
 }

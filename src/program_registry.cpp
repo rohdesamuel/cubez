@@ -43,6 +43,7 @@ qbProgram* ProgramRegistry::GetProgram(qbId id) {
 
 void ProgramRegistry::Run(GameState* state) {
   std::vector<std::future<void>> programs(programs_.size());
+
   for (auto program : programs_) {
     ProgramImpl::FromRaw(program.second)->Ready();
   }

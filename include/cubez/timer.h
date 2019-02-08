@@ -14,7 +14,7 @@
 #include <time.h>
 #endif
 
-class DLLEXPORT Timer {
+class API Timer {
 public:
   Timer();
 
@@ -50,7 +50,7 @@ private:
 
 };
 
-class DLLEXPORT WindowTimer {
+class API WindowTimer {
 public:
   WindowTimer(uint8_t window_size = 0);
   ~WindowTimer();

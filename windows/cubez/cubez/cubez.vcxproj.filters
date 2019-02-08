@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\coro">
+      <UniqueIdentifier>{49a56e2e-dcba-41d3-a105-484b7bc64b3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\coro">
+      <UniqueIdentifier>{91e70ab1-1f8e-433c-bc1a-521dd30ed7cf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -108,6 +114,15 @@
     <ClInclude Include="..\..\..\include\cubez\xdr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\coro.h">
+      <Filter>Header Files\coro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\ctxt.h">
+      <Filter>Header Files\coro</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tls.h">
+      <Filter>Header Files\coro</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -163,6 +178,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\barrier.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\coro.cpp">
+      <Filter>Source Files\coro</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
