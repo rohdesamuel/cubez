@@ -4,6 +4,7 @@
 #include "byte_vector.h"
 #include "component.h"
 #include "system_impl.h"
+#include "utils_internal.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -12,10 +13,12 @@ static qbUniverse* universe_ = nullptr;
 Coro main;
 
 qbResult qb_init(qbUniverse* u) {
+  utils_initialize();
+
   universe_ = u;
   universe_->self = new PrivateUniverse();
 
-  main = coro_init();
+  main = coro_init();  
 
   return AS_PRIVATE(init());
 }
@@ -342,8 +345,15 @@ qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   return ret;
 }
 
+qbCoro qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size) {
+  qbCoro ret = new qbCoro_();
+  ret->main = coro_new_unsafe(entry, (uintptr_t)stack, stack_size);
+  return ret;
+}
+
 qbResult qb_coro_destroy(qbCoro* coro) {
   delete *coro;
+  *coro = nullptr;
   return QB_OK;
 }
 
