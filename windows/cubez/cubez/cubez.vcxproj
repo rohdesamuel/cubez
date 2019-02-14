@@ -70,15 +70,23 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -87,7 +95,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnablePREfast>false</EnablePREfast>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -96,7 +110,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnablePREfast>false</EnablePREfast>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -105,14 +126,17 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -122,53 +146,74 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnablePREfast>false</EnablePREfast>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\inc\common.h" />
-    <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\pool.h" />
-    <ClInclude Include="..\..\..\inc\timer.h" />
+    <ClInclude Include="..\..\..\include\cubez\common.h" />
+    <ClInclude Include="..\..\..\include\cubez\cubez.h" />
+    <ClInclude Include="..\..\..\include\cubez\socket.h" />
+    <ClInclude Include="..\..\..\include\cubez\timer.h" />
+    <ClInclude Include="..\..\..\include\cubez\xdr.h" />
+    <ClInclude Include="..\..\..\src\apex_memmove.h" />
+    <ClInclude Include="..\..\..\src\barrier.h" />
     <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />
+    <ClInclude Include="..\..\..\src\block_vector.h" />
+    <ClInclude Include="..\..\..\src\buddy_system_allocator.h" />
+    <ClInclude Include="..\..\..\src\byte_queue.h" />
     <ClInclude Include="..\..\..\src\byte_vector.h" />
-    <ClInclude Include="..\..\..\src\channel.h" />
-    <ClInclude Include="..\..\..\src\collection_registry.h" />
     <ClInclude Include="..\..\..\src\component.h" />
     <ClInclude Include="..\..\..\src\component_registry.h" />
     <ClInclude Include="..\..\..\src\concurrentqueue.h" />
+    <ClInclude Include="..\..\..\src\coro.h" />
+    <ClInclude Include="..\..\..\src\ctxt.h" />
     <ClInclude Include="..\..\..\src\defs.h" />
     <ClInclude Include="..\..\..\src\entity_registry.h" />
+    <ClInclude Include="..\..\..\src\event.h" />
     <ClInclude Include="..\..\..\src\event_registry.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_hash.h" />
-    <ClInclude Include="..\..\..\src\hopscotch_map.h" />
+    <ClInclude Include="..\..\..\src\fast_math.h" />
+    <ClInclude Include="..\..\..\src\frame_buffer.h" />
+    <ClInclude Include="..\..\..\src\game_state.h" />
+    <ClInclude Include="..\..\..\src\sparse_map.h" />
+    <ClInclude Include="..\..\..\src\sparse_set.h" />
     <ClInclude Include="..\..\..\src\memory_pool.h" />
     <ClInclude Include="..\..\..\src\private_universe.h" />
     <ClInclude Include="..\..\..\src\program_impl.h" />
     <ClInclude Include="..\..\..\src\program_registry.h" />
     <ClInclude Include="..\..\..\src\program_thread.h" />
-    <ClInclude Include="..\..\..\src\stack_memory.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />
+    <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\channel.cpp" />
-    <ClCompile Include="..\..\..\src\collection_registry.cpp" />
+    <ClCompile Include="..\..\..\src\apex_memmove.cpp" />
+    <ClCompile Include="..\..\..\src\barrier.cpp" />
+    <ClCompile Include="..\..\..\src\component.cpp" />
     <ClCompile Include="..\..\..\src\component_registry.cpp" />
+    <ClCompile Include="..\..\..\src\coro.cpp" />
     <ClCompile Include="..\..\..\src\cubez.cpp" />
     <ClCompile Include="..\..\..\src\entity_registry.cpp" />
+    <ClCompile Include="..\..\..\src\event.cpp" />
     <ClCompile Include="..\..\..\src\event_registry.cpp" />
+    <ClCompile Include="..\..\..\src\fast_math.cpp" />
+    <ClCompile Include="..\..\..\src\game_state.cpp" />
+    <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
+    <ClCompile Include="..\..\..\src\snapshot.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\timer.cpp" />
   </ItemGroup>

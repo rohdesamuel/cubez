@@ -9,10 +9,21 @@ ProgramImpl* ProgramImpl::FromRaw(qbProgram* program) {
   return (ProgramImpl*)program->self;
 }
 
+qbId ProgramImpl::Id() const {
+  return program_->id;
+}
+
+const char* ProgramImpl::Name() {
+  return program_->name;
+}
+
 qbSystem ProgramImpl::CreateSystem(const qbSystemAttr_& attr) {
+  for (qbComponent component : attr.mutables) {
+    mutables_.insert(component);
+  }
+
   qbSystem system = AllocSystem(systems_.size(), attr);
   systems_.push_back(system);
-
   EnableSystem(system);
   return system;
 }
@@ -54,8 +65,8 @@ qbResult ProgramImpl::CreateEvent(qbEvent* event, qbEventAttr attr) {
   return events_.CreateEvent(event, attr);
 }
 
-void ProgramImpl::FlushAllEvents() {
-  events_.FlushAll();
+void ProgramImpl::FlushAllEvents(GameState* state) {
+  events_.FlushAll(state);
 }
 
 void ProgramImpl::SubscribeTo(qbEvent event, qbSystem system) {
@@ -66,11 +77,19 @@ void ProgramImpl::UnsubscribeFrom(qbEvent event, qbSystem system) {
   events_.Unsubscribe(event, system);
 }
 
-void ProgramImpl::Run() {
-  events_.FlushAll();
+void ProgramImpl::Ready() {
+  // Give copy of components.
+}
+
+void ProgramImpl::Run(GameState* state) {
+  events_.FlushAll(state);
   for(qbSystem p : loop_systems_) {
-    SystemImpl::FromRaw(p)->Run();
+    SystemImpl::FromRaw(p)->Run(state);
   }
+}
+
+void ProgramImpl::Done() {
+  // Merge changes back into the base components.
 }
 
 qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {
@@ -82,7 +101,8 @@ qbSystem ProgramImpl::AllocSystem(qbId id, const qbSystemAttr_& attr) {
   p->user_state = attr.state;
 
   SystemImpl* impl = SystemImpl::FromRaw(p);
-  new (impl) SystemImpl(attr, p);
+
+  new (impl) SystemImpl(attr, p, attr.components);
 
   return p;
 }

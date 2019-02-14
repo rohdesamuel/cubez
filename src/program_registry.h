@@ -16,22 +16,21 @@ class ProgramRegistry {
 
   qbId CreateProgram(const char* program);
 
-  qbResult DetatchProgram(qbId program);
+  qbResult DetatchProgram(qbId program, const std::function<GameState*()>& game_state_fn);
 
   qbResult JoinProgram(qbId program);
 
-  qbProgram* GetProgram(const char* program);
-
   qbProgram* GetProgram(qbId id);
 
-  void Run();
+  void Run(GameState* state);
 
-  qbResult RunProgram(qbId program);
+  qbResult RunProgram(qbId program, GameState* state);
 
  private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
-  std::map<size_t, qbProgram*> programs_;
+  std::atomic_long id_;
+  SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
   ThreadPool program_threads_;
 };

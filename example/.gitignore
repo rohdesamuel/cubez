@@ -1,0 +1,7 @@
+obj/
+lib/
+example
+*.pdb
+*.ilk
+*.lib
+*.exp

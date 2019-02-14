@@ -13,80 +13,193 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\modules">
+      <UniqueIdentifier>{a594410a-6573-485e-be0d-7c7ab1f641d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\cubez">
+      <UniqueIdentifier>{1b57566b-e36f-42d2-8dc9-70bd35680451}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\utils">
+      <UniqueIdentifier>{6ec1b21c-472f-45eb-8bb8-428f647aa5ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\modules">
+      <UniqueIdentifier>{d812ce4b-2933-4419-8631-91227cdb52ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\utils">
+      <UniqueIdentifier>{33ae528f-08f5-4e76-8afc-d85ad8dfb207}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ultralight">
+      <UniqueIdentifier>{d31358ff-fa4b-4473-929b-e1fc37284ccb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ultralight">
+      <UniqueIdentifier>{6a187774-bfdc-460b-a91b-25bd3477fe72}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="..\..\..\example\resources\transporter.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\example\ball.cpp">
+    <ClCompile Include="..\..\..\example\src\render.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\gui.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\input.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\log.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\mesh.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\physics.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\overlay.cpp">
+      <Filter>Source Files\ultralight</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\ultralight_platform_impl.cpp">
+      <Filter>Source Files\ultralight</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\cubez_gpu_driver.cpp">
+      <Filter>Source Files\ultralight</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\mesh_builder.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\collision_utils.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\gjk.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\input.cpp">
+    <ClCompile Include="..\..\..\example\src\planet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\log.cpp">
+    <ClCompile Include="..\..\..\example\src\player.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\main.cpp">
+    <ClCompile Include="..\..\..\example\src\items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\physics.cpp">
+    <ClCompile Include="..\..\..\example\src\ball.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\player.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\..\..\example\src\shader.cpp">
+      <Filter>Source Files\modules</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\render.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\example\mesh.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="..\..\..\example\src\texture_overlay.cpp">
+      <Filter>Source Files\ultralight</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\inc\table.h">
+    <ClInclude Include="..\..\..\include\cubez\common.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\cubez.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\timer.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\shader.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\gui.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\input.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\log.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\mesh.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\physics.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\render.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\cubez_gpu_driver.h">
+      <Filter>Header Files\ultralight</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\overlay.h">
+      <Filter>Header Files\ultralight</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\mesh_builder.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\stb_image.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\collision_utils.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\gjk.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\player.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\shader.h">
+    <ClInclude Include="..\..\..\example\src\ball.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\render.h">
+    <ClInclude Include="..\..\..\example\src\building_grid.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\player.h">
+    <ClInclude Include="..\..\..\example\src\celestial_object.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\physics.h">
+    <ClInclude Include="..\..\..\example\src\items.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\log.h">
+    <ClInclude Include="..\..\..\example\src\planet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\input.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="..\..\..\example\src\texture_overlay.h">
+      <Filter>Header Files\ultralight</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\example\constants.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\example\ball.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\cubez.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\pool.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\inc\timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\example\mesh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\shaders\ps\fill.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mainmenu.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\game.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\planetary_grid.html">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh_fb.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\mesh_fb.vs">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

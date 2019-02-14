@@ -9,11 +9,11 @@ ProgramThread::~ProgramThread() {
   Release();
 }
 
-void ProgramThread::Run() {
+void ProgramThread::Run(const std::function<GameState*()>& game_state_fn) {
   is_running_ = true;
-  thread_.reset(new std::thread([this]() {
+  thread_.reset(new std::thread([this, game_state_fn]() {
     while(is_running_) {
-      ProgramImpl::FromRaw(program_)->Run();
+      ProgramImpl::FromRaw(program_)->Run(game_state_fn());
     }
   }));
 }
@@ -26,4 +26,3 @@ qbProgram* ProgramThread::Release() {
   }
   return program_;
 }
-

@@ -1,7 +1,6 @@
 #include <algorithm>
 
-#include "timer.h"
-
+#include <cubez/timer.h>
 double NS_TO_SEC = 1e9;
 
 #ifdef __COMPILE_AS_LINUX__

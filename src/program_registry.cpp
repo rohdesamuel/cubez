@@ -1,36 +1,30 @@
 #include "program_registry.h"
+#include "private_universe.h"
 
 #include <cstring>
 
 ProgramRegistry::ProgramRegistry() :
     program_threads_(std::thread::hardware_concurrency()) {
-  // Create the default program.
-  CreateProgram("");
+  id_ = 0;
 }
 
 qbId ProgramRegistry::CreateProgram(const char* program) {
-  std::hash<std::string> hasher;
-  qbId id = hasher(program);
-
-  DEBUG_OP(
-    auto it = programs_.find(id);
-    if (it != programs_.end()) {
-      return -1;
-    }
-  );
+  qbId id = id_++;
 
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
   return id;
 }
 
-qbResult ProgramRegistry::DetatchProgram(qbId program) {
-  qbProgram* to_detach = GetProgram(program);
-  std::unique_ptr<ProgramThread> program_thread(
+qbResult ProgramRegistry::DetatchProgram(qbId program, const std::function<GameState*()>& game_state_fn) {
+  if (programs_.has(program)) {
+    qbProgram* to_detach = GetProgram(program);
+    std::unique_ptr<ProgramThread> program_thread(
       new ProgramThread(to_detach));
-  program_thread->Run();
-  detached_[program] = std::move(program_thread);
-  programs_.erase(programs_.find(program));
+    program_thread->Run(game_state_fn);
+    detached_[program] = std::move(program_thread);
+    programs_.erase(program);
+  }
   return QB_OK;
 }
 
@@ -40,36 +34,43 @@ qbResult ProgramRegistry::JoinProgram(qbId program) {
   return QB_OK;
 }
 
-qbProgram* ProgramRegistry::GetProgram(const char* program) {
-  std::hash<std::string> hasher;
-  qbId id = hasher(std::string(program));
-  if (id == -1) {
+qbProgram* ProgramRegistry::GetProgram(qbId id) {
+  if (!programs_.has(id)) {
     return nullptr;
   }
   return programs_[id];
 }
 
-qbProgram* ProgramRegistry::GetProgram(qbId id) {
-  return programs_[id];
-}
+void ProgramRegistry::Run(GameState* state) {
+  std::vector<std::future<void>> programs(programs_.size());
 
-void ProgramRegistry::Run() {
-  std::vector<std::future<void>> programs;
-  programs.reserve(programs_.size());
-  for (auto& program : programs_) {
-    ProgramImpl* p = (ProgramImpl*)program.second->self;
+  for (auto program : programs_) {
+    ProgramImpl::FromRaw(program.second)->Ready();
+  }
+
+  for (auto program : programs_) {
+    ProgramImpl* p = ProgramImpl::FromRaw(program.second);
     programs.push_back(program_threads_.enqueue(
-          [p]() { p->Run(); }));
+      [p, state]() {
+        PrivateUniverse::program_id = p->Id();
+        p->Run(state);
+      }));
   }
 
   for (auto& p : programs) {
-    p.wait();
+    if (p.valid()) {
+      p.wait();
+    }
+  }
+
+  for (auto program : programs_) {
+    ProgramImpl::FromRaw(program.second)->Done();
   }
 }
 
-qbResult ProgramRegistry::RunProgram(qbId program) {
+qbResult ProgramRegistry::RunProgram(qbId program, GameState* state) {
   ProgramImpl* p = (ProgramImpl*)programs_[program]->self;
-  p->Run();
+  p->Run(state);
   return QB_OK;
 }
 
@@ -77,7 +78,7 @@ qbProgram* ProgramRegistry::AllocProgram(qbId id, const char* name) {
   qbProgram* p = (qbProgram*)calloc(1, sizeof(qbProgram));
   *(qbId*)(&p->id) = id;
   *(char**)(&p->name) = STRDUP(name);
-  p->self = new ProgramImpl{p};
+  p->self = new ProgramImpl(p);
 
   return p;
 }

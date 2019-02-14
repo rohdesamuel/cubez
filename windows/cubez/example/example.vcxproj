@@ -69,26 +69,32 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>C:\GLEW\include;C:\GLM\include;C:\SDL2\include;C:\Users\Sam\Source\Repos\cubez;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>C:\GLEW\include;C:\GLM\include;C:\SDL2\include;C:\Users\Sam\Source\Repos\cubez;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\GLEW\include;C:\GLM\include;C:\SDL2\include;C:\Users\Sam\Source\Repos\cubez;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\GLEW\include;C:\GLM\include;C:\SDL2\include;C:\Users\Sam\Source\Repos\cubez;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -97,73 +103,111 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\GLEW\lib;C:\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp" />
+    <Image Include="..\..\..\example\resources\transporter.png" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\example\ball.cpp" />
-    <ClCompile Include="..\..\..\example\input.cpp" />
-    <ClCompile Include="..\..\..\example\log.cpp" />
-    <ClCompile Include="..\..\..\example\main.cpp" />
-    <ClCompile Include="..\..\..\example\mesh.cpp" />
-    <ClCompile Include="..\..\..\example\physics.cpp" />
-    <ClCompile Include="..\..\..\example\player.cpp" />
-    <ClCompile Include="..\..\..\example\render.cpp" />
+    <ClCompile Include="..\..\..\example\src\ball.cpp" />
+    <ClCompile Include="..\..\..\example\src\collision_utils.cpp" />
+    <ClCompile Include="..\..\..\example\src\cubez_gpu_driver.cpp" />
+    <ClCompile Include="..\..\..\example\src\gjk.cpp" />
+    <ClCompile Include="..\..\..\example\src\gui.cpp" />
+    <ClCompile Include="..\..\..\example\src\input.cpp" />
+    <ClCompile Include="..\..\..\example\src\items.cpp" />
+    <ClCompile Include="..\..\..\example\src\log.cpp" />
+    <ClCompile Include="..\..\..\example\src\main.cpp" />
+    <ClCompile Include="..\..\..\example\src\mesh.cpp" />
+    <ClCompile Include="..\..\..\example\src\mesh_builder.cpp" />
+    <ClCompile Include="..\..\..\example\src\overlay.cpp" />
+    <ClCompile Include="..\..\..\example\src\physics.cpp" />
+    <ClCompile Include="..\..\..\example\src\planet.cpp" />
+    <ClCompile Include="..\..\..\example\src\player.cpp" />
+    <ClCompile Include="..\..\..\example\src\render.cpp" />
+    <ClCompile Include="..\..\..\example\src\shader.cpp" />
+    <ClCompile Include="..\..\..\example\src\texture_overlay.cpp" />
+    <ClCompile Include="..\..\..\example\src\ultralight_platform_impl.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\example\ball.h" />
-    <ClInclude Include="..\..\..\example\constants.h" />
-    <ClInclude Include="..\..\..\example\input.h" />
-    <ClInclude Include="..\..\..\example\log.h" />
-    <ClInclude Include="..\..\..\example\mesh.h" />
-    <ClInclude Include="..\..\..\example\physics.h" />
-    <ClInclude Include="..\..\..\example\player.h" />
-    <ClInclude Include="..\..\..\example\render.h" />
-    <ClInclude Include="..\..\..\example\shader.h" />
-    <ClInclude Include="..\..\..\inc\common.h" />
-    <ClInclude Include="..\..\..\inc\cubez.h" />
-    <ClInclude Include="..\..\..\inc\pool.h" />
-    <ClInclude Include="..\..\..\inc\table.h" />
-    <ClInclude Include="..\..\..\inc\timer.h" />
+    <ClInclude Include="..\..\..\example\src\ball.h" />
+    <ClInclude Include="..\..\..\example\src\building_grid.h" />
+    <ClInclude Include="..\..\..\example\src\celestial_object.h" />
+    <ClInclude Include="..\..\..\example\src\collision_utils.h" />
+    <ClInclude Include="..\..\..\example\src\cubez_gpu_driver.h" />
+    <ClInclude Include="..\..\..\example\src\gjk.h" />
+    <ClInclude Include="..\..\..\example\src\gui.h" />
+    <ClInclude Include="..\..\..\example\src\input.h" />
+    <ClInclude Include="..\..\..\example\src\items.h" />
+    <ClInclude Include="..\..\..\example\src\log.h" />
+    <ClInclude Include="..\..\..\example\src\mesh.h" />
+    <ClInclude Include="..\..\..\example\src\mesh_builder.h" />
+    <ClInclude Include="..\..\..\example\src\overlay.h" />
+    <ClInclude Include="..\..\..\example\src\physics.h" />
+    <ClInclude Include="..\..\..\example\src\planet.h" />
+    <ClInclude Include="..\..\..\example\src\player.h" />
+    <ClInclude Include="..\..\..\example\src\render.h" />
+    <ClInclude Include="..\..\..\example\src\shader.h" />
+    <ClInclude Include="..\..\..\example\src\stb_image.h" />
+    <ClInclude Include="..\..\..\example\src\texture_overlay.h" />
+    <ClInclude Include="..\..\..\include\cubez\common.h" />
+    <ClInclude Include="..\..\..\include\cubez\cubez.h" />
+    <ClInclude Include="..\..\..\include\cubez\timer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\example\resources\game.html" />
+    <None Include="..\..\..\example\resources\mainmenu.html" />
+    <None Include="..\..\..\example\resources\mesh.fs" />
+    <None Include="..\..\..\example\resources\mesh.vs" />
+    <None Include="..\..\..\example\resources\mesh_fb.fs" />
+    <None Include="..\..\..\example\resources\mesh_fb.vs" />
+    <None Include="..\..\..\example\resources\planetary_grid.html" />
+    <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
+    <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

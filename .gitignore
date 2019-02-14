@@ -11,10 +11,7 @@
 *.pch
 
 # Compiled Dynamic libraries
-*.so
-*.so.*
 *.dylib
-*.dll
 
 # Fortran module files
 *.mod
@@ -24,7 +21,6 @@
 *.lai
 *.la
 *.a
-*.lib
 
 # Executables
 *.exe
@@ -33,3 +29,6 @@
 
 # IDE files
 *.swp
+*.iobj
+*.ipdb
+*.dat

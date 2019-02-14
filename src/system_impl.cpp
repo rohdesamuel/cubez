@@ -1,35 +1,29 @@
 #include "system_impl.h"
 
-SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system) :
-  system_(system), join_(attr.join), user_state_(attr.state),
+SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<qbComponent> components) :
+  system_(system), 
+  components_(components), join_(attr.join),
+  user_state_(attr.state),
+  tickets_(attr.tickets),
   transform_(attr.transform),
-  callback_(attr.callback) {
-  for(auto* component : attr.sinks) {
-    sinks_.push_back(component->impl);
-    sink_interfaces_.push_back(component->impl->interface);
-  }
-  for(auto* component : attr.sources) {
-    sources_.push_back(component->impl);
-    source_interfaces_.push_back(component->impl->interface);
-  }
+  callback_(attr.callback),
+  condition_(attr.condition) {
 
-  for(auto* source : sources_) {
-    qbElement_ element;
-    element.read_buffer = nullptr;
-    element.user_buffer = nullptr;
-    element.size = source->values.size;
-    element.indexed_by = qbIndexedBy::QB_INDEXEDBY_KEY;
-
-    elements_.push_back(element);
-  }
-
-  for (size_t i = 0; i < sources_.size(); ++i) {
-    auto source = sources_[i];
-    auto found = std::find(sinks_.begin(), sinks_.end(), source);
-    if (found != sinks_.end()) {
-      elements_[i].interface = (*found)->interface;
+  for(auto component : components_) {
+    qbInstance_ instance;
+    instance.data = nullptr;
+    instance.system = system_;
+    if (std::find(attr.constants.begin(), attr.constants.end(), component) != attr.constants.end()) {
+      *(bool*)&instance.is_mutable = false;
+    } else {
+      *(bool*)&instance.is_mutable = true;
     }
-    elements_data_.push_back(&elements_[i]);
+
+    instances_.push_back(instance);
+  }
+
+  for (auto& element : instances_) {
+    instance_data_.push_back(&element);
   }
 }
 
@@ -37,91 +31,90 @@ SystemImpl* SystemImpl::FromRaw(qbSystem system) {
   return (SystemImpl*)(((char*)system) + sizeof(qbSystem_));
 }
 
-void SystemImpl::Run(void* event) {
-  size_t source_size = sources_.size();
-  size_t sink_size = sinks_.size();
+void SystemImpl::Run(GameState* game_state, void* event) {
+  size_t source_size = components_.size();
   qbFrame frame;
+  frame.system = system_;
   frame.event = event;
   frame.state = system_->user_state;
 
+  if (condition_ && !condition_(&frame)) {
+    return;
+  }
+
   if (transform_) {
-    if (source_size == 0 && sink_size == 0) {
-      Run_0_To_0(&frame);
-    } else if (source_size == 1 && sink_size == 0) {
-      Run_1_To_0(&frame);
-    } else if (source_size == 1 && sink_size > 0) {
-      Run_1_To_N(&frame);
-    } else if (source_size == 0 && sink_size > 0) {
-      Run_0_To_N(&frame);
+    for (auto& t: tickets_) {
+      t->lock();
+    }
+    if (source_size == 0) {
+      Run_0(&frame);
+    } else if (source_size == 1) {
+      Component* c = game_state->ComponentGet(components_[0]);
+      c->Lock(instances_[0].is_mutable);
+      Run_1(c, &frame, game_state);
+      c->Unlock(instances_[0].is_mutable);
     } else if (source_size > 1) {
-      Run_M_To_N(&frame);
+      thread_local static std::vector<Component*> components;
+      components.resize(0);
+      size_t index = 0;
+      for (auto component : components_) {
+        Component* c = game_state->ComponentGet(component);
+        c->Lock(instances_[index].is_mutable);
+        components.push_back(c);
+        c->Unlock(instances_[index].is_mutable);
+        ++index;
+      }
+      Run_N(components, &frame, game_state);
+    }
+    for (auto& t : tickets_) {
+      t->unlock();
     }
   }
 
   if (callback_) {
-    callback_(sink_interfaces_.data(), &frame);
+    callback_(&frame);
   }
 }
 
-void SystemImpl::CopyToElement(void* k, void* v, qbOffset offset,
-                               qbElement element) {
-  element->id = *(qbId*)k;
-  element->read_buffer = v;
-  element->offset = offset;
-  element->indexed_by = qbIndexedBy::QB_INDEXEDBY_OFFSET;
+qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component, GameState* state) {
+  qbInstance_ instance;
+  instance.system = system_;
+  CopyToInstance(component, entity, &instance, state);
+  return instance;
 }
 
-void SystemImpl::CopyToElement(void* k, void* v, qbElement element) {
-  element->id = *(qbId*)k;
-  element->read_buffer = v;
-  element->indexed_by = qbIndexedBy::QB_INDEXEDBY_KEY;
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state) {
+  instance->entity = entity;
+  instance->data = instance->is_mutable
+      ? (*component)[entity]
+      : (void*)component->at(entity);
+  instance->component = component;
+  instance->state = state;
 }
 
-void SystemImpl::Run_0_To_0(qbFrame* f) {
-  transform_(nullptr, nullptr, f);
+void SystemImpl::RunTransform(qbInstance* instances, qbFrame* frame) {
+  transform_(instances, frame);
 }
 
-void SystemImpl::Run_1_To_0(qbFrame* f) {
-  qbCollection source = sources_[0];
-  uint64_t count = source->count(&source->interface);
-  uint8_t* keys = source->keys.data(&source->interface);
-  uint8_t* values = source->values.data(&source->interface);
+void SystemImpl::Run_0(qbFrame* f) {
+  RunTransform(nullptr, f);
+}
 
-  for(uint64_t i = 0; i < count; ++i) {
-    CopyToElement(
-        (void*)(keys + source->keys.offset + i * source->keys.stride),
-        (void*)(values + source->values.offset + i * source->values.stride),
-        i, &elements_.front());
-    transform_(elements_data_.data(), nullptr, f);
+void SystemImpl::Run_1(Component* component, qbFrame* f, GameState* state) {
+  for (auto id_component : *component) {
+    CopyToInstance(component, id_component.first, &instances_[0], state);
+    RunTransform(instance_data_.data(), f);
   }
 }
 
-void SystemImpl::Run_0_To_N(qbFrame* f) {
-  transform_(nullptr, sink_interfaces_.data(), f);
-}
-
-void SystemImpl::Run_1_To_N(qbFrame* f) {
-  qbCollection source = sources_[0];
-  const uint64_t count = source->count(&source->interface);
-  const uint8_t* keys = source->keys.data(&source->interface);
-  const uint8_t* values = source->values.data(&source->interface);
-  for(uint64_t i = 0; i < count; ++i) {
-    CopyToElement(
-        (void*)(keys + source->keys.offset + i * source->keys.stride),
-        (void*)(values + source->values.offset + i * source->values.stride),
-        i, &elements_.front());
-    transform_(elements_data_.data(), sink_interfaces_.data(), f);
-  }
-}
-
-void SystemImpl::Run_M_To_N(qbFrame* f) {
-  qbCollection source = sources_[0];
+void SystemImpl::Run_N(const std::vector<Component*>& components, qbFrame* f, GameState* state) {
+  Component* source = components[0];
   switch(join_) {
     case qbComponentJoin::QB_JOIN_INNER: {
       uint64_t min = 0xFFFFFFFFFFFFFFFF;
-      for (size_t i = 0; i < sources_.size(); ++i) {
-        qbCollection src = sources_[i];
-        uint64_t maybe_min = src->count(&src->interface);
+      for (size_t i = 0; i < components_.size(); ++i) {
+        Component* src = components[i];
+        uint64_t maybe_min = src->Size();
         if (maybe_min < min) {
           min = maybe_min;
           source = src;
@@ -129,84 +122,59 @@ void SystemImpl::Run_M_To_N(qbFrame* f) {
       }
     } break;
     case qbComponentJoin::QB_JOIN_LEFT:
-      source = sources_[0];
+      source = components[0];
     break;
     case qbComponentJoin::QB_JOIN_CROSS: {
-      uint64_t* max_counts =
-          (uint64_t*)alloca(sizeof(uint64_t) * sources_.size());
-      uint64_t* indices =
-          (uint64_t*)alloca(sizeof(uint64_t) * sources_.size());
-      uint8_t** keys = (uint8_t**)alloca(sizeof(uint8_t*) * sources_.size());
-      uint8_t** values = (uint8_t**)alloca(sizeof(uint8_t*) * sources_.size());
+      static std::vector<size_t> indices(components_.size(), 0);
 
-      memset(indices, 0, sizeof(uint64_t) * sources_.size());
-      uint32_t indices_to_inc = 1;
-      uint32_t max_index = 1 << sources_.size();
-      bool all_empty = true;
-      for (size_t i = 0; i < sources_.size(); ++i) {
-        keys[i] = sources_[i]->keys.data(&sources_[i]->interface);
-        values[i] = sources_[i]->values.data(&sources_[i]->interface);
-        max_counts[i] = sources_[i]->count(&sources_[i]->interface);
-        indices[i] = 0;
-        all_empty &= sources_[i]->count(&sources_[i]->interface) == 0;
+      for (Component* component : components) {
+        if (component->Size() == 0) {
+          return;
+        }
       }
 
-      if (all_empty) {
-        return;
-      }
+      while (1) {
+        for (size_t i = 0; i < indices.size(); ++i) {
+          Component* src = components[i];
+          auto it = src->begin() + indices[i];
+          CopyToInstance(src, (*it).first, &instances_[i], state);
+        }
+        RunTransform(instance_data_.data(), f);
 
-      while (indices_to_inc < max_index) {
-        bool reached_max = false;
-        size_t max_src = 0;
-        for (size_t i = 0; i < sources_.size(); ++i) {
-          reached_max |= indices[i] == max_counts[i];
-          if (indices[i] == max_counts[i]) {
-            max_src = i;
-            continue;
+        bool all_zero = true;
+        ++indices[0];
+        for (size_t i = 0; i < indices.size(); ++i) {
+          if (indices[i] >= components[i]->Size()) {
+            indices[i] = 0;
+            if (i + 1 < indices.size()) {
+              ++indices[i + 1];
+            }
           }
-
-          qbCollection src = sources_[i];
-          uint64_t index = indices[i];
-          void* k =
-              (void*)(keys[i] + src->keys.offset + index * src->keys.stride);
-          void* v =
-              (void*)(values[i] + src->values.offset + index * src->values.stride);
-          CopyToElement(k, v, index, &elements_[i]);
-
-          indices[i] += (1 << i) & indices_to_inc ? 1 : 0;
+          all_zero &= indices[i] == 0;
         }
 
-        if (reached_max) {
-          ++indices_to_inc;
-          indices[max_src] = 0;
-        }
-        transform_(elements_data_.data(), sink_interfaces_.data(), f);
+        if (all_zero) break;
       }
-    } return;
+    }
   }
 
-  const uint64_t count = source->count(&source->interface);
-  const uint8_t* keys = source->keys.data(&source->interface);
   switch(join_) {
     case qbComponentJoin::QB_JOIN_LEFT:
     case qbComponentJoin::QB_JOIN_INNER: {
-      for(uint64_t i = 0; i < count; ++i) {
-        void* k =
-            (void*)(keys + source->keys.offset + i * source->keys.stride);
-
+      for (auto id_component : *source) {
+        qbId entity_id = id_component.first;
         bool should_continue = false;
-        for (size_t j = 0; j < sources_.size(); ++j) {
-          qbCollection c = sources_[j];
-          void* v = c->interface.by_id(&c->interface, *(qbId*)k);
-          if (!v) {
+        for (size_t j = 0; j < components_.size(); ++j) {
+          Component* c = components[j];
+          if (!c->Has(entity_id)) {
             should_continue = true;
             break;
           }
-          CopyToElement(k, v, &elements_[j]);
+          CopyToInstance(c, entity_id, &instances_[j], state);
         }
         if (should_continue) continue;
 
-        transform_(elements_data_.data(), sink_interfaces_.data(), f);
+        RunTransform(instance_data_.data(), f);
       }
     } break;
     default:

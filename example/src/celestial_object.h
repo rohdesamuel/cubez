@@ -1,0 +1,5 @@
+#ifndef CELESTIAL_OBJECT__H
+#define CELESTIAL_OBJECT__H
+
+
+#endif  // CELESTIAL_OBJECT__H
