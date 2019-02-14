@@ -40,7 +40,7 @@ typedef struct {
 // Creates a program with the specified name. Copies the name into new memory.
 API qbId qb_create_program(const char* name);
 
-// Runs a particular program flushing its events and running all of its systems.
+// Runs a particular program flushing its events then running all of its systems.
 API qbResult qb_run_program(qbId program);
 
 // Detaches a program from the main game loop. This starts an asynchronous
@@ -452,6 +452,8 @@ API qbVar       qbDouble(double d);
 API qbVar       qbChar(char c);
 
 API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
+
+API qbCoro      qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size);
 
 API qbResult    qb_coro_destroy(qbCoro* coro);
 

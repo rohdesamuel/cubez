@@ -5,8 +5,8 @@
 * file 'LICENSE.txt', which is part of this source code package.
 */
 
-#ifndef COMMON__H
-#define COMMON__H
+#ifndef CUBEZ_COMMON__H
+#define CUBEZ_COMMON__H
 
 #ifndef __LP64__
 #define __LP32__
@@ -68,19 +68,18 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #ifdef __COMPILE_AS_WINDOWS__
 #ifdef __BUILDING_DLL__
-#define API __declspec(dllexport)
+#define API extern "C" __declspec(dllexport)
 #else 
-#define API __declspec(dllimport)
+#define API extern "C" __declspec(dllimport)
+#define CPP_API 
 #endif  // _EXPORT_BUILD
 #define STRCPY strcpy_s
 #define STRDUP _strdup
 #define SSCANF sscanf_s
 #define ALIGNED_ALLOC _aligned_malloc
 #define ALIGNED_FREE _aligned_free
-#define ENABLE_OPTIMIZATIONS _Pragma(optimize( "", on ))
-#define DISABLE_OPTIMIZATIONS _Pragma(optimize( "", off ))
 #else
-#define DLLEXPORT
+#define API extern "C"
 #define STRCPY strcpy
 #define STRDUP strdup
 #define SSCANF sscanf
@@ -138,4 +137,4 @@ enum qbResult {
   QB_ERROR_COLLECTIONATTR_REMOVE_BY_HANDLE_IS_NOT_SET = -514,
 };
 
-#endif
+#endif  // CUBEZ_COMMON__H
