@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cstring>
 #include <string.h>
+#include <cstdarg>
+#include <vector>
 
 namespace logging {
 
@@ -26,7 +28,7 @@ void initialize() {
     qb_systemattr_setprogram(attr, program_id);
     qb_systemattr_setcallback(attr,
         [](qbFrame* f) {
-          std::cout << (char*)(f->event) << std::endl;
+          std::cout << "[INFO] " << (char*)(f->event) << std::endl;
         });
     qb_system_create(&system_out, attr);
     qb_systemattr_destroy(&attr);
@@ -45,13 +47,25 @@ void initialize() {
   qb_detach_program(program_id);
 }
 
-void out(const std::string& s) {
+void out(const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+
+  std::vector<char> buf;
+  buf.resize(strlen(format));
+
+  vsprintf_s(buf.data(), buf.size(), format, args);
+  std::string s(buf.begin(), buf.end());
+
   size_t num_msgs = 1 + (s.length() / MAX_CHARS);
   for (size_t i = 0; i < num_msgs; ++i) {
     std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
     memcpy(msg_buffer, to_send.c_str(), std::strlen(to_send.c_str()));
-    qb_event_send(std_out, msg_buffer);
+    qb_event_sendsync(std_out, msg_buffer);
+    memset(msg_buffer, 0, MAX_CHARS);
   }
+
+  va_end(args);
 }
 
 }  // namespace log

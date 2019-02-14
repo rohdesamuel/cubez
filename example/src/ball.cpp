@@ -1,7 +1,5 @@
 #include "ball.h"
 
-#include <cubez/timer.h>
-
 #include "physics.h"
 #include "render.h"
 #include "shader.h"

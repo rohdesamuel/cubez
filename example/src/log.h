@@ -8,7 +8,7 @@ namespace logging {
 
 void initialize();
 
-void out(const std::string& s);
+void out(const char* format, ...);
 
 void err(const std::string& s);
 
