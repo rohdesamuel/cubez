@@ -165,6 +165,7 @@
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
     <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\timer.h" />
+    <ClInclude Include="..\..\..\include\cubez\utils.h" />
     <ClInclude Include="..\..\..\include\cubez\xdr.h" />
     <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
@@ -193,7 +194,9 @@
     <ClInclude Include="..\..\..\src\program_registry.h" />
     <ClInclude Include="..\..\..\src\program_thread.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
+    <ClInclude Include="..\..\..\src\task.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />
+    <ClInclude Include="..\..\..\src\utils_internal.h" />
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
   <ItemGroup>
@@ -215,7 +218,8 @@
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
     <ClCompile Include="..\..\..\src\snapshot.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
-    <ClCompile Include="..\..\..\src\timer.cpp" />
+    <ClCompile Include="..\..\..\src\task.cpp" />
+    <ClCompile Include="..\..\..\src\utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

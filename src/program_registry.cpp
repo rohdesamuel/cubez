@@ -13,6 +13,9 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
 
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
+
+  Task* task = new Task(p);
+  program_threads_[id] = std::unique_ptr<Task>(task);
   return id;
 }
 
@@ -42,29 +45,20 @@ qbProgram* ProgramRegistry::GetProgram(qbId id) {
 }
 
 void ProgramRegistry::Run(GameState* state) {
-  std::vector<std::future<void>> programs(programs_.size());
-
-  for (auto program : programs_) {
-    ProgramImpl::FromRaw(program.second)->Ready();
+  for (auto& task : program_threads_) {
+    task.second->Ready();
   }
 
-  for (auto program : programs_) {
-    ProgramImpl* p = ProgramImpl::FromRaw(program.second);
-    programs.push_back(program_threads_.enqueue(
-      [p, state]() {
-        PrivateUniverse::program_id = p->Id();
-        p->Run(state);
-      }));
+  for (auto& task : program_threads_) {
+    task.second->Run(state);
   }
 
-  for (auto& p : programs) {
-    if (p.valid()) {
-      p.wait();
-    }
+  for (auto& task : program_threads_) {
+    task.second->Wait();
   }
 
-  for (auto program : programs_) {
-    ProgramImpl::FromRaw(program.second)->Done();
+  for (auto& task : program_threads_) {
+    task.second->Done();
   }
 }
 

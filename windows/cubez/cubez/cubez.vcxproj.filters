@@ -123,15 +123,21 @@
     <ClInclude Include="..\..\..\src\tls.h">
       <Filter>Header Files\coro</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\task.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utils_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\private_universe.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\timer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\component_registry.cpp">
@@ -181,6 +187,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\coro.cpp">
       <Filter>Source Files\coro</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\task.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\utils.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
