@@ -22,6 +22,7 @@
 *    a type of general Keeper, or exception handling.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -63,21 +64,14 @@ THREAD_LOCAL volatile Coro _cur;
 THREAD_LOCAL volatile qbVar _value;
 THREAD_LOCAL struct _Coro _on_exit;
 
-/*EXPORT
-coro coro_error()
-{
-coro c = (coro)malloc(sizeof(struct _coro));
-c->stack_base = NULL;
-c->stack_size = 0;
-c->start = NULL;
-if (!_save_and_resumed(c->ctxt))
-{
-_cur = c;
-}
-return _cur;
-}*/
-
+#if defined(__clang__)
+#pragma clang optimize off
+#elif defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+#elif defined(_MSC_VER)
 #pragma optimize( "", off )
+#endif
 
 void _fix_frame_pointer(jmp_buf buf) {
 #if defined(__COMPILE_AS_WINDOWS__) && defined(__COMPILE_AS_64__)
@@ -183,6 +177,23 @@ Coro coro_new(_entry fn) {
   return c;
 }
 
+Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size) {
+  assert((stack_size >= 256) && "Stack size must be at least 256 bytes");
+
+  /* FIXME: should not malloc directly? */
+  Coro c = (Coro)malloc(sizeof(struct _Coro));
+  memset((void*)c, 0, sizeof(struct _Coro));
+
+  c->stack_size = stack_size;
+  c->stack_base = stack;
+  memset((void*)c->stack_base, 0, c->stack_size);
+  c->start = fn;
+
+  _coro_enter(c);
+  return c;
+}
+
+
 /*
 * First, set the value in the volatile global. If _value were not volatile, this value
 * would be cached on the stack, and hence saved and restored on every call. We then
@@ -274,4 +285,10 @@ void coro_poll() {
   }
 }
 
+#if defined(__clang__)
+#pragma clang optimize on
+#elif defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC pop_options
+#elif defined(_MSC_VER)
 #pragma optimize( "", on )
+#endif

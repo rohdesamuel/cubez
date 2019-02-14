@@ -35,10 +35,15 @@ typedef qbVar(*_entry)(qbVar var);
 Coro coro_init();
 
 /*
+* Create a new coroutine from the given function.
+*/
+Coro coro_new(_entry fn);
+
+/*
 * Create a new coroutine from the given function, and with the
 * given stack.
 */
-Coro coro_new(_entry fn);
+Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size);
 
 /*
 * Invoke a coroutine passing the given value.
