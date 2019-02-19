@@ -10,8 +10,6 @@
 
 #include "common.h"
 
-BEGIN_EXTERN_C
-
 ///////////////////////////////////////////////////////////
 //////////////////////  Flow Control  /////////////////////
 ///////////////////////////////////////////////////////////
@@ -65,6 +63,8 @@ typedef struct qbBarrier_* qbBarrier;
 typedef struct qbBarrierOrder_* qbBarrierOrder;
 typedef struct qbScene_* qbScene;
 typedef struct qbCoro_* qbCoro;
+typedef struct qbAsync_* qbAsync;
+typedef struct qbAlarm_* qbAlarm;
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
@@ -292,7 +292,7 @@ API qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
 // ======== qbTrigger ========
 typedef enum {
   QB_TRIGGER_LOOP = 0,
-  QB_TRIGGER_EVENT,
+  QB_TRIGGER_EVENT
 } qbTrigger;
 // Sets the trigger for the system. Systems by default are triggered by the
 // main execution loop with "qb_loop()". To detach a system to only be run
@@ -334,6 +334,9 @@ API qbResult      qb_system_enable(qbSystem system);
 
 // Disables the specified system and stop all execution.
 API qbResult      qb_system_disable(qbSystem system);
+
+// Runs the given system. Not thread-safe when run concurrently with qb_loop().
+API qbResult      qb_system_run(qbSystem system);
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
@@ -389,6 +392,7 @@ API qbResult      qb_event_send(qbEvent event,
 API qbResult      qb_event_sendsync(qbEvent event,
                                     void* message);
 
+
 ///////////////////////////////////////////////////////////
 /////////////////////////  Scenes  ////////////////////////
 ///////////////////////////////////////////////////////////
@@ -425,7 +429,8 @@ typedef enum {
   QB_TAG_UINT,
   QB_TAG_INT,
   QB_TAG_DOUBLE,
-  QB_TAG_CHAR
+  QB_TAG_CHAR,
+  QB_TAG_UNSET,
 } qbTag;
 
 typedef struct {
@@ -440,6 +445,7 @@ typedef struct {
 } qbVar;
 
 API extern const qbVar qbNone;
+API extern const qbVar qbUnset;
 
 API qbVar       qbVoid(void* p);
 
@@ -453,14 +459,43 @@ API qbVar       qbChar(char c);
 
 API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
 
-API qbCoro      qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size);
+API qbCoro      qb_coro_create_unsafe(qbVar(*entry)(qbVar),
+                                      void* stack,
+                                      size_t stack_size);
 
 API qbResult    qb_coro_destroy(qbCoro* coro);
 
-API qbVar       qb_coro_run(qbCoro coro, qbVar var);
+// Immediately runs the given coroutine on the same thread as the caller.
+API qbVar       qb_coro_call(qbCoro coro, qbVar var);
 
+// Yields control with the given var back to the current coroutine's caller.
 API qbVar       qb_coro_yield(qbVar var);
 
-END_EXTERN_C
+// Yields "qbUnset" until at least the given seconds have elapsed.
+API void        qb_coro_wait(double seconds);
+
+// Yields "qbUnset" until the given frames have elapsed.
+API void        qb_coro_waitframes(uint32_t frames);
+
+// Creates a coroutine and schedules the given function to be run on the main
+// thread. All coroutines are then run serially after event dispatch and
+// systems are run. All coroutines are run as cooperative threads. In order to
+// run the next coroutine, the given entry must call qb_coro_yield().
+API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
+
+// Creates a coroutine and schedules the given function to be run on a
+// background thread. Thread-safe.
+API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
+
+API qbCoro      qb_coro_async_unsafe(qbVar(*entry)(qbVar), qbVar var,
+                                        void* stack, size_t stack_size);
+
+// Yields "qbUnset" until coro is done running. 
+API qbVar       qb_coro_await(qbCoro coro);
+
+// Peeks at the return value of the scheduled coro. Returns "qbUnset" if the
+// scheduled coro is running.
+API qbVar       qb_coro_peek(qbCoro coro);
+
 
 #endif  // #ifndef CUBEZ__H

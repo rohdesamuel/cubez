@@ -32,7 +32,7 @@ typedef qbVar(*_entry)(qbVar var);
 /*
 * Initialize the coroutine library, returning a coroutine for the thread that called init.
 */
-Coro coro_init();
+Coro coro_initialize();
 
 /*
 * Create a new coroutine from the given function.
@@ -45,6 +45,9 @@ Coro coro_new(_entry fn);
 */
 Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size);
 
+// Returns the currently running Coroutine, or NULL if none.
+Coro coro_this();
+
 /*
 * Invoke a coroutine passing the given value.
 */
@@ -54,6 +57,9 @@ qbVar coro_call(Coro target, qbVar var);
 * Invoke a coroutine passing the given value.
 */
 qbVar coro_yield(qbVar var);
+
+// Returns true if the coroutine is complete.
+int coro_done(Coro c);
 
 /*
 * Clone a given coroutine. This can be used to implement multishot continuations.

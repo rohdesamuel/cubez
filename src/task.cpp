@@ -1,11 +1,14 @@
 #include "task.h"
 #include "program_impl.h"
 
+#include "coro.h"
+
 Task::Task(qbProgram* program) : task_(program) {
   stop_ = false;
   game_state_ = nullptr;
 
   thread_ = new std::thread([this]() {
+    Coro main = coro_initialize();
     for (;;) {
       std::unique_lock<std::mutex> lock(state_lock_);
       state = WAITING;

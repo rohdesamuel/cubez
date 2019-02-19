@@ -53,6 +53,7 @@ struct _Coro {
   _entry start;
   intptr_t stack_base;
   size_t stack_size;
+  int is_done;
 };
 
 /*
@@ -143,6 +144,7 @@ void _coro_enter(Coro c) {
     qbVar _return;
     _return.p = _cur;
     _return = _cur->start(*(qbVar*)(&_value));
+    _cur->is_done = 1;
     /* return the exited coroutine to the exit handler */
     _coro_fastcall(_cur->parent, _return);
   }
@@ -156,7 +158,7 @@ INIT_CTXT:
 * machine context. The current thread is then initialized as the currently
 * executing coroutine.
 */
-Coro coro_init() {
+Coro coro_initialize() {
   _probe_arch();
   _cur = &_on_exit;
   memset(&_on_exit, 0, sizeof(_on_exit));
@@ -172,6 +174,7 @@ Coro coro_new(_entry fn) {
   c->stack_base = (intptr_t)malloc(c->stack_size);// _aligned_malloc(c->stack_size, 16);// ;
   memset((void*)c->stack_base, 0, c->stack_size);
   c->start = fn;
+  c->is_done = 0;
 
   _coro_enter(c);
   return c;
@@ -188,11 +191,19 @@ Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size) {
   c->stack_base = stack;
   memset((void*)c->stack_base, 0, c->stack_size);
   c->start = fn;
+  c->is_done = 0;
 
   _coro_enter(c);
   return c;
 }
 
+Coro coro_this() {
+  return _cur == &_on_exit ? nullptr : _cur;
+}
+
+int coro_done(Coro c) {
+  return c == &_on_exit ? 0 : c->is_done;
+}
 
 /*
 * First, set the value in the volatile global. If _value were not volatile, this value

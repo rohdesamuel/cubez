@@ -14,6 +14,8 @@
 #include <functional>
 #include <stdexcept>
 
+#include "coro.h"
+
 class ThreadPool {
 public:
   ThreadPool(size_t);
@@ -36,27 +38,27 @@ private:
 // the constructor just launches some amount of workers
 inline ThreadPool::ThreadPool(size_t threads)
   :   stop(false) {
-  for(size_t i = 0; i < threads; ++i)
+  for (size_t i = 0; i < threads; ++i) {
     workers.emplace_back(
       [this] {
-        for(;;)
+      Coro main = coro_initialize();
+      for (;;) {
+        std::function<void()> task;
+
         {
-          std::function<void()> task;
-
-          {
-            std::unique_lock<std::mutex> lock(this->queue_mutex);
-            this->condition.wait(lock,
-              [this]{ return this->stop || !this->tasks.empty(); });
-            if(this->stop && this->tasks.empty())
-              return;
-            task = std::move(this->tasks.front());
-            this->tasks.pop();
-          }
-
-          task();
+          std::unique_lock<std::mutex> lock(this->queue_mutex);
+          this->condition.wait(lock,
+                               [this] { return this->stop || !this->tasks.empty(); });
+          if (this->stop && this->tasks.empty())
+            return;
+          task = std::move(this->tasks.front());
+          this->tasks.pop();
         }
+
+        task();
       }
-    );
+    });
+  }
 }
 
 // add new work item to the pool
