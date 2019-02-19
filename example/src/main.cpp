@@ -313,6 +313,25 @@ qbVar print_timing_info(qbVar var) {
   }
 }
 
+qbVar ball_random_walk(qbVar v) {
+  qbEntity ball = v.u;
+
+  physics::Transform* t;
+  qb_instance_find(physics::component(), ball, &t);
+
+  for (int i = 0; i < 10; ++i) {
+    qb_coro_wait(1.0);
+    t->v = {
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5
+    };
+  }
+
+  qb_entity_destroy(ball);
+  return qbNone;
+}
+
 qbVar create_random_balls(qbVar) {
   for (;;) {
     glm::vec3 v = {
@@ -320,9 +339,9 @@ qbVar create_random_balls(qbVar) {
       (((float)(rand() % 1000)) / 1000) - 0.5,
       (((float)(rand() % 1000)) / 1000) - 0.5
     };
-    qbEntity ball = ball::create({}, v, true);
-    qb_coro_wait(10);
-    qb_entity_destroy(ball);
+    qbEntity ball = ball::create({}, v);
+    qb_coro_sync(ball_random_walk, qbUint(ball));
+    qb_coro_wait(1.0);
   }
 }
 
@@ -335,8 +354,6 @@ int main(int, char* []) {
   test_coro = qb_coro_sync(test_entry, qbInt(100000));
   generator_coro = qb_coro_create(generator);
 
-  //qb_coro_call(test_coro, qbInt(100000));
-  
   qb_start();
   TimingInfo timing_info;
   int frame = 0;
@@ -358,7 +375,7 @@ int main(int, char* []) {
   double accumulator = 0.0;
   gui::qbRenderTarget target;
   //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
-
+  
   qb_loop();
   while (1) {
     qb_timer_start(fps_timer);
