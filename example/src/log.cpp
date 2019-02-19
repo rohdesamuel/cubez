@@ -51,11 +51,10 @@ void out(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
-  std::vector<char> buf;
-  buf.resize(strlen(format));
+  char buf[256] = { 0 };
 
-  vsprintf_s(buf.data(), buf.size(), format, args);
-  std::string s(buf.begin(), buf.end());
+  vsprintf_s(buf, sizeof(buf), format, args);
+  std::string s(buf);
 
   size_t num_msgs = 1 + (s.length() / MAX_CHARS);
   for (size_t i = 0; i < num_msgs; ++i) {

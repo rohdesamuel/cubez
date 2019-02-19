@@ -240,10 +240,28 @@ void initialize_universe(qbUniverse* uni) {
 
 qbCoro test_coro;
 qbCoro generator_coro;
+qbCoro wait_coro;
+
+qbVar load_texture(qbVar var) {
+  qbTexture tex = nullptr;
+  qb_texture_load(&tex, "", (const char*)var.p);
+  
+  return qbVoid(tex);
+}
 
 qbVar generator(qbVar var) {
+  qbCoro c = qb_coro_async(load_texture, qbVoid("resources/soccer_ball.bmp"));
+
   for (;;) {
-    var = qb_coro_yield(qbInt(var.i - 1));
+    var = qb_coro_yield(qbInt(var.i - 1));    
+
+    qbVar ret = qb_coro_await(c);
+    if ((ret = qb_coro_peek(c)).tag != QB_TAG_UNSET) {
+      logging::out("Texture loaded!");
+      var = qbInt(0);
+      qb_coro_destroy(&c);
+    }
+    //qb_coro_wait(1.0);
   }
   return qbNone;
 }
@@ -252,14 +270,60 @@ qbVar test_entry(qbVar var) {
   qbVar ret = var;
   int num_times_run = 0;
 
-  do {
-    logging::out("%d", ret.i);
-    ret = qb_coro_run(generator_coro, ret);
+  while (true) {
+    if (ret.tag != QB_TAG_UNSET) {
+      logging::out("%lld", ret.i);
+    }
+    ret = qb_coro_call(generator_coro, ret);
+    //qb_coro_await(generator_coro);
     num_times_run++;
-  } while (ret.i > 0);
+
+    qb_coro_yield(qbNone);
+    if (ret.tag == QB_TAG_UNSET) {
+      continue;
+    } else if (ret.i <= 0) {
+      break;
+    }
+  }
 
   logging::out("number of times run: %d", num_times_run);
   return qbNone;
+}
+
+struct TimingInfo {
+  uint64_t frame;
+  float udpate_fps;
+  float render_fps;
+  float total_fps;
+};
+
+qbVar print_timing_info(qbVar var) {
+  for (;;) {
+    TimingInfo* info = (TimingInfo*)var.p;
+
+    std::string out =
+      "Frame: " + std::to_string(info->frame) + "\n"
+      "Total FPS:  " + std::to_string(info->total_fps) + "\n"
+      "Render FPS: " + std::to_string(info->render_fps) + "\n"
+      "Update FPS: " + std::to_string(info->udpate_fps);
+
+    logging::out(out.c_str());
+
+    qb_coro_wait(1.0);
+  }
+}
+
+qbVar create_random_balls(qbVar) {
+  for (;;) {
+    glm::vec3 v = {
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5
+    };
+    qbEntity ball = ball::create({}, v, true);
+    qb_coro_wait(10);
+    qb_entity_destroy(ball);
+  }
 }
 
 int main(int, char* []) {
@@ -267,16 +331,20 @@ int main(int, char* []) {
   qbUniverse uni;
   initialize_universe(&uni);
 
-  test_coro = qb_coro_create(test_entry);
+  qb_coro_sync(create_random_balls, qbNone);
+  test_coro = qb_coro_sync(test_entry, qbInt(100000));
   generator_coro = qb_coro_create(generator);
 
-  qb_coro_run(test_coro, qbInt(5));
-
+  //qb_coro_call(test_coro, qbInt(100000));
+  
   qb_start();
+  TimingInfo timing_info;
   int frame = 0;
   qbTimer fps_timer;
   qbTimer update_timer;
   qbTimer render_timer;
+
+  qb_coro_sync(print_timing_info, qbVoid(&timing_info));
 
   qb_timer_create(&fps_timer, 50);
   qb_timer_create(&update_timer, 50);
@@ -289,7 +357,7 @@ int main(int, char* []) {
   double start_time = qb_timer_query();
   double accumulator = 0.0;
   gui::qbRenderTarget target;
-  //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 });
+  //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
 
   qb_loop();
   while (1) {
@@ -330,46 +398,18 @@ int main(int, char* []) {
     ++frame;
     qb_timer_stop(fps_timer);
 
-    double time = qb_timer_query();
+    // Calculate then communicate TimingInfo to Coroutine.
+    auto update_timer_avg = qb_timer_average(update_timer);
+    auto render_timer_avg = qb_timer_average(render_timer);
+    auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
 
-    static int prev_trigger = 0;
-    static int trigger = 0;
-    int period = 1;
+    int update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
+    int render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
+    int total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
 
-    prev_trigger = trigger;
-    trigger = int64_t(time - start_time) / kClockResolution;
-    if (false && rand() % kClockResolution == 0) {
-      ball::create({(float)(rand() % 500) - 250.0f,
-                    (float)(rand() % 500) - 250.0f,
-                    (float)(rand() % 500) - 250.0f}, {}, true, true);
-    }
-      
-
-    if (trigger % period == 0 && prev_trigger != trigger) {
-      auto update_timer_avg = qb_timer_average(update_timer);
-      auto render_timer_avg = qb_timer_average(render_timer);
-      auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
-
-      int update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
-      int render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
-      int total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
-
-      /*if ((int)(US_TO_SEC / qb_timer_average(update_timer)) < 60) {
-        std::cout << "BAD FPS\n";
-      }*/
-    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
-      std::cout << "Ball count " << qb_component_getcount(ball::Component()) << std::endl;
-      double total = (1/60.0) * kClockResolution;
-      //logging::out(
-      std::cout <<
-          "Frame " + std::to_string(frame) + "\n" +
-          + "Utili: "  + std::to_string(100.0 * qb_timer_average(render_timer) / total)
-          + " : " + std::to_string(100.0 * qb_timer_average(update_timer) / total) + "\n"
-          + "Render FPS: " + std::to_string(render_fps) + "\n"
-          + "Update FPS: " + std::to_string(update_fps) + "\n"
-          + "Total FPS: " + std::to_string(total_fps) + "\n"
-          + "Accum: " + std::to_string(accumulator) + "\n"
-          + "Alpha: " + std::to_string(accumulator / dt) + "\n";
-    }
+    timing_info.frame = frame;
+    timing_info.render_fps = render_fps;
+    timing_info.total_fps = total_fps;
+    timing_info.udpate_fps = update_fps;
   }
 }
