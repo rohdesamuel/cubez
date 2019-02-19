@@ -8,12 +8,18 @@
 
 #include <vector>
 #include <functional>
+#include <mutex>
 
 typedef void(*qbInstanceOnCreate)(qbInstance instance);
-typedef void(*qbInstanceOnDestroy)(qbInstance instancea);
+typedef void(*qbInstanceOnDestroy)(qbInstance instance);
 
 struct qbCoro_ {
   Coro main;
+
+  bool is_async;
+  std::shared_mutex ret_mu;
+  qbVar ret;
+  qbVar arg;
 };
 
 struct qbInstanceOnCreateEvent_ {

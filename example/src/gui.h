@@ -31,12 +31,12 @@ namespace gui {
 
 typedef std::function<framework::JSValue(const framework::JSObject&, const framework::JSArgs&)> JSCallback;
 typedef std::unordered_map<std::string, JSCallback> JSCallbackMap;
-typedef struct qbWindow_* qbWindow;
-typedef struct qbRenderTarget_* qbRenderTarget;
+typedef framework::Overlay* qbWindow;
+typedef cubez::TextureOverlay* qbRenderTarget;
 typedef struct qbRenderTargetAttr_* qbRenderTargetAttr;
 typedef struct qbGuiCallbacks_* qbGuiCallbacks;
 typedef JSValueRef(*qbJSCallback)(const JSObjectRef context, const JSValueRef* args, uint8_t num_args);
-typedef JSCallbackMap* qbJSCallbacks;
+typedef struct qbJSCallbacks_* qbJSCallbacks;
 
 struct Context {
   ultralight::RefPtr<ultralight::Renderer> renderer;

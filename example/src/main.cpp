@@ -1,5 +1,5 @@
 #include <cubez/cubez.h>
-#include <cubez/timer.h>
+#include <cubez/utils.h>
 
 #include "ball.h"
 #include "physics.h"
@@ -97,7 +97,7 @@ void initialize_universe(qbUniverse* uni) {
     // holds all the game objects.
     qbScene main_menu;
     qbScene game_prefetch;
-    qb_scene_create(&main_menu);
+    qb_scene_load(&main_menu);
     qb_scene_create(&game_prefetch);
 
     // Sets the scene to be active. While the scene is active, all API calls
@@ -238,30 +238,132 @@ void initialize_universe(qbUniverse* uni) {
 #endif
 }
 
+qbCoro test_coro;
+qbCoro generator_coro;
+qbCoro wait_coro;
+
+qbVar load_texture(qbVar var) {
+  qbTexture tex = nullptr;
+  qb_texture_load(&tex, "", (const char*)var.p);
+  
+  return qbVoid(tex);
+}
+
+qbVar generator(qbVar var) {
+  qbCoro c = qb_coro_async(load_texture, qbVoid("resources/soccer_ball.bmp"));
+
+  for (;;) {
+    var = qb_coro_yield(qbInt(var.i - 1));    
+
+    qbVar ret = qb_coro_await(c);
+    if ((ret = qb_coro_peek(c)).tag != QB_TAG_UNSET) {
+      logging::out("Texture loaded!");
+      var = qbInt(0);
+      qb_coro_destroy(&c);
+    }
+    //qb_coro_wait(1.0);
+  }
+  return qbNone;
+}
+
+qbVar test_entry(qbVar var) {
+  qbVar ret = var;
+  int num_times_run = 0;
+
+  while (true) {
+    if (ret.tag != QB_TAG_UNSET) {
+      logging::out("%lld", ret.i);
+    }
+    ret = qb_coro_call(generator_coro, ret);
+    //qb_coro_await(generator_coro);
+    num_times_run++;
+
+    qb_coro_yield(qbNone);
+    if (ret.tag == QB_TAG_UNSET) {
+      continue;
+    } else if (ret.i <= 0) {
+      break;
+    }
+  }
+
+  logging::out("number of times run: %d", num_times_run);
+  return qbNone;
+}
+
+struct TimingInfo {
+  uint64_t frame;
+  float udpate_fps;
+  float render_fps;
+  float total_fps;
+};
+
+qbVar print_timing_info(qbVar var) {
+  for (;;) {
+    TimingInfo* info = (TimingInfo*)var.p;
+
+    std::string out =
+      "Frame: " + std::to_string(info->frame) + "\n"
+      "Total FPS:  " + std::to_string(info->total_fps) + "\n"
+      "Render FPS: " + std::to_string(info->render_fps) + "\n"
+      "Update FPS: " + std::to_string(info->udpate_fps);
+
+    logging::out(out.c_str());
+
+    qb_coro_wait(1.0);
+  }
+}
+
+qbVar create_random_balls(qbVar) {
+  for (;;) {
+    glm::vec3 v = {
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5,
+      (((float)(rand() % 1000)) / 1000) - 0.5
+    };
+    qbEntity ball = ball::create({}, v, true);
+    qb_coro_wait(10);
+    qb_entity_destroy(ball);
+  }
+}
+
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni;
   initialize_universe(&uni);
 
-  qb_start();
-  int frame = 0;
-  WindowTimer fps_timer(50);
-  WindowTimer update_timer(50);
-  WindowTimer render_timer(50);
+  qb_coro_sync(create_random_balls, qbNone);
+  test_coro = qb_coro_sync(test_entry, qbInt(100000));
+  generator_coro = qb_coro_create(generator);
 
+  //qb_coro_call(test_coro, qbInt(100000));
+  
+  qb_start();
+  TimingInfo timing_info;
+  int frame = 0;
+  qbTimer fps_timer;
+  qbTimer update_timer;
+  qbTimer render_timer;
+
+  qb_coro_sync(print_timing_info, qbVoid(&timing_info));
+
+  qb_timer_create(&fps_timer, 50);
+  qb_timer_create(&update_timer, 50);
+  qb_timer_create(&render_timer, 50);
+
+  const uint64_t kClockResolution = 1e9;
   double t = 0.0;
   const double dt = 0.01;
-  double current_time = Timer::now() * 0.000000001;
-  double start_time = Timer::now();
+  double current_time = qb_timer_query() * 0.000000001;
+  double start_time = qb_timer_query();
   double accumulator = 0.0;
   gui::qbRenderTarget target;
-  gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 });
+  //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
 
   qb_loop();
   while (1) {
-    fps_timer.start();
+    qb_timer_start(fps_timer);
 
-    double new_time = Timer::now() * 0.000000001;
+    double new_time = qb_timer_query() * 0.000000001;
     double frame_time = new_time - current_time;
     frame_time = std::min(0.25, frame_time);
     current_time = new_time;
@@ -275,62 +377,39 @@ int main(int, char* []) {
       exit(0);
     });
     while (accumulator >= dt) {
-      update_timer.start();
+      qb_timer_start(update_timer);
       qb_loop();
-      update_timer.stop();
-      update_timer.step();
+      qb_timer_add(update_timer);
 
       accumulator -= dt;
       t += dt;
     }
 
-    render_timer.start();
+    qb_timer_start(render_timer);
 
     render::RenderEvent e;
     e.frame = frame;
-    e.ftimestamp_us = Timer::now() - start_time;
+    e.ftimestamp_us = qb_timer_query() - start_time;
     e.alpha = accumulator / dt;
     render::present(&e);
     
-    render_timer.stop();
-    render_timer.step();
+    qb_timer_add(render_timer);
 
     ++frame;
-    fps_timer.stop();
-    fps_timer.step();
+    qb_timer_stop(fps_timer);
 
-    double time = Timer::now();
+    // Calculate then communicate TimingInfo to Coroutine.
+    auto update_timer_avg = qb_timer_average(update_timer);
+    auto render_timer_avg = qb_timer_average(render_timer);
+    auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
 
-    static int prev_trigger = 0;
-    static int trigger = 0;
-    int period = 1;
+    int update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
+    int render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
+    int total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
 
-    prev_trigger = trigger;
-    trigger = int64_t(time - start_time) / 1000000000;
-    if (rand() % 1000000000 == 0) {
-      ball::create({(float)(rand() % 500) - 250.0f,
-                    (float)(rand() % 500) - 250.0f,
-                    (float)(rand() % 500) - 250.0f}, {}, true, true);
-    }
-      
-
-    if (trigger % period == 0 && prev_trigger != trigger) {
-      if ((int)(1e9 / update_timer.get_avg_elapsed_ns()) < 60) {
-        std::cout << "BAD FPS\n";
-      }
-    //if (true && period && prev_trigger == prev_trigger && trigger == trigger) {
-      std::cout << "Ball count " << qb_component_getcount(ball::Component()) << std::endl;
-      double total = (1/60.0) * 1e9;
-      //logging::out(
-      std::cout <<
-          "Frame " + std::to_string(frame) + "\n" +
-          + "Utili: "  + std::to_string(100.0 * render_timer.get_avg_elapsed_ns() / total)
-          + " : " + std::to_string(100.0 * update_timer.get_avg_elapsed_ns() / total) + "\n"
-          + "Render FPS: " + std::to_string((int)(1e9 / render_timer.get_avg_elapsed_ns())) + "\n"
-          + "Update FPS: " + std::to_string((int)(1e9 / update_timer.get_avg_elapsed_ns())) + "\n"
-          + "Total FPS: " + std::to_string(1e9 / fps_timer.get_elapsed_ns()) + "\n"
-          + "Accum: " + std::to_string(accumulator) + "\n"
-          + "Alpha: " + std::to_string(accumulator / dt) + "\n";
-    }
+    timing_info.frame = frame;
+    timing_info.render_fps = render_fps;
+    timing_info.total_fps = total_fps;
+    timing_info.udpate_fps = update_fps;
   }
 }

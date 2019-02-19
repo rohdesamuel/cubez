@@ -1,5 +1,5 @@
 #include <cubez/cubez.h>
-#include <cubez/timer.h>
+#include <cubez/utils.h>
 
 #include <omp.h>
 #include <unordered_map>
@@ -47,20 +47,25 @@ void comflab(qbInstance* insts, qbFrame*) {
 }
 
 uint64_t create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
-  Timer timer;
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
 
-  timer.start();
+  qb_timer_start(timer);
   for (uint64_t i = 0; i < count; ++i) {
     qbEntity entity;
     qb_entity_create(&entity, attr);
   }
   qb_loop();
-  timer.stop();
+  qb_timer_stop(timer);
 
   qb_entityattr_destroy(&attr);
-  return timer.get_elapsed_ns();
+  uint64_t result = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+
+  return result;
 }
 
 int64_t count = 0;
@@ -69,7 +74,8 @@ int64_t* Count() {
 }
 
 uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterations) {
-  Timer timer;
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
   {
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -101,14 +107,16 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
     qb_systemattr_destroy(&attr);
   }
   qb_loop();
-  timer.start();
+  qb_timer_start(timer);
   for (uint64_t i = 0; i < iterations; ++i) {
     qb_loop();
   }
-  timer.stop();
+  qb_timer_stop(timer);
   std::cout << "Count = " << count << std::endl;
 
-  return timer.get_elapsed_ns();
+  uint64_t elapsed = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+  return elapsed;
 }
 
 template<class F>

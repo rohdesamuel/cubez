@@ -5,6 +5,7 @@
 #include "program_impl.h"
 #include "program_thread.h"
 #include "thread_pool.h"
+#include "task.h"
 
 #include <algorithm>
 #include <future>
@@ -32,7 +33,7 @@ class ProgramRegistry {
   std::atomic_long id_;
   SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
-  ThreadPool program_threads_;
+  std::unordered_map<size_t, std::unique_ptr<Task>> program_threads_;
 };
 
 #endif  // PROGRAM_REGISTRY__H

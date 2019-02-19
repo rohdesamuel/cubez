@@ -22,6 +22,7 @@
 *    a type of general Keeper, or exception handling.
 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -52,6 +53,7 @@ struct _Coro {
   _entry start;
   intptr_t stack_base;
   size_t stack_size;
+  int is_done;
 };
 
 /*
@@ -63,21 +65,14 @@ THREAD_LOCAL volatile Coro _cur;
 THREAD_LOCAL volatile qbVar _value;
 THREAD_LOCAL struct _Coro _on_exit;
 
-/*EXPORT
-coro coro_error()
-{
-coro c = (coro)malloc(sizeof(struct _coro));
-c->stack_base = NULL;
-c->stack_size = 0;
-c->start = NULL;
-if (!_save_and_resumed(c->ctxt))
-{
-_cur = c;
-}
-return _cur;
-}*/
-
+#if defined(__clang__)
+#pragma clang optimize off
+#elif defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+#elif defined(_MSC_VER)
 #pragma optimize( "", off )
+#endif
 
 void _fix_frame_pointer(jmp_buf buf) {
 #if defined(__COMPILE_AS_WINDOWS__) && defined(__COMPILE_AS_64__)
@@ -149,6 +144,7 @@ void _coro_enter(Coro c) {
     qbVar _return;
     _return.p = _cur;
     _return = _cur->start(*(qbVar*)(&_value));
+    _cur->is_done = 1;
     /* return the exited coroutine to the exit handler */
     _coro_fastcall(_cur->parent, _return);
   }
@@ -162,7 +158,7 @@ INIT_CTXT:
 * machine context. The current thread is then initialized as the currently
 * executing coroutine.
 */
-Coro coro_init() {
+Coro coro_initialize() {
   _probe_arch();
   _cur = &_on_exit;
   memset(&_on_exit, 0, sizeof(_on_exit));
@@ -178,9 +174,35 @@ Coro coro_new(_entry fn) {
   c->stack_base = (intptr_t)malloc(c->stack_size);// _aligned_malloc(c->stack_size, 16);// ;
   memset((void*)c->stack_base, 0, c->stack_size);
   c->start = fn;
+  c->is_done = 0;
 
   _coro_enter(c);
   return c;
+}
+
+Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size) {
+  assert((stack_size >= 256) && "Stack size must be at least 256 bytes");
+
+  /* FIXME: should not malloc directly? */
+  Coro c = (Coro)malloc(sizeof(struct _Coro));
+  memset((void*)c, 0, sizeof(struct _Coro));
+
+  c->stack_size = stack_size;
+  c->stack_base = stack;
+  memset((void*)c->stack_base, 0, c->stack_size);
+  c->start = fn;
+  c->is_done = 0;
+
+  _coro_enter(c);
+  return c;
+}
+
+Coro coro_this() {
+  return _cur == &_on_exit ? nullptr : _cur;
+}
+
+int coro_done(Coro c) {
+  return c == &_on_exit ? 0 : c->is_done;
 }
 
 /*
@@ -274,4 +296,10 @@ void coro_poll() {
   }
 }
 
+#if defined(__clang__)
+#pragma clang optimize on
+#elif defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC pop_options
+#elif defined(_MSC_VER)
 #pragma optimize( "", on )
+#endif

@@ -1,21 +1,31 @@
 #include <cubez/cubez.h>
+#include <cubez/utils.h>
 #include "defs.h"
 #include "private_universe.h"
 #include "byte_vector.h"
 #include "component.h"
 #include "system_impl.h"
+#include "utils_internal.h"
+#include "coro_scheduler.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
 const qbVar qbNone = { QB_TAG_VOID, 0 };
+const qbVar qbUnset = { QB_TAG_UNSET, 0 };
+
 static qbUniverse* universe_ = nullptr;
 Coro main;
+CoroScheduler* coro_scheduler;
+
 
 qbResult qb_init(qbUniverse* u) {
+  utils_initialize();
+
   universe_ = u;
   universe_->self = new PrivateUniverse();
 
-  main = coro_init();
+  main = coro_initialize();
+  coro_scheduler = new CoroScheduler(4);
 
   return AS_PRIVATE(init());
 }
@@ -31,7 +41,10 @@ qbResult qb_stop() {
 }
 
 qbResult qb_loop() {
-  return AS_PRIVATE(loop());
+  qbResult result = AS_PRIVATE(loop());
+  coro_scheduler->run_sync();
+
+  return result;
 }
 
 qbId qb_create_program(const char* name) {
@@ -338,21 +351,64 @@ qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer)
 
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   qbCoro ret = new qbCoro_();
+  ret->ret = qbUnset;
   ret->main = coro_new(entry);
   return ret;
 }
 
+qbCoro qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size) {
+  qbCoro ret = new qbCoro_();
+  ret->ret = qbUnset;
+  ret->main = coro_new_unsafe(entry, (uintptr_t)stack, stack_size);
+  return ret;
+}
+
 qbResult qb_coro_destroy(qbCoro* coro) {
+  coro_free((*coro)->main);
   delete *coro;
+  *coro = nullptr;
   return QB_OK;
 }
 
-qbVar qb_coro_run(qbCoro coro, qbVar var) {
+qbVar qb_coro_call(qbCoro coro, qbVar var) {
+  coro->arg = var;
   return coro_call(coro->main, var);
+}
+
+qbCoro qb_coro_sync(qbVar(*entry)(qbVar), qbVar var) {
+  return coro_scheduler->schedule_sync(entry, var);
+}
+
+qbCoro qb_coro_async(qbVar(*entry)(qbVar), qbVar var) {
+  return coro_scheduler->schedule_async(entry, var);
+}
+
+qbVar qb_coro_await(qbCoro coro) {
+  return coro_scheduler->await(coro);
+}
+
+qbVar qb_coro_peek(qbCoro coro) {
+  return coro_scheduler->peek(coro);
 }
 
 qbVar qb_coro_yield(qbVar var) {
   return coro_yield(var);
+}
+
+void qb_coro_wait(double seconds) {
+  double start = (double)qb_timer_query() / 1e9;
+  double end = start + seconds;
+  while ((double)qb_timer_query() / 1e9 < end) {
+    qb_coro_yield(qbUnset);
+  }
+}
+
+void qb_coro_waitframes(uint32_t frames) {
+  uint32_t frames_waited = 0;
+  while (frames_waited < frames) {
+    qb_coro_yield(qbUnset);
+    ++frames_waited;
+  }
 }
 
 qbVar qbVoid(void* p) {

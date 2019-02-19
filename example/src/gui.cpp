@@ -39,19 +39,6 @@ SDL_Window* win;
 std::vector<std::unique_ptr<framework::Overlay>> overlays;
 std::vector<std::unique_ptr<framework::Overlay>> closed_overlays;
 
-enum qbWindowType {
-  QB_WINDOW_TYPE_OVERLAY = 0,
-  QB_WINODW_TYPE_RENDER_TARGET
-};
-
-struct qbWindow_ {
-  qbWindowType type;
-  union {
-    framework::Overlay* overlay;
-    qbRenderTarget render_target;
-  };
-};
-
 void Initialize(SDL_Window* sdl_window, Settings settings) {
   win = sdl_window;
 
@@ -239,22 +226,22 @@ qbResult qb_rendertarget_create(qbRenderTarget* render_target, glm::vec2 pos, gl
 }
 
 qbResult qb_rendertarget_bind(qbRenderTarget render_target) {
-  render_target->overlay->Bind();
+  render_target->Bind();
   return QB_OK;
 }
 
 qbResult qb_rendertarget_moveby(qbRenderTarget render_target, glm::vec2 delta) {
-  render_target->overlay->MoveBy(delta.x, delta.y);
+  render_target->MoveBy(delta.x, delta.y);
   return QB_OK;
 }
 
 qbResult qb_rendertarget_moveto(qbRenderTarget render_target, glm::vec2 pos) {
-  render_target->overlay->MoveTo(pos.x, pos.y);
+  render_target->MoveTo(pos.x, pos.y);
   return QB_OK;
 }
 
 qbResult qb_rendertarget_resize(qbRenderTarget render_target, glm::vec2 size) {
-  render_target->overlay->Resize(size.x, size.y);
+  render_target->Resize(size.x, size.y);
   return QB_OK;
 }
 
