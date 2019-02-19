@@ -2,32 +2,22 @@
 #define ENTITY_REGISTRY__H
 
 #include "defs.h"
+#include "memory_pool.h"
+#include "component_registry.h"
+#include "sparse_set.h"
 
 #include <algorithm>
 #include <atomic>
 #include <unordered_map>
+#include <unordered_set>
 
+class GameState;
 class EntityRegistry {
  public:
-  struct DestroyEntityEvent {
-    EntityRegistry* self;
-    qbId entity_id;
-  };
-
-  struct AddComponentEvent {
-    qbEntity entity;
-    qbComponent component;
-    void* instance_data;
-  };
-
-  struct RemoveComponentEvent {
-    qbEntity entity;
-    qbComponent component;
-  };
-
   EntityRegistry();
 
   void Init();
+  EntityRegistry* Clone();
 
   // Creates an entity. Entity will be available for use next frame. Sends a
   // ComponentCreateEvent after all components have been created.
@@ -36,42 +26,36 @@ class EntityRegistry {
   // Destroys an entity and frees all components. Entity and components will be
   // destroyed next frame. Sends a ComponentDestroyEvent before components are
   // removed. Frees entity memory after all components have been destroyed.
-  qbResult DestroyEntity(qbEntity* entity);
+  qbResult DestroyEntity(qbEntity entity);
 
-  void SetComponents(qbEntity entity,
-                      const std::vector<qbComponentInstance_>& components);
+  qbResult Find(qbEntity entity, qbEntity* found);
 
-  qbResult AddComponent(qbEntity entity, qbComponent component,
-                        void* instance_data);
+  bool Has(qbEntity entity);
 
-  qbResult RemoveComponent(qbEntity entity, qbComponent component);
+  void Resolve(const std::vector<qbEntity>& created,
+               const std::vector<qbEntity>& destroyed);
 
-  qbResult Find(qbEntity* entity, qbId entity_id);
+  template<template<class Ty_> class Container_>
+  void Resolve(const Container_<qbEntity>& created,
+               const Container_<qbEntity>& destroyed) {
+    for (qbEntity entity : destroyed) {
+      if (entities_.has(entity)) {
+        entities_.erase(entity);
+        free_entity_ids_.push_back(entity);
+      }
+    }
+    for (qbEntity entity : created) {
+      entities_.insert(entity);
+    }
+  }
 
  private:
-  qbResult AllocEntity(qbEntity* entity);
+  qbId AllocEntity();
 
-  qbResult SendDestroyEntityEvent(qbEntity entity);
-  
-  qbResult SendRemoveComponentEvent(qbEntity entity, qbComponent component);
-
-  static void AddComponentHandler(qbCollectionInterface*, qbFrame* frame);
-
-  static void RemoveComponentHandler(qbCollectionInterface*,
-                                       qbFrame* frame);
-
-  static void DestroyEntityHandler(qbCollectionInterface*, qbFrame* frame);
-
-  std::unordered_map<qbId, qbEntity> entities_;
   std::atomic_long id_;
+  SparseSet entities_;
+  std::vector<size_t> free_entity_ids_;
 
-  qbEvent add_component_event_;
-  qbEvent remove_component_event_;
-  qbEvent destroy_entity_event_;
-
-  qbSystem add_component_system_;
-  qbSystem remove_component_system_;
-  qbSystem destroy_entity_system_;
 };
 
 #endif  // ENTITY_REGISTRY__H

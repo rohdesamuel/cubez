@@ -2,33 +2,52 @@
 #define COMPONENT_REGISTRY__H
 
 #include "defs.h"
+#include "sparse_map.h"
 
 #include <atomic>
 #include <unordered_map>
 
+class GameState;
 class ComponentRegistry {
  public:
   ComponentRegistry();
+  ~ComponentRegistry();
 
-  qbResult CreateComponent(qbComponent* component, qbComponentAttr attr);
+  void Init();
+  ComponentRegistry* Clone();
 
-  static qbHandle CreateComponentInstance(
-      qbComponent component, qbId entity_id, const void* value);
+  qbResult Create(qbComponent* component, qbComponentAttr attr);
 
-  static void DestroyComponentInstance(qbComponent component, qbHandle handle);
+  Component& operator[](qbId component) {
+    return *(Component*)components_[component];
+  }
 
-  static qbResult SendComponentCreateEvent(qbComponent component,
-                                           qbEntity entity,
-                                           void* instance_data);
+  const Component& operator[](qbId component) const {
+    return *(Component*)components_[component];
+  }
 
-  static qbResult SendComponentDestroyEvent(qbComponent component,
-                                            qbEntity entity,
-                                            void* instance_data);
+  qbResult CreateInstancesFor(
+    qbEntity entity, const std::vector<qbComponentInstance_>& instances,
+    GameState* state);
+
+  qbResult CreateInstanceFor(qbEntity entity, qbComponent component,
+                             void* instance_data, GameState* state);
+
+  int DestroyInstancesFor(qbEntity entity, GameState* state);
+  int DestroyInstanceFor(qbEntity entity, qbComponent component,
+                         GameState* state);
+
+  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component) const;
+  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component) const;
 
  private:
-  qbResult AllocComponent(qbComponent* component, qbComponentAttr attr);
+  qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state);
+  qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state);
 
-  std::unordered_map<qbId, qbComponent> components_;
+  std::vector<qbEvent> instance_create_events_;
+  std::vector<qbEvent> instance_destroy_events_;
+  SparseMap<Component*, TypedBlockVector<Component*>> components_;
+
   std::atomic_long id_;
 };
 

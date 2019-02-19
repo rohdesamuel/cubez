@@ -1,110 +1,62 @@
 #ifndef DEFS__H
 #define DEFS__H
 
-#include "common.h"
-#include "cubez.h"
+#include "cubez/cubez.h"
+#include "component.h"
+#include "sparse_map.h"
+#include "coro.h"
 
 #include <vector>
+#include <functional>
+#include <mutex>
 
+typedef void(*qbInstanceOnCreate)(qbInstance instance);
+typedef void(*qbInstanceOnDestroy)(qbInstance instance);
 
-struct qbEntityId_ {
-  qbHandle* handle;
+struct qbCoro_ {
+  Coro main;
+
+  bool is_async;
+  std::shared_mutex ret_mu;
+  qbVar ret;
+  qbVar arg;
 };
 
-struct qbAccessor {
-  // REQUIRED
-  qbValueByOffset offset;
-
-  // REQUIRED
-  qbValueByHandle handle;
-
-  // REQUIRED
-  qbValueById id;
+struct qbInstanceOnCreateEvent_ {
+  qbId entity;
+  Component* component;
+  class GameState* state;
 };
 
-struct qbIterator {
-  // REQUIRED
-  // Function that returns the beginning of the data to iterate over
-  qbData data;
-
-  // REQUIRED
-  // Size of step when iterating over data
-  size_t stride;
-
-  size_t size;
-
-  // OPTIONAL
-  // Offset into data to start iterating from. Default 0
-  uint32_t offset;
-};
-
-struct qbCollection_ {
-  const qbId id;
-  const qbId program_id;
-
-  qbIterator keys;
-  qbIterator values;
-  qbCount count;
-
-  qbCollectionInterface interface;
-};
-
-struct qbCollectionAttr_ {
-  void* collection;
-  const char* program;
-
-  qbAccessor accessor;
-  qbIterator keys;
-  qbIterator values;
-  qbInsert insert;
-  qbCount count;
-  qbRemoveByOffset remove_by_offset;
-  qbRemoveByHandle remove_by_handle;
-  qbRemoveById remove_by_id;
-};
-
-typedef void(*qbComponentOnCreate)(qbEntity parent_entity,
-                                   qbComponent to_destroy,
-                                   void* instance_data);
-
-typedef void(*qbComponentOnDestroy)(qbEntity parent_entity,
-                                    qbComponent to_destroy,
-                                    void* instance_data);
-
-struct qbComponentOnCreateEvent_ {
-  qbEntity entity;
-  qbComponent component;
-  void* instance_data;
-};
-
-struct qbComponentOnDestroyEvent_ {
-  qbEntity entity;
-  qbComponent component;
-  void* instance_data;
-};
-
-// All components are keyed on an entity id.
-struct qbComponent_ {
-  const qbId id;
-  size_t data_size;
-  qbCollection impl;
-
-  qbEvent on_create;
-  qbEvent on_destroy;
+struct qbInstanceOnDestroyEvent_ {
+  qbId entity;
+  Component* component;
+  class GameState* state;
 };
 
 struct qbComponentAttr_ {
-  const char* program;
   const char* name;
   size_t data_size;
-  qbCollection impl;
+  bool is_shared;
+  qbComponentType type;
+};
+
+struct qbBarrier_ {
+  void* impl;
+};
+
+struct qbTicket_ {
+  void* impl;
+  std::function<void(void)> lock;
+  std::function<void(void)> unlock;
 };
 
 struct qbSystemAttr_ {
-  const char* program;
+  qbId program;
   
   qbTransform transform;
   qbCallback callback;
+  qbCondition condition;
 
   qbTrigger trigger;
   int16_t priority;
@@ -112,28 +64,16 @@ struct qbSystemAttr_ {
   void* state;
   qbComponentJoin join;
 
-  std::vector<qbComponent_*> sources;
-  std::vector<qbComponent_*> sinks;
+  std::vector<qbComponent> constants;
+  std::vector<qbComponent> mutables;
+  std::vector<qbComponent> components;
+  std::vector<qbTicket_*> tickets;
 };
 
 enum qbIndexedBy {
   QB_INDEXEDBY_KEY,
   QB_INDEXEDBY_OFFSET,
   QB_INDEXEDBY_HANDLE,
-};
-
-struct qbElement_ {
-  qbId id;
-  void* read_buffer;
-  void* user_buffer;
-  size_t size;
-
-  union {
-    qbOffset offset;
-    qbHandle handle;
-  };
-  qbIndexedBy indexed_by;
-  qbCollectionInterface interface;
 };
 
 struct qbExecutionPolicy_ {
@@ -148,14 +88,14 @@ struct qbExecutionPolicy_ {
 };
 
 struct qbSystem_ {
-  const qbId id;
-  const qbId program;
+  qbId id;
+  qbId program;
   void* user_state;
   qbExecutionPolicy_ policy;
 };
 
 struct qbComponentInstance_ {
-  qbComponent_* component;
+  qbComponent component;
   void* data;
 };
 
@@ -164,27 +104,26 @@ struct qbEntityAttr_ {
 };
 
 struct qbInstance_ {
-  qbComponent component;
-  qbHandle instance_handle;
+  qbInstance_(bool is_mutable = false) : is_mutable(is_mutable) {};
+
+  qbSystem system;
+  Component* component;
+  qbEntity entity;
   void* data;
-};
+  class GameState* state;
 
-struct qbEntity_ {
-  const qbId id;
-  std::vector<qbInstance_> instances;
-
-  qbEvent destroy_event;
+  const bool is_mutable;
 };
 
 struct qbEventAttr_ {
-  const char* program;
+  qbId program;
   size_t message_size;
 };
 
 struct qbEvent_ {
-  const qbId id;
-  const qbId program;
-  void* channel;
+  qbId id;
+  qbId program;
+  void* event;
 };
 
 #endif
