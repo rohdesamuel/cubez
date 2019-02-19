@@ -163,7 +163,6 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
-    <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\timer.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
     <ClInclude Include="..\..\..\include\cubez\xdr.h" />
@@ -178,6 +177,7 @@
     <ClInclude Include="..\..\..\src\component_registry.h" />
     <ClInclude Include="..\..\..\src\concurrentqueue.h" />
     <ClInclude Include="..\..\..\src\coro.h" />
+    <ClInclude Include="..\..\..\src\coro_scheduler.h" />
     <ClInclude Include="..\..\..\src\ctxt.h" />
     <ClInclude Include="..\..\..\src\defs.h" />
     <ClInclude Include="..\..\..\src\entity_registry.h" />
@@ -205,6 +205,7 @@
     <ClCompile Include="..\..\..\src\component.cpp" />
     <ClCompile Include="..\..\..\src\component_registry.cpp" />
     <ClCompile Include="..\..\..\src\coro.cpp" />
+    <ClCompile Include="..\..\..\src\coro_scheduler.cpp" />
     <ClCompile Include="..\..\..\src\cubez.cpp" />
     <ClCompile Include="..\..\..\src\entity_registry.cpp" />
     <ClCompile Include="..\..\..\src\event.cpp" />
