@@ -71,7 +71,7 @@ qbCoro CoroScheduler::schedule_async(qbVar(*entry)(qbVar), qbVar var) {
 
   thread_pool_->enqueue([user_coro, entry] (qbVar var) {
     user_coro->main = coro_new(entry);
-    bool is_done = false;
+    int is_done = false;
     qbVar ret = qbUnset;
     do {
       ret = qb_coro_call(user_coro, var);
