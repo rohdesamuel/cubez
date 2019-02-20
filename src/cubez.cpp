@@ -411,6 +411,10 @@ void qb_coro_waitframes(uint32_t frames) {
   }
 }
 
+bool qb_coro_done(qbCoro coro) {
+  return qb_coro_peek(coro).tag != QB_TAG_UNSET;
+}
+
 qbVar qbVoid(void* p) {
   qbVar v;
   v.tag = QB_TAG_VOID;
