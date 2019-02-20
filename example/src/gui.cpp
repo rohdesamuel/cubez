@@ -51,7 +51,7 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
   config.use_distance_field_paths = true;
   config.enable_images = true;
 
-  context.driver = std::make_unique<cubez::CubezGpuDriver>(settings.width, settings.height, 1.0);
+  context.driver = std::make_unique<cubez::CubezGpuDriver>(settings.width, settings.height, (GLfloat)1.0f);
 
   platform.set_config(config);
   platform.set_gpu_driver(context.driver.get());
@@ -231,17 +231,17 @@ qbResult qb_rendertarget_bind(qbRenderTarget render_target) {
 }
 
 qbResult qb_rendertarget_moveby(qbRenderTarget render_target, glm::vec2 delta) {
-  render_target->MoveBy(delta.x, delta.y);
+  render_target->MoveBy((int)delta.x, (int)delta.y);
   return QB_OK;
 }
 
 qbResult qb_rendertarget_moveto(qbRenderTarget render_target, glm::vec2 pos) {
-  render_target->MoveTo(pos.x, pos.y);
+  render_target->MoveTo((int)pos.x, (int)pos.y);
   return QB_OK;
 }
 
 qbResult qb_rendertarget_resize(qbRenderTarget render_target, glm::vec2 size) {
-  render_target->Resize(size.x, size.y);
+  render_target->Resize((int)size.x, (int)size.y);
   return QB_OK;
 }
 

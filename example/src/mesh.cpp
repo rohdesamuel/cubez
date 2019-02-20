@@ -171,7 +171,7 @@ qbResult qb_mesh_draw(qbMesh mesh, qbMaterial) {
     break;
   }
 
-  glDrawElements(render_mode, count, GL_UNSIGNED_INT, (void*)0);
+  glDrawElements(render_mode, (GLsizei)count, GL_UNSIGNED_INT, (void*)0);
   CHECK_GL();
   glBindVertexArray(0);
   return QB_OK;
