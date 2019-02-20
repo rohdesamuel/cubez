@@ -64,6 +64,12 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C }
 #include <cstdint>
+#else
+#ifndef bool
+#define bool int
+#define true 1
+#define false 0
+#endif  // ifndef bool
 #endif  // ifdef __cplusplus
 
 #ifdef __COMPILE_AS_WINDOWS__
