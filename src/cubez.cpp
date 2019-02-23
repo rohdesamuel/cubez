@@ -18,12 +18,11 @@ CoroScheduler* coro_scheduler;
 Coro coro_main;
 
 qbResult qb_init(qbUniverse* u) {
-  char stack;
-  coro_initialize(&stack);
+  universe_ = u;
 
   utils_initialize();
-
-  universe_ = u;
+  coro_main = coro_initialize(u);
+  
   universe_->self = new PrivateUniverse();
   coro_scheduler = new CoroScheduler(4);
 

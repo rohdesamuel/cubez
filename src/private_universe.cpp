@@ -49,12 +49,12 @@ qbResult Runner::transition(
 }
 #else
 qbResult Runner::transition(const std::vector<State>&, State next) {
-  std::lock_guard<std::mutex> lock(state_change_);
+  //std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
   return QB_OK;
 }
 qbResult Runner::transition(std::vector<State>&&, State next) {
-  std::lock_guard<std::mutex> lock(state_change_);
+  //std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
   return QB_OK;
 }

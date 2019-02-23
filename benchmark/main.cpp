@@ -199,7 +199,7 @@ int main() {
   /*do_benchmark("Unpack one component benchmark",
     iterate_unpack_one_component_benchmark, count, iterations, test_iterations);*/
   do_benchmark("coroutine_overhead_benchmark",
-               coroutine_overhead_benchmark, 1, 1000, 1);
+               coroutine_overhead_benchmark, 1, 1000000, 1);
   qb_stop();
   while (1);
 }
