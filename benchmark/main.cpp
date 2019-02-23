@@ -68,9 +68,9 @@ uint64_t create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
   return result;
 }
 
-int64_t count = 0;
+volatile int64_t count = 0;
 int64_t* Count() {
-  return &count; 
+  return (int64_t*)&count;
 }
 
 uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterations) {
@@ -84,7 +84,7 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
 
     for (uint64_t i = 0; i < count; ++i) {
       qbEntity entity;
-      ++p.p.x;
+      p.p.x++;
       qb_entity_create(&entity, attr);
     }
 
@@ -99,7 +99,7 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
 
         PositionComponent p;
         qb_instance_getmutable(*instance, &p);
-        *Count() += p.p.x;
+        *Count() += (int64_t)p.p.x;
       });
 
     qbSystem system;
@@ -112,11 +112,40 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
     qb_loop();
   }
   qb_timer_stop(timer);
-  std::cout << "Count = " << count << std::endl;
+  std::cout << "Count = " << *Count() << std::endl;
 
   uint64_t elapsed = qb_timer_elapsed(timer);
   qb_timer_destroy(&timer);
   return elapsed;
+}
+
+uint64_t coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+
+  *Count() = 0;
+  for (auto i = 0; i < count; ++i) {
+    qb_coro_sync([](qbVar) {
+      for (;;) {
+        *Count() += 1;
+        qb_coro_yield(qbNone);
+      }
+      return qbNone;
+    }, qbNone);
+  }
+
+  qb_timer_start(timer);
+  qb_loop();
+  for (uint64_t i = 0; i < iterations; ++i) {
+    qb_loop();
+  }
+  qb_timer_stop(timer);
+
+  std::cout << "Count = " << *Count() << std::endl;
+
+  double elapsed = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+  return elapsed / iterations;
 }
 
 template<class F>
@@ -129,9 +158,10 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
   std::cout << "Finished benchmark\n";
   std::cout << "Total elapsed: " << elapsed << "ns\n";
   std::cout << "Elapsed per iteration: " << elapsed / test_iterations << "ns\n";
-  std::cout << "Total elapsed: " << (double)elapsed / 1e9<< "s\n";
+  std::cout << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
   std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / test_iterations << "s\n";
 }
+
 
 int main() {
   qbUniverse uni;
@@ -166,8 +196,10 @@ int main() {
   
   /*do_benchmark("Create entities benchmark",
                create_entities_benchmark, count, iterations, 1);*/
-  do_benchmark("Unpack one component benchmark",
-    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
+  /*do_benchmark("Unpack one component benchmark",
+    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);*/
+  do_benchmark("coroutine_overhead_benchmark",
+               coroutine_overhead_benchmark, 1, 1000, 1);
   qb_stop();
   while (1);
 }

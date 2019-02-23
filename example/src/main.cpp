@@ -245,7 +245,6 @@ qbCoro wait_coro;
 qbVar load_texture(qbVar var) {
   qbTexture tex = nullptr;
   qb_texture_load(&tex, "", (const char*)var.p);
-  
   return qbVoid(tex);
 }
 
