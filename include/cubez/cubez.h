@@ -459,10 +459,6 @@ API qbVar       qbChar(char c);
 
 API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
 
-API qbCoro      qb_coro_create_unsafe(qbVar(*entry)(qbVar),
-                                      void* stack,
-                                      size_t stack_size);
-
 // A coroutine is safe to destroy only it is finished running. This can be
 // queried with qb_coro_peek or qb_coro_done. A coroutine can be waited upon by
 // using qb_coro_await.

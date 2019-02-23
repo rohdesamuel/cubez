@@ -14,17 +14,17 @@ const qbVar qbNone = { QB_TAG_VOID, 0 };
 const qbVar qbUnset = { QB_TAG_UNSET, 0 };
 
 static qbUniverse* universe_ = nullptr;
-Coro main;
 CoroScheduler* coro_scheduler;
-
+Coro coro_main;
 
 qbResult qb_init(qbUniverse* u) {
+  char stack;
+  coro_initialize(&stack);
+
   utils_initialize();
 
   universe_ = u;
   universe_->self = new PrivateUniverse();
-
-  main = coro_initialize();
   coro_scheduler = new CoroScheduler(4);
 
   return AS_PRIVATE(init());
@@ -353,13 +353,6 @@ qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   qbCoro ret = new qbCoro_();
   ret->ret = qbUnset;
   ret->main = coro_new(entry);
-  return ret;
-}
-
-qbCoro qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size) {
-  qbCoro ret = new qbCoro_();
-  ret->ret = qbUnset;
-  ret->main = coro_new_unsafe(entry, (uintptr_t)stack, stack_size);
   return ret;
 }
 

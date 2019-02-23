@@ -41,7 +41,7 @@ inline ThreadPool::ThreadPool(size_t threads)
   for (size_t i = 0; i < threads; ++i) {
     workers.emplace_back(
       [this] {
-      Coro main = coro_initialize();
+      Coro main = coro_initialize(&main);
       for (;;) {
         std::function<void()> task;
 
