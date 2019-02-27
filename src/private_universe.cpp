@@ -361,6 +361,10 @@ void PrivateUniverse::barrier_destroy(qbBarrier barrier) {
 }
 
 qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
+  if (*scene == scene_global()) {
+    return QB_OK;
+  }
+
   qbScene ret = new qbScene_();
   ret->state = new GameState(std::make_unique<EntityRegistry>(),
                              std::make_unique<InstanceRegistry>(*components_),
@@ -384,10 +388,26 @@ qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
 }
 
 qbResult PrivateUniverse::scene_destroy(qbScene* scene) {
+  runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  if (*scene == scene_global()) {
+    return QB_OK;
+  }
+
+  // Inform users of destruction.
+  for (auto& fn : (*scene)->ondestroy) {
+    fn(*scene);
+  }
+
+  // Delete the game state to destroy all entities.
   delete (*scene)->name;
   delete (*scene)->state;
   delete *scene;
   *scene = nullptr;
+  working_ = active_ = nullptr;
+
+  scene_activate(scene_global());
+  scene_set(scene_global());
+
   return QB_OK;
 }
 
@@ -408,7 +428,40 @@ qbResult PrivateUniverse::scene_reset() {
 }
 
 qbResult PrivateUniverse::scene_activate(qbScene scene) {
+  if (active_ == scene) {
+    return QB_OK;
+  }
+
   runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  // Deactivate the currently active scene.
+  if (active_) {
+    for (auto& fn : active_->ondeactivate) {
+      fn(scene);
+    }
+  }
+  
+  // Activate the new scene.
   active_ = scene;
+  scene_set(scene);
+
+  for (auto& fn : scene->onactivate) {
+    fn(scene);
+  }
+
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_ondestroy(qbScene scene, void(*fn)(qbScene scene)) {
+  scene->ondestroy.push_back(fn);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_onactivate(qbScene scene, void(*fn)(qbScene scene)) {
+  scene->onactivate.push_back(fn);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene)) {
+  scene->ondeactivate.push_back(fn);
   return QB_OK;
 }

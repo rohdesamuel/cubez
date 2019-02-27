@@ -399,6 +399,7 @@ API qbResult      qb_event_sendsync(qbEvent event,
 /////////////////////////  Scenes  ////////////////////////
 ///////////////////////////////////////////////////////////
 
+// Creates a scene with the given name.
 API qbResult      qb_scene_create(qbScene* scene,
                                   const char* name);
 
@@ -411,30 +412,53 @@ API qbResult      qb_scene_load(qbScene* scene,
                                 const char* name,
                                 const char* file);
 
+// Destroys the given scene. Order of operations:
+// 1. Calls the ondestroy event on the given scene
+// 2. Destroys all alive entities and calls the ondestroy event
+// 3. Activates the Global Scene while and calls the onactivate event
+// 4. Sets the "working scene" to be the Global Scene
 API qbResult      qb_scene_destroy(qbScene* scene);
 
-// Returns the global scene singleton. This scene is created at the start of
+// Returns the Global Scene singleton. This scene is created at the start of
 // the engine. This is useful if there are resources or entities that are
 // needed throughout the lifetime of the game.
 API qbScene       qb_scene_global();
 
-// Sets scene to be create entities and load resources on.
+// Sets the given scene to be the "working scene". Once a scene is set, any
+// created entities will be scoped to the lifetime of the given scene.
+// the game engine is looping.
+// Usage:
+// qbScene main_menu;
+// qb_scene_create(&main_menu, "Main Menu");
+// qb_scene_set(main_menu);
+// ... create entities ...
+// qb_scene_activate(main_menu);
 API qbResult      qb_scene_set(qbScene scene);
 
-// Resets scene to currently active scene.
+// Resets the "working scene" to the currently active scene.
 API qbResult      qb_scene_reset();
 
-// Activates the given scene.
+// Returns the name of the given scene.
+API const char*   qb_scene_name(qbScene scene);
+
+// Activates the given scene. Order of operations:
+// 1. Deactivates current active scene and calls the ondeactivate event
+// 2. Activates the given scene
+// 3. Sets the "working scene" to the given scene
+// 4. Calls the onactivate event with the given scene
 API qbResult      qb_scene_activate(qbScene scene);
 
+// Triggers fn when scene is destroyed.
 API qbResult      qb_scene_ondestroy(qbScene scene,
                                      void(*fn)(qbScene scene));
 
-API qbResult      qb_scene_onenable(qbScene scene,
-                                    void(*fn)(qbScene scene));
+// Triggers fn when scene is activated.
+API qbResult      qb_scene_onactivate(qbScene scene,
+                                      void(*fn)(qbScene scene));
 
-API qbResult      qb_scene_ondisable(qbScene scene,
-                                     void(*fn)(qbScene scene));
+// Triggers fn when scene is deactivated.
+API qbResult      qb_scene_ondeactivate(qbScene scene,
+                                        void(*fn)(qbScene scene));
 
 
 ///////////////////////////////////////////////////////////

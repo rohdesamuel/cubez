@@ -458,12 +458,16 @@ qbResult qb_scene_save(qbScene* scene, const char* file) {
   return QB_OK;
 }
 
-qbResult qb_scene_load(qbScene* scene, const char* file) {
+qbResult qb_scene_load(qbScene* scene, const char* name, const char* file) {
   return QB_OK;
 }
 
 qbResult qb_scene_set(qbScene scene) {
   return AS_PRIVATE(scene_set(scene));
+}
+
+const char* qb_scene_name(qbScene scene) {
+  return scene->name;
 }
 
 qbResult qb_scene_reset() {
@@ -475,16 +479,13 @@ qbResult qb_scene_activate(qbScene scene) {
 }
 
 qbResult qb_scene_ondestroy(qbScene scene, void(*fn)(qbScene scene)) {
-
-  return QB_OK;
+  return AS_PRIVATE(scene_ondestroy(scene, fn));
 }
 
-qbResult qb_scene_onenable(qbScene scene, void(*fn)(qbScene scene)) {
-
-  return QB_OK;
+qbResult qb_scene_onactivate(qbScene scene, void(*fn)(qbScene scene)) {
+  return AS_PRIVATE(scene_onactivate(scene, fn));
 }
 
-qbResult qb_scene_ondisable(qbScene scene, void(*fn)(qbScene scene)) {
-
-  return QB_OK;
+qbResult qb_scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene)) {
+  return AS_PRIVATE(scene_ondeactivate(scene, fn));
 }

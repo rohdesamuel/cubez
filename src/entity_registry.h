@@ -14,6 +14,9 @@
 class GameState;
 class EntityRegistry {
  public:
+  typedef SparseSet::iterator iterator;
+  typedef SparseSet::const_iterator const_iterator;
+
   EntityRegistry();
 
   void Init();
@@ -29,6 +32,22 @@ class EntityRegistry {
   qbResult DestroyEntity(qbEntity entity);
 
   qbResult Find(qbEntity entity, qbEntity* found);
+
+  iterator begin() {
+    return entities_.begin();
+  }
+
+  const_iterator begin() const {
+    return entities_.begin();
+  }
+
+  iterator end() {
+    return entities_.end();
+  }
+
+  const_iterator end() const {
+    return entities_.end();
+  }
 
   bool Has(qbEntity entity);
 

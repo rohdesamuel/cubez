@@ -12,6 +12,7 @@ public:
   GameState(std::unique_ptr<EntityRegistry> entities,
             std::unique_ptr<InstanceRegistry> instances,
             ComponentRegistry* components);
+  ~GameState();
 
   void Flush();
 

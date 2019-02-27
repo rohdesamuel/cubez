@@ -16,6 +16,9 @@ typedef void(*qbInstanceOnDestroy)(qbInstance instance);
 struct qbScene_ {
   const char* name;
   class GameState* state;
+  std::vector<std::function<void(qbScene scene)>> ondestroy;
+  std::vector<std::function<void(qbScene scene)>> onactivate;
+  std::vector<std::function<void(qbScene scene)>> ondeactivate;
 };
 
 struct qbCoro_ {

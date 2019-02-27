@@ -139,6 +139,9 @@ class PrivateUniverse {
   qbResult scene_set(qbScene scene);
   qbResult scene_reset();
   qbResult scene_activate(qbScene scene);
+  qbResult scene_ondestroy(qbScene scene, void(*fn)(qbScene scene));
+  qbResult scene_onactivate(qbScene scene, void(*fn)(qbScene scene));
+  qbResult scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene));
 
   // Current program id of running thread.
   static thread_local qbId program_id;

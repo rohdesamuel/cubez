@@ -11,6 +11,11 @@ GameState::GameState(std::unique_ptr<EntityRegistry> entities,
   removed_components_.resize(10);
 }
 
+GameState::~GameState() {
+  for (qbEntity entity : *entities_) {
+    EntityDestroyInternal(entity);
+  }
+}
 
 void GameState::Flush() {
   for (auto& removed_components : removed_components_) {
