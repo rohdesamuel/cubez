@@ -438,6 +438,8 @@ API qbResult      qb_scene_set(qbScene scene);
 // Resets the "working scene" to the currently active scene.
 API qbResult      qb_scene_reset();
 
+#define qb_scene_with(scene, expr) do { qb_scene_set(scene); expr; qb_scene_reset(); } while(0)
+
 // Returns the name of the given scene.
 API const char*   qb_scene_name(qbScene scene);
 
@@ -485,17 +487,18 @@ typedef struct {
   };
 } qbVar;
 
+// Represents a value without a value.
 API extern const qbVar qbNone;
-API extern const qbVar qbUnset;
 
+// Represents a qbVar that is not yet set. Used to represent a value that will
+// be set in the future.
+API extern const qbVar qbFuture;
+
+// Convenience functions for creating a qbVar. 
 API qbVar       qbVoid(void* p);
-
 API qbVar       qbUint(uint64_t u);
-
 API qbVar       qbInt(int64_t i);
-
 API qbVar       qbDouble(double d);
-
 API qbVar       qbChar(char c);
 
 // Creates and returns a new coroutine only valid on the current thread.
@@ -531,16 +534,16 @@ API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
 // variables. They will be invalid pointers.
 API qbVar       qb_coro_yield(qbVar var);
 
-// Yields "qbUnset" until at least the given seconds have elapsed.
+// Yields "qbFuture" until at least the given seconds have elapsed.
 API void        qb_coro_wait(double seconds);
 
-// Yields "qbUnset" until the given frames have elapsed.
+// Yields "qbFuture" until the given frames have elapsed.
 API void        qb_coro_waitframes(uint32_t frames);
 
-// Yields "qbUnset" until coro is done running. 
+// Yields "qbFuture" until coro is done running. 
 API qbVar       qb_coro_await(qbCoro coro);
 
-// Peeks at the return value of the scheduled coro. Returns "qbUnset" if the
+// Peeks at the return value of the scheduled coro. Returns "qbFuture" if the
 // scheduled coro is running.
 API qbVar       qb_coro_peek(qbCoro coro);
 

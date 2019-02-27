@@ -11,7 +11,7 @@
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
 const qbVar qbNone = { QB_TAG_VOID, 0 };
-const qbVar qbUnset = { QB_TAG_UNSET, 0 };
+const qbVar qbFuture = { QB_TAG_UNSET, 0 };
 
 static qbUniverse* universe_ = nullptr;
 CoroScheduler* coro_scheduler;
@@ -350,7 +350,7 @@ qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer)
 
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   qbCoro ret = new qbCoro_();
-  ret->ret = qbUnset;
+  ret->ret = qbFuture;
   ret->main = coro_new(entry);
   return ret;
 }
@@ -391,14 +391,14 @@ void qb_coro_wait(double seconds) {
   double start = (double)qb_timer_query() / 1e9;
   double end = start + seconds;
   while ((double)qb_timer_query() / 1e9 < end) {
-    qb_coro_yield(qbUnset);
+    qb_coro_yield(qbFuture);
   }
 }
 
 void qb_coro_waitframes(uint32_t frames) {
   uint32_t frames_waited = 0;
   while (frames_waited < frames) {
-    qb_coro_yield(qbUnset);
+    qb_coro_yield(qbFuture);
     ++frames_waited;
   }
 }
