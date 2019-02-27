@@ -361,7 +361,7 @@ void PrivateUniverse::barrier_destroy(qbBarrier barrier) {
 }
 
 qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
-  if (*scene == scene_global()) {
+  if (scene_global() && *scene == scene_global()) {
     return QB_OK;
   }
 
