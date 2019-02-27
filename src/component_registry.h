@@ -9,45 +9,24 @@
 
 class GameState;
 class ComponentRegistry {
- public:
+public:
   ComponentRegistry();
   ~ComponentRegistry();
 
-  void Init();
   ComponentRegistry* Clone();
 
   qbResult Create(qbComponent* component, qbComponentAttr attr);
+  Component* Create(qbComponent component) const;
 
-  Component& operator[](qbId component) {
-    return *(Component*)components_[component];
-  }
+  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component);
+  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component);
 
-  const Component& operator[](qbId component) const {
-    return *(Component*)components_[component];
-  }
-
-  qbResult CreateInstancesFor(
-    qbEntity entity, const std::vector<qbComponentInstance_>& instances,
-    GameState* state);
-
-  qbResult CreateInstanceFor(qbEntity entity, qbComponent component,
-                             void* instance_data, GameState* state);
-
-  int DestroyInstancesFor(qbEntity entity, GameState* state);
-  int DestroyInstanceFor(qbEntity entity, qbComponent component,
-                         GameState* state);
-
-  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component) const;
-  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component) const;
-
- private:
-  qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state);
-  qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state);
-
+  qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state) const;
+  qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state) const;
+private:
+  SparseMap<qbComponentAttr_, TypedBlockVector<qbComponentAttr_>> components_defs_;
   std::vector<qbEvent> instance_create_events_;
   std::vector<qbEvent> instance_destroy_events_;
-  SparseMap<Component*, TypedBlockVector<Component*>> components_;
-
   std::atomic_long id_;
 };
 

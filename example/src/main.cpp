@@ -198,19 +198,6 @@ void initialize_universe(qbUniverse* uni) {
     check_for_gl_errors();
   }
 
-  /*
-  
-  qbScene main_menu_scene;
-
-  qb_scene_create(&main_menu_scene);
-  qb_scene_push(main_menu_scene);
-
-  
-
-  qb_scene_pop();
-
-  */
-
   auto new_game = [mesh_shader](const framework::JSObject&, const framework::JSArgs&) {
     planet::Settings settings;
     settings.shader = mesh_shader;
@@ -236,6 +223,17 @@ void initialize_universe(qbUniverse* uni) {
   }
 
 #endif
+}
+
+qbScene create_main_menu() {
+  qbScene scene;
+  qb_scene_create(&scene, "Main Menu");
+  qb_scene_set(scene);
+
+  
+
+  qb_scene_reset();
+  return scene;
 }
 
 qbCoro test_coro;
@@ -354,6 +352,8 @@ qbVar create_random_balls(qbVar) {
   }
 }
 
+
+TimingInfo timing_info;
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni;
@@ -364,7 +364,7 @@ int main(int, char* []) {
   generator_coro = qb_coro_create(generator);
 
   qb_start();
-  TimingInfo timing_info;
+  
   int frame = 0;
   qbTimer fps_timer;
   qbTimer update_timer;
@@ -385,7 +385,6 @@ int main(int, char* []) {
   //gui::qbRenderTarget target;
   //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
   
-  qb_loop();
   while (1) {
     qb_timer_start(fps_timer);
 

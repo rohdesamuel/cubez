@@ -13,6 +13,11 @@
 typedef void(*qbInstanceOnCreate)(qbInstance instance);
 typedef void(*qbInstanceOnDestroy)(qbInstance instance);
 
+struct qbScene_ {
+  const char* name;
+  class GameState* state;
+};
+
 struct qbCoro_ {
   Coro main;
 

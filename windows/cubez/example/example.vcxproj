@@ -124,6 +124,7 @@
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <MinimalRebuild>true</MinimalRebuild>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -143,6 +144,7 @@
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <MinimalRebuild>true</MinimalRebuild>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
