@@ -126,13 +126,14 @@ API size_t        qb_component_getcount(qbComponent component);
 // A qbInstance is a per-program and per-thread (not thread-safe) entity
 // combined with its component references.
 
-// Triggers fn when a component is created. If created when an entity is
-// created, then it is triggered after all components have been instantiated.
+// Triggers fn when a instance of the given component is created. If created
+// when an entity is created, then it is triggered after all components have
+// been instantiated.
 API qbResult      qb_instance_oncreate(qbComponent component,
                                        void(*fn)(qbInstance instance));
 
-// Triggers fn when a component is destroyed. Is triggered before before memory
-// is freed.
+// Triggers fn when a instance of the given component is destroyed. Is
+// triggered before before memory is freed.
 API qbResult      qb_instance_ondestroy(qbComponent component,
                                         void(*fn)(qbInstance instance));
 
@@ -336,6 +337,7 @@ API qbResult      qb_system_enable(qbSystem system);
 API qbResult      qb_system_disable(qbSystem system);
 
 // Runs the given system. Not thread-safe when run concurrently with qb_loop().
+// Unimplemented.
 API qbResult      qb_system_run(qbSystem system);
 
 ///////////////////////////////////////////////////////////
@@ -397,18 +399,33 @@ API qbResult      qb_event_sendsync(qbEvent event,
 /////////////////////////  Scenes  ////////////////////////
 ///////////////////////////////////////////////////////////
 
-API qbResult      qb_scene_create(qbScene* scene);
+API qbResult      qb_scene_create(qbScene* scene,
+                                  const char* name);
 
+// Unimplemented.
+API qbResult      qb_scene_save(qbScene* scene,
+                                const char* file);
+
+// Unimplemented.
 API qbResult      qb_scene_load(qbScene* scene,
+                                const char* name,
                                 const char* file);
 
 API qbResult      qb_scene_destroy(qbScene* scene);
 
-API qbResult      qb_scene_enable(qbScene scene);
+// Returns the global scene singleton. This scene is created at the start of
+// the engine. This is useful if there are resources or entities that are
+// needed throughout the lifetime of the game.
+API qbScene       qb_scene_global();
 
-API qbResult      qb_scene_disable(qbScene scene);
-
+// Sets scene to be create entities and load resources on.
 API qbResult      qb_scene_set(qbScene scene);
+
+// Resets scene to currently active scene.
+API qbResult      qb_scene_reset();
+
+// Activates the given scene.
+API qbResult      qb_scene_activate(qbScene scene);
 
 API qbResult      qb_scene_ondestroy(qbScene scene,
                                      void(*fn)(qbScene scene));
@@ -457,18 +474,37 @@ API qbVar       qbDouble(double d);
 
 API qbVar       qbChar(char c);
 
+// Creates and returns a new coroutine only valid on the current thread.
+// Cannot be passed between threads.
 API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
 
-API qbCoro      qb_coro_create_unsafe(qbVar(*entry)(qbVar),
-                                      void* stack,
-                                      size_t stack_size);
-
+// A coroutine is safe to destroy only it is finished running. This can be
+// queried with qb_coro_peek or qb_coro_done. A coroutine can be waited upon by
+// using qb_coro_await.
 API qbResult    qb_coro_destroy(qbCoro* coro);
 
 // Immediately runs the given coroutine on the same thread as the caller.
+// WARNING: A coroutine has its own stack, do not pass in pointers to stack
+// variables. They will be invalid pointers.
 API qbVar       qb_coro_call(qbCoro coro, qbVar var);
 
+// Creates a coroutine and schedules the given function to be run on the main
+// thread. All coroutines are then run serially after event dispatch and
+// systems are run. All coroutines are run as cooperative threads. In order to
+// run the next coroutine, the given entry must call qb_coro_yield().
+// WARNING: A coroutine has its own stack, do not pass in pointers to stack
+// variables. They will be invalid pointers.
+API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
+
+// Creates a coroutine and schedules the given function to be run on a
+// background thread. Thread-safe.
+// WARNING: A coroutine has its own stack, do not pass in pointers to stack
+// variables. They will be invalid pointers.
+API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
+
 // Yields control with the given var back to the current coroutine's caller.
+// WARNING: A coroutine has its own stack, do not pass in pointers to stack
+// variables. They will be invalid pointers.
 API qbVar       qb_coro_yield(qbVar var);
 
 // Yields "qbUnset" until at least the given seconds have elapsed.
@@ -477,19 +513,6 @@ API void        qb_coro_wait(double seconds);
 // Yields "qbUnset" until the given frames have elapsed.
 API void        qb_coro_waitframes(uint32_t frames);
 
-// Creates a coroutine and schedules the given function to be run on the main
-// thread. All coroutines are then run serially after event dispatch and
-// systems are run. All coroutines are run as cooperative threads. In order to
-// run the next coroutine, the given entry must call qb_coro_yield().
-API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
-
-// Creates a coroutine and schedules the given function to be run on a
-// background thread. Thread-safe.
-API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
-
-API qbCoro      qb_coro_async_unsafe(qbVar(*entry)(qbVar), qbVar var,
-                                        void* stack, size_t stack_size);
-
 // Yields "qbUnset" until coro is done running. 
 API qbVar       qb_coro_await(qbCoro coro);
 
@@ -497,5 +520,7 @@ API qbVar       qb_coro_await(qbCoro coro);
 // scheduled coro is running.
 API qbVar       qb_coro_peek(qbCoro coro);
 
+// Returns true if Coroutine is finished running.
+API bool        qb_coro_done(qbCoro coro);
 
 #endif  // #ifndef CUBEZ__H

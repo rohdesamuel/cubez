@@ -198,19 +198,6 @@ void initialize_universe(qbUniverse* uni) {
     check_for_gl_errors();
   }
 
-  /*
-  
-  qbScene main_menu_scene;
-
-  qb_scene_create(&main_menu_scene);
-  qb_scene_push(main_menu_scene);
-
-  
-
-  qb_scene_pop();
-
-  */
-
   auto new_game = [mesh_shader](const framework::JSObject&, const framework::JSArgs&) {
     planet::Settings settings;
     settings.shader = mesh_shader;
@@ -238,6 +225,17 @@ void initialize_universe(qbUniverse* uni) {
 #endif
 }
 
+qbScene create_main_menu() {
+  qbScene scene;
+  qb_scene_create(&scene, "Main Menu");
+  qb_scene_set(scene);
+
+  
+
+  qb_scene_reset();
+  return scene;
+}
+
 qbCoro test_coro;
 qbCoro generator_coro;
 qbCoro wait_coro;
@@ -245,7 +243,6 @@ qbCoro wait_coro;
 qbVar load_texture(qbVar var) {
   qbTexture tex = nullptr;
   qb_texture_load(&tex, "", (const char*)var.p);
-  
   return qbVoid(tex);
 }
 
@@ -292,9 +289,9 @@ qbVar test_entry(qbVar var) {
 
 struct TimingInfo {
   uint64_t frame;
-  float udpate_fps;
-  float render_fps;
-  float total_fps;
+  double udpate_fps;
+  double render_fps;
+  double total_fps;
 };
 
 qbVar print_timing_info(qbVar var) {
@@ -333,6 +330,8 @@ qbVar ball_random_walk(qbVar v) {
 }
 
 qbVar create_random_balls(qbVar) {
+  std::vector<qbCoro> coros;
+  coros.reserve(100);
   for (;;) {
     glm::vec3 v = {
       (((float)(rand() % 1000)) / 1000) - 0.5,
@@ -340,11 +339,21 @@ qbVar create_random_balls(qbVar) {
       (((float)(rand() % 1000)) / 1000) - 0.5
     };
     qbEntity ball = ball::create({}, v);
-    qb_coro_sync(ball_random_walk, qbUint(ball));
+    coros.push_back(qb_coro_sync(ball_random_walk, qbUint(ball)));
     qb_coro_wait(1.0);
+
+    for (auto it = coros.begin(); it != coros.end(); ++it) {
+      qbCoro c = *it;
+      if (qb_coro_done(c)) {
+        qb_coro_destroy(&c);
+        it = coros.erase(it);
+      }
+    }
   }
 }
 
+
+TimingInfo timing_info;
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni;
@@ -355,7 +364,7 @@ int main(int, char* []) {
   generator_coro = qb_coro_create(generator);
 
   qb_start();
-  TimingInfo timing_info;
+  
   int frame = 0;
   qbTimer fps_timer;
   qbTimer update_timer;
@@ -367,16 +376,15 @@ int main(int, char* []) {
   qb_timer_create(&update_timer, 50);
   qb_timer_create(&render_timer, 50);
 
-  const uint64_t kClockResolution = 1e9;
+  const double kClockResolution = 1e9;
   double t = 0.0;
   const double dt = 0.01;
   double current_time = qb_timer_query() * 0.000000001;
-  double start_time = qb_timer_query();
+  double start_time = (double)qb_timer_query();
   double accumulator = 0.0;
-  gui::qbRenderTarget target;
+  //gui::qbRenderTarget target;
   //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
   
-  qb_loop();
   while (1) {
     qb_timer_start(fps_timer);
 
@@ -406,7 +414,6 @@ int main(int, char* []) {
 
     render::RenderEvent e;
     e.frame = frame;
-    e.ftimestamp_us = qb_timer_query() - start_time;
     e.alpha = accumulator / dt;
     render::present(&e);
     
@@ -420,9 +427,9 @@ int main(int, char* []) {
     auto render_timer_avg = qb_timer_average(render_timer);
     auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
 
-    int update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
-    int render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
-    int total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
+    double update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
+    double render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
+    double total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
 
     timing_info.frame = frame;
     timing_info.render_fps = render_fps;

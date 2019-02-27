@@ -3,6 +3,11 @@
 
 #include <shared_mutex>
 
+// Potential optimizations:
+//  * make coroutines and stacks an object pool
+//  * if there are performance issues with copying large stacks, maybe put the
+//    sync_coro into its thread.
+
 CoroScheduler::CoroScheduler(size_t num_threads) {
   thread_pool_.reset(new ThreadPool(num_threads));
   coros_ = new SyncCoros();
@@ -71,7 +76,7 @@ qbCoro CoroScheduler::schedule_async(qbVar(*entry)(qbVar), qbVar var) {
 
   thread_pool_->enqueue([user_coro, entry] (qbVar var) {
     user_coro->main = coro_new(entry);
-    bool is_done = false;
+    int is_done = false;
     qbVar ret = qbUnset;
     do {
       ret = qb_coro_call(user_coro, var);

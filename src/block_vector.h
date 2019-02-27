@@ -325,10 +325,12 @@ public:
 
   TypedBlockVector& operator=(const TypedBlockVector& other) {
     elems_ = other.elems_;
+    return *this;
   }
 
   TypedBlockVector& operator=(TypedBlockVector&& other) {
     elems_ = std::move(other.elems_);
+    return *this;
   }
 
   Ty_& operator[](Index index) {

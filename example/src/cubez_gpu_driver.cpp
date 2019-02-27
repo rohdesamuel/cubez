@@ -14,12 +14,14 @@ static void ReadFile(const char* filepath, std::string& result) {
   // To maintain predictable behavior across platforms we use
   // whatever FileSystem that Ultralight is using:
   ultralight::FileSystem* fs = ultralight::Platform::instance().file_system();
-  if (!fs)
+  if (!fs) {
     FATAL("No FileSystem defined.");
+  }
 
   auto handle = fs->OpenFile(filepath, false);
-  if (handle == ultralight::invalidFileHandle)
+  if (handle == ultralight::invalidFileHandle) {
     FATAL("Could not open file path: " << filepath);
+  }
 
   int64_t fileSize = 0;
   fs->GetFileSize(handle, fileSize);
@@ -192,8 +194,9 @@ void CubezGpuDriver::CreateRenderBuffer(uint32_t render_buffer_id,
   CHECK_GL();
 
   GLenum result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-  if (result != GL_FRAMEBUFFER_COMPLETE)
+  if (result != GL_FRAMEBUFFER_COMPLETE) {
     FATAL("Error creating FBO: " << result);
+  }
   CHECK_GL();
 }
 
@@ -465,8 +468,9 @@ void CubezGpuDriver::LoadProgram(ProgramType type,
   glUniform1i(glGetUniformLocation(prog.program_id, "Texture2"), 1);
   glUniform1i(glGetUniformLocation(prog.program_id, "Texture3"), 2);
 
-  if (glGetError())
+  if (glGetError()) {
     FATAL("Unable to link shader.\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << GetProgramLog(prog.program_id));
+  }
 
   glDetachShader(prog.program_id, prog.frag_shader_id);
   glDetachShader(prog.program_id, prog.vert_shader_id);

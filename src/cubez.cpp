@@ -14,17 +14,16 @@ const qbVar qbNone = { QB_TAG_VOID, 0 };
 const qbVar qbUnset = { QB_TAG_UNSET, 0 };
 
 static qbUniverse* universe_ = nullptr;
-Coro main;
 CoroScheduler* coro_scheduler;
-
+Coro coro_main;
 
 qbResult qb_init(qbUniverse* u) {
-  utils_initialize();
-
   universe_ = u;
-  universe_->self = new PrivateUniverse();
 
-  main = coro_initialize();
+  utils_initialize();
+  coro_main = coro_initialize(u);
+  
+  universe_->self = new PrivateUniverse();
   coro_scheduler = new CoroScheduler(4);
 
   return AS_PRIVATE(init());
@@ -356,13 +355,6 @@ qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   return ret;
 }
 
-qbCoro qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size) {
-  qbCoro ret = new qbCoro_();
-  ret->ret = qbUnset;
-  ret->main = coro_new_unsafe(entry, (uintptr_t)stack, stack_size);
-  return ret;
-}
-
 qbResult qb_coro_destroy(qbCoro* coro) {
   coro_free((*coro)->main);
   delete *coro;
@@ -411,6 +403,10 @@ void qb_coro_waitframes(uint32_t frames) {
   }
 }
 
+bool qb_coro_done(qbCoro coro) {
+  return qb_coro_peek(coro).tag != QB_TAG_UNSET;
+}
+
 qbVar qbVoid(void* p) {
   qbVar v;
   v.tag = QB_TAG_VOID;
@@ -444,4 +440,51 @@ qbVar qbChar(char c) {
   v.tag = QB_TAG_CHAR;
   v.c = c;
   return v;
+}
+
+qbResult qb_scene_create(qbScene* scene, const char* name) {
+  return AS_PRIVATE(scene_create(scene, name));
+}
+
+qbResult qb_scene_destroy(qbScene* scene) {
+  return AS_PRIVATE(scene_destroy(scene));
+}
+
+qbScene qb_scene_global() {
+  return AS_PRIVATE(scene_global());
+}
+
+qbResult qb_scene_save(qbScene* scene, const char* file) {
+  return QB_OK;
+}
+
+qbResult qb_scene_load(qbScene* scene, const char* file) {
+  return QB_OK;
+}
+
+qbResult qb_scene_set(qbScene scene) {
+  return AS_PRIVATE(scene_set(scene));
+}
+
+qbResult qb_scene_reset() {
+  return AS_PRIVATE(scene_reset());
+}
+
+qbResult qb_scene_activate(qbScene scene) {
+  return AS_PRIVATE(scene_activate(scene));
+}
+
+qbResult qb_scene_ondestroy(qbScene scene, void(*fn)(qbScene scene)) {
+
+  return QB_OK;
+}
+
+qbResult qb_scene_onenable(qbScene scene, void(*fn)(qbScene scene)) {
+
+  return QB_OK;
+}
+
+qbResult qb_scene_ondisable(qbScene scene, void(*fn)(qbScene scene)) {
+
+  return QB_OK;
 }

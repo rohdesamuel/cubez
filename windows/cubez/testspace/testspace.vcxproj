@@ -90,6 +90,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
@@ -102,6 +103,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\libRocket\bin;C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release</AdditionalLibraryDirectories>
@@ -116,6 +118,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -132,6 +135,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\deps\include;C:\Users\Sam\Source\Repos\cubez\include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

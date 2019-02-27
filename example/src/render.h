@@ -21,7 +21,6 @@ typedef struct qbRenderable_* qbRenderable;
 struct RenderEvent {
   double alpha;
   uint64_t frame;
-  uint64_t ftimestamp_us;
 };
 
 struct Settings {

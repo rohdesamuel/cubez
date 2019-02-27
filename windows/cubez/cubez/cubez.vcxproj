@@ -98,6 +98,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -114,6 +115,7 @@
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
+      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -132,6 +134,7 @@
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
+      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -153,6 +156,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <OmitFramePointers>false</OmitFramePointers>
+      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -186,6 +190,7 @@
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\frame_buffer.h" />
     <ClInclude Include="..\..\..\src\game_state.h" />
+    <ClInclude Include="..\..\..\src\instance_registry.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
     <ClInclude Include="..\..\..\src\sparse_set.h" />
     <ClInclude Include="..\..\..\src\memory_pool.h" />
@@ -212,6 +217,7 @@
     <ClCompile Include="..\..\..\src\event_registry.cpp" />
     <ClCompile Include="..\..\..\src\fast_math.cpp" />
     <ClCompile Include="..\..\..\src\game_state.cpp" />
+    <ClCompile Include="..\..\..\src\instance_registry.cpp" />
     <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
