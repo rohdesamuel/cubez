@@ -1,4 +1,5 @@
 #include "system_impl.h"
+#include <omp.h>
 
 SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<qbComponent> components) :
   system_(system), 
@@ -84,10 +85,12 @@ qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component, Game
 }
 
 void SystemImpl::CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state) {
+  CopyToInstance(component, entity, (*component)[entity], instance, state);
+}
+
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity, void* instance_data, qbInstance instance, GameState* state) {
   instance->entity = entity;
-  instance->data = instance->is_mutable
-      ? (*component)[entity]
-      : (void*)component->at(entity);
+  instance->data = instance_data;
   instance->component = component;
   instance->state = state;
 }
@@ -102,7 +105,7 @@ void SystemImpl::Run_0(qbFrame* f) {
 
 void SystemImpl::Run_1(Component* component, qbFrame* f, GameState* state) {
   for (auto id_component : *component) {
-    CopyToInstance(component, id_component.first, &instances_[0], state);
+    CopyToInstance(component, id_component.first, id_component.second, &instances_[0], state);
     RunTransform(instance_data_.data(), f);
   }
 }
