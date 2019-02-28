@@ -54,5 +54,5 @@ void Task::Stop() {
 
 void Task::Wait() {
   std::unique_lock<std::mutex> lock(state_lock_);
-  should_wait_.wait(lock, [this] { return state == WAITING || state == STOPPED; });
+  should_wait_.wait(lock, [this] { return game_state_ == nullptr; });
 }
