@@ -14,8 +14,12 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
 
-  Task* task = new Task(p);
-  program_threads_[id] = std::unique_ptr<Task>(task);
+  if (id > 0) {
+    Task* task = new Task(p);
+    program_threads_[id] = std::unique_ptr<Task>(task);
+  } else {
+    main_program_ = p;
+  }
   return id;
 }
 
@@ -52,6 +56,8 @@ void ProgramRegistry::Run(GameState* state) {
   for (auto& task : program_threads_) {
     task.second->Run(state);
   }
+
+  RunProgram(main_program_->id, state);
 
   for (auto& task : program_threads_) {
     task.second->Wait();
