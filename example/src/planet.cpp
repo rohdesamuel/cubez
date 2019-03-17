@@ -681,7 +681,7 @@ private:
 
 qbMaterial dot_material;
 qbMesh dot_mesh;
-render::qbRenderable dot_renderable;
+qbRenderable dot_renderable;
 
 std::unordered_map<std::string, Blueprint*> blueprints;
 std::unordered_map<std::string, BuildingType*> buildings;
@@ -1023,8 +1023,8 @@ qbEntity CreatePlanet(qbEntity parent, float planet_radius, float orbit_radius,
     auto builder = MeshBuilder::Sphere(planet_radius, 20, 20);
     qbMesh sphere = builder.BuildRenderable(qbRenderMode::QB_TRIANGLES);
 
-    render::qbRenderable render_state = render::create(sphere, m);
-    qb_entityattr_addcomponent(attr, render::component(), &render_state);
+    qbRenderable render_state = create(sphere, m);
+    qb_entityattr_addcomponent(attr, component(), &render_state);
 
     physics::qbCollidable collidable;
     Mesh sphere_collision = builder.BuildMesh();
@@ -1075,8 +1075,8 @@ qbEntity CreateStation(qbEntity parent, float station_size, float orbit_radius,
     auto builder = MeshBuilder::Box(station_size, station_size, station_size);
     qbMesh sphere = builder.BuildRenderable(qbRenderMode::QB_LINES);
 
-    render::qbRenderable render_state = render::create(sphere, m);
-    qb_entityattr_addcomponent(attr, render::component(), &render_state);
+    qbRenderable render_state = create(sphere, m);
+    qb_entityattr_addcomponent(attr, component(), &render_state);
 
     physics::qbCollidable collidable;
     Mesh sphere_collision = builder.BuildMesh();
@@ -1118,9 +1118,9 @@ qbEntity CreateTradeRoute(qbEntity source, qbEntity sink, ItemType type) {
     qb_materialattr_destroy(&attr);
   }
 
-  //render::qbRenderable renderable;
-  //renderable = render::create(mesh, material);
-  //qb_entityattr_addcomponent(attr, render::component(), &renderable);
+  //qbRenderable renderable;
+  //renderable = create(mesh, material);
+  //qb_entityattr_addcomponent(attr, component(), &renderable);
 
   physics::Transform t;
   qb_entityattr_addcomponent(attr, physics::component(), &t);
@@ -1189,7 +1189,7 @@ void Initialize(const Settings& settings) {
     dot_mesh = builder.BuildRenderable(qbRenderMode::QB_POINTS);
   }
   {
-    dot_renderable = render::create(dot_mesh, dot_material);
+    dot_renderable = create(dot_mesh, dot_material);
   }
   {
     qbSystemAttr attr;
@@ -1343,12 +1343,12 @@ void Initialize(const Settings& settings) {
       glm::vec3 new_verts[] = { source->p, sink->p };
       
       if (false && trigger > 2) {
-        render::qb_render_makecurrent();
+        qb_render_makecurrent();
         glBindVertexArray(trade_route->mesh->vao);
         glBindBuffer(GL_ARRAY_BUFFER, v_vbo);
         glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3),
                      new_verts, GL_DYNAMIC_DRAW);
-        render::qb_render_makenull();
+        qb_render_makenull();
       }
 
       if (trigger % 100 == 0) {
@@ -1376,7 +1376,7 @@ void Initialize(const Settings& settings) {
         t.v = glm::normalize(sink->p - source->p) * 0.05f;
         qb_entityattr_addcomponent(attr, physics::component(), &t);
 
-        qb_entityattr_addcomponent(attr, render::component(), &dot_renderable);
+        qb_entityattr_addcomponent(attr, component(), &dot_renderable);
 
         Suicidal suicidal;
         suicidal.death_counter = (int)(glm::length(sink->p - source->p) / glm::length(t.v));
@@ -1475,7 +1475,7 @@ void Initialize(const Settings& settings) {
       PlanetaryGrid* grid = *pGrid;
 
       glm::vec2 pos = { 128 + 64, 128 };
-      glm::vec2 size = -pos + glm::vec2{ render::window_width(), render::window_height() } - glm::vec2{ 64, 64 };
+      glm::vec2 size = -pos + glm::vec2{ window_width(), window_height() } - glm::vec2{ 64, 64 };
 
       gui::JSCallbackMap callbacks;
     

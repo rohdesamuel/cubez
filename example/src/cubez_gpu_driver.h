@@ -6,6 +6,7 @@
 #include <SDL2/SDL_opengl.h>
 #include <vector>
 #include <map>
+#include "render.h"
 
 namespace cubez
 {
@@ -36,6 +37,10 @@ public:
   virtual void BindTexture(uint8_t texture_unit,
                            uint32_t texture_id) override;
 
+  void BindTexture(uint32_t texture_id,
+                   uint32_t texture_unit,
+                   uint32_t target);
+
   virtual void DestroyTexture(uint32_t texture_id) override;
 
   virtual uint32_t NextRenderBufferId() override {
@@ -63,14 +68,29 @@ public:
                               const ultralight::VertexBuffer& vertices,
                               const ultralight::IndexBuffer& indices) override;
 
+  virtual void CreateGeometry(uint32_t geometry_id,
+                              const ultralight::VertexBuffer& vertices,
+                              const ultralight::IndexBuffer& indices,
+                              const qbGpuBuffer buffers, size_t buffer_size,
+                              const qbVertexAttribute attributes, size_t attributes_size);
+
   virtual void UpdateGeometry(uint32_t geometry_id,
                               const ultralight::VertexBuffer& vertices,
                               const ultralight::IndexBuffer& buffer) override;
+
+  virtual void UpdateGeometry(uint32_t geometry_id,
+                              const ultralight::VertexBuffer& vertices,
+                              const ultralight::IndexBuffer& buffer,
+                              const qbGpuBuffer buffers, size_t buffer_size);
 
   virtual void DrawGeometry(uint32_t geometry_id,
                             uint32_t indices_count,
                             uint32_t indices_offset,
                             const ultralight::GPUState& state) override;
+
+  void DrawGeometry(uint32_t geometry_id,
+                    uint32_t indices_count,
+                    uint32_t indices_offset);
 
   virtual void DestroyGeometry(uint32_t geometry_id) override;
 
@@ -94,6 +114,10 @@ public:
   void DestroyPrograms();
 
   void LoadProgram(ProgramType type, const char* vert, const char* frag);
+
+  void UseProgram(uint32_t program);
+  uint32_t LoadProgram(const char* vert, const char* frag);
+
   void SelectProgram(ProgramType type);
   void SetUniformDefaults();
   void SetUniform1ui(const char* name, GLuint val);

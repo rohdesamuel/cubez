@@ -276,6 +276,11 @@ qbId qb_shader_getid(qbShader shader) {
   return shader->shader_id;
 }
 
+qbResult qb_shader_use(qbShader shader) {
+  glUseProgram(shader->shader_id);
+  return QB_OK;
+}
+
 qbResult qb_shader_setbool(qbShader shader, const char* uniform, bool value) {
   glUniform1i(glGetUniformLocation(shader->shader_id, uniform), (int)value);
   return QB_OK;

@@ -514,10 +514,9 @@ qbMesh MeshBuilder::BuildRenderable(qbRenderMode render_mode) {
   mesh->attributes = new qbMeshAttributes_;
   mesh->render_mode = render_mode;
 
-  render::qb_render_makecurrent();
+  qb_render_makecurrent();
 
   glGenVertexArrays(1, &mesh->vao);
-  glGenBuffers(1, &mesh->el_vbo);
   glBindVertexArray(mesh->vao);
 
   // Vertices
@@ -572,6 +571,7 @@ qbMesh MeshBuilder::BuildRenderable(qbRenderMode render_mode) {
   }
 
   // Indices
+  glGenBuffers(1, &mesh->el_vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->el_vbo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                index_list.size() * sizeof(uint32_t),

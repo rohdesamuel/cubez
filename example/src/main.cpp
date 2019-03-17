@@ -12,6 +12,7 @@
 #include "shader.h"
 #include "planet.h"
 #include "gui.h"
+#include "opengl_render_module.h"
 
 #include <algorithm>
 #include <thread>
@@ -42,6 +43,11 @@ void main() {
 }
 )";
 
+#ifdef _DEBUG
+#define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
+#else
+#define CHECK_GL()
+#endif   
 
 void check_for_gl_errors() {
   GLenum error = glGetError();
@@ -50,6 +56,16 @@ void check_for_gl_errors() {
     std::cout << "Error(" << error << "): " << error_str << std::endl;
   }
 }
+
+qbRenderModule renderer;
+qbRenderPipeline render_pipeline;
+
+struct Matrices {
+  alignas(16) glm::mat4 mvp;
+};
+
+qbGpuBuffer camera_ubo;
+qbGpuBuffer model_ubo;
 
 void initialize_universe(qbUniverse* uni) {
   qb_init(uni);
@@ -62,20 +78,423 @@ void initialize_universe(qbUniverse* uni) {
     physics::Settings settings;
     physics::initialize(settings);
   }
-  
+
   {
-    render::Settings s;
+    Settings s;
     s.title = "Cubez example";
     s.width = 1200;
     s.height = 800;
     s.znear = 0.1f;
     s.zfar = 10000.0f;
     s.fov = 70.0f;
-    render::initialize(s);
+    initialize(s);
 
-    render::qb_camera_setyaw(90.0f);
-    render::qb_camera_setpitch(0.0f);
-    render::qb_camera_setposition({400.0f, -250.0f, 250.0f});
+    qb_camera_setyaw(90.0f);
+    qb_camera_setpitch(0.0f);
+    qb_camera_setposition({ 400.0f, -250.0f, 250.0f });
+
+    check_for_gl_errors();
+  }
+
+  {
+    qb_render_makecurrent();
+
+    uint32_t width = 1200;
+    uint32_t height = 800;
+    float scale = 1.0f;
+    
+    renderer = Initialize(width, height, 1.0);
+
+    qb_renderpipeline_create(&render_pipeline, width, height, 1.0);
+
+    qbRenderPass render_pass;
+    qbRenderPass present_pass;
+
+    qbFrameBuffer frame;
+    {
+      qbFrameBufferAttr_ attr;
+      attr.width = width;
+      attr.height = height;
+      qb_framebuffer_create(&frame, &attr);
+    }
+    CHECK_GL();
+    {
+      // https://stackoverflow.com/questions/40450342/what-is-the-purpose-of-binding-from-vkvertexinputbindingdescription
+      qbBufferBinding_ binding = {};
+      binding.binding = 0;
+      binding.stride = 8 * sizeof(float);
+      binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
+
+      qbVertexAttribute_ attributes[3] = {};
+      {
+        qbVertexAttribute_* attr = attributes;
+        attr->binding = 0;
+        attr->location = 0;
+
+        attr->size = 3;
+        attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+        attr->normalized = false;
+        attr->offset = (void*)0;
+      }
+      {
+        qbVertexAttribute_* attr = attributes + 1;
+        attr->binding = 0;
+        attr->location = 1;
+
+        attr->size = 3;
+        attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+        attr->normalized = false;
+        attr->offset = (void*)(3 * sizeof(float));
+      }
+      {
+        qbVertexAttribute_* attr = attributes + 2;
+        attr->binding = 0;
+        attr->location = 2;
+
+        attr->size = 2;
+        attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+        attr->normalized = false;
+        attr->offset = (void*)(6 * sizeof(float));
+      }
+
+      qbShaderModule shader_module;
+      {
+        qbShaderResourceAttr_ resource_attrs[3];
+        {
+          qbShaderResourceAttr attr = resource_attrs;
+          attr->binding = 0;
+          attr->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+          attr->stages = QB_SHADER_STAGE_VERTEX;
+          attr->name = "Camera";
+        }
+        {
+          qbShaderResourceAttr attr = resource_attrs + 1;
+          attr->binding = 1;
+          attr->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+          attr->stages = QB_SHADER_STAGE_VERTEX;
+          attr->name = "Model";
+        }
+        {
+          qbShaderResourceAttr attr = resource_attrs + 2;
+          attr->binding = 2;
+          attr->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+          attr->stages = QB_SHADER_STAGE_VERTEX;
+          attr->name = "tex_sampler_1";
+        }
+
+        qbShaderModuleAttr_ attr;
+        attr.vs = "resources/simple.vs";
+        attr.fs = "resources/simple.fs";
+
+        attr.resources = resource_attrs;
+        attr.resources_count = sizeof(resource_attrs) / sizeof(resource_attrs[0]);
+
+        qb_shadermodule_create(&shader_module, &attr);
+      }
+      {        
+        {
+          qbGpuBufferAttr_ attr;
+          attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+          attr.data = nullptr;
+          attr.size = sizeof(Matrices);
+
+          qb_gpubuffer_create(&camera_ubo, &attr);
+        }
+
+        uint32_t bindings[] = { 0 };
+        qbGpuBuffer ubo_buffers[] = { camera_ubo };
+        qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
+      }
+      {
+        qbImageSampler image_samplers[2];
+        {
+          qbImageSamplerAttr_ attr = {};
+          attr.image_type = QB_IMAGE_TYPE_2D;
+          attr.min_filter = QB_FILTER_TYPE_LINEAR;
+          attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+          qb_imagesampler_create(image_samplers, &attr);
+        }
+        {
+          qbImageSamplerAttr_ attr = {};
+          attr.image_type = QB_IMAGE_TYPE_2D;
+          attr.min_filter = QB_FILTER_TYPE_LINEAR;
+          attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+          qb_imagesampler_create(image_samplers + 1, &attr);
+        }
+
+        uint32_t bindings[] = { 2 };
+        qbImageSampler* samplers = image_samplers;
+        qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
+      }
+     
+      {
+        qbRenderPassAttr_ attr;
+        attr.frame_buffer = frame;
+
+        attr.bindings = &binding;
+        attr.bindings_count = 1; // 1
+
+        attr.attributes = attributes;
+        attr.attributes_count = 3; // 2
+
+        attr.shader_program = shader_module;
+
+        attr.viewport = { 0.0, 0.0, width, height };
+        attr.viewport_scale = scale;
+      
+        qb_renderpass_create(&render_pass, &attr, render_pipeline);
+      }
+
+      {
+        qbGpuBuffer gpu_buffers[2];
+        {
+          qbGpuBufferAttr_ attr;
+
+          float vertices[] = {
+            // Positions         // Colors          // UVs
+            -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+
+            -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+
+            -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+
+            -0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
+          };
+
+          attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
+          attr.data = vertices;
+          attr.size = sizeof(vertices);
+          attr.elem_size = sizeof(vertices[0]);
+
+          qb_gpubuffer_create(gpu_buffers, &attr);
+        }
+        {
+          qbGpuBufferAttr_ attr;
+
+          int indices[] = {
+            0, 1, 2, 3, 2, 1,
+            4, 5, 6, 7, 6, 5,
+            8, 9, 10, 11, 10, 9,
+            12, 13, 14, 15, 14, 13,
+            16, 17, 18, 19, 18, 17,
+            20, 21, 22, 23, 22, 21,
+          };
+
+          attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
+          attr.data = indices;
+          attr.size = sizeof(indices);
+          attr.elem_size = sizeof(indices[0]);
+
+          qb_gpubuffer_create(gpu_buffers + 1, &attr);
+        }
+
+        qbImage ball_image;
+        {
+          qbImageAttr_ attr;
+          attr.type = QB_IMAGE_TYPE_2D;
+          qb_image_load(&ball_image, &attr, "resources/ball.bmp");
+        }
+
+        qbImage soccer_ball_image;
+        {
+          qbImageAttr_ attr;
+          attr.type = QB_IMAGE_TYPE_2D;
+          qb_image_load(&soccer_ball_image, &attr, "resources/soccer_ball.bmp");
+        }
+
+        qbDrawBuffer draw_buff;
+        {
+          qbDrawBufferAttr_ attr;
+          qb_drawbuffer_create(&draw_buff, &attr, render_pass);
+        }
+
+
+        qbGpuBuffer vertices[] = { gpu_buffers[0] };
+        qb_drawbuffer_attachvertices(draw_buff, vertices);
+        qb_drawbuffer_attachindices(draw_buff, gpu_buffers[1]);
+
+        {
+          {
+            qbGpuBufferAttr_ attr;
+            attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+            attr.data = nullptr;
+            attr.size = sizeof(Matrices);
+
+            qb_gpubuffer_create(&model_ubo, &attr);
+          }
+          qbGpuBuffer ubo_buffers[] = { model_ubo };
+
+          uint32_t bindings[] = { 1 };
+          qbGpuBuffer buffers[] = { ubo_buffers[0] };
+          qb_shadermodule_attachuniforms(shader_module, 1, bindings, buffers);
+        }
+
+        uint32_t image_bindings[] = { 2 };
+        qbImage images[] = { soccer_ball_image };
+        qb_drawbuffer_attachimages(draw_buff, 1, image_bindings, images);
+      }
+    }
+    CHECK_GL();
+
+    {
+      qbVertexAttribute_ attributes[2] = {};
+      {
+        qbVertexAttribute_* attr = attributes;
+        attr->binding = 0;
+        attr->location = 0;
+
+        attr->size = 2;
+        attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+        attr->normalized = GL_FALSE;
+        attr->offset = (void*)0;
+      }
+      {
+        qbVertexAttribute_* attr = attributes + 1;
+        attr->binding = 0;
+        attr->location = 1;
+
+        attr->size = 2;
+        attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+        attr->normalized = GL_FALSE;
+        attr->offset = (void*)(2 * sizeof(float));
+      }
+
+      qbShaderModule shader_module;
+      {
+        qbShaderResourceAttr_ sampler_attr;
+        sampler_attr.binding = 0;
+        sampler_attr.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+        sampler_attr.stages = QB_SHADER_STAGE_FRAGMENT;
+        sampler_attr.name = "tex_sampler";
+
+        qbShaderModuleAttr_ attr;
+        attr.vs = "resources/texture.vs";
+        attr.fs = "resources/texture.fs";
+
+        attr.resources = &sampler_attr;
+        attr.resources_count = 1;
+
+        qb_shadermodule_create(&shader_module, &attr);
+
+        qbImageSampler sampler;
+        {
+          qbImageSamplerAttr_ attr = {};
+          attr.image_type = QB_IMAGE_TYPE_2D;
+          attr.min_filter = QB_FILTER_TYPE_LINEAR;
+          attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+          qb_imagesampler_create(&sampler, &attr);
+        }
+
+        uint32_t bindings[] = { 0 };
+        qbImageSampler samplers[] = { sampler };
+        qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
+      }
+
+      qbBufferBinding_ binding;
+      binding.binding = 0;
+      binding.stride = 4 * sizeof(float);
+      binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
+      {
+        qbRenderPassAttr_ attr;
+        attr.frame_buffer = nullptr;
+
+        attr.bindings = &binding;
+        attr.bindings_count = 1;
+
+        attr.attributes = attributes;
+        attr.attributes_count = 2;
+
+        attr.shader_program = shader_module;
+
+        attr.viewport = { 0.0, 0.0, width, height };
+        attr.viewport_scale = scale;
+
+        qb_renderpass_create(&present_pass, &attr, render_pipeline);
+      }
+
+      qbGpuBuffer gpu_buffers[2];
+      {
+        qbGpuBufferAttr_ attr;
+        float vertices[] = {
+          // Positions   // UVs
+          -1.0, -1.0,    0.0, 0.0,
+          -1.0,  1.0,    0.0, 1.0,
+           1.0,  1.0,    1.0, 1.0,
+           1.0, -1.0,    1.0, 0.0
+        };
+        attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
+        attr.data = vertices;
+        attr.size = sizeof(vertices);
+        attr.elem_size = sizeof(float);
+        qb_gpubuffer_create(gpu_buffers, &attr);
+      }
+      {
+        qbGpuBufferAttr_ attr;
+        int indices[] = {
+          0, 1, 2,
+          0, 2, 3,
+        };
+        attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
+        attr.data = indices;
+        attr.size = sizeof(indices);
+        attr.elem_size = sizeof(int);
+        qb_gpubuffer_create(gpu_buffers + 1, &attr);
+      }
+
+      qbDrawBuffer draw_buff;
+      {
+        qbDrawBufferAttr_ attr;
+        qb_drawbuffer_create(&draw_buff, &attr, present_pass);
+      }
+
+      qbGpuBuffer vertices[] = { gpu_buffers[0] };
+      qb_drawbuffer_attachvertices(draw_buff, vertices);
+      qb_drawbuffer_attachindices(draw_buff, gpu_buffers[1]);
+
+      uint32_t image_bindings[] = { 0 };
+      qbImage images[] = { frame->render_target };
+      qb_drawbuffer_attachimages(draw_buff, 1, image_bindings, images);
+    }
+
+    CHECK_GL();
+  }
+  
+#if 0
+  {
+    Settings s;
+    s.title = "Cubez example";
+    s.width = 1200;
+    s.height = 800;
+    s.znear = 0.1f;
+    s.zfar = 10000.0f;
+    s.fov = 70.0f;
+    initialize(s);
+
+    qb_camera_setyaw(90.0f);
+    qb_camera_setpitch(0.0f);
+    qb_camera_setposition({400.0f, -250.0f, 250.0f});
 
     check_for_gl_errors();
   }
@@ -83,56 +502,8 @@ void initialize_universe(qbUniverse* uni) {
   {
     input::initialize();
   }
-  {
-    /*
 
-    // Operations done in the global scene (QB_GLOBAL_SCENE) will persist until
-    // the game ends. By default, all API calls are executed on the global
-    // scene.
-    qb_scene_activate(QB_GLOBAL_SCENE);
-    qb_texture_load(...);
-    qb_model_load(...);
 
-    // Create two scenes: one for the main menu, and then another scene that
-    // holds all the game objects.
-    qbScene main_menu;
-    qbScene game_prefetch;
-    qb_scene_load(&main_menu);
-    qb_scene_create(&game_prefetch);
-
-    // Sets the scene to be active. While the scene is active, all API calls
-    // will only affect the active scene. The game loop will only run over
-    // the active scene.
-    qb_scene_activate(main_menu);
-    qb_component_create(...);
-    qb_entity_create(...);
-    qb_material_create(...);
-    qb_event_send(...);
-    
-
-    // "set"ing a scene will not run the game loop over it. All API calls
-    // performed will only be executed on the "set" scene. The game loop will
-    // NOT run over the "set" scene.
-    qb_with_scene(game_prefetch, [](){
-      qb_scene_push(game_prefetch);
-      qb_entity_create(...);
-      qb_model_load(...);
-      qb_scene_pop();
-    });
-
-    ...
-
-    // Once the user clicks on the "Start Game" button, activate the game scene
-    // and purge the old scene.
-    qb_button_press("MainMenu/StartGame", []() {
-      qb_scene_activate(game_prefetch);
-      qb_scene_destroy(main_menu);
-    });
-
-    */
-  }
-
-#if 1
   qbShader mesh_shader;
   qbTexture ball_texture;
   MeshBuilder block_mesh;
@@ -182,7 +553,7 @@ void initialize_universe(qbUniverse* uni) {
 
     qbMesh mesh;
     qb_mesh_load(&mesh, "floor_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\floor.obj");
-    render::create(mesh, ball_material);
+    create(mesh, ball_material);
 
     qbEntity unused;
     qb_entity_create(&unused, attr);
@@ -213,7 +584,7 @@ void initialize_universe(qbUniverse* uni) {
     planet::Initialize(settings);
   }
   {
-    glm::vec2 menu_size(render::window_width(), render::window_height());
+    glm::vec2 menu_size(window_width(), window_height());
     glm::vec2 menu_pos(0, 0);
 
     gui::JSCallbackMap callbacks;
@@ -359,9 +730,9 @@ int main(int, char* []) {
   qbUniverse uni;
   initialize_universe(&uni);
 
-  qb_coro_sync(create_random_balls, qbNone);
-  test_coro = qb_coro_sync(test_entry, qbInt(100000));
-  generator_coro = qb_coro_create(generator);
+  //qb_coro_sync(create_random_balls, qbNone);
+  //test_coro = qb_coro_sync(test_entry, qbInt(100000));
+  //generator_coro = qb_coro_create(generator);
 
   qb_start();
   
@@ -384,7 +755,13 @@ int main(int, char* []) {
   double accumulator = 0.0;
   //gui::qbRenderTarget target;
   //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
-  
+
+  {
+    Matrices mat = {};
+    mat.mvp = glm::perspective(glm::radians(45.0f), 1200.0f / 800.0f, 0.1f, 100.0f);
+    qb_gpubuffer_update(camera_ubo, 0, sizeof(Matrices), &mat);
+  }
+
   while (1) {
     qb_timer_start(fps_timer);
 
@@ -396,7 +773,7 @@ int main(int, char* []) {
     accumulator += frame_time;
     
     input::handle_input([](SDL_Event*) {
-      render::shutdown();
+      shutdown();
       SDL_Quit();
       qb_stop();
       exit(0);
@@ -410,12 +787,29 @@ int main(int, char* []) {
       t += dt;
     }
 
+
+    {
+      Matrices mat = {};
+      mat.mvp = glm::mat4(1.0f);
+      glm::mat4 view = glm::mat4(1.0f);
+      // note that we're translating the scene in the reverse direction of where we want to move
+      view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+
+      glm::mat4 model = glm::mat4(1.0f);
+      model = glm::rotate(model, (float)frame / 75.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+
+      mat.mvp = view * model;// glm::rotate(mat.mvp, (float)frame / 50.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+      qb_gpubuffer_update(model_ubo, 0, sizeof(Matrices), &mat);
+    }
+
     qb_timer_start(render_timer);
 
-    render::RenderEvent e;
+    qbRenderEvent e;
     e.frame = frame;
     e.alpha = accumulator / dt;
-    render::present(&e);
+    //qb_render(&e);
+    qb_renderpipeline_run(render_pipeline, e);
+    qb_render_swapbuffers();
     
     qb_timer_add(render_timer);
 

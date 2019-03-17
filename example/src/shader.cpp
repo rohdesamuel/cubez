@@ -8,6 +8,38 @@ namespace filesystem = std::experimental::filesystem;
 }
 #endif  // __COMPILE_AS_WINDOWS__
 
+inline char const* glErrorString(GLenum const err) noexcept {
+  switch (err) {
+    // OpenGL 2.0+ Errors:
+    case GL_NO_ERROR: return "GL_NO_ERROR";
+    case GL_INVALID_ENUM: return "GL_INVALID_ENUM";
+    case GL_INVALID_VALUE: return "GL_INVALID_VALUE";
+    case GL_INVALID_OPERATION: return "GL_INVALID_OPERATION";
+    case GL_STACK_OVERFLOW: return "GL_STACK_OVERFLOW";
+    case GL_STACK_UNDERFLOW: return "GL_STACK_UNDERFLOW";
+    case GL_OUT_OF_MEMORY: return "GL_OUT_OF_MEMORY";
+      // OpenGL 3.0+ Errors
+    case GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
+    default: return "UNKNOWN ERROR";
+  }
+}
+
+inline std::string GetShaderLog(GLuint shader_id) {
+  GLint length, result;
+  glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &length);
+  std::string str(length, ' ');
+  glGetShaderInfoLog(shader_id, (GLsizei)str.length(), &result, &str[0]);
+  return str;
+}
+
+inline std::string GetProgramLog(GLuint program_id) {
+  GLint length, result;
+  glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &length);
+  std::string str(length, ' ');
+  glGetProgramInfoLog(program_id, (GLsizei)str.length(), &result, &str[0]);
+  return str;
+}
+
 GLuint ShaderProgram::create_shader(const char* shader, GLenum shader_type) {
   GLuint s = glCreateShader(shader_type);
   glShaderSource(s, 1, &shader, nullptr);
@@ -20,17 +52,16 @@ GLuint ShaderProgram::create_shader(const char* shader, GLenum shader_type) {
     char* error = new char[log_size];
 
     glGetShaderInfoLog(s, log_size, &log_size, error);
-    std::cout << "Error in shader compilation: " << error << std::endl;
+    FATAL("Unable to compile shader \n" << shader << ".\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << error);
     delete[] error;
   }
   return s;
 }
 
-
 ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
+  program_ = glCreateProgram();
   GLuint v = create_shader(vs.c_str(), GL_VERTEX_SHADER);
   GLuint f = create_shader(fs.c_str(), GL_FRAGMENT_SHADER);
-  program_ = glCreateProgram();
   glAttachShader(program_, f);
   glAttachShader(program_, v);
   glLinkProgram(program_);
@@ -48,10 +79,51 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
 
     // Notice that glGetProgramInfoLog, not glGetShaderInfoLog.
     glGetProgramInfoLog(program_, log_size, &log_size, error);
-    std::cout << "Error in program linkage: " << error << std::endl;
+    FATAL("Unable to link shader.\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << GetProgramLog(program_));
 
     delete[] error;
     return;
+  }
+
+  {
+    printf("Shader program information for program %d\n", program_);
+    GLint count;
+
+    GLint size; // size of the variable
+    GLenum type; // type of the variable (float, vec3 or mat4, etc)
+
+    const GLsizei bufSize = 16; // maximum name length
+    GLchar name[bufSize]; // variable name in GLSL
+    GLsizei length; // name length
+    
+    // https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Memory_layout
+    // https://www.khronos.org/opengl/wiki/Program_Introspection
+    glGetProgramiv(program_, GL_ACTIVE_UNIFORMS, &count);
+    printf("Active Uniforms: %d\n", count);
+
+    for (int32_t i = 0; i < count; i++) {
+      glGetActiveUniform(program_, (GLuint)i, bufSize, &length, &size, &type, name);
+      printf("Uniform #%d Type: %u Name: %s\n", i, type, name);
+
+      uint32_t index;
+      char *uniformNames[] = { name };
+      glGetUniformIndices(program_, 1, uniformNames, &index);
+      printf("Index is %d\n", index);
+
+      uint32_t indices[] = { i };
+      int32_t block_index;
+      glGetActiveUniformsiv(program_, 1, indices, GL_UNIFORM_BLOCK_INDEX, &block_index);
+      printf("Block index is %d\n", block_index);
+    }
+
+    glGetProgramiv(program_, GL_ACTIVE_UNIFORM_BLOCKS, &count);
+    printf("Active UniformsBlocks: %d\n", count);
+
+    for (int32_t i = 0; i < count; i++) {
+      glGetActiveUniformBlockName(program_, (GLuint)i, bufSize, &length, name);
+      printf("UniformBlock #%d Type: %u Name: %s\n", i, type, name);
+    }
+    printf("\n");
   }
 
   glDetachShader(program_, f);

@@ -42,6 +42,7 @@ qbResult qb_mesh_find(qbMesh mesh, const char* mesh_name);
 uint32_t qb_mesh_getvbuffer(qbMesh mesh);
 uint32_t qb_mesh_getvtbuffer(qbMesh mesh);
 uint32_t qb_mesh_getvnbuffer(qbMesh mesh);
+uint32_t qb_mesh_getvbo(qbMesh mesh);
 
 
 qbResult qb_mesh_destroy();
@@ -52,6 +53,7 @@ qbResult qb_shader_load(qbShader* shader, const char* shader_name,
                         const char* vs_filename, const char* fs_filename);
 qbResult qb_shader_find(qbShader* shader, const char* shader_name);
 qbId qb_shader_getid(qbShader shader);
+qbResult qb_shader_use(qbShader shader);
 
 qbResult qb_shader_setbool(qbShader shader, const char* uniform, bool value);
 qbResult qb_shader_setint(qbShader shader, const char* uniform, int value);

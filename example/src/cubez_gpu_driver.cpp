@@ -8,6 +8,9 @@
 #include <fstream>
 #include <sstream>
 
+#include "opengl_render_module.h"
+#include "shader.h"
+
 #define SHADER_PATH "shaders/"
 
 static void ReadFile(const char* filepath, std::string& result) {
@@ -161,6 +164,14 @@ void CubezGpuDriver::BindTexture(uint8_t texture_unit, uint32_t texture_id) {
   CHECK_GL();
 }
 
+void CubezGpuDriver::BindTexture(uint32_t texture_id,
+                                 uint32_t texture_unit,
+                                 uint32_t target) {
+  glActiveTexture(texture_unit);
+  glBindTexture(target, texture_id);
+  CHECK_GL();
+}
+
 void CubezGpuDriver::DestroyTexture(uint32_t texture_id) {
   GLuint tex_id = texture_map[texture_id];
   glDeleteTextures(1, &tex_id);
@@ -239,6 +250,31 @@ void CubezGpuDriver::DestroyRenderBuffer(uint32_t render_buffer_id) {
 void CubezGpuDriver::CreateGeometry(uint32_t geometry_id,
                                     const ultralight::VertexBuffer& vertices,
                                     const ultralight::IndexBuffer& indices) {
+  /*static GLsizei stride = 140;
+  static qbVertexAttribute_ attributes[] = /*{
+    { 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)0 },
+    { 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (GLvoid*)8 },
+    { 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)12 },
+    { 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)20 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)28 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)44 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)60 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)76 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)92 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)108 },
+    { 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)124 },
+  };
+
+  CreateGeometry(geometry_id, vertices, indices,
+                 nullptr, 0,
+                 attributes, sizeof(attributes) / sizeof(qbVertexAttribute_));*/
+}
+
+void CubezGpuDriver::CreateGeometry(uint32_t geometry_id,
+                                    const ultralight::VertexBuffer& vertices,
+                                    const ultralight::IndexBuffer& indices,
+                                    const qbGpuBuffer buffers, size_t buffer_size,
+                                    const qbVertexAttribute attributes, size_t attributes_size) {
   GeometryEntry geometry;
   glGenVertexArrays(1, &geometry.vao);
   glBindVertexArray(geometry.vao);
@@ -247,36 +283,18 @@ void CubezGpuDriver::CreateGeometry(uint32_t geometry_id,
   glBindBuffer(GL_ARRAY_BUFFER, geometry.vbo_vertices);
   glBufferData(GL_ARRAY_BUFFER, vertices.size, vertices.data, GL_DYNAMIC_DRAW);
 
-  if (vertices.format == ultralight::kVertexBufferFormat_2f_4ub_2f_2f_28f) {
-    GLsizei stride = 140;
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)0);
-    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (GLvoid*)8);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)12);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)20);
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)28);
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)44);
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)60);
-    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)76);
-    glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)92);
-    glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)108);
-    glVertexAttribPointer(10, 4, GL_FLOAT, GL_FALSE, stride, (GLvoid*)124);
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(3);
-    glEnableVertexAttribArray(4);
-    glEnableVertexAttribArray(5);
-    glEnableVertexAttribArray(6);
-    glEnableVertexAttribArray(7);
-    glEnableVertexAttribArray(8);
-    glEnableVertexAttribArray(9);
-    glEnableVertexAttribArray(10);
-
+  if (attributes) {
+    for (size_t attribute_pos = 0; attribute_pos < attributes_size; ++attribute_pos) {
+      qbVertexAttribute attr = attributes + attribute_pos;
+      //glVertexAttribPointer(attribute_pos, attr->size, attr->type,
+        //attr->normalized, attr->stride, attr->offset);
+    }
     CHECK_GL();
-  } else {
-    FATAL("Unhandled vertex format: " << vertices.format);
+
+    for (size_t attribute_pos = 0; attribute_pos < attributes_size; ++attribute_pos) {
+      glEnableVertexAttribArray(attribute_pos++);
+    }
+    CHECK_GL();
   }
 
   glGenBuffers(1, &geometry.vbo_indices);
@@ -284,6 +302,18 @@ void CubezGpuDriver::CreateGeometry(uint32_t geometry_id,
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size, indices.data,
                GL_STATIC_DRAW);
   CHECK_GL();
+
+  /*if (buffers) {
+    for (size_t i = 0; i < buffer_size; ++i) {
+      qbGpuBuffer buffer = buffers + i;
+      GLuint id;
+      glGenBuffers(1, &id);
+      glBindBuffer(buffer->buffer_type, id);
+      glBufferData(buffer->buffer_type, buffer->size, buffer->data, buffer->sharing_type);
+      buffer->id = id;
+      CHECK_GL();
+    }
+  }*/
 
   geometry_map[geometry_id] = geometry;
 
@@ -294,6 +324,13 @@ void CubezGpuDriver::CreateGeometry(uint32_t geometry_id,
 void CubezGpuDriver::UpdateGeometry(uint32_t geometry_id,
                                     const ultralight::VertexBuffer& vertices,
                                     const ultralight::IndexBuffer& indices) {
+  UpdateGeometry(geometry_id, vertices, indices, nullptr, 0);
+}
+
+void CubezGpuDriver::UpdateGeometry(uint32_t geometry_id,
+                                    const ultralight::VertexBuffer& vertices,
+                                    const ultralight::IndexBuffer& indices,
+                                    const qbGpuBuffer buffers, size_t buffer_size) {
   GeometryEntry& geometry = geometry_map[geometry_id];
   glBindVertexArray(geometry.vao);
   CHECK_GL();
@@ -305,6 +342,15 @@ void CubezGpuDriver::UpdateGeometry(uint32_t geometry_id,
   CHECK_GL();
   glBindVertexArray(0);
   CHECK_GL();
+
+  if (buffers) {
+    /*for (size_t i = 0; i < buffer_size; ++i) {
+      qbGpuBuffer buffer = buffers + i;
+      glBindBuffer(buffer->buffer_type, buffer->id);
+      glBufferData(buffer->buffer_type, buffer->size, buffer->data, buffer->sharing_type);
+      CHECK_GL();
+    }*/
+  }
 }
 
 void CubezGpuDriver::DrawGeometry(uint32_t geometry_id,
@@ -359,6 +405,22 @@ void CubezGpuDriver::DrawGeometry(uint32_t geometry_id,
   glBindVertexArray(0);
 
   batch_count_++;
+
+  CHECK_GL();
+}
+void CubezGpuDriver::DrawGeometry(uint32_t geometry_id,
+                                  uint32_t indices_count,
+                                  uint32_t indices_offset) {
+  GeometryEntry& geometry = geometry_map[geometry_id];
+
+  glBindVertexArray(geometry.vao);
+
+  CHECK_GL();
+
+  glDrawElements(GL_TRIANGLES, indices_count, GL_UNSIGNED_INT,
+    (GLvoid*)(indices_offset * sizeof(unsigned int)));
+
+  glBindVertexArray(0);
 
   CHECK_GL();
 }
@@ -480,6 +542,10 @@ void CubezGpuDriver::LoadProgram(ProgramType type,
   programs_[type] = prog;
 }
 
+uint32_t CubezGpuDriver::LoadProgram(const char* vert, const char* frag) {
+  return ShaderProgram::load_from_file(vert, frag).id();
+}
+
 void CubezGpuDriver::SelectProgram(ProgramType type) {
   auto i = programs_.find(type);
   if (i != programs_.end()) {
@@ -518,6 +584,10 @@ void CubezGpuDriver::SetUniform4fv(const char* name, size_t count, const float* 
 
 void CubezGpuDriver::SetUniformMatrix4fv(const char* name, size_t count, const float* val) {
   glUniformMatrix4fv(glGetUniformLocation(cur_program_id_, name), (GLsizei)count, false, val);
+}
+
+void CubezGpuDriver::UseProgram(uint32_t program) {
+
 }
 
 }  // namespace ultralight

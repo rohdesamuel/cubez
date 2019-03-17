@@ -18,8 +18,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
-namespace render {
-
 struct qbRenderable_ {
   qbMesh mesh;
   qbMaterial material;
@@ -79,7 +77,7 @@ bool check_for_gl_errors() {
 }
 
 void render_event_handler(qbInstance* insts, qbFrame* f) {
-  RenderEvent* e = (RenderEvent*)f->event;
+  qbRenderEvent* e = (qbRenderEvent*)f->event;
 
   qbRenderable* renderable;
   qb_instance_getconst(insts[0], &renderable);
@@ -104,7 +102,12 @@ void render_event_handler(qbInstance* insts, qbFrame* f) {
   }
 }
 
-void present(RenderEvent* event) {
+qbResult qb_render_swapbuffers() {
+  SDL_GL_SwapWindow(win);
+  return QB_OK;
+}
+
+qbResult qb_render(qbRenderEvent* event) {
   qb_render_makecurrent();
 
   // Initial rotation matrix.
@@ -126,7 +129,7 @@ void present(RenderEvent* event) {
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
 
-  glClearColor(0.1, 0.1, 0.1, 0.0);
+  glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   qb_event_sendsync(render_event, event);
@@ -134,6 +137,8 @@ void present(RenderEvent* event) {
   gui::Render();
   SDL_GL_SwapWindow(win);
   qb_render_makenull();
+
+  return QB_OK;
 }
 
 qbRenderable create(qbMesh mesh, qbMaterial material) {
@@ -179,11 +184,11 @@ void initialize_context(const Settings& settings) {
   // that error here and carry on.
   glGetError();
 
-  gui::Settings gui_settings;
+  /*gui::Settings gui_settings;
   gui_settings.asset_dir = "resources/";
   gui_settings.width = settings.width;
   gui_settings.height = settings.height;
-  gui::Initialize(win, gui_settings);
+  gui::Initialize(win, gui_settings);*/
 
   SDL_GL_SwapWindow(win);
 }
@@ -246,7 +251,7 @@ void initialize(const Settings& settings) {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setmessagesize(attr, sizeof(RenderEvent));
+    qb_eventattr_setmessagesize(attr, sizeof(qbRenderEvent));
 
     qb_event_create(&render_event, attr);
     qb_event_subscribe(render_event, render_system);
@@ -383,4 +388,3 @@ qbResult qb_render_makenull() {
   return QB_OK;
 }
 
-}  // namespace render
