@@ -64,8 +64,8 @@ struct Matrices {
   alignas(16) glm::mat4 mvp;
 };
 
-qbGpuBuffer camera_ubo;
-qbGpuBuffer model_ubo;
+qbGpuBuffer camera_ubo = {};
+qbGpuBuffer model_ubo[2] = {};
 
 void initialize_universe(qbUniverse* uni) {
   qb_init(uni);
@@ -77,6 +77,10 @@ void initialize_universe(qbUniverse* uni) {
   {
     physics::Settings settings;
     physics::initialize(settings);
+  }
+
+  {
+    input::initialize();
   }
 
   {
@@ -108,6 +112,7 @@ void initialize_universe(qbUniverse* uni) {
     qb_renderpipeline_create(&render_pipeline, width, height, 1.0);
 
     qbRenderPass render_pass;
+    qbRenderPass gui_pass;
     qbRenderPass present_pass;
 
     qbFrameBuffer frame;
@@ -118,6 +123,7 @@ void initialize_universe(qbUniverse* uni) {
       qb_framebuffer_create(&frame, &attr);
     }
     CHECK_GL();
+
     {
       // https://stackoverflow.com/questions/40450342/what-is-the-purpose-of-binding-from-vkvertexinputbindingdescription
       qbBufferBinding_ binding = {};
@@ -131,7 +137,7 @@ void initialize_universe(qbUniverse* uni) {
         attr->binding = 0;
         attr->location = 0;
 
-        attr->size = 3;
+        attr->count = 3;
         attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
         attr->normalized = false;
         attr->offset = (void*)0;
@@ -141,7 +147,7 @@ void initialize_universe(qbUniverse* uni) {
         attr->binding = 0;
         attr->location = 1;
 
-        attr->size = 3;
+        attr->count = 3;
         attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
         attr->normalized = false;
         attr->offset = (void*)(3 * sizeof(float));
@@ -151,7 +157,7 @@ void initialize_universe(qbUniverse* uni) {
         attr->binding = 0;
         attr->location = 2;
 
-        attr->size = 2;
+        attr->count = 2;
         attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
         attr->normalized = false;
         attr->offset = (void*)(6 * sizeof(float));
@@ -294,12 +300,12 @@ void initialize_universe(qbUniverse* uni) {
           qbGpuBufferAttr_ attr;
 
           int indices[] = {
-            0, 1, 2, 3, 2, 1,
-            4, 5, 6, 7, 6, 5,
-            8, 9, 10, 11, 10, 9,
-            12, 13, 14, 15, 14, 13,
-            16, 17, 18, 19, 18, 17,
-            20, 21, 22, 23, 22, 21,
+            3, 1, 0, 3, 2, 1,
+            4, 5, 7, 5, 6, 7,
+            8, 9, 11,   9, 10, 11,
+            15, 13, 12, 15, 14, 13,
+            16, 17, 19, 17, 18, 19,
+            23, 21, 20, 23, 22, 21,
           };
 
           attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
@@ -324,16 +330,25 @@ void initialize_universe(qbUniverse* uni) {
           qb_image_load(&soccer_ball_image, &attr, "resources/soccer_ball.bmp");
         }
 
-        qbDrawBuffer draw_buff;
+        qbDrawBuffer draw_buff[2];
         {
           qbDrawBufferAttr_ attr;
-          qb_drawbuffer_create(&draw_buff, &attr, render_pass);
+          qb_drawbuffer_create(&draw_buff[0], &attr, render_pass);
+          qb_drawbuffer_create(&draw_buff[1], &attr, render_pass);
         }
 
 
         qbGpuBuffer vertices[] = { gpu_buffers[0] };
-        qb_drawbuffer_attachvertices(draw_buff, vertices);
-        qb_drawbuffer_attachindices(draw_buff, gpu_buffers[1]);
+        qb_drawbuffer_attachvertices(draw_buff[0], vertices);
+        qb_drawbuffer_attachvertices(draw_buff[1], vertices);
+
+        qb_drawbuffer_attachindices(draw_buff[0], gpu_buffers[1]);
+        qb_drawbuffer_attachindices(draw_buff[1], gpu_buffers[1]);
+
+        uint32_t image_bindings[] = { 2 };
+        qbImage images[] = { soccer_ball_image };
+        qb_drawbuffer_attachimages(draw_buff[0], 1, image_bindings, images);
+        qb_drawbuffer_attachimages(draw_buff[1], 1, image_bindings, images);
 
         {
           {
@@ -342,21 +357,37 @@ void initialize_universe(qbUniverse* uni) {
             attr.data = nullptr;
             attr.size = sizeof(Matrices);
 
-            qb_gpubuffer_create(&model_ubo, &attr);
+            qb_gpubuffer_create(&model_ubo[0], &attr);
           }
-          qbGpuBuffer ubo_buffers[] = { model_ubo };
+          qbGpuBuffer ubo_buffers[] = { model_ubo[0] };
 
           uint32_t bindings[] = { 1 };
           qbGpuBuffer buffers[] = { ubo_buffers[0] };
-          qb_shadermodule_attachuniforms(shader_module, 1, bindings, buffers);
+          qb_drawbuffer_attachuniforms(draw_buff[0], 1, bindings, buffers);
         }
 
-        uint32_t image_bindings[] = { 2 };
-        qbImage images[] = { soccer_ball_image };
-        qb_drawbuffer_attachimages(draw_buff, 1, image_bindings, images);
+        {
+          {
+            qbGpuBufferAttr_ attr;
+            attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+            attr.data = nullptr;
+            attr.size = sizeof(Matrices);
+
+            qb_gpubuffer_create(&model_ubo[1], &attr);
+          }
+          qbGpuBuffer ubo_buffers[] = { model_ubo[1] };
+
+          uint32_t bindings[] = { 1 };
+          qbGpuBuffer buffers[] = { ubo_buffers[0] };
+          qb_drawbuffer_attachuniforms(draw_buff[1], 1, bindings, buffers);
+        }
+
       }
     }
     CHECK_GL();
+
+    qbRenderPass gui_render_pass = gui::CreateGuiRenderPass(frame, width, height);
+    qb_renderpipeline_appendrenderpass(render_pipeline, gui_render_pass);
 
     {
       qbVertexAttribute_ attributes[2] = {};
@@ -365,7 +396,7 @@ void initialize_universe(qbUniverse* uni) {
         attr->binding = 0;
         attr->location = 0;
 
-        attr->size = 2;
+        attr->count = 2;
         attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
         attr->normalized = GL_FALSE;
         attr->offset = (void*)0;
@@ -375,7 +406,7 @@ void initialize_universe(qbUniverse* uni) {
         attr->binding = 0;
         attr->location = 1;
 
-        attr->size = 2;
+        attr->count = 2;
         attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
         attr->normalized = GL_FALSE;
         attr->offset = (void*)(2 * sizeof(float));
@@ -497,10 +528,6 @@ void initialize_universe(qbUniverse* uni) {
     qb_camera_setposition({400.0f, -250.0f, 250.0f});
 
     check_for_gl_errors();
-  }
-  
-  {
-    input::initialize();
   }
 
 
@@ -743,6 +770,10 @@ int main(int, char* []) {
 
   qb_coro_sync(print_timing_info, qbVoid(&timing_info));
 
+  gui::qbWindow test_window;
+  gui::qb_window_create(&test_window, { 1200.0f - 512.0f, 800 - 512.0f, -0.5f }, { 512.0f, 512.0f }, true);
+  gui::qb_window_create(&test_window, { 1000.0f - 512.0f, 800 - 512.0f, 0.9f }, { 512.0f, 512.0f }, true);
+
   qb_timer_create(&fps_timer, 50);
   qb_timer_create(&update_timer, 50);
   qb_timer_create(&render_timer, 50);
@@ -793,13 +824,27 @@ int main(int, char* []) {
       mat.mvp = glm::mat4(1.0f);
       glm::mat4 view = glm::mat4(1.0f);
       // note that we're translating the scene in the reverse direction of where we want to move
-      view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+      view = glm::translate(view, glm::vec3(-1.0f, 0.0f, -5.0f));
 
       glm::mat4 model = glm::mat4(1.0f);
       model = glm::rotate(model, (float)frame / 75.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 
       mat.mvp = view * model;// glm::rotate(mat.mvp, (float)frame / 50.0f, glm::vec3(0.0f, 0.0f, 1.0f));
-      qb_gpubuffer_update(model_ubo, 0, sizeof(Matrices), &mat);
+      qb_gpubuffer_update(model_ubo[0], 0, sizeof(Matrices), &mat);
+    }
+
+    {
+      Matrices mat = {};
+      mat.mvp = glm::mat4(1.0f);
+      glm::mat4 view = glm::mat4(1.0f);
+      // note that we're translating the scene in the reverse direction of where we want to move
+      view = glm::translate(view, glm::vec3(1.0f, 0.0f, -5.0f));
+
+      glm::mat4 model = glm::mat4(1.0f);
+      model = glm::rotate(model, (float)frame / 75.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+
+      mat.mvp = view * model;// glm::rotate(mat.mvp, (float)frame / 50.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+      qb_gpubuffer_update(model_ubo[1], 0, sizeof(Matrices), &mat);
     }
 
     qb_timer_start(render_timer);

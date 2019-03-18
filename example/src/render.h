@@ -163,7 +163,7 @@ typedef struct qbVertexAttribute_ {
   uint32_t binding;
   uint32_t location;
 
-  size_t size;
+  size_t count;
   qbVertexAttribType type;
   bool normalized;
   const void* offset;
@@ -179,8 +179,7 @@ typedef struct {
   // Has the same count as bindings_count.
   qbGpuBuffer* vertices;
 
-  qbGpuBuffer* uniforms;
-  size_t uniforms_count;
+  std::vector<std::pair<uint32_t, qbGpuBuffer>> uniforms;
 
   // The index into "images" is the same index into the
   // qbShaderModule.sampler_bindings. This index is also considered the
@@ -241,6 +240,8 @@ typedef struct qbShaderModule_ {
 
   qbShaderResourceAttr resources;
   size_t resources_count;
+
+  std::vector<std::pair<uint32_t, qbGpuBuffer>> uniforms;
 
   uint32_t* sampler_bindings;
   qbImageSampler* samplers;
@@ -394,7 +395,6 @@ qbResult qb_render_swapbuffers();
 qbResult qb_render_makecurrent();
 qbResult qb_render_makenull();
 
-
 void qb_shadermodule_create(qbShaderModule* shader, qbShaderModuleAttr attr);
 void qb_shadermodule_attachuniforms(qbShaderModule module, uint32_t count, uint32_t bindings[], qbGpuBuffer uniforms[]);
 void qb_shadermodule_attachsamplers(qbShaderModule module, uint32_t count, uint32_t bindings[], qbImageSampler samplers[]);
@@ -416,7 +416,7 @@ void*         qb_pixelmap_pixels(qbPixelMap pixels);
 qbResult      qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, glm::vec2 src_rect, glm::vec2 dest_rect);
 
 
-qbResult      qb_rendermodule_create(
+qbResult qb_rendermodule_create(
                      qbRenderModule* module,
                      qbRenderInterface render_interface,
                      qbRenderImpl impl,
@@ -424,14 +424,21 @@ qbResult      qb_rendermodule_create(
                      uint32_t viewport_height,
                      float scale);
 
-void      qb_renderpipeline_create(qbRenderPipeline* pipeline,
+void qb_renderpipeline_create(qbRenderPipeline* pipeline,
                                    uint32_t viewport_width,
                                    uint32_t viewport_height,
                                    float scale);
 
-void               qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
-void               qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr, qbRenderPipeline pipeline);
-void               qb_drawbuffer_create(qbDrawBuffer* buffer, qbDrawBufferAttr attr, qbRenderPass render_pass);
+void qb_renderpipeline_appendrenderpass(qbRenderPipeline pipeline, qbRenderPass pass);
+
+
+void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
+void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr, qbRenderPipeline opt_pipeline);
+
+uint32_t qb_renderpass_drawbuffers(qbRenderPass render_pass, qbDrawBuffer** buffers);
+void qb_renderpass_updatedrawbuffers(qbRenderPass render_pass, uint32_t count, qbDrawBuffer* buffers);
+
+void qb_drawbuffer_create(qbDrawBuffer* buffer, qbDrawBufferAttr attr, qbRenderPass render_pass);
 
 void qb_imagesampler_create(qbImageSampler* sampler, qbImageSamplerAttr attr);
 void qb_image_create(qbImage* image, qbImageAttr attr);

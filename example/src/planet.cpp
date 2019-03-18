@@ -1498,7 +1498,7 @@ void Initialize(const Settings& settings) {
         }
         return "NONE";
       };
-      gui::FromFile("file:///planetary_grid.html", pos, size, callbacks);
+      //gui::FromFile("file:///planetary_grid.html", pos, size, callbacks);
     });
     qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
 
