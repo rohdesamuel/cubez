@@ -36,7 +36,7 @@ class ProgramRegistry {
   qbProgram* main_program_;
   SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
-  std::unordered_map<size_t, std::unique_ptr<Task>> program_threads_;
+  std::unordered_map<size_t, Task*> program_threads_;
 };
 
 #endif  // PROGRAM_REGISTRY__H
