@@ -15,6 +15,8 @@
 #include <GL/glew.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
@@ -77,7 +79,7 @@ bool check_for_gl_errors() {
 }
 
 void render_event_handler(qbInstance* insts, qbFrame* f) {
-  qbRenderEvent* e = (qbRenderEvent*)f->event;
+  qbRenderEvent e = (qbRenderEvent)f->event;
 
   qbRenderable* renderable;
   qb_instance_getconst(insts[0], &renderable);
@@ -107,7 +109,7 @@ qbResult qb_render_swapbuffers() {
   return QB_OK;
 }
 
-qbResult qb_render(qbRenderEvent* event) {
+qbResult qb_render(qbRenderEvent event) {
   qb_render_makecurrent();
 
   // Initial rotation matrix.
@@ -134,7 +136,7 @@ qbResult qb_render(qbRenderEvent* event) {
 
   qb_event_sendsync(render_event, event);
 
-  gui::Render();
+  //gui::Render();
   SDL_GL_SwapWindow(win);
   qb_render_makenull();
 
@@ -177,23 +179,15 @@ void initialize_context(const Settings& settings) {
     exit(1);
   }
 
-
   std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
 
   // Setting glewExperimental can cause an "INVALID_ENUM" OpenGL error. Swallow
   // that error here and carry on.
   glGetError();
-
-  /*gui::Settings gui_settings;
-  gui_settings.asset_dir = "resources/";
-  gui_settings.width = settings.width;
-  gui_settings.height = settings.height;
-  gui::Initialize(win, gui_settings);*/
-
   SDL_GL_SwapWindow(win);
 }
 
-void initialize(const Settings& settings) {
+void render_initialize(const Settings& settings) {
   std::cout << "Initializing rendering context\n";
   initialize_context(settings);
 
@@ -261,7 +255,7 @@ void initialize(const Settings& settings) {
   std::cout << "Finished initializing render\n";
 }
 
-void shutdown() {
+void render_shutdown() {
   gui::Shutdown();
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(win);
@@ -387,4 +381,3 @@ qbResult qb_render_makenull() {
   }
   return QB_OK;
 }
-

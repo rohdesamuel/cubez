@@ -9,10 +9,10 @@
 #include <memory>
 #include <unordered_map>
 #include <Framework/JSHelpers.h>
-#include "cubez_gpu_driver.h"
 #include <cubez/cubez.h>
 #include "input.h"
 #include "render.h"
+#include "render_module.h"
 
 #undef max
 #undef min
@@ -29,18 +29,13 @@ class TextureOverlay;
 
 namespace gui {
 
-typedef std::function<framework::JSValue(const framework::JSObject&, const framework::JSArgs&)> JSCallback;
-typedef std::unordered_map<std::string, JSCallback> JSCallbackMap;
 typedef struct qbWindow_* qbWindow;
 typedef cubez::TextureOverlay* qbRenderTarget;
 typedef struct qbRenderTargetAttr_* qbRenderTargetAttr;
 typedef struct qbGuiCallbacks_* qbGuiCallbacks;
-typedef JSValueRef(*qbJSCallback)(const JSObjectRef context, const JSValueRef* args, uint8_t num_args);
-typedef struct qbJSCallbacks_* qbJSCallbacks;
 
 struct Context {
   ultralight::RefPtr<ultralight::Renderer> renderer;
-  std::unique_ptr<cubez::CubezGpuDriver> driver;
 };
 
 struct Settings {
@@ -54,9 +49,6 @@ void Shutdown();
 void Render();
 void HandleInput(SDL_Event* e);
 qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t height);
-
-qbWindow FromFile(const std::string& file, glm::vec2 pos, glm::vec2 size, JSCallbackMap callback_map);
-qbWindow FromHtml(const std::string& html, glm::vec2 pos, glm::vec2 size, JSCallbackMap callback_map);
 
 void qb_window_create(qbWindow* window, glm::vec3 pos, glm::vec2 size, bool open);
 void qb_window_open(qbWindow window);

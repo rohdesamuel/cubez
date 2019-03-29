@@ -1,6 +1,5 @@
 #include <cubez/cubez.h>
-#include "cubez_gpu_driver.h"
-#include "overlay.h"
+#include "render_module.h"
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -23,7 +22,6 @@
 #endif
 #include <Framework/Platform.h>
 #include <Framework/Overlay.h>
-#include "texture_overlay.h"
 
 #include <memory>
 
@@ -32,6 +30,7 @@
 #include "empty_overlay.h"
 #include <atomic>
 #include <iostream>
+#include <glm/ext.hpp>
 
 namespace gui
 {
@@ -64,7 +63,7 @@ struct qbWindow_ {
 
   GuiUniformModel uniform;
   qbGpuBuffer ubo;
-  qbDrawBuffer dbo;
+  qbMeshBuffer dbo;
 };
 
 Context context;
@@ -74,8 +73,10 @@ qbGpuBuffer vbo;
 qbGpuBuffer ebo;
 
 std::atomic_uint window_id;
-std::vector<qbDrawBuffer> window_buffers;
+std::vector<qbMeshBuffer> window_buffers;
 std::vector<std::unique_ptr<qbWindow_>> windows;
+qbWindow focused;
+
 typename decltype(windows) closed_windows;
 
 void qb_window_updateuniforms(qbWindow window);
@@ -95,6 +96,7 @@ decltype(windows)::iterator find_window(decltype(windows)& container, qbWindow w
 
 void Initialize(SDL_Window* sdl_window, Settings settings) {
   win = sdl_window;
+  focused = nullptr;
   window_id = 0;
 
   ultralight::Platform& platform = ultralight::Platform::instance();
@@ -106,10 +108,7 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
   config.use_distance_field_paths = true;
   config.enable_images = true;
 
-  context.driver = std::make_unique<cubez::CubezGpuDriver>(settings.width, settings.height, (GLfloat)1.0f);
-
   platform.set_config(config);
-  platform.set_gpu_driver(context.driver.get());
   platform.set_font_loader(framework::CreatePlatformFontLoader());
   platform.set_file_system(framework::CreatePlatformFileSystem(settings.asset_dir));
 
@@ -117,20 +116,6 @@ void Initialize(SDL_Window* sdl_window, Settings settings) {
 }
 
 void Shutdown() {
-}
-
-void Render() {
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_DEPTH_TEST);
-
-  context.renderer->Update();
-  context.driver->BeginSynchronize();
-  context.renderer->Render();
-  context.driver->EndSynchronize();
-
-  if (context.driver->HasCommandsPending()) {
-    context.driver->DrawCommandList();
-  }
 }
 
 void HandleInput(SDL_Event* e) {
@@ -149,11 +134,15 @@ void HandleInput(SDL_Event* e) {
     }
     if (max_depth) {
       qb_window_movetofront(max_depth);
-      std::cout << "Clicked on " << max_depth->id << std::endl;
+      focused = max_depth;
     }
 
   } else if (e->type == SDL_MOUSEBUTTONUP) {
+    focused = nullptr;
   } else if (e->type == SDL_MOUSEMOTION) {
+    if (focused) {
+      qb_window_moveto(focused, { e->motion.x, e->motion.y, 0.0f });
+    }
   }
 }
 
@@ -200,23 +189,23 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
 
   qbShaderModule shader_module;
   {
-    qbShaderResourceAttr_ resource_attrs[2];
+    qbShaderResourceInfo_ resources[2];
     {
-      qbShaderResourceAttr attr = resource_attrs;
-      attr->binding = GuiUniformCamera::Binding();
-      attr->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-      attr->stages = QB_SHADER_STAGE_VERTEX;
-      attr->name = "Camera";
+      qbShaderResourceInfo info = resources;
+      info->binding = GuiUniformCamera::Binding();
+      info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+      info->stages = QB_SHADER_STAGE_VERTEX;
+      info->name = "Camera";
     }
     {
-      qbShaderResourceAttr attr = resource_attrs + 1;
-      attr->binding = GuiUniformModel::Binding();
-      attr->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-      attr->stages = QB_SHADER_STAGE_VERTEX;
-      attr->name = "Model";
+      qbShaderResourceInfo info = resources + 1;
+      info->binding = GuiUniformModel::Binding();
+      info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+      info->stages = QB_SHADER_STAGE_VERTEX;
+      info->name = "Model";
     }
     /*{
-      qbShaderResourceAttr attr = resource_attrs + 2;
+      qbShaderResourceInfo attr = resource_attrs + 2;
       attr->binding = 2;
       attr->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
       attr->stages = QB_SHADER_STAGE_VERTEX;
@@ -227,8 +216,8 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
     attr.vs = "resources/gui.vs";
     attr.fs = "resources/gui.fs";
 
-    attr.resources = resource_attrs;
-    attr.resources_count = sizeof(resource_attrs) / sizeof(resource_attrs[0]);
+    attr.resources = resources;
+    attr.resources_count = sizeof(resources) / sizeof(resources[0]);
 
     qb_shadermodule_create(&shader_module, &attr);
   }
@@ -283,7 +272,7 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
     attr.viewport = { 0.0, 0.0, width, height };
     attr.viewport_scale = 1.0f;
 
-    qb_renderpass_create(&gui_render_pass, &attr, nullptr);
+    qb_renderpass_create(&gui_render_pass, &attr);
   }
 
   {
@@ -305,7 +294,7 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
   }
   {
     int indices[] = {
-      0, 1, 3,
+      3, 1, 0,
       3, 2, 1
     };
 
@@ -324,7 +313,7 @@ void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool 
   qbWindow window = *window_ref = new qbWindow_;
   window->id = window_id++;
   
-  window->pos = glm::vec3{ pos.x, pos.y, -0.5f };
+  window->pos = glm::vec3{ pos.x, pos.y, 0.0f };
   window->size = size;
 
   {
@@ -336,16 +325,20 @@ void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool 
     qb_window_updateuniforms(window);
   }
   {
-    qbDrawBufferAttr_ attr;
-    qb_drawbuffer_create(&window->dbo, &attr, gui_render_pass);
+    qbMeshBufferAttr_ attr = {};
+    attr.attributes_count = qb_renderpass_attributes(gui_render_pass, &attr.attributes);
+    attr.bindings_count = qb_renderpass_bindings(gui_render_pass, &attr.bindings);
+
+    qb_meshbuffer_create(&window->dbo, &attr);
+    qb_renderpass_appendmeshbuffer(gui_render_pass, window->dbo);
 
     qbGpuBuffer vertex_buffers[] = { vbo };
-    qb_drawbuffer_attachvertices(window->dbo, vertex_buffers);
-    qb_drawbuffer_attachindices(window->dbo, ebo);
+    qb_meshbuffer_attachvertices(window->dbo, vertex_buffers);
+    qb_meshbuffer_attachindices(window->dbo, ebo);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { window->ubo };
-    qb_drawbuffer_attachuniforms(window->dbo, 1, bindings, uniform_buffers);
+    qb_meshbuffer_attachuniforms(window->dbo, 1, bindings, uniform_buffers);
   }
 
   window_buffers.push_back(window->dbo);
@@ -383,12 +376,12 @@ void qb_window_updateuniforms(qbWindow window) {
 void qb_window_movetofront(qbWindow window) {
   auto found = find_window(windows, window);
   if (found != windows.end() && windows.size() > 1) {
-    uint32_t found_index = found - windows.begin();
-    uint32_t swap_index = 0;
+    size_t found_index = found - windows.begin();
+    size_t swap_index = 0;
     std::swap(*found, *(windows.begin() + swap_index));
     std::swap(window_buffers[found_index], window_buffers[swap_index]);
 
-    qb_renderpass_updatedrawbuffers(gui_render_pass, window_buffers.size(), window_buffers.data());
+    qb_renderpass_updatemeshbuffers(gui_render_pass, window_buffers.size(), window_buffers.data());
   }
 }
 

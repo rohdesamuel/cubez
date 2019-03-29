@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <memory>
+#include <set>
 
 #define InitializeComponent(component, data) \
 { \
@@ -32,7 +33,7 @@ qb_componentattr_settype(attr, type); \
 qb_component_create(component, attr); \
 qb_componentattr_destroy(&attr); \
 }
-
+#if 0
 namespace planet
 {
 
@@ -1907,3 +1908,4 @@ void RenderPlanetPopup() {
 #endif
 
 }
+#endif

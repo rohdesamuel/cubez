@@ -17,6 +17,9 @@
 #include <vector>
 #include <cubez/cubez.h>
 
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
 #else

@@ -12,5 +12,5 @@ in VertexData
 } o;
 
 void main() {
-  out_color = texture2D(tex_sampler_1, o.tex) * o.col;
+  out_color = texture2D(tex_sampler_1, o.tex) * texture2D(tex_sampler_2, o.tex) * o.col;
 }

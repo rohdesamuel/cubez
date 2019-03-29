@@ -4,6 +4,7 @@
 #include <cubez/cubez.h>
 
 #include <functional>
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_mouse.h>

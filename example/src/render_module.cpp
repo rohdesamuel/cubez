@@ -1,17 +1,18 @@
-#include "render.h"
-#include <cubez/common.h>
-
 #define GL3_PROTOTYPES 1
-#include <algorithm>
-#include <iostream>
 #include <GL/glew.h>
-#include <stdio.h>
-#include <stdlib.h>
+#define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+
+#include "render_module.h"
+#include <cubez/common.h>
+#include <algorithm>
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
 #include "render.h"
-#include "opengl_render_module.h"
 #include "shader.h"
+
 
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
@@ -21,28 +22,108 @@
 
 #define WITH_MODULE(module, fn, ...) (module)->render_interface.fn((module)->impl, __VA_ARGS__)
 
+typedef struct qbRenderPipeline_ {
+  std::vector<qbRenderPass> render_passes;
+} qbRenderPipeline_;
+
+typedef struct qbFrameBuffer_ {
+  uint32_t id;
+  qbImage render_target;
+
+} qbFrameBuffer_;
+
+typedef struct qbImageSampler_ {
+  qbImageSamplerAttr_ attr;
+  uint32_t id;
+  const char* name;
+} qbImageSampler_;
+
 typedef struct qbPixelMap_ {
   uint32_t width;
   uint32_t height;
-
   qbPixelFormat format;
-  void* pixel;
+  void* pixels;
+
   size_t size;
   size_t row_size;
   size_t pixel_size;
 
 } qbPixelMap_;
 
-typedef struct qbRenderModule_ {
-  qbRenderInterface_ render_interface;
-  qbRenderImpl impl;
+typedef struct qbImage_ {
+  uint32_t id;
+  qbPixelMap pixels;
+} qbImage_;
 
-  std::vector<qbRenderPass> render_passes;
-} qbRenderModule_;
 
-typedef struct qbRenderPipeline_ {
-  std::vector<qbRenderPass> render_passes;
-} qbRenderPipeline_;
+typedef struct qbGpuBuffer_ {
+  void* data;
+  size_t size;
+  size_t elem_size;
+
+  uint32_t id;
+  qbGpuBufferType buffer_type;
+  int sharing_type;
+} qbGpuBuffer_;
+
+typedef struct qbMeshBuffer_ {
+  uint32_t id;
+  qbGpuBuffer indices;
+
+  // Has the same count as bindings_count.
+  qbGpuBuffer* vertices;
+
+  uint32_t* uniform_bindings;
+  qbGpuBuffer* uniforms;
+  size_t uniforms_count;
+
+  uint32_t* sampler_bindings;
+  qbImage* images;
+  size_t images_count;
+
+  qbBufferBinding bindings;
+  size_t bindings_count;
+
+  qbVertexAttribute attributes;
+  size_t attributes_count;
+
+  size_t instance_count;
+
+  //  qbRenderPass render_pass;
+} qbMeshBuffer_;
+
+typedef struct qbShaderModule_ {
+  qbShader shader;
+
+  qbShaderResourceInfo resources;
+  size_t resources_count;
+
+  std::vector<std::pair<uint32_t, qbGpuBuffer>> uniforms;
+
+  uint32_t* sampler_bindings;
+  qbImageSampler* samplers;
+  size_t samplers_count;
+
+} qbShaderModule_;
+
+typedef struct qbRenderPass_ {
+  uint32_t id;
+  qbFrameBuffer frame_buffer;
+
+  std::vector<qbMeshBuffer> draw_buffers;
+
+  qbVertexAttribute attributes;
+  size_t attributes_count;
+
+  qbBufferBinding bindings;
+  size_t bindings_count;
+
+  qbShaderModule shader_program;
+
+  glm::vec4 viewport;
+  float viewport_scale;
+
+} qbRenderPass_;
 
 namespace
 {
@@ -76,10 +157,13 @@ GLenum TranslateQbFilterTypeToOpenGl(qbFilterType type) {
   switch (type) {
     case QB_FILTER_TYPE_NEAREST: return GL_NEAREST;
     case QB_FILTER_TYPE_LINEAR: return GL_LINEAR;
+    case QB_FILTER_TYPE_NEAREST_MIPMAP_NEAREST: return GL_NEAREST_MIPMAP_NEAREST;
+    case QB_FILTER_TYPE_LINEAR_MIPMAP_NEAREST: return GL_LINEAR_MIPMAP_NEAREST;
+    case QB_FILTER_TYPE_NEAREST_MIPMAP_LINEAR: return GL_NEAREST_MIPMAP_LINEAR;
+    case QB_FILTER_TYPE_LIENAR_MIPMAP_LINEAR: return GL_LINEAR_MIPMAP_LINEAR;
   }
   return 0;
 }
-
 GLenum TranslateQbImageWrapTypeToOpenGl(qbImageWrapType type) {
   switch (type) {
     case QB_IMAGE_WRAP_TYPE_REPEAT: return GL_REPEAT;
@@ -105,7 +189,10 @@ GLenum TranslateQbImageTypeToOpenGl(qbImageType type) {
 
 }
 
-qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format) {
+
+void qb_renderpass_draw(qbRenderPass render_pass);
+
+qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format, void* pixels) {
   qbPixelMap p = new qbPixelMap_;
   p->width = width;
   p->height = height;
@@ -113,14 +200,21 @@ qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat for
 
   p->pixel_size = format == qbPixelFormat::QB_PIXEL_FORMAT_RGBA8 ? 4 : 0;
   p->size = width * height * p->pixel_size;
-  p->pixel = (void*)new char[p->size];
+  if (p->size) {
+    p->pixels = (void*)new char[p->size];
+  } else {
+    p->pixels = nullptr;
+  }
+  if (p->pixels && pixels) {
+    memcpy(p->pixels, pixels, p->size);
+  }
   p->row_size =  p->pixel_size * p->width;
 
   return p;
 }
 
 qbResult qb_pixelmap_destroy(qbPixelMap* pixels) {
-  delete[] (char*)((*pixels)->pixel);
+  delete[] (char*)((*pixels)->pixels);
   delete *pixels;
   *pixels = nullptr;
   return QB_OK;
@@ -135,7 +229,7 @@ uint32_t qb_pixelmap_height(qbPixelMap pixels) {
 }
 
 void* qb_pixelmap_pixels(qbPixelMap pixels) {
-  return pixels->pixel;
+  return pixels->pixels;
 }
 
 qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, glm::vec2 src_rect, glm::vec2 dest_rect) {
@@ -158,45 +252,8 @@ qbPixelFormat qb_pixelmap_format(qbPixelMap pixels) {
   return pixels->format;
 }
 
-qbResult qb_rendermodule_create(
-  qbRenderModule* module,
-  qbRenderInterface render_interface,
-  qbRenderImpl impl,
-  uint32_t viewport_width,
-  uint32_t viewport_height,
-  float scale) {
-
-  *module = new qbRenderModule_;
-  //(*module)->render_interface = *render_interface;
-  (*module)->impl = impl;
-
-  return QB_OK;
-}
-
-void      qb_renderpipeline_create(qbRenderPipeline* pipeline,
-                                 uint32_t viewport_width,
-                                 uint32_t viewport_height,
-                                 float scale) {
+void qb_renderpipeline_create(qbRenderPipeline* pipeline) {
   *pipeline = new qbRenderPipeline_;
-}
-
-qbResult qb_rendermodule_destroy(qbRenderModule* module) {
-  (*module)->render_interface.ondestroy((*module)->impl);
-  delete *module;
-  *module = nullptr;
-  return QB_OK;
-}
-
-qbResult qb_rendermodule_resize(qbRenderModule module, uint32_t width, uint32_t height) {
-  return QB_OK;
-}
-
-void qb_rendermodule_lockstate(qbRenderModule module) {
-  WITH_MODULE(module, lockstate);
-}
-
-void qb_rendermodule_unlockstate(qbRenderModule module) {
-  WITH_MODULE(module, unlockstate);
 }
 
 void qb_renderpipeline_run(qbRenderPipeline render_pipeline, qbRenderEvent event) {
@@ -213,7 +270,7 @@ void qb_renderpipeline_run(qbRenderPipeline render_pipeline, qbRenderEvent event
   }
 
   for (qbRenderPass pass : render_pipeline->render_passes) {
-    qb_rendermodule_drawrenderpass(pass);
+    qb_renderpass_draw(pass);
   }
 }
 
@@ -222,13 +279,13 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
   qb_shader_load(&module->shader, "", attr->vs, attr->fs);
 
   module->resources_count = attr->resources_count;
-  module->resources = new qbShaderResourceAttr_[module->resources_count];
-  memcpy(module->resources, attr->resources, module->resources_count * sizeof(qbShaderResourceAttr_));
+  module->resources = new qbShaderResourceInfo_[module->resources_count];
+  memcpy(module->resources, attr->resources, module->resources_count * sizeof(qbShaderResourceInfo_));
 
-  uint32_t program = qb_shader_getid(module->shader);
+  uint32_t program = (uint32_t)qb_shader_getid(module->shader);
 
   for (auto i = 0; i < module->resources_count; ++i) {
-    qbShaderResourceAttr attr = module->resources + i;
+    qbShaderResourceInfo attr = module->resources + i;
     if (attr->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
       int32_t block_index = glGetUniformBlockIndex(program, attr->name);
       glUniformBlockBinding(program, block_index, attr->binding);
@@ -237,13 +294,13 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
   }
 }
 
-void qb_shadermodule_attachuniforms(qbShaderModule module, uint32_t count, uint32_t bindings[], qbGpuBuffer uniforms[]) {
-  uint32_t program = qb_shader_getid(module->shader);
+void qb_shadermodule_attachuniforms(qbShaderModule module, size_t count, uint32_t bindings[], qbGpuBuffer uniforms[]) {
+  uint32_t program = (uint32_t)qb_shader_getid(module->shader);
 
   for (auto i = 0; i < count; ++i) {
     qbGpuBuffer uniform = uniforms[i];
     uint32_t binding = bindings[i];
-    qbShaderResourceAttr attr = nullptr;
+    qbShaderResourceInfo attr = nullptr;
     for (auto j = 0; j < module->resources_count; ++j) {
       if (module->resources[j].binding == binding) {
         attr = module->resources + j;
@@ -251,7 +308,7 @@ void qb_shadermodule_attachuniforms(qbShaderModule module, uint32_t count, uint3
       }
     }
     if (attr == nullptr) {
-      FATAL("qbShaderResourceAttr buffer for binding " << binding << " not found.");
+      FATAL("qbShaderResourceInfo buffer for binding " << binding << " not found.");
     }
     
     // Add the uniforms to the shader module. Overwrite uniforms if it already exists.
@@ -273,85 +330,31 @@ void qb_shadermodule_attachuniforms(qbShaderModule module, uint32_t count, uint3
   }
 }
 
-void qb_shadermodule_attachsamplers(qbShaderModule module, uint32_t count, uint32_t bindings[], qbImageSampler samplers[]) {
-  module->samplers_count = count;
 
+void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count, uint32_t bindings[], qbImageSampler samplers[]) {
+  module->samplers_count = count;
   module->sampler_bindings = new uint32_t[module->samplers_count];
   module->samplers = new qbImageSampler[module->samplers_count];
 
   memcpy(module->sampler_bindings, bindings, module->samplers_count * sizeof(uint32_t));
   memcpy(module->samplers, samplers, module->samplers_count * sizeof(qbImageSampler));
 
-  for (size_t i = 0; i < count; ++i) {
-    qbImageSampler sampler = samplers[i];
-    sampler->binding = bindings[i];
+  for (size_t i = 0; i < module->samplers_count; ++i) {
+    qbImageSampler sampler = module->samplers[i];
+    uint32_t binding = module->sampler_bindings[i];
 
-    qbShaderResourceAttr resource = nullptr;
+    qbShaderResourceInfo resource = nullptr;
     for (size_t j = 0; j < module->resources_count; ++j) {
-      if (module->resources[j].binding == sampler->binding &&
+      if (module->resources[j].binding == binding &&
           module->resources[j].resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
         resource = module->resources + j;
         break;
       }
     }
 
-    if (resource == nullptr) {
-      FATAL("qbShaderResourceAttr for binding " << sampler->binding << " not found.");
-    }
-
     sampler->name = resource->name;
   }
 }
-
-void qb_drawbuffer_attachimages(qbDrawBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]) {
-  if (count < buffer->render_pass->shader_program->samplers_count) {
-    FATAL("Not enough images given. There are " 
-          << buffer->render_pass->shader_program->samplers_count - count
-          << " more samplers than images");
-  } else if (count > buffer->render_pass->shader_program->samplers_count) {
-    FATAL("Too many images given. There are "
-          << count - buffer->render_pass->shader_program->samplers_count
-          << " more images than samplers");
-  }
-  for (size_t i = 0; i < count; ++i) {
-    uint32_t binding = bindings[i];
-    for (size_t j = 0; j < count; ++j) {
-      uint32_t sampler_binding = buffer->render_pass->shader_program->sampler_bindings[j];
-      if (binding == sampler_binding) {
-        if (!images[i]) {
-          FATAL("Image[ " << i << " ] is null");
-        }
-        buffer->images[j] = images[i];
-        break;
-      }
-    }
-  }
-}
-
-void qb_drawbuffer_attachuniforms(qbDrawBuffer buffer, uint32_t count, uint32_t bindings[], qbGpuBuffer uniforms[]) {
-  for (uint32_t i = 0; i < count; ++i) {
-    uint32_t binding = bindings[i];
-    qbGpuBuffer uniform = uniforms[i];
-    if (!uniform) {
-      FATAL("Uniform[ " << i << " ] is null");
-    }
-
-    auto it = std::find_if(
-      buffer->uniforms.begin(), buffer->uniforms.end(),
-      [binding](const std::pair<uint32_t, qbGpuBuffer> bound) {
-        return bound.first == binding;
-      });
-
-    if (it == buffer->uniforms.end()) {
-      buffer->uniforms.emplace_back(std::pair<uint32_t, qbGpuBuffer>{binding, uniform});
-    } else {
-      it->second = uniform;
-    }
-  }
-
-  CHECK_GL();
-}
-
 
 void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   *buffer_ref = new qbGpuBuffer_;
@@ -377,32 +380,158 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   CHECK_GL();
 }
 
-void qb_drawbuffer_attachvertices(qbDrawBuffer draw_buffer, qbGpuBuffer vertices[]) {
-  qbRenderPass render_pass = draw_buffer->render_pass;
+void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
+  *buffer_ref = new qbMeshBuffer_;
+  qbMeshBuffer buffer = *buffer_ref;
 
-  glBindVertexArray(draw_buffer->id);
+  buffer->bindings_count = attr->bindings_count;
+  buffer->bindings = new qbBufferBinding_[buffer->bindings_count];
+  memcpy(buffer->bindings, attr->bindings, attr->bindings_count * sizeof(qbBufferBinding_));
 
-  for (size_t i = 0; i < draw_buffer->render_pass->bindings_count; ++i) {
-    qbBufferBinding binding = draw_buffer->render_pass->bindings + i;
-    draw_buffer->vertices[i] = vertices[binding->binding];
+  buffer->attributes_count = attr->attributes_count;
+  buffer->attributes = new qbVertexAttribute_[buffer->attributes_count];
+  memcpy(buffer->attributes, attr->attributes, buffer->attributes_count * sizeof(qbVertexAttribute_));
+
+  glGenVertexArrays(1, &buffer->id);
+  buffer->vertices = new qbGpuBuffer[buffer->bindings_count];
+
+  buffer->uniforms_count = 0;
+  buffer->uniforms = nullptr;
+  buffer->uniform_bindings = nullptr;
+
+  buffer->images_count = 0;
+  buffer->sampler_bindings = nullptr;
+  buffer->images = nullptr;
+  buffer->instance_count = attr->instance_count;
+  CHECK_GL();
+}
+
+void qb_meshbuffer_attachimages(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]) {
+  if (buffer->images_count != 0) {
+    FATAL("qbMeshBuffer already has attached images. Use qb_meshbuffer_updateimages to change attached images");
+  }
+  buffer->images_count = count;
+  buffer->sampler_bindings = new uint32_t[buffer->images_count];
+  buffer->images = new qbImage[buffer->images_count];
+
+  memcpy(buffer->sampler_bindings, bindings, buffer->images_count * sizeof(uint32_t));
+  memcpy(buffer->images, images, buffer->images_count * sizeof(qbImage));
+}
+
+void qb_meshbuffer_attachuniforms(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbGpuBuffer uniforms[]) {
+  buffer->uniforms_count = count;
+  buffer->uniforms = new qbGpuBuffer[buffer->uniforms_count];
+  buffer->uniform_bindings = new uint32_t[buffer->uniforms_count];
+
+  for (uint32_t i = 0; i < buffer->uniforms_count; ++i) {
+    buffer->uniforms[i] = uniforms[i];
+    buffer->uniform_bindings[i] = bindings[i];
+  }
+}
+
+void qb_meshbuffer_attachvertices(qbMeshBuffer buffer, qbGpuBuffer vertices[]) {
+  glBindVertexArray(buffer->id);
+
+  for (size_t i = 0; i < buffer->bindings_count; ++i) {
+    qbBufferBinding binding = buffer->bindings + i;
+    buffer->vertices[i] = vertices[binding->binding];
     if (!vertices[binding->binding]) {
       FATAL("Vertices[ " << binding->binding << " ] is null");
     }
 
-    qbGpuBuffer buffer = draw_buffer->vertices[i];
-    GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
-    glBindBuffer(target, buffer->id);
+    qbGpuBuffer gpu_buffer = buffer->vertices[i];
+    GLenum target = TranslateQbGpuBufferTypeToOpenGl(gpu_buffer->buffer_type);
+    glBindBuffer(target, gpu_buffer->id);
     CHECK_GL();
 
-    for (size_t j = 0; j < render_pass->attributes_count; ++j) {
-      qbVertexAttribute vattr = render_pass->attributes + j;
-      glEnableVertexAttribArray(vattr->location);
-      glVertexAttribPointer(vattr->location, vattr->count,
-                            TranslateQbVertexAttribTypeToOpenGl(vattr->type),
-                            vattr->normalized, binding->stride, vattr->offset);
-      CHECK_GL();
+    for (size_t j = 0; j < buffer->attributes_count; ++j) {
+      qbVertexAttribute vattr = buffer->attributes + j;
+      if (vattr->binding == binding->binding) {
+        glEnableVertexAttribArray(vattr->location);
+        glVertexAttribPointer(vattr->location,
+          (GLint)vattr->count,
+                              TranslateQbVertexAttribTypeToOpenGl(vattr->type),
+                              vattr->normalized,
+                              binding->stride,
+                              vattr->offset);
+        if (binding->input_rate) {
+          glVertexAttribDivisor(vattr->location, 1);
+        }
+        CHECK_GL();
+      }
     }
   }
+}
+
+void qb_meshbuffer_attachindices(qbMeshBuffer buffer, qbGpuBuffer indices) {
+  glBindVertexArray(buffer->id);
+  glGenBuffers(1, &indices->id);
+  glBindBuffer(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->id);
+  glBufferData(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->size, indices->data, GL_DYNAMIC_DRAW);
+
+  if (!indices) {
+    FATAL("Indices are null");
+  }
+
+  buffer->indices = indices;
+  CHECK_GL();
+}
+
+void qb_meshbuffer_render(qbMeshBuffer buffer, uint32_t bindings[]) {
+  // Bind textures.
+  for (size_t i = 0; i < buffer->images_count; ++i) {
+    glActiveTexture((GLenum)(GL_TEXTURE0 + i));
+
+    uint32_t image_id = 0;
+    uint32_t module_binding = bindings[i];
+
+    for (size_t j = 0; j < buffer->images_count; ++j) {
+      uint32_t buffer_binding = buffer->sampler_bindings[j];
+      if (module_binding == buffer_binding) {
+        image_id = buffer->images[j]->id;
+        break;
+      }
+    }
+
+    glBindTexture(GL_TEXTURE_2D, (GLuint)image_id);
+  }
+
+  // Bind uniform blocks for this draw buffer.
+  for (size_t i = 0; i < buffer->uniforms_count; ++i) {
+    qbGpuBuffer uniform = buffer->uniforms[i];
+    uint32_t binding = buffer->uniform_bindings[i];
+    glBindBufferBase(GL_UNIFORM_BUFFER, binding, uniform->id);
+  }
+
+  // Render elements
+  glBindVertexArray((GLuint)buffer->id);
+  qbGpuBuffer indices = buffer->indices;
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices->id);
+  if (buffer->instance_count == 0) {
+    glDrawElements(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr);
+  } else {
+    glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr, buffer->instance_count);
+  }
+  CHECK_GL();
+}
+
+size_t qb_meshbuffer_vertices(qbMeshBuffer buffer, qbGpuBuffer** vertices) {
+  *vertices = buffer->vertices;
+  return buffer->bindings_count;
+}
+
+void qb_meshbuffer_indices(qbMeshBuffer buffer, qbGpuBuffer* indices) {
+  *indices = buffer->indices;
+}
+
+size_t qb_meshbuffer_images(qbMeshBuffer buffer, qbImage** images) {
+  *images = buffer->images;
+  return buffer->images_count;
+}
+
+size_t qb_meshbuffer_uniforms(qbMeshBuffer buffer, qbGpuBuffer** uniforms) {
+  *uniforms = buffer->uniforms;
+  return buffer->uniforms_count;
 }
 
 void qb_gpubuffer_update(qbGpuBuffer buffer, intptr_t offset, size_t size, void* data) {
@@ -420,46 +549,7 @@ void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src,
   CHECK_GL();
 }
 
-void qb_drawbuffer_attachindices(qbDrawBuffer draw_buffer, qbGpuBuffer indices) {
-  glBindVertexArray(draw_buffer->id);
-  glGenBuffers(1, &indices->id);
-  glBindBuffer(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->id);
-  glBufferData(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->size, indices->data, GL_DYNAMIC_DRAW);
-
-  if (!indices) {
-    FATAL("Indices are null");
-  }
-
-  draw_buffer->indices = indices;
-  CHECK_GL();
-}
-
-void qb_drawbuffer_create(qbDrawBuffer* draw_buffer_ref, qbDrawBufferAttr attr, qbRenderPass render_pass) {
-  *draw_buffer_ref = new qbDrawBuffer_;
-  qbDrawBuffer draw_buffer = *draw_buffer_ref;
-
-  glGenVertexArrays(1, &draw_buffer->id);
-  draw_buffer->vertices = new qbGpuBuffer[render_pass->bindings_count];
-
-  uint32_t image_sampler_count = 0;
-  for (size_t i = 0; i < render_pass->shader_program->resources_count; ++i) {
-    if (render_pass->shader_program->resources[i].resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
-      ++image_sampler_count;
-    }
-  }
-
-  
-  draw_buffer->images_count = image_sampler_count;
-  draw_buffer->images = new qbImage[draw_buffer->images_count];
-
-  draw_buffer->render_pass = render_pass;
-
-  render_pass->draw_buffers.push_back(draw_buffer);
-  
-  CHECK_GL();
-}
-
-void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr, qbRenderPipeline pipeline) {
+void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) {
   *render_pass_ref = new qbRenderPass_;
   qbRenderPass render_pass = *render_pass_ref;
 
@@ -475,51 +565,35 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr, 
   render_pass->bindings_count = attr->bindings_count;
   render_pass->bindings = new qbBufferBinding_[render_pass->bindings_count];
   memcpy(render_pass->bindings, attr->bindings, render_pass->bindings_count * sizeof(qbBufferBinding_));
-  
-  // Opengl specific
-  /*
-  uint32_t render_pass_id;
-  glGenVertexArrays(1, &render_pass_id);
-  glBindVertexArray(render_pass_id);
-  CHECK_GL();
-
-  for (size_t i = 0; i < attr->gpu_buffers_count; ++i) {
-    qbGpuBuffer buffer = render_pass->gpu_buffers + i;
-
-    glGenBuffers(1, &buffer->id);
-    glBindBuffer(buffer->buffer_type, buffer->id);
-    glBufferData(buffer->buffer_type, buffer->size, buffer->data, buffer->usage_type);
-
-    CHECK_GL();
-  }
-
-  for (size_t attribute_pos = 0; attribute_pos < attr->attributes_count; ++attribute_pos) {
-    qbVertexAttribute vattr = attr->attributes + attribute_pos;
-    glEnableVertexAttribArray(attribute_pos);
-    glVertexAttribPointer(attribute_pos, vattr->size, vattr->type,
-                          vattr->normalized, vattr->stride, vattr->offset);    
-  }
-  CHECK_GL();
-
-  glBindVertexArray(0);
-  render_pass->id = render_pass_id;
-  render_pass->shader_program = attr->shader_program;
-  */
-  // End opengl specific
-
-  if (pipeline) {
-    pipeline->render_passes.push_back(render_pass);
-  }
 }
 
-uint32_t qb_renderpass_drawbuffers(qbRenderPass render_pass, qbDrawBuffer** buffers) {
+size_t qb_renderpass_bindings(qbRenderPass render_pass, qbBufferBinding* bindings) {
+  *bindings = render_pass->bindings;
+  return render_pass->bindings_count;
+}
+
+size_t qb_renderpass_attributes(qbRenderPass render_pass, qbVertexAttribute* attributes) {
+  *attributes = render_pass->attributes;
+  return render_pass->attributes_count;
+}
+
+size_t qb_renderpass_buffers(qbRenderPass render_pass, qbMeshBuffer** buffers) {
   *buffers = render_pass->draw_buffers.data();
   return render_pass->draw_buffers.size();
 }
 
-void qb_renderpass_updatedrawbuffers(qbRenderPass render_pass, uint32_t count, qbDrawBuffer* buffers) {
+size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceInfo* resources) {
+  *resources = render_pass->shader_program->resources;
+  return render_pass->shader_program->resources_count;
+}
+
+void qb_renderpass_appendmeshbuffer(qbRenderPass render_pass, qbMeshBuffer buffer) {
+  render_pass->draw_buffers.push_back(buffer);
+}
+
+void qb_renderpass_updatemeshbuffers(qbRenderPass render_pass, size_t count, qbMeshBuffer* buffers) {
   render_pass->draw_buffers.resize(count);
-  for (uint32_t i = 0; i < count; ++i) {
+  for (size_t i = 0; i < count; ++i) {
     render_pass->draw_buffers[i] = buffers[i];
   }
 }
@@ -528,33 +602,12 @@ void qb_renderpipeline_appendrenderpass(qbRenderPipeline pipeline, qbRenderPass 
   pipeline->render_passes.push_back(pass);
 }
 
-void qb_drawbuffer_render(qbDrawBuffer draw_buffer) {
-  glBindVertexArray(draw_buffer->id);
-
-  // Bind textures.
-  for (size_t i = 0; i < draw_buffer->images_count; ++i) {
-    glActiveTexture(GL_TEXTURE0 + i);
-    glBindTexture(GL_TEXTURE_2D, draw_buffer->images[i]->id);
-  }
-
-  // Bind uniform blocks for this draw buffer.
-  for (auto& bound : draw_buffer->uniforms) {
-    glBindBufferBase(GL_UNIFORM_BUFFER, bound.first, bound.second->id);
-  }
-
-  // Render elements
-  qbGpuBuffer indices = draw_buffer->indices;
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices->id);
-  glDrawElements(GL_TRIANGLES, indices->size / indices->elem_size, GL_UNSIGNED_INT, nullptr);
-  CHECK_GL();
-}
-
-void qb_rendermodule_drawrenderpass(qbRenderPass render_pass) {
+void qb_renderpass_draw(qbRenderPass render_pass) {
   if (render_pass->frame_buffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, render_pass->frame_buffer->id);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
-    //glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
   } else {
@@ -573,9 +626,9 @@ void qb_rendermodule_drawrenderpass(qbRenderPass render_pass) {
   // re-linked (glUseProgram), it resets the uniform block binding and bound
   // uniform blocks. Re-do all block bindings and re-bind uniform blocks.
   qb_shader_use(module->shader);
-  uint32_t program = qb_shader_getid(module->shader);
-  for (auto i = 0; i < module->resources_count; ++i) {
-    qbShaderResourceAttr attr = module->resources + i;
+  uint32_t program = (uint32_t)qb_shader_getid(module->shader);
+  for (size_t i = 0; i < module->resources_count; ++i) {
+    qbShaderResourceInfo attr = module->resources + i;
     if (attr->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
       int32_t block_index = glGetUniformBlockIndex(program, attr->name);
       glUniformBlockBinding(program, block_index, attr->binding);
@@ -589,30 +642,16 @@ void qb_rendermodule_drawrenderpass(qbRenderPass render_pass) {
     }
   }
 
-  for (size_t i = 0; i < module->samplers_count; ++i) {
-    qbImageSampler sampler = module->samplers[i];
-
-    glActiveTexture(GL_TEXTURE0 + i);
-    glUniform1i(glGetUniformLocation(program, sampler->name), i);
-    glBindSampler(i, sampler->id);
+  for (size_t index = 0; index < module->samplers_count; ++index) {
+    qbImageSampler sampler = module->samplers[index];
+    glActiveTexture((GLenum)(GL_TEXTURE0 + index));
+    glUniform1i(glGetUniformLocation(program, sampler->name), (GLint)index);
+    glBindSampler((GLuint)index, (GLuint)sampler->id);
     CHECK_GL();
   }
-  /*for (size_t i = 0; i < render_pass->shader_program->resources_count; ++i) {
-    qbShaderResourceAttr attr = render_pass->shader_program->resources + i;
-    uint32_t program = qb_shader_getid(render_pass->shader_program->shader);
-    if (attr->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
-      glActiveTexture(GL_TEXTURE0 + active_textures);
-      glUniform1i(glGetUniformLocation(program, attr->name), active_textures);
-      GLenum texture_type = TranslateQbImageTypeToOpenGl(render_pass->shader_program->samplers[active_textures]->attr.image_type);
-      glBindSampler(active_textures, render_pass->shader_program->samplers[active_textures]->id);
-      CHECK_GL();
-      ++active_textures;
-    }
-  }*/
-
-  CHECK_GL();
-  for (auto draw_buffer : render_pass->draw_buffers) {
-    qb_drawbuffer_render(draw_buffer);
+  
+  for (auto buffer : render_pass->draw_buffers) {
+    qb_meshbuffer_render(buffer, render_pass->shader_program->sampler_bindings);
   }
 }
 
@@ -640,41 +679,28 @@ void qb_imagesampler_create(qbImageSampler* sampler_ref, qbImageSamplerAttr attr
 
 void qb_image_create(qbImage* image_ref, qbImageAttr attr) {
   qbImage image = *image_ref = new qbImage_;
-  image->id = 0;
-}
+  image->pixels = nullptr;
 
-void qb_image_create(qbImage* image, qbPixelMap pixels) {
-  *image = new qbImage_;
+  // Load the image from the file into SDL's surface representation
+  GLenum image_type = TranslateQbImageTypeToOpenGl(attr->type);
 
-  GLuint tex_id;
-  glGenTextures(1, &tex_id);
-  glBindTexture(GL_TEXTURE_2D, tex_id);
+  glGenTextures(1, &image->id);
+  glBindTexture(image_type, image->id);
 
-  if (qb_pixelmap_format(pixels) == qbPixelFormat::QB_PIXEL_FORMAT_RGBA8) {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, qb_pixelmap_width(pixels), qb_pixelmap_height(pixels), 0,
-                 GL_BGRA, GL_UNSIGNED_BYTE, qb_pixelmap_pixels(pixels));
-  } else {
-    FATAL("Unhandled texture format: " << qb_pixelmap_format(pixels));
+  GLenum format = attr->pixel_map->format == QB_PIXEL_FORMAT_RGBA8 ? GL_RGBA : GL_RGB;
+
+  if (image_type == GL_TEXTURE_1D) {
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
+                 attr->pixel_map->width * attr->pixel_map->height,
+                 0, format, GL_UNSIGNED_BYTE, attr->pixel_map->pixels);
+  } else if (image_type == GL_TEXTURE_2D) {
+    glTexImage2D(image_type, 0, GL_RGBA8, attr->pixel_map->width, attr->pixel_map->height,
+                 0, format, GL_UNSIGNED_BYTE, attr->pixel_map->pixels);
   }
-
+  if (attr->generate_mipmaps) {
+    glGenerateMipmap(image_type);
+  }
   CHECK_GL();
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  CHECK_GL();
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  CHECK_GL();
-  //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  //glPixelStorei(GL_UNPACK_ROW_LENGTH, qb_pixelmap_rowsize(pixels) / qb_pixelmap_pixelsize(pixels));
-  CHECK_GL();
-
-
-  CHECK_GL();
-  glGenerateMipmap(GL_TEXTURE_2D);
-  CHECK_GL();
-  (*image)->id = tex_id;
-
-  //return WITH_MODULE(module, createtexture, pixel_map);
 }
 
 void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
@@ -700,30 +726,12 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
       glTexImage2D(image_type, 0, GL_RGBA8, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
     }
   }
+  if (attr->generate_mipmaps) {
+    glGenerateMipmap(image_type);
+  }
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-  
   SDL_FreeSurface(surf);
   CHECK_GL();
-}
-
-void qb_rendermodule_updatetexture(qbRenderModule module,
-                                   uint32_t texture_id,
-                                   qbPixelMap pixel_map) {
-  WITH_MODULE(module, updatetexture, texture_id, pixel_map);
-}
-
-void qb_rendermodule_usetexture(qbRenderModule module,
-                                uint32_t texture_id,
-                                uint32_t index,
-                                uint32_t target) {
-  WITH_MODULE(module, usetexture, texture_id, index, target);
-}
-
-void qb_rendermodule_destroytexture(qbRenderModule module,
-                                    uint32_t texture_id) {
-  WITH_MODULE(module, destroytexture, texture_id);
 }
 
 void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) {
@@ -737,9 +745,13 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
 
   qbPixelMap pixels = qb_pixelmap_create(attr->width,
                                          attr->height,
-                                         qbPixelFormat::QB_PIXEL_FORMAT_RGBA8);
+                                         qbPixelFormat::QB_PIXEL_FORMAT_RGBA8,
+                                         nullptr);
+  qbImageAttr_ image_attr;
+  image_attr.type = QB_IMAGE_TYPE_2D;
+  image_attr.pixel_map = pixels;
 
-  qb_image_create(&(*frame_buffer)->render_target, pixels);
+  qb_image_create(&(*frame_buffer)->render_target, &image_attr);
   uint32_t texture_id = (*frame_buffer)->render_target->id;
 
   glBindTexture(GL_TEXTURE_2D, texture_id);
@@ -766,7 +778,6 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
   CHECK_GL();
 
   (*frame_buffer)->id = frame_buffer_id;
-  //return WITH_MODULE(module, createframebuffer, frame_buffer, attr);
 #if 0
   void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) {
     *frame_buffer = new qbFrameBuffer_;
@@ -843,71 +854,6 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
 #endif
 }
 
-void qb_rendermodule_bindframebuffer(qbRenderModule module,
-                                      uint32_t frame_buffer_id) {
-  WITH_MODULE(module, bindframebuffer, frame_buffer_id);
-}
-
-void qb_rendermodule_setframebufferviewport(qbRenderModule module,
-                                             uint32_t frame_buffer_id,
-                                             uint32_t width,
-                                             uint32_t height) {
-  WITH_MODULE(module, setframebufferviewport, frame_buffer_id, width, height);
-}
-
-void qb_rendermodule_clearframebuffer(qbRenderModule module,
-                                       uint32_t frame_buffer_id) {
-  WITH_MODULE(module, clearframebuffer, frame_buffer_id);
-}
-
-void qb_rendermodule_destroyframebuffer(qbRenderModule module,
-                                         uint32_t frame_buffer_id) {
-  WITH_MODULE(module, destroyframebuffer, frame_buffer_id);
-}
-
-uint32_t qb_rendermodule_creategeometry(qbRenderModule module,
-                                        const qbVertexBuffer vertices,
-                                        const qbIndexBuffer indices,
-                                        const qbGpuBuffer* buffers, size_t buffer_size,
-                                        const qbVertexAttribute* attributes, size_t attr_size) {
-  /*uint32_t id = WITH_MODULE(module, nextgeometryid);
-  WITH_MODULE(module, creategeometry,
-              id,
-              vertices,
-              indices,
-              buffers, buffer_size,
-              attributes, attr_size);*/
-  return 0;
-}
-
-void qb_rendermodule_updategeometry(qbRenderModule module,
-                                    uint32_t geometry_id,
-                                    const qbVertexBuffer vertices,
-                                    const qbIndexBuffer indices,
-                                    const qbGpuBuffer* buffers, size_t buffer_size) {
-  WITH_MODULE(module, updategeometry,
-              geometry_id,
-              vertices,
-              indices,
-              buffers, buffer_size);
-}
-
-void qb_rendermodule_destroygeometry(qbRenderModule module,
-                                     uint32_t geometry_id) {
-  WITH_MODULE(module, destroygeometry, geometry_id);
-}
-
-void qb_rendermodule_drawgeometry(qbRenderModule module,
-                                  uint32_t geometry_id,
-                                  size_t indices_count,
-                                  size_t indices_offest) {
-  WITH_MODULE(module, drawgeometry, geometry_id, indices_count, indices_offest);
-}
-
-uint32_t qb_rendermodule_loadprogram(qbRenderModule module, const char* vs_file, const char* fs_file) {
-  return WITH_MODULE(module, loadprogram, vs_file, fs_file);
-}
-
-void qb_rendermodule_useprogram(qbRenderModule module, uint32_t program) {
-  WITH_MODULE(module, useprogram, program);
+qbImage qb_framebuffer_rendertarget(qbFrameBuffer frame_buffer) {
+  return frame_buffer->render_target;
 }
