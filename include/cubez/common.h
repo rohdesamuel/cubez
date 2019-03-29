@@ -52,7 +52,13 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #else
 
 #define INFO(x)
-#define FATAL(x)
+#ifdef __COMPILE_AS_WINDOWS__
+#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  __debugbreak(); std::cin.get(); exit(-1); }
+#else
+#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  std::cin.get(); exit(-1); }
+#endif  // __COMPILE_AS_WINDOWS__
 
 #define DEBUG_ASSERT(expr, exit_code) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
@@ -74,9 +80,9 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #ifdef __COMPILE_AS_WINDOWS__
 #ifdef __BUILDING_DLL__
-#define API extern "C" __declspec(dllexport)
+#define QB_API extern "C" __declspec(dllexport)
 #else 
-#define API extern "C" __declspec(dllimport)
+#define QB_API extern "C" __declspec(dllimport)
 #define CPP_API 
 #endif  // _EXPORT_BUILD
 #define STRCPY strcpy_s
