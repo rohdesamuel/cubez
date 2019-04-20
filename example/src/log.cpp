@@ -4,6 +4,8 @@
 #include <string.h>
 #include <cstdarg>
 #include <vector>
+#include <mutex>
+#include <condition_variable>
 
 namespace logging {
 
@@ -17,18 +19,34 @@ qbEvent std_out;
 
 qbId program_id;
 
+std::condition_variable flush_logs;
+volatile bool flush = false;
+std::mutex log_lock;
+volatile uint32_t read_log;
+volatile uint32_t write_log;
+std::vector<std::string> log[2];
+
 void initialize() {
   // Create a separate program/system to handle stdout.
   program_id = qb_create_program(kStdout);
 
+  read_log = 0;
+  write_log = 1;
+
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
     qb_systemattr_setprogram(attr, program_id);
     qb_systemattr_setcallback(attr,
         [](qbFrame* f) {
-          std::cout << "[INFO] " << (char*)(f->event) << std::endl;
+          std::unique_lock<decltype(log_lock)> lock(log_lock);
+          flush_logs.wait(lock, [] {return flush; });
+
+          std::swap(read_log, write_log);
+          for (auto& s : log[read_log]) {
+            std::cout << "[INFO] " << s << std::endl;
+          }
+          flush = false;
         });
     qb_system_create(&system_out, attr);
     qb_systemattr_destroy(&attr);
@@ -48,6 +66,8 @@ void initialize() {
 }
 
 void out(const char* format, ...) {
+  std::unique_lock<decltype(log_lock)> lock(log_lock);
+
   va_list args;
   va_start(args, format);
 
@@ -58,13 +78,12 @@ void out(const char* format, ...) {
 
   size_t num_msgs = 1 + (s.length() / MAX_CHARS);
   for (size_t i = 0; i < num_msgs; ++i) {
-    std::string to_send = s.substr(i * MAX_CHARS, MAX_CHARS);
-    memcpy(msg_buffer, to_send.c_str(), std::strlen(to_send.c_str()));
-    qb_event_sendsync(std_out, msg_buffer);
-    memset(msg_buffer, 0, MAX_CHARS);
+    log[write_log].push_back(s.substr(i * MAX_CHARS, MAX_CHARS));
   }
 
   va_end(args);
+  flush = true;
+  flush_logs.notify_all();
 }
 
 }  // namespace log

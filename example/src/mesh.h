@@ -50,7 +50,8 @@ qbResult qb_mesh_destroy();
 qbResult qb_mesh_draw(qbMesh mesh, qbMaterial shader);
 
 qbResult qb_shader_load(qbShader* shader, const char* shader_name,
-                        const char* vs_filename, const char* fs_filename);
+                        const char* vs_filename, const char* fs_filename,
+                        const char* gs_filename);
 qbResult qb_shader_find(qbShader* shader, const char* shader_name);
 qbId qb_shader_getid(qbShader shader);
 qbResult qb_shader_use(qbShader shader);

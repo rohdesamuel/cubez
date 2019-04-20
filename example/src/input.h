@@ -93,6 +93,7 @@ enum qbMouseState {
 enum qbMouseEvent {
   QB_MOUSE_EVENT_MOTION,
   QB_MOUSE_EVENT_BUTTON,
+  QB_MOUSE_EVENT_SCROLL,
 };
 
 struct MouseButtonEvent {
@@ -107,10 +108,16 @@ struct MouseMotionEvent {
   int yrel;
 };
 
+struct MouseScrollEvent {
+  int x;
+  int y;
+};
+
 struct MouseEvent {
   union {
     MouseButtonEvent button_event;
     MouseMotionEvent motion_event;
+    MouseScrollEvent scroll_event;
   };
   qbMouseEvent event_type;
 };

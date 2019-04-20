@@ -221,7 +221,7 @@ void Initialize(Settings settings) {
     uint32_t bindings[] = { 1 };
     qb_meshbuffer_attachuniforms(top_paddle, 1, bindings, uniforms);
 
-    qb_renderpass_appendmeshbuffer(scene_pass, top_paddle);
+    qb_renderpass_append(scene_pass, top_paddle);
   }
   {
     qbMeshBufferAttr_ attr = {};
@@ -240,7 +240,7 @@ void Initialize(Settings settings) {
     uint32_t bindings[] = { 1 };
     qb_meshbuffer_attachuniforms(bot_paddle, 1, bindings, uniforms);
 
-    qb_renderpass_appendmeshbuffer(scene_pass, bot_paddle);
+    qb_renderpass_append(scene_pass, bot_paddle);
   }
   {
     qbMeshBufferAttr_ attr = {};
@@ -259,7 +259,7 @@ void Initialize(Settings settings) {
     uint32_t bindings[] = { 1 };
     qb_meshbuffer_attachuniforms(ball, 1, bindings, uniforms);
 
-    qb_renderpass_appendmeshbuffer(scene_pass, ball);
+    qb_renderpass_append(scene_pass, ball);
   }
 }
 

@@ -265,12 +265,13 @@ qbShader qb_material_getshader(qbMaterial material) {
 }
 
 qbResult qb_shader_load(qbShader* shader, const char*,
-    const char* vs_filename, const char* fs_filename) {
+    const char* vs_filename, const char* fs_filename, const char* gs_filename) {
   *shader = new qbShader_;
   (*shader)->vs_file = STRDUP(vs_filename);
   (*shader)->fs_file = STRDUP(fs_filename);
 
-  ShaderProgram program = ShaderProgram::load_from_file(vs_filename, fs_filename);
+
+  ShaderProgram program = ShaderProgram::load_from_file(vs_filename, fs_filename, gs_filename ? gs_filename : "");
   (*shader)->shader_id = program.id();
   return QB_OK;
 }
