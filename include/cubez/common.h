@@ -41,11 +41,11 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   __debugbreak(); std::cin.get(); exit(-1); }
 #else
 #define INFO(x) { std::cerr << "[INFO] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   std::cin.get(); exit(-1); }
 #endif  // __COMPILE_AS_WINDOWS__
 
@@ -53,10 +53,10 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #define INFO(x)
 #ifdef __COMPILE_AS_WINDOWS__
-#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   __debugbreak(); std::cin.get(); exit(-1); }
 #else
-#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   std::cin.get(); exit(-1); }
 #endif  // __COMPILE_AS_WINDOWS__
 
