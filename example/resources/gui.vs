@@ -12,16 +12,20 @@ layout (std140) uniform Camera
 layout (std140) uniform Model
 {
     mat4 modelview;
+	vec4 color;
+	int render_mode;
 } model;
 
 out VertexData
 {
-	vec4 col;
+	flat vec4 col;
 	vec2 tex;
+	flat int render_mode;
 } o;
 
 void main() {
   o.tex = in_tex;
-  o.col = vec4(in_col, 1.0);
+  o.col = model.color;
+  o.render_mode = model.render_mode;
   gl_Position =  (camera.projection * model.modelview) * vec4(in_pos, 1.0);
 }
