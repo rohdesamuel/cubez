@@ -18,10 +18,12 @@ class ShaderProgram {
 
  public:
   ShaderProgram(const std::string& vs, const std::string& fs);
+  ShaderProgram(const std::string& vs, const std::string& fs, const std::string& gs);
   ShaderProgram(GLuint program);
 
   static ShaderProgram load_from_file(const std::string& vs_file,
-                                      const std::string& fs_file);
+                                      const std::string& fs_file,
+                                      const std::string& gs_file);
 
   void use();
 
