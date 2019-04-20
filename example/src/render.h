@@ -1,5 +1,5 @@
-#ifndef RENDER__H
-#define RENDER__H
+#ifndef CUBEZ_RENDER__H
+#define CUBEZ_RENDER__H
 
 #include <string>
 
@@ -61,4 +61,4 @@ float qb_camera_getpitch();
 float qb_camera_getznear();
 float qb_camera_getzfar();
 
-#endif
+#endif  // CUBEZ_RENDER__H
