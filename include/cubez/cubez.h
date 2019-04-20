@@ -100,19 +100,20 @@ QB_API qbResult      qb_componentattr_destroy(qbComponentAttr* attr);
 
 // Sets the allocated size for the component.
 QB_API qbResult      qb_componentattr_setdatasize(qbComponentAttr attr,
-                                               size_t size);
+                                                  size_t size);
 
 // Sets the component type which tells the engine how to destroy the component.
 QB_API qbResult      qb_componentattr_settype(qbComponentAttr attr,
-                                           qbComponentType type);
+                                              qbComponentType type);
 
 // Sets the component to be shared across programs with a reader/writer lock.
 QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr);
 
 QB_API qbResult      qb_componentattr_onserialize(qbComponentAttr attr,
-                                               size_t(*fn)(void* read, uint8_t* write));
+                                                  size_t(*fn)(void* read, uint8_t* write));
+
 QB_API qbResult      qb_componentattr_ondeserialize(qbComponentAttr attr,
-                                                 size_t(*fn)(uint8_t* read, uint8_t* write));
+                                                    size_t(*fn)(uint8_t* read, uint8_t* write));
 
 // Sets the data type for the component.
 // Same as qb_componentattr_setdatasize(attr, sizeof(type)).
@@ -122,7 +123,7 @@ QB_API qbResult      qb_componentattr_ondeserialize(qbComponentAttr attr,
 // ======== qbComponent ========
 // Creates a new qbComponent with the specified attributes.
 QB_API qbResult      qb_component_create(qbComponent* component,
-                                            qbComponentAttr attr);
+                                         qbComponentAttr attr);
 
 // Destroys the specified qbComponent.
 QB_API qbResult      qb_component_destroy(qbComponent* component);
@@ -142,17 +143,17 @@ QB_API size_t        qb_component_getcount(qbComponent component);
 // when an entity is created, then it is triggered after all components have
 // been instantiated.
 QB_API qbResult      qb_instance_oncreate(qbComponent component,
-                                       void(*fn)(qbInstance instance));
+                                          void(*fn)(qbInstance instance));
 
 // Triggers fn when a instance of the given component is destroyed. Is
 // triggered before before memory is freed.
 QB_API qbResult      qb_instance_ondestroy(qbComponent component,
-                                        void(*fn)(qbInstance instance));
+                                           void(*fn)(qbInstance instance));
 
 // Gets a read-only view of a component instance for the given entity.
 QB_API qbResult      qb_instance_find(qbComponent component,
-                                   qbEntity entity,
-                                   void* pbuffer);
+                                      qbEntity entity,
+                                      void* pbuffer);
 
 // Returns the entity that contains this component instance.
 QB_API qbEntity      qb_instance_getentity(qbInstance instance);
@@ -160,22 +161,22 @@ QB_API qbEntity      qb_instance_getentity(qbInstance instance);
 // Fills pbuffer with component instance data. If the parent component is
 // shared, this locks the reader lock.
 QB_API qbResult      qb_instance_getconst(qbInstance instance,
-                                       void* pbuffer);
+                                          void* pbuffer);
 
 // Fills pbuffer with component instance data. If the parent component is
 // shared, this locks the writer lock.
 QB_API qbResult     qb_instance_getmutable(qbInstance instance,
-                                        void* pbuffer);
+                                           void* pbuffer);
 
 // Fills pbuffer with component instance data. The memory is mutable.
 QB_API qbResult     qb_instance_getcomponent(qbInstance instance,
-                                          qbComponent component,
-                                          void* pbuffer);
+                                             qbComponent component,
+                                             void* pbuffer);
 
 // Returns true if the entity containing the instance also contains a specified
 // component.
 QB_API bool        qb_instance_hascomponent(qbInstance instance,
-                                         qbComponent component);
+                                            qbComponent component);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Entities  ///////////////////////
@@ -191,8 +192,8 @@ QB_API qbResult      qb_entityattr_destroy(qbEntityAttr* attr);
 // Adds a component with instance data to be copied into the entity.
 // This only copies the instance_data pointer and does not allocate new memory.
 QB_API qbResult      qb_entityattr_addcomponent(qbEntityAttr attr,
-                                             qbComponent component,
-                                             void* instance_data);
+                                                qbComponent component,
+                                                void* instance_data);
 // ======== qbEntity ========
 // A qbEntity is an identifier to a game object. qbComponents can be added to
 // the entity.
