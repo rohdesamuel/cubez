@@ -642,15 +642,6 @@ void initialize_universe(qbUniverse* uni) {
 #endif
 }
 
-qbScene create_main_menu() {
-  qbScene scene;
-  qb_scene_create(&scene, "Main Menu");
-  qb_scene_set(scene);
-
-  qb_scene_reset();
-  return scene;
-}
-
 qbCoro test_coro;
 qbCoro generator_coro;
 qbCoro wait_coro;
@@ -707,8 +698,6 @@ struct TimingInfo {
   double udpate_fps;
   double render_fps;
   double total_fps;
-  double fps_dt1;
-  double fps_dt2;
 };
 
 qbVar print_timing_info(qbVar var) {
@@ -865,7 +854,94 @@ qbMeshBuffer CreateGrid(qbRenderPass renderpass) {
 }
 #endif
 
+
+
 TimingInfo timing_info;
+qbScene main_menu_scene;
+qbScene game_scene;
+void create_main_menu() {
+  qb_scene_create(&main_menu_scene, "Main Menu");
+  qb_scene_set(main_menu_scene);
+
+  gui::qbWindowCallbacks_ window_callbacks;
+  window_callbacks.onfocus = [](gui::qbWindow) {
+    std::cout << "onfocus\n";
+  };
+  window_callbacks.onclick = [](gui::qbWindow, input::MouseEvent* e) {
+    std::cout << "onclick ( " << e->button_event.mouse_button << ", " << (bool)e->button_event.state << " )\n";
+  };
+  window_callbacks.onscroll = [](gui::qbWindow window, input::MouseEvent* e) {
+    std::cout << "onscroll ( " << e->scroll_event.x << ", " << e->scroll_event.y << " )\n";
+    if (input::is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+      gui::qb_window_moveby(window, { e->scroll_event.y * 5, 0.0f, 0.0f });
+    } else {
+      gui::qb_window_moveby(window, { e->scroll_event.x, e->scroll_event.y * 5, 0.0f });
+    }
+  };
+
+  qbImage ball_image;
+  {
+    qbImageAttr_ attr;
+    attr.type = QB_IMAGE_TYPE_2D;
+    qb_image_load(&ball_image, &attr, "resources/ball.bmp");
+  }
+
+  gui::qbWindow parent;
+  gui::qb_window_create(&parent, { 0.0f, 0.0f, 0.0f }, { 512.0f, 64.0f }, true, &window_callbacks, nullptr, nullptr, { 0.0, 0.0, 0.0, 0.95 });
+
+  /*gui::qbWindow child;
+  gui::qb_window_create(&child, { 0.0f, -32.0f, 0.0f }, { 32.0f, 32.0f }, true, &window_callbacks, parent, ball_image, { 0.0, 1.0, 0.0, 0.75 });
+  gui::qb_window_movetofront(child);*/
+
+  gui::qbWindow text_box;
+  gui::qb_textbox_create(&text_box, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f }, true, &window_callbacks, parent, { 1.0f, 0.0f, 0.0f, 1.0f },
+                         u"Lorem ipsum dolor sit amet, consectetur adipiscing elit, \n"
+                         "sed do eiusmod tempor incididunt ut labore et dolore \n"
+                         "magna aliqua. Ut enim ad minim veniam, quis nostrud \n"
+                         "exercitation ullamco laboris nisi ut aliquip ex ea \n"
+                         "commodo consequat. Duis aute irure dolor in reprehenderit \n"
+                         "in voluptate velit esse cillum dolore eu fugiat nulla \n"
+                         "pariatur. Excepteur sint occaecat cupidatat non proident, \n"
+                         "sunt in culpa qui officia deserunt mollit anim id est \n"
+                         "laborum.");
+  //qb_textbox_text(text_box, u"hello world");
+
+  gui::qbWindow main_menu;
+  gui::qb_window_create(&main_menu, { (1200.0f * 0.5f) - 256.0f, 100.0f, 0.0f }, { 512.0f, 600.0f }, true, nullptr, nullptr, nullptr, { 0.0, 0.0, 0.0, 1.0 });
+  gui::qb_window_movetoback(main_menu);
+
+  gui::qbWindow new_game;
+  gui::qb_window_create(&new_game, { 0.0f, 100.0f, 0.1f }, { 512.0f, 64.0f }, true, nullptr, main_menu, nullptr, { 1.0, 1.0, 1.0, 0.15 });
+  gui::qb_window_movetofront(new_game);
+
+  //gui::qb_textbox_create()
+
+  qb_coro_sync([](qbVar text) {
+    gui::qbWindow text_box = (gui::qbWindow)text.p;
+    while (true) {
+      int fps = (int)timing_info.total_fps;
+      {
+        std::wstring text_fps = std::wstring(L"FPS: ") + std::to_wstring(fps);
+        qb_textbox_text(text_box, (char16_t*)text_fps.data());
+      }
+      qb_coro_waitframes(10);
+    }
+
+    return qbNone;
+  }, qbVoid(text_box));
+
+  //gui::qb_window_movetofront(text_box);
+
+  qb_scene_reset();
+}
+
+void create_game() {
+  qb_scene_create(&game_scene, "Game");
+  qb_scene_set(game_scene);
+
+  qb_scene_reset();
+}
+
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni;
@@ -904,35 +980,7 @@ int main(int, char* []) {
   *cube_rot = 0.0f;
   qb_coro_sync(rotate_cube, qbVoid(cube_rot));
 
-  gui::qbWindowCallbacks_ window_callbacks;
-  window_callbacks.onfocus = [](gui::qbWindow) {
-    std::cout << "onfocus\n";
-  };
-  window_callbacks.onclick = [](gui::qbWindow, input::MouseEvent* e) {
-    std::cout << "onclick ( " << e->button_event.mouse_button << ", " << (bool)e->button_event.state << " )\n";
-  };
-  window_callbacks.onscroll = [](gui::qbWindow window, input::MouseEvent* e) {
-    std::cout << "onscroll ( " << e->scroll_event.x << ", " << e->scroll_event.y << " )\n";
-    if (input::is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
-      gui::qb_window_moveby(window, { e->scroll_event.y * 5, 0.0f, 0.0f });
-    } else {
-      gui::qb_window_moveby(window, { e->scroll_event.x, e->scroll_event.y * 5, 0.0f });
-    }
-  };
-
-  qbImage ball_image;
-  {
-    qbImageAttr_ attr;
-    attr.type = QB_IMAGE_TYPE_2D;
-    qb_image_load(&ball_image, &attr, "resources/ball.bmp");
-  }
-
-  gui::qbWindow parent;
-  gui::qb_window_create(&parent, { 1200.0f - 512.0f, 800 - 512.0f, 0.0f }, { 512.0f, 512.0f }, true, &window_callbacks, nullptr, ball_image, {1.0, 1.0, 1.0, 0.75});
-
-  gui::qbWindow child;
-  gui::qb_window_create(&child, { 0.0f, -32.0f, 0.0f }, { 32.0f, 32.0f }, true, &window_callbacks, parent, ball_image, { 0.0, 1.0, 0.0, 0.75 });
-  gui::qb_window_movetofront(child);
+  create_main_menu();
 
   qb_timer_create(&fps_timer, 50);
   qb_timer_create(&update_timer, 50);
