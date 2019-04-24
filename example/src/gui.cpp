@@ -84,33 +84,53 @@ struct qbWindow_ {
   qbGpuBuffer ubo;
   qbMeshBuffer dbo;
 
+  GuiRenderMode render_mode;
+
   // True if there is a need to update the buffers.
   bool dirty;
 
   glm::vec4 color;
+  glm::vec4 text_color;
+  glm::vec2 scale;
   qbImage background;
   qbWindowCallbacks_ callbacks;
+};
+
+struct TextBox {
+  qbWindow_ window;
+
+  const char16_t* text;
+  glm::vec4 color;
+  glm::vec2 scale;
 };
 
 Context context;
 SDL_Window* win;
 qbRenderPass gui_render_pass;
-qbGpuBuffer vbo;
-qbGpuBuffer ebo;
+qbGpuBuffer window_vbo;
+qbGpuBuffer window_ebo;
 
 std::atomic_uint window_id;
 std::vector<qbWindow> windows;
 qbWindow focused;
-FT_Library library;
-FT_Face face;
 
 struct Character {
-  qbImage glyph;
-  glm::ivec2 size;       // Size of glyph
-  glm::ivec2 bearing;    // Offset from baseline to left/top of glyph
-  GLuint     advance;    // Offset to advance to next glyph
+  float ax; // advance.x
+  float ay; // advance.y
+
+  float bw; // bitmap.width;
+  float bh; // bitmap.rows;
+
+  float bl; // bitmap_left;
+  float bt; // bitmap_top;
+
+  float tx; // x offset of glyph in texture coordinates
 };
-std::map<char16_t, Character> Characters;
+std::map<char16_t, Character> characters;
+qbImage font_atlas;
+uint32_t atlas_width;
+uint32_t atlas_height;
+uint32_t font_height;
 
 typename decltype(windows) closed_windows;
 
@@ -197,11 +217,11 @@ void SendToBack(qbWindow window) {
 
 qbPixelAlignmentOglExt_ alignment_ext;
 
-void CreateTextureAtlas() {
+// https://en.wikibooks.org/wiki/OpenGL_Programming/Modern_OpenGL_Tutorial_Text_Rendering_02#Creating_a_texture_atlas
+void CreateFontAtlas() {
+  FT_Library library;
+  FT_Face face;
 
-}
-
-void Initialize() {
   {
     auto error = FT_Init_FreeType(&library);
     if (error) {
@@ -221,37 +241,66 @@ void Initialize() {
 
     FT_Set_Pixel_Sizes(face, 0, 48);
   }
-  {
-    alignment_ext.ext = {};
-    alignment_ext.ext.name = "qbOglPixelAlignmentExt_";
-    alignment_ext.alignment = 1;
-    for (char16_t c = 0; c < 128; c++) {
-      // Load character glyph 
-      if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-        std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
-        continue;
-      }
-      
-      qbImageAttr_ attr = {};
-      attr.type = qbImageType::QB_IMAGE_TYPE_2D;
-      attr.ext = (qbRenderExt)&alignment_ext;
-      qbImage glpyh_tex;
-      qb_image_raw(&glpyh_tex, &attr, QB_PIXEL_FORMAT_R8,
-                   face->glyph->bitmap.width, face->glyph->bitmap.rows,
-                   face->glyph->bitmap.buffer);
 
-      // Now store character for later use
-      Character character = {
-        glpyh_tex,
-        glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-        glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-        face->glyph->advance.x
-      };
-      Characters.insert(std::pair<char16_t, Character>(c, character));
+  FT_GlyphSlot g = face->glyph;
+
+  // Converts 1/64th units to pixel units.
+  font_height = face->size->metrics.height >> 6;
+  //font_height = face->height >> 6;
+  unsigned w = 0;
+  unsigned h = 0;
+
+  for (int i = 32; i < 128; i++) {
+    if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
+      fprintf(stderr, "Loading character %c failed!\n", i);
+      continue;
     }
-    FT_Done_Face(face);
-    FT_Done_FreeType(library);
+
+    w += g->bitmap.width;
+    h = std::max(h, g->bitmap.rows);
   }
+
+  /* you might as well save this value as it is needed later on */
+  atlas_width = w;
+  atlas_height = h;
+  qbImageAttr_ atlas = {};
+  atlas.name = "font atlas";
+  atlas.type = QB_IMAGE_TYPE_2D;
+  atlas.ext = (qbRenderExt)&alignment_ext;
+  qb_image_raw(&font_atlas, &atlas, QB_PIXEL_FORMAT_R8, w, h, nullptr);
+
+  int x = 0;
+
+  for (int i = 32; i < 128; i++) {
+    if (FT_Load_Char(face, i, FT_LOAD_RENDER))
+      continue;
+    Character c = {};
+    c.ax = g->advance.x >> 6;
+    c.ay = g->advance.y >> 6;
+    c.bw = g->bitmap.width;
+    c.bh = g->bitmap.rows;
+    c.bl = g->bitmap_left;
+    c.bt = g->bitmap_top;
+    c.tx = (float)x / w;
+    characters[i] = c;
+
+    qb_image_update(font_atlas, { x, 0, 0 }, { g->bitmap.width, g->bitmap.rows, 0 }, g->bitmap.buffer);
+    x += g->bitmap.width;
+  }
+
+  FT_Done_Face(face);
+  FT_Done_FreeType(library);
+}
+
+void InitializeRenderExts() {
+  alignment_ext.ext = {};
+  alignment_ext.ext.name = "qbPixelAlignmentOglExt_";
+  alignment_ext.alignment = 1;
+}
+
+void Initialize() {
+  InitializeRenderExts();
+  CreateFontAtlas();
 }
 
 void Shutdown() {
@@ -475,7 +524,7 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
     attr.size = sizeof(vertices);
     attr.elem_size = sizeof(vertices[0]);
 
-    qb_gpubuffer_create(&vbo, &attr);
+    qb_gpubuffer_create(&window_vbo, &attr);
   }
   {
     int indices[] = {
@@ -488,15 +537,15 @@ qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t h
     attr.data = indices;
     attr.size = sizeof(indices);
     attr.elem_size = sizeof(indices[0]);
-    qb_gpubuffer_create(&ebo, &attr);
+    qb_gpubuffer_create(&window_ebo, &attr);
   }
 
   return gui_render_pass;
 }
 
-void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool open,
-                      qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
-                      glm::vec4 color, char16_t* str) {
+void qb_window_create_(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool open,
+                       qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
+                       glm::vec4 color, qbGpuBuffer ubo, qbMeshBuffer dbo, GuiRenderMode render_mode) {
   qbWindow window = *window_ref = new qbWindow_;
   window->id = window_id++;
   window->parent = parent;
@@ -506,42 +555,16 @@ void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool 
     : window->rel_pos;
   window->size = size;
   window->dirty = true;
-  window->background = Characters[u'a'].glyph;// background;
+  window->background = background;
   window->color = color;
+  window->render_mode = render_mode;
   if (callbacks) {
     window->callbacks = *callbacks;
   } else {
     window->callbacks = {};
   }
-
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.size = sizeof(GuiUniformModel);
-    qb_gpubuffer_create(&window->ubo, &attr);
-  }
-  {
-    qbMeshBufferAttr_ attr = {};
-    attr.attributes_count = qb_renderpass_attributes(gui_render_pass, &attr.attributes);
-    attr.bindings_count = qb_renderpass_bindings(gui_render_pass, &attr.bindings);
-
-    qb_meshbuffer_create(&window->dbo, &attr);
-    qb_renderpass_append(gui_render_pass, window->dbo);
-
-    qbGpuBuffer vertex_buffers[] = { vbo };
-    qb_meshbuffer_attachvertices(window->dbo, vertex_buffers);
-    qb_meshbuffer_attachindices(window->dbo, ebo);
-
-    uint32_t bindings[] = { GuiUniformModel::Binding() };
-    qbGpuBuffer uniform_buffers[] = { window->ubo };
-    qb_meshbuffer_attachuniforms(window->dbo, 1, bindings, uniform_buffers);
-
-    if (background) {
-      uint32_t image_bindings[] = { 2 };
-      qbImage images[] = { window->background };
-      qb_meshbuffer_attachimages(window->dbo, 1, image_bindings, images);
-    }
-  }
+  window->ubo = ubo;
+  window->dbo = dbo;
 
   closed_windows.push_back(window);
 
@@ -549,6 +572,215 @@ void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool 
     qb_window_open(window);
   }
 }
+
+void qb_window_create(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool open,
+                      qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
+                      glm::vec4 color) {
+  qbGpuBuffer ubo;
+  qbMeshBuffer dbo;
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+    attr.size = sizeof(GuiUniformModel);
+    qb_gpubuffer_create(&ubo, &attr);
+  }
+  {
+    qbMeshBufferAttr_ attr = {};
+    attr.attributes_count = qb_renderpass_attributes(gui_render_pass, &attr.attributes);
+    attr.bindings_count = qb_renderpass_bindings(gui_render_pass, &attr.bindings);
+
+    qb_meshbuffer_create(&dbo, &attr);
+    qb_renderpass_append(gui_render_pass, dbo);
+
+    qbGpuBuffer vertex_buffers[] = { window_vbo };
+    qb_meshbuffer_attachvertices(dbo, vertex_buffers);
+    qb_meshbuffer_attachindices(dbo, window_ebo);
+
+    uint32_t bindings[] = { GuiUniformModel::Binding() };
+    qbGpuBuffer uniform_buffers[] = { ubo };
+    qb_meshbuffer_attachuniforms(dbo, 1, bindings, uniform_buffers);
+
+    if (background) {
+      uint32_t image_bindings[] = { 2 };
+      qbImage images[] = { background };
+      qb_meshbuffer_attachimages(dbo, 1, image_bindings, images);
+    }
+  }
+
+  GuiRenderMode render_mode = background
+    ? GUI_RENDER_MODE_IMAGE
+    : GUI_RENDER_MODE_SOLID;
+  qb_window_create_(window_ref, pos, size, open, callbacks, parent, background, color, ubo, dbo, render_mode);
+}
+
+void qb_textbox_createtext(glm::vec2 scale, const char16_t* text, std::vector<float>* vertices, std::vector<int>* indices) {
+  if (!text) {
+    return;
+  }
+
+  size_t len = 0;
+  for (size_t i = 0; i < 1 << 10; ++i) {
+    if (text[i] == 0) {
+      break;
+    }
+    ++len;
+  }
+
+  float x = 0;
+  float y = 0;
+  int index = 0;
+  int line = 0;
+  for (size_t i = 0; i < len; ++i) {
+    Character& c = characters[text[i]];
+    if (text[i] == '\n') {
+      x = 0;
+      y -= font_height;
+      continue;
+    }
+    if (text[i] == ' ') {
+      x += c.ax * scale.x;
+      continue;
+    }
+
+    float l = x + c.bl * scale.x;
+    float t = -y - c.bt * scale.y + atlas_height;
+    float w = c.bw * scale.x;
+    float h = c.bh * scale.y;
+    float r = l + w;
+    float b = t + h;
+    float txl = c.tx;
+    float txr = c.tx + c.bw / atlas_width;
+    float txt = 0.0f;
+    float txb = c.bh / atlas_height;
+
+    if (!w || !h) {
+      continue;
+    }
+
+    float verts[] = {
+      // Positions        // Colors          // UVs
+      l, t, 0.0f,   1.0f, 0.0f, 0.0f,  txl, txt,
+      r, t, 0.0f,   0.0f, 1.0f, 0.0f,  txr, txt,
+      r, b, 0.0f,   0.0f, 0.0f, 1.0f,  txr, txb,
+      l, b, 0.0f,   1.0f, 0.0f, 1.0f,  txl, txb,
+    };
+    vertices->insert(vertices->end(), verts, verts + (sizeof(verts) / sizeof(float)));
+
+    int indx[] = {
+      index + 3, index + 1, index + 0,
+      index + 3, index + 2, index + 1
+    };
+    indices->insert(indices->end(), indx, indx + (sizeof(indx) / sizeof(int)));
+    index += 4;
+    /* Advance the cursor to the start of the next character */
+    x += c.ax * scale.x;
+    y += c.ay * scale.y;
+  }
+}
+
+void qb_textbox_create(qbWindow* window, glm::vec3 pos, glm::vec2 size, glm::vec2 scale, bool open,
+                       qbWindowCallbacks callbacks, qbWindow parent, glm::vec4 text_color, const char16_t* text) {
+
+
+  std::vector<float> vertices;
+  std::vector<int> indices;
+  qb_textbox_createtext(scale, text, &vertices, &indices);
+
+  qbGpuBuffer ubo, ebo, vbo;
+  qbMeshBuffer dbo;
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+    attr.size = sizeof(GuiUniformModel);
+    qb_gpubuffer_create(&ubo, &attr);
+  }
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
+    attr.data = vertices.data();
+    attr.size = vertices.size() * sizeof(float);
+    attr.elem_size = sizeof(float);
+
+    qb_gpubuffer_create(&vbo, &attr);
+  }
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
+    attr.data = indices.data();
+    attr.size = indices.size() * sizeof(int);
+    attr.elem_size = sizeof(int);
+
+    qb_gpubuffer_create(&ebo, &attr);
+  }
+
+  {
+    qbMeshBufferAttr_ attr = {};
+    attr.attributes_count = qb_renderpass_attributes(gui_render_pass, &attr.attributes);
+    attr.bindings_count = qb_renderpass_bindings(gui_render_pass, &attr.bindings);
+
+    qb_meshbuffer_create(&dbo, &attr);
+    qb_renderpass_append(gui_render_pass, dbo);
+
+    qbGpuBuffer vertex_buffers[] = { vbo };
+    qb_meshbuffer_attachvertices(dbo, vertex_buffers);
+    qb_meshbuffer_attachindices(dbo, ebo);
+
+    uint32_t bindings[] = { GuiUniformModel::Binding() };
+    qbGpuBuffer uniform_buffers[] = { ubo };
+    qb_meshbuffer_attachuniforms(dbo, 1, bindings, uniform_buffers);
+
+    uint32_t image_bindings[] = { 2 };
+    qbImage images[] = { font_atlas };
+    qb_meshbuffer_attachimages(dbo, 1, image_bindings, images);
+  }
+
+  qb_window_create_(window, pos, size, open, callbacks, parent, nullptr, text_color, ubo, dbo, GUI_RENDER_MODE_STRING);
+  (*window)->scale = scale;
+  (*window)->text_color = text_color;
+}
+
+void qb_textbox_text(qbWindow window, const char16_t* text) {
+  std::vector<float> vertices;
+  std::vector<int> indices;
+  qb_textbox_createtext(window->scale, text, &vertices, &indices);
+
+  qbGpuBuffer vbo, ebo;
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
+    attr.data = vertices.data();
+    attr.size = vertices.size() * sizeof(float);
+    attr.elem_size = sizeof(float);
+
+    qb_gpubuffer_create(&vbo, &attr);
+  }
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
+    attr.data = indices.data();
+    attr.size = indices.size() * sizeof(int);
+    attr.elem_size = sizeof(int);
+
+    qb_gpubuffer_create(&ebo, &attr);
+  }
+
+  qbGpuBuffer* dst_vbos;
+  qb_meshbuffer_vertices(window->dbo, &dst_vbos);
+  qbGpuBuffer old = dst_vbos[0];
+  dst_vbos[0] = vbo;
+  qb_meshbuffer_attachvertices(window->dbo, dst_vbos);
+  qb_gpubuffer_destroy(&old);
+  
+  qbGpuBuffer dst_ebo;
+  qb_meshbuffer_indices(window->dbo, &dst_ebo);
+  qb_meshbuffer_attachindices(window->dbo, ebo);
+  qb_gpubuffer_destroy(&dst_ebo);
+}
+
+void qb_textbox_text(qbWindow window, const char16_t* text);
+void qb_textbox_color(qbWindow window, glm::vec4 text_color);
+void qb_textbox_scaleto(qbWindow window, glm::vec2 scale);
+void qb_textbox_scaleby(qbWindow window, glm::vec2 scale_delta);
 
 void qb_window_open(qbWindow window) {
   auto found = std::find(closed_windows.begin(), closed_windows.end(), window);
@@ -576,9 +808,7 @@ void qb_window_updateuniform(qbWindow window) {
 
   window->uniform.modelview = model;
   window->uniform.color = window->color;
-  window->uniform.render_mode = window->background
-    ? GUI_RENDER_MODE_IMAGE
-    : GUI_RENDER_MODE_SOLID;
+  window->uniform.render_mode = window->render_mode;
   qb_gpubuffer_update(window->ubo, 0, sizeof(GuiUniformModel), &window->uniform.modelview);
 }
 

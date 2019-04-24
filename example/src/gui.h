@@ -74,13 +74,19 @@ typedef struct {
 
 void Initialize();
 void Shutdown();
-void Render();
 void HandleInput(SDL_Event* e);
 qbRenderPass CreateGuiRenderPass(qbFrameBuffer frame, uint32_t width, uint32_t height);
 
 void qb_window_create(qbWindow* window, glm::vec3 pos, glm::vec2 size, bool open,
                       qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
                       glm::vec4 color);
+
+void qb_textbox_create(qbWindow* window, glm::vec3 pos, glm::vec2 size, glm::vec2 scale, bool open,
+                       qbWindowCallbacks callbacks, qbWindow parent, glm::vec4 text_color, const char16_t* text);
+void qb_textbox_text(qbWindow window, const char16_t* text);
+void qb_textbox_color(qbWindow window, glm::vec4 text_color);
+void qb_textbox_scale(qbWindow window, glm::vec2 scale);
+
 void qb_window_open(qbWindow window);
 void qb_window_close(qbWindow window);
 
