@@ -201,10 +201,12 @@ qbResult PrivateUniverse::event_destroy(qbEvent*) {
 }
 
 qbResult PrivateUniverse::event_flushall(qbProgram program) {
-  qbResult err = runner_.assert_in_state(RunState::RUNNING);
-  if (err != QB_OK) {
-    return err;
-  }
+  DEBUG_OP(
+    qbResult err = runner_.assert_in_state(RunState::RUNNING);
+    if (err != QB_OK) {
+      return err;
+    }
+  );
 
   qbProgram* p = programs_->GetProgram(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
@@ -388,7 +390,7 @@ qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
 }
 
 qbResult PrivateUniverse::scene_destroy(qbScene* scene) {
-  runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
   if (*scene == scene_global()) {
     return QB_OK;
   }
@@ -416,13 +418,13 @@ qbScene PrivateUniverse::scene_global() {
 }
 
 qbResult PrivateUniverse::scene_set(qbScene scene) {
-  runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
   working_ = scene;
   return QB_OK;
 }
 
 qbResult PrivateUniverse::scene_reset() {
-  runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
   working_ = active_;
   return QB_OK;
 }
@@ -432,7 +434,7 @@ qbResult PrivateUniverse::scene_activate(qbScene scene) {
     return QB_OK;
   }
 
-  runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED });
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
   // Deactivate the currently active scene.
   if (active_) {
     for (auto& fn : active_->ondeactivate) {
