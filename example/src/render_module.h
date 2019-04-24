@@ -311,7 +311,7 @@ void qb_image_raw(qbImage* image, qbImageAttr attr, qbPixelFormat format, uint32
 void qb_image_destroy(qbImage* image);
 const char* qb_image_name(qbImage image);
 void qb_image_load(qbImage* image, qbImageAttr attr, const char* file);
-void qb_image_update(qbImage image, qbImageType type, qbPixelFormat format, glm::vec3 offset, glm::vec3 sizes);
+void qb_image_update(qbImage image, glm::ivec3 offset, glm::ivec3 sizes, void* data);
 
 void qb_gpubuffer_create(qbGpuBuffer* buffer, qbGpuBufferAttr attr);
 void qb_gpubuffer_destroy(qbGpuBuffer* buffer);
@@ -319,6 +319,7 @@ const char* qb_gpubuffer_name(qbGpuBuffer buffer);
 qbRenderExt qb_gpubuffer_ext(qbGpuBuffer buffer);
 void qb_gpubuffer_update(qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src, intptr_t dst_offset, intptr_t src_offset, size_t size);
+void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b);
 
 void qb_meshbuffer_create(qbMeshBuffer* buffer, qbMeshBufferAttr attr);
 void qb_meshbuffer_destroy(qbMeshBuffer* buffer);

@@ -498,6 +498,10 @@ void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src,
   CHECK_GL();
 }
 
+void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b) {
+  std::swap(*a, *b);
+}
+
 void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
   *buffer_ref = new qbMeshBuffer_;
   qbMeshBuffer buffer = *buffer_ref;
@@ -606,7 +610,7 @@ void qb_meshbuffer_attachvertices(qbMeshBuffer buffer, qbGpuBuffer vertices[]) {
 
 void qb_meshbuffer_attachindices(qbMeshBuffer buffer, qbGpuBuffer indices) {
   glBindVertexArray(buffer->id);
-  glGenBuffers(1, &indices->id);
+  //glGenBuffers(1, &indices->id);
   glBindBuffer(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->id);
   glBufferData(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->size, indices->data, GL_DYNAMIC_DRAW);
 
@@ -918,7 +922,7 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
 
   qbRenderExt ext = image->ext;
   while (ext) {
-    if (ext->name && strcmp(ext->name, "qbOglPixelAlignmentExt_") == 0) {
+    if (ext->name && strcmp(ext->name, "qbPixelAlignmentOglExt_") == 0) {
       qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)ext;
       glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
       break;
@@ -984,11 +988,24 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
   CHECK_GL();
 }
 
-void qb_image_update(qbImage image, glm::vec3 offset, glm::vec3 sizes, void* data) {
+void qb_image_update(qbImage image, glm::ivec3 offset, glm::ivec3 sizes, void* data) {
   GLenum image_type = TranslateQbImageTypeToOpenGl(image->type);
   GLenum format = TranslateQbPixelFormatToOpenGl(image->format);
   GLenum type = TranslateQbPixelFormatToOpenGlSize(image->format);
 
+  glBindTexture(image_type, image->id);
+
+  int stored_alignment;
+  glGetIntegerv(GL_UNPACK_ALIGNMENT, &stored_alignment);
+  qbRenderExt ext = image->ext;
+  while (ext) {
+    if (ext->name && strcmp(ext->name, "qbPixelAlignmentOglExt_") == 0) {
+      qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)ext;
+      glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
+      break;
+    }
+    ext = ext->next;
+  }
   if (image_type == GL_TEXTURE_1D) {
     glTexSubImage1D(image_type, 0, offset.x, sizes.x, format, type, data);
   } else if (image_type == GL_TEXTURE_2D) {
@@ -997,6 +1014,7 @@ void qb_image_update(qbImage image, glm::vec3 offset, glm::vec3 sizes, void* dat
     glTexSubImage3D(image_type, 0, offset.x, offset.y, offset.z, sizes.x, sizes.y, sizes.z, format, type, data);
   }
 
+  glPixelStorei(GL_UNPACK_ALIGNMENT, stored_alignment);
   CHECK_GL();
 }
 
