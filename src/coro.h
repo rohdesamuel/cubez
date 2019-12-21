@@ -39,6 +39,8 @@ Coro coro_initialize(void* local_sp);
 */
 Coro coro_new(_entry fn);
 
+Coro coro_clone(Coro target);
+
 // Returns the currently running Coroutine, or NULL if none.
 Coro coro_this();
 

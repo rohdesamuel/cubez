@@ -38,9 +38,9 @@ class SystemImpl {
   std::vector<qbInstance_> instances_;  
   std::vector<qbTicket_*> tickets_;
 
-  qbTransform transform_;
-  qbCallback callback_;
-  qbCondition condition_;
+  qbTransformFn transform_;
+  qbCallbackFn callback_;
+  qbConditionFn condition_;
 };
 
 

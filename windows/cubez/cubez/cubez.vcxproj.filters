@@ -19,6 +19,15 @@
     <Filter Include="Source Files\coro">
       <UniqueIdentifier>{91e70ab1-1f8e-433c-bc1a-521dd30ed7cf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\rendering">
+      <UniqueIdentifier>{72a7aafe-22ea-4ea5-8c11-cb1127ddce25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\cubez">
+      <UniqueIdentifier>{e7aaca30-7c37-4017-a7cb-49c95c51b9e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\rendering">
+      <UniqueIdentifier>{13da1caa-0dfe-432b-b2f4-4d3f2fc16043}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -102,9 +111,6 @@
     <ClInclude Include="..\..\..\include\cubez\common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\cubez.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -123,17 +129,71 @@
     <ClInclude Include="..\..\..\src\task.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\utils_internal.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\coro_scheduler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\instance_registry.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\gui.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\input.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\log.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\mesh.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\render_pipeline.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\cubez.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\utils.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utils_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\log_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\input_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\render_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gui_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\font_registry.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\font_render.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\shader.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\mesh_builder.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\collision_utils.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gjk.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\render_defs.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\render.h">
+      <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -202,6 +262,42 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\instance_registry.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\render.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\render_pipeline.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\shader.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\font_registry.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\font_render.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\gui.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\input.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\log.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mesh_builder.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\collision_utils.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\gjk.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mesh.cpp">
+      <Filter>Source Files\rendering</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -1,7 +1,7 @@
 #version 330 core
 
-uniform sampler2D tex_sampler_1;
-uniform sampler2D tex_sampler_2;
+uniform sampler2D qb_texture_unit_1;
+uniform sampler2D qb_texture_unit_2;
 
 layout (location = 0) out vec4 out_color;
 
@@ -12,5 +12,5 @@ in VertexData
 } o;
 
 void main() {
-  out_color = texture2D(tex_sampler_1, o.tex) * texture2D(tex_sampler_2, o.tex) * o.col;
+  out_color = o.col;//texture2D(qb_texture_unit_1, o.tex) * texture2D(qb_texture_unit_2, o.tex) * o.col;
 }

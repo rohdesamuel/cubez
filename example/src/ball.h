@@ -6,8 +6,7 @@
 #include <glm/glm.hpp>
 
 #include <cubez/cubez.h>
-#include "mesh.h"
-#include "mesh_builder.h"
+#include <cubez/mesh.h>
 
 namespace ball {
 
@@ -15,7 +14,7 @@ const char kCollection[] = "ball_objects";
 
 struct Settings {
   qbMesh mesh;
-  Mesh* collision_mesh;
+  qbMesh* collision_mesh;
   qbMaterial material;
   qbMaterial material_exploded;
 };

@@ -397,7 +397,10 @@ qbResult PrivateUniverse::scene_destroy(qbScene* scene) {
 
   // Inform users of destruction.
   for (auto& fn : (*scene)->ondestroy) {
-    fn(*scene);
+    fn(*scene,
+       (*scene)->keys.empty() ? 0 : (*scene)->keys.size(),
+       (*scene)->keys.empty() ? nullptr : (*scene)->keys.data(),
+       (*scene)->values.empty() ? nullptr : (*scene)->values.data());
   }
 
   // Delete the game state to destroy all entities.
@@ -429,6 +432,12 @@ qbResult PrivateUniverse::scene_reset() {
   return QB_OK;
 }
 
+qbResult PrivateUniverse::scene_attach(qbScene scene, const char* key, void* value) {
+  scene->keys.push_back(key);
+  scene->values.push_back(value);
+  return QB_OK;
+}
+
 qbResult PrivateUniverse::scene_activate(qbScene scene) {
   if (active_ == scene) {
     return QB_OK;
@@ -438,7 +447,10 @@ qbResult PrivateUniverse::scene_activate(qbScene scene) {
   // Deactivate the currently active scene.
   if (active_) {
     for (auto& fn : active_->ondeactivate) {
-      fn(scene);
+      fn(scene,
+         scene->keys.empty() ? 0 : scene->keys.size(),
+         scene->keys.empty() ? nullptr : scene->keys.data(),
+         scene->values.empty() ? nullptr : scene->values.data());
     }
   }
   
@@ -447,23 +459,35 @@ qbResult PrivateUniverse::scene_activate(qbScene scene) {
   scene_set(scene);
 
   for (auto& fn : scene->onactivate) {
-    fn(scene);
+    fn(scene,
+       scene->keys.empty() ? 0 : scene->keys.size(),
+       scene->keys.empty() ? nullptr : scene->keys.data(),
+       scene->values.empty() ? nullptr : scene->values.data());
   }
 
   return QB_OK;
 }
 
-qbResult PrivateUniverse::scene_ondestroy(qbScene scene, void(*fn)(qbScene scene)) {
+qbResult PrivateUniverse::scene_ondestroy(qbScene scene, void(*fn)(qbScene scene,
+                                                                   size_t count,
+                                                                   const char* keys[],
+                                                                   void* values[])) {
   scene->ondestroy.push_back(fn);
   return QB_OK;
 }
 
-qbResult PrivateUniverse::scene_onactivate(qbScene scene, void(*fn)(qbScene scene)) {
+qbResult PrivateUniverse::scene_onactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                                    size_t count,
+                                                                    const char* keys[],
+                                                                    void* values[])) {
   scene->onactivate.push_back(fn);
   return QB_OK;
 }
 
-qbResult PrivateUniverse::scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene)) {
+qbResult PrivateUniverse::scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                                      size_t count,
+                                                                      const char* keys[],
+                                                                      void* values[])) {
   scene->ondeactivate.push_back(fn);
   return QB_OK;
 }

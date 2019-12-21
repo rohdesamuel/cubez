@@ -1,8 +1,9 @@
 #include "pong.h"
-#include "input.h"
-#include "render_module.h"
-
 #include <cubez/cubez.h>
+#include <cubez/input.h>
+#include <cubez/render_pipeline.h>
+#include <cubez/render.h>
+#include <cubez/mesh.h>
 #include <glm/ext.hpp>
 
 namespace pong
@@ -64,7 +65,6 @@ bool CheckAabb(const glm::vec2& a_origin, const glm::vec2& b_origin,
 }
 
 void Initialize(Settings settings) {
-  scene_pass = settings.scene_pass;
   screen_width = settings.width;
   screen_height = settings.height;
 
@@ -123,7 +123,7 @@ void Initialize(Settings settings) {
         bot_paddle.pos += bot_paddle.vel;
 
         glm::ivec2 mouse;
-        input::get_mouse_position(&mouse.x, &mouse.y);
+        qb_get_mouse_position(&mouse.x, &mouse.y);
 
         bot_paddle.pos.x = mouse.x - paddle_size.x / 2;
         qb_coro_yield(qbNone);
@@ -144,123 +144,44 @@ void Initialize(Settings settings) {
     }, qbNone);
   }
 
+  qbEntity top_paddle;
   {
-    float vertices[] = {
-      // Positions        // Colors          // UVs
-      0.0f, 0.0f, 0.0f,   1.0f, 1.0f, 1.0f,  0.0f, 0.0f,
-      1.0f, 0.0f, 0.0f,   1.0f, 1.0f, 1.0f,  1.0f, 0.0f,
-      1.0f, 1.0f, 0.0f,   1.0f, 1.0f, 1.0f,  1.0f, 1.0f,
-      0.0f, 1.0f, 0.0f,   1.0f, 1.0f, 1.0f,  0.0f, 1.0f,
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      attr.albedo = { 1, 0, 0 };
+      //qb_material_create(&material, &attr);
+    }
+
+    qbTransform_ t = {};
+
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    //qb_entityattr_addcomponent(attr, qb_renderable(), qb_draw_rect(128, 16));
+    //qb_entityattr_addcomponent(attr, qb_material(), &material);
+    //qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&top_paddle, attr);
+    qb_entityattr_destroy(&attr);
+  }
+
+  /*
+  qbEntity top_paddle;
+  {
+    qbMaterialAttr_ mattr = {};
+    qbMaterial material;
+    mattr.rgba = { 1, 0, 0, 1 };
+    qb_material_create(&material, &mattr);
+
+    qbEntityAttr attr;
+    attr.components = {
+      { qb_renderable, qb_draw_rect(128, 16) },
+      { qb_material, material },
+      { qb_transform, nullptr }
     };
-
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
-    attr.data = vertices;
-    attr.size = sizeof(vertices);
-    attr.elem_size = sizeof(vertices[0]);
-    qb_gpubuffer_create(&vbo, &attr);
+    attr.components_size = 3;
+    qb_entity_create(&top_paddle, attr);
   }
-  {
-    int indices[] = {
-      3, 1, 0,
-      3, 2, 1
-    };
-
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
-    attr.data = indices;
-    attr.size = sizeof(indices);
-    attr.elem_size = sizeof(indices[0]);
-    qb_gpubuffer_create(&ebo, &attr);
-  }
-
-  {
-    qbGpuBufferAttr_ attr;
-    attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.data = nullptr;
-    attr.size = sizeof(PaddleUniformModel);
-    qb_gpubuffer_create(&top_paddle_ubo, &attr);
-    top_paddle = {};
-    top_paddle.pos = { (screen_width / 2) - (paddle_size.x / 2) , 100 };
-  }
-  {
-    qbGpuBufferAttr_ attr;
-    attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.data = nullptr;
-    attr.size = sizeof(PaddleUniformModel);
-    qb_gpubuffer_create(&bot_paddle_ubo, &attr);
-    bot_paddle = {};
-    bot_paddle.pos = { (screen_width / 2) - (paddle_size.x / 2), screen_height - 100 };
-  }
-  {
-    qbGpuBufferAttr_ attr;
-    attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.data = nullptr;
-    attr.size = sizeof(PaddleUniformModel);
-    qb_gpubuffer_create(&ball_ubo, &attr);
-    ball = {};
-    ball.pos =
-      { (screen_width / 2) - (ball_size.x / 2),
-        (screen_height / 2) - (ball_size.x / 2) };
-  }
-
-  {
-    qbMeshBufferAttr_ attr = {};
-    attr.bindings_count = qb_renderpass_bindings(scene_pass, &attr.bindings);
-    attr.attributes_count = qb_renderpass_attributes(scene_pass, &attr.attributes);
-
-    qbMeshBuffer top_paddle;
-    qb_meshbuffer_create(&top_paddle, &attr);
-
-    qb_meshbuffer_attachindices(top_paddle, ebo);
-
-    qbGpuBuffer vertices[] = { vbo };
-    qb_meshbuffer_attachvertices(top_paddle, vertices);
-
-    qbGpuBuffer uniforms[] = { top_paddle_ubo };
-    uint32_t bindings[] = { 1 };
-    qb_meshbuffer_attachuniforms(top_paddle, 1, bindings, uniforms);
-
-    qb_renderpass_append(scene_pass, top_paddle);
-  }
-  {
-    qbMeshBufferAttr_ attr = {};
-    attr.bindings_count = qb_renderpass_bindings(scene_pass, &attr.bindings);
-    attr.attributes_count = qb_renderpass_attributes(scene_pass, &attr.attributes);
-
-    qbMeshBuffer bot_paddle;
-    qb_meshbuffer_create(&bot_paddle, &attr);
-
-    qb_meshbuffer_attachindices(bot_paddle, ebo);
-
-    qbGpuBuffer vertices[] = { vbo };
-    qb_meshbuffer_attachvertices(bot_paddle, vertices);
-
-    qbGpuBuffer uniforms[] = { bot_paddle_ubo };
-    uint32_t bindings[] = { 1 };
-    qb_meshbuffer_attachuniforms(bot_paddle, 1, bindings, uniforms);
-
-    qb_renderpass_append(scene_pass, bot_paddle);
-  }
-  {
-    qbMeshBufferAttr_ attr = {};
-    attr.bindings_count = qb_renderpass_bindings(scene_pass, &attr.bindings);
-    attr.attributes_count = qb_renderpass_attributes(scene_pass, &attr.attributes);
-
-    qbMeshBuffer ball;
-    qb_meshbuffer_create(&ball, &attr);
-
-    qb_meshbuffer_attachindices(ball, ebo);
-
-    qbGpuBuffer vertices[] = { vbo };
-    qb_meshbuffer_attachvertices(ball, vertices);
-
-    qbGpuBuffer uniforms[] = { ball_ubo };
-    uint32_t bindings[] = { 1 };
-    qb_meshbuffer_attachuniforms(ball, 1, bindings, uniforms);
-
-    qb_renderpass_append(scene_pass, ball);
-  }
+  */
 }
 
 void OnRender(qbRenderEvent event) {

@@ -5,6 +5,14 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="Optimized Debug|Win32">
+      <Configuration>Optimized Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Optimized Debug|x64">
+      <Configuration>Optimized Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -30,6 +38,12 @@
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -38,6 +52,12 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
@@ -58,10 +78,16 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -72,11 +98,19 @@
     <IncludePath>$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|Win32'">
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\..\example\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|x64'">
     <IncludePath>$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)..\..\example\</OutDir>
   </PropertyGroup>
@@ -92,10 +126,28 @@
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <CallingConvention>StdCall</CallingConvention>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x86\Optimized Debug;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -107,51 +159,89 @@
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <CallingConvention>StdCall</CallingConvention>
+      <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
+      <CallingConvention>StdCall</CallingConvention>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Async</ExceptionHandling>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Optimized Debug;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <Optimization>Custom</Optimization>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <MinimalRebuild>true</MinimalRebuild>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <OmitFramePointers>true</OmitFramePointers>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <CallingConvention>StdCall</CallingConvention>
+      <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
+      <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <Optimization>Custom</Optimization>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <MinimalRebuild>true</MinimalRebuild>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <OmitFramePointers>true</OmitFramePointers>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <CallingConvention>StdCall</CallingConvention>
+      <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
+      <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;cubez.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -159,61 +249,32 @@
     <Image Include="..\..\..\example\resources\transporter.png" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\example\src\ball.cpp" />
-    <ClCompile Include="..\..\..\example\src\collision_utils.cpp" />
-    <ClCompile Include="..\..\..\example\src\cubez_gpu_driver.cpp" />
-    <ClCompile Include="..\..\..\example\src\gjk.cpp" />
-    <ClCompile Include="..\..\..\example\src\gui.cpp" />
-    <ClCompile Include="..\..\..\example\src\input.cpp" />
+    <ClCompile Include="..\..\..\example\src\forward_renderer.cpp" />
     <ClCompile Include="..\..\..\example\src\items.cpp" />
-    <ClCompile Include="..\..\..\example\src\log.cpp" />
     <ClCompile Include="..\..\..\example\src\main.cpp" />
-    <ClCompile Include="..\..\..\example\src\mesh.cpp" />
-    <ClCompile Include="..\..\..\example\src\mesh_builder.cpp" />
-    <ClCompile Include="..\..\..\example\src\overlay.cpp" />
-    <ClCompile Include="..\..\..\example\src\physics.cpp" />
-    <ClCompile Include="..\..\..\example\src\planet.cpp" />
-    <ClCompile Include="..\..\..\example\src\player.cpp" />
-    <ClCompile Include="..\..\..\example\src\render.cpp" />
-    <ClCompile Include="..\..\..\example\src\shader.cpp" />
-    <ClCompile Include="..\..\..\example\src\texture_overlay.cpp" />
-    <ClCompile Include="..\..\..\example\src\ultralight_platform_impl.cpp" />
+    <ClCompile Include="..\..\..\example\src\pong.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\example\src\ball.h" />
-    <ClInclude Include="..\..\..\example\src\building_grid.h" />
-    <ClInclude Include="..\..\..\example\src\celestial_object.h" />
-    <ClInclude Include="..\..\..\example\src\collision_utils.h" />
-    <ClInclude Include="..\..\..\example\src\cubez_gpu_driver.h" />
-    <ClInclude Include="..\..\..\example\src\gjk.h" />
-    <ClInclude Include="..\..\..\example\src\gui.h" />
-    <ClInclude Include="..\..\..\example\src\input.h" />
-    <ClInclude Include="..\..\..\example\src\items.h" />
-    <ClInclude Include="..\..\..\example\src\log.h" />
-    <ClInclude Include="..\..\..\example\src\mesh.h" />
-    <ClInclude Include="..\..\..\example\src\mesh_builder.h" />
-    <ClInclude Include="..\..\..\example\src\overlay.h" />
-    <ClInclude Include="..\..\..\example\src\physics.h" />
-    <ClInclude Include="..\..\..\example\src\planet.h" />
-    <ClInclude Include="..\..\..\example\src\player.h" />
-    <ClInclude Include="..\..\..\example\src\render.h" />
-    <ClInclude Include="..\..\..\example\src\shader.h" />
-    <ClInclude Include="..\..\..\example\src\stb_image.h" />
-    <ClInclude Include="..\..\..\example\src\texture_overlay.h" />
+    <ClInclude Include="..\..\..\example\src\forward_renderer.h" />
+    <ClInclude Include="..\..\..\example\src\pong.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
-    <ClInclude Include="..\..\..\include\cubez\timer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\example\resources\game.html" />
-    <None Include="..\..\..\example\resources\mainmenu.html" />
+    <None Include="..\..\..\example\resources\gui.fs" />
+    <None Include="..\..\..\example\resources\gui.vs" />
+    <None Include="..\..\..\example\resources\material.fs" />
+    <None Include="..\..\..\example\resources\material.vs" />
     <None Include="..\..\..\example\resources\mesh.fs" />
     <None Include="..\..\..\example\resources\mesh.vs" />
     <None Include="..\..\..\example\resources\mesh_fb.fs" />
     <None Include="..\..\..\example\resources\mesh_fb.vs" />
-    <None Include="..\..\..\example\resources\planetary_grid.html" />
     <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
     <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
+    <None Include="..\..\..\example\resources\simple.fs" />
+    <None Include="..\..\..\example\resources\simple.vs" />
+    <None Include="..\..\..\example\resources\texture.fs" />
+    <None Include="..\..\..\example\resources\texture.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

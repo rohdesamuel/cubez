@@ -111,6 +111,7 @@ typedef int64_t qbId;
 enum qbResult {
   QB_OK = 0,
   QB_UNKNOWN = 1,
+  QB_DONE = 2,
   QB_ERROR_MEMORY_LEAK = -1,
   QB_ERROR_MEMORY_OUT_OF_BOUNDS = -2,
   QB_ERROR_OUT_OF_MEMORY = -3,

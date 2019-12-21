@@ -14,21 +14,108 @@
 
 #include "common.h"
 
+typedef enum {
+  QB_TAG_VOID,
+  QB_TAG_UINT,
+  QB_TAG_INT,
+  QB_TAG_DOUBLE,
+  QB_TAG_FLOAT,
+  QB_TAG_CHAR,
+  QB_TAG_UNSET,
+} qbTag;
+
+typedef struct {
+  qbTag tag;
+  union {
+    void* p;
+    uint64_t u;
+    int64_t i;
+    double d;
+    float f;
+    char c;
+
+    char bytes[8];
+  };
+} qbVar;
+
+// Convenience functions for creating a qbVar. 
+QB_API qbVar       qbVoid(void* p);
+QB_API qbVar       qbUint(uint64_t u);
+QB_API qbVar       qbInt(int64_t i);
+QB_API qbVar       qbFloat(float f);
+QB_API qbVar       qbDouble(double d);
+QB_API qbVar       qbChar(char c);
+
+// Represents a value without a value.
+QB_API extern const qbVar qbNone;
+
+// Represents a qbVar that is not yet set. Used to represent a value that will
+// be set in the future.
+QB_API extern const qbVar qbFuture;
+
 ///////////////////////////////////////////////////////////
 //////////////////////  Flow Control  /////////////////////
 ///////////////////////////////////////////////////////////
 
+typedef enum {
+  QB_FEATURE_ALL,
+  QB_FEATURE_LOGGER = 0x0001,
+  QB_FEATURE_INPUT = 0x0002,
+  QB_FEATURE_GRAPHICS = 0x0004,
+  QB_FEATURE_AUDIO = 0x0008,
+  QB_FEATURE_GAME_LOOP = 0x0010,
+} qbFeature;
+
 // Holds the game engine state
 typedef struct {
   void* self;
+
+  qbFeature enabled;
+  uint64_t frame;
 } qbUniverse;
 
-QB_API qbResult qb_init(qbUniverse* universe);
+typedef struct {
+  const char* title;
+  uint32_t width;
+  uint32_t height;
+
+  qbFeature enabled;
+  struct qbRenderer_* renderer;
+} qbUniverseAttr_, *qbUniverseAttr;
+
+QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
+QB_API qbResult qb_init_graphics(qbUniverse* universe, struct qbRenderer_* renderer);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
-QB_API qbResult qb_loop();
 
+typedef struct {
+  void(*on_update)(uint64_t, qbVar);
+  void(*on_fixedupdate)(uint64_t, qbVar);
+  void(*on_prerender)(struct qbRenderEvent_*, qbVar);
+  void(*on_postrender)(struct qbRenderEvent_*, qbVar);
+} qbLoopCallbacks_, *qbLoopCallbacks;
+
+typedef struct {
+  qbVar update;
+  qbVar fixed_update;
+  qbVar prerender;
+  qbVar postrender;
+} qbLoopArgs_, *qbLoopArgs;
+
+QB_API qbResult qb_loop(qbLoopCallbacks callbacks, qbLoopArgs args);
+
+typedef struct {
+  uint64_t frame;
+  double udpate_fps;
+  double render_fps;
+  double total_fps;
+} qbTiming_, *qbTiming;
+QB_API qbResult qb_timing(qbUniverse universe, qbTiming timing);
+
+// Unimplemented.
 QB_API qbResult qb_save(const char* file);
+
+// Unimplemented.
 QB_API qbResult qb_load(const char* file);
 
 // ======== qbProgram ========
@@ -109,9 +196,12 @@ QB_API qbResult      qb_componentattr_settype(qbComponentAttr attr,
 // Sets the component to be shared across programs with a reader/writer lock.
 QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr);
 
+
+// Unimplemented.
 QB_API qbResult      qb_componentattr_onserialize(qbComponentAttr attr,
                                                   size_t(*fn)(void* read, uint8_t* write));
 
+// Unimplemented.
 QB_API qbResult      qb_componentattr_ondeserialize(qbComponentAttr attr,
                                                     size_t(*fn)(uint8_t* read, uint8_t* write));
 
@@ -263,11 +353,11 @@ QB_API qbResult      qb_systemattr_destroy(qbSystemAttr* attr);
 
 // Adds a read-only component to the be read when the system is run.
 QB_API qbResult      qb_systemattr_addconst(qbSystemAttr attr,
-                                         qbComponent component);
+                                            qbComponent component);
 
 // Adds a mutable component to the be read when the system is run.
 QB_API qbResult      qb_systemattr_addmutable(qbSystemAttr attr,
-                                           qbComponent component);
+                                              qbComponent component);
 
 // ======== qbComponentJoin ========
 typedef enum {
@@ -288,20 +378,20 @@ QB_API qbResult      qb_systemattr_setprogram(qbSystemAttr attr,
 // Sets the transform to run during execution. The specified transform will be
 // run on every component instance that was added with "addconst" and
 // "addmutable".
-typedef void(*qbTransform)(qbInstance* instances, qbFrame* frame);
+typedef void(*qbTransformFn)(qbInstance* instances, qbFrame* frame);
 QB_API qbResult      qb_systemattr_setfunction(qbSystemAttr attr,
-                                            qbTransform transform);
+                                               qbTransformFn transform);
 
 // Sets the callback to run after the system finishes executing its transform
 // over all of its components.
-typedef void(*qbCallback)(qbFrame* frame);
+typedef void(*qbCallbackFn)(qbFrame* frame);
 QB_API qbResult      qb_systemattr_setcallback(qbSystemAttr attr,
-                                            qbCallback callback);
+                                               qbCallbackFn callback);
 
 // Allows the system to execute if the specified condition returns true.
-typedef bool(*qbCondition)(qbFrame* frame);
+typedef bool(*qbConditionFn)(qbFrame* frame);
 QB_API qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
-                                             qbCondition condition);
+                                                qbConditionFn condition);
 
 // ======== qbTrigger ========
 typedef enum {
@@ -367,7 +457,7 @@ QB_API qbResult      qb_eventattr_destroy(qbEventAttr* attr);
 // Sets which program to associate the event with. The event will only trigger
 // inside the specified program.
 QB_API qbResult      qb_eventattr_setprogram(qbEventAttr attr,
-                                          qbId program);
+                                             qbId program);
 
 // Sets the size of each message to be allocated to send.
 QB_API qbResult      qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
@@ -379,7 +469,7 @@ QB_API qbResult      qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
 // Sending messages is not thread-safe.
 // Creates a new qbEvent with the specified attributes.
 QB_API qbResult      qb_event_create(qbEvent* event,
-                                  qbEventAttr attr);
+                                     qbEventAttr attr);
 
 // Destroys the specified event.
 QB_API qbResult      qb_event_destroy(qbEvent* event);
@@ -395,24 +485,25 @@ QB_API qbResult      qb_event_subscribe(qbEvent event,
 
 // Unsubscribes the specified system from the event.
 QB_API qbResult      qb_event_unsubscribe(qbEvent event,
-                                       qbSystem system);
+                                          qbSystem system);
 
 // Sends a messages on the event. This triggers all subscribed systems before
 // the next frame is run.
 QB_API qbResult      qb_event_send(qbEvent event,
-                                void* message);
+                                   void* message);
 
 // Sends a messages on the event. This immediately triggers all subscribed
 // systems.
 QB_API qbResult      qb_event_sendsync(qbEvent event,
-                                    void* message);
+                                       void* message);
 
 
 ///////////////////////////////////////////////////////////
 /////////////////////////  Scenes  ////////////////////////
 ///////////////////////////////////////////////////////////
 
-// Creates a scene with the given name.
+// Creates a scene with the given name. The scene is created in an "unset"
+// state. To start working on a scene, use the qb_scene_set method.
 QB_API qbResult      qb_scene_create(qbScene* scene,
                                   const char* name);
 
@@ -463,60 +554,47 @@ QB_API const char*   qb_scene_name(qbScene scene);
 // 4. Calls the onactivate event with the given scene
 QB_API qbResult      qb_scene_activate(qbScene scene);
 
-// Triggers fn when scene is destroyed.
+// Attaches the given key-value pair to the scene. These key-value pairs are
+// then given whenever the scene is activated/deactivated or destroyed.
+QB_API qbResult      qb_scene_attach(qbScene scene, const char* key, void* value);
+
+// Triggers fn when scene is destroyed. Can be called multiple times to add
+// more than one handler.
 QB_API qbResult      qb_scene_ondestroy(qbScene scene,
-                                     void(*fn)(qbScene scene));
+                                        void(*fn)(qbScene scene,
+                                                  size_t count,
+                                                  const char* keys[],
+                                                  void* values[]));
 
-// Triggers fn when scene is activated.
+// Triggers fn when scene is activated. Can be called multiple times to add
+// more than one handler.
 QB_API qbResult      qb_scene_onactivate(qbScene scene,
-                                      void(*fn)(qbScene scene));
+                                         void(*fn)(qbScene scene,
+                                                   size_t count,
+                                                   const char* keys[],
+                                                   void* values[]));
 
-// Triggers fn when scene is deactivated.
+// Triggers fn when scene is deactivated. Can be called multiple times to add
+// more than one handler.
 QB_API qbResult      qb_scene_ondeactivate(qbScene scene,
-                                        void(*fn)(qbScene scene));
+                                           void(*fn)(qbScene scene,
+                                                     size_t count,
+                                                     const char* keys[],
+                                                     void* values[]));
 
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Coroutines  //////////////////////
 ///////////////////////////////////////////////////////////
 
-typedef enum {
-  QB_TAG_VOID,
-  QB_TAG_UINT,
-  QB_TAG_INT,
-  QB_TAG_DOUBLE,
-  QB_TAG_CHAR,
-  QB_TAG_UNSET,
-} qbTag;
-
-typedef struct {
-  qbTag tag;
-  union {
-    void* p;
-    uint64_t u;
-    int64_t i;
-    double d;
-    char c;
-  };
-} qbVar;
-
-// Represents a value without a value.
-QB_API extern const qbVar qbNone;
-
-// Represents a qbVar that is not yet set. Used to represent a value that will
-// be set in the future.
-QB_API extern const qbVar qbFuture;
-
-// Convenience functions for creating a qbVar. 
-QB_API qbVar       qbVoid(void* p);
-QB_API qbVar       qbUint(uint64_t u);
-QB_API qbVar       qbInt(int64_t i);
-QB_API qbVar       qbDouble(double d);
-QB_API qbVar       qbChar(char c);
-
 // Creates and returns a new coroutine only valid on the current thread.
 // Cannot be passed between threads.
 QB_API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
+
+// Copies a given coroutine only valid on the current thread. Does not copy the
+// coroutine state. Currently, only copies the entry function.
+// Cannot be passed between threads.
+QB_API qbCoro      qb_coro_copy(qbCoro coro);
 
 // A coroutine is safe to destroy only it is finished running. This can be
 // queried with qb_coro_peek or qb_coro_done. A coroutine can be waited upon by
