@@ -544,7 +544,7 @@ void qb_light_disable(qbId id) {
 
 bool qb_light_isenabled(qbId id) {
   if (id == -1) {
-    return;
+    return false;
   }
 
   return enabled.has(id);
