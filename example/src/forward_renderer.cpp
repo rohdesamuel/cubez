@@ -5,6 +5,35 @@
 #include <map>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include <array>
+
+const size_t kMaxDirectionalLights = 4;
+const size_t kMaxPointLights = 32;
+const size_t kMaxSpotLights = 8;
+
+struct LightPoint {
+  // Interleave the brightness and radius to optimize std140 wasted bytes.
+  glm::vec3 rgb;
+  float brightness;
+  glm::vec3 pos;
+  float radius;
+};
+
+typedef struct LightDirectional {
+  glm::vec3 rgb;
+  float brightness;
+  glm::vec3 dir;
+  float _dir_pad;
+};
+
+typedef struct LightSpot {
+  glm::vec3 rgb;
+  float brightness;
+  glm::vec3 pos;
+  float range;
+  glm::vec3 dir;
+  float angle_deg;
+};
 
 typedef struct qbForwardRenderer_ {
   qbRenderer_ renderer;
@@ -15,8 +44,7 @@ typedef struct qbForwardRenderer_ {
 
   qbFrameBuffer frame_buffer;
 
-  qbGeometryDescriptor supported_geometry = nullptr;
-  qbGpuBuffer camera_ubo;
+  qbGeometryDescriptor supported_geometry = nullptr;  
 
   qbSystem render_system;
 
@@ -30,12 +58,28 @@ typedef struct qbForwardRenderer_ {
 
   uint32_t camera_uniform;
   std::string camera_uniform_name;
+  qbGpuBuffer camera_ubo;
 
+  // Created per rendergroup.
   uint32_t model_uniform;
   std::string model_uniform_name;
 
+  // Created per rendergroup.
   uint32_t material_uniform;
   std::string material_uniform_name;
+
+  uint32_t light_uniform;
+  std::string light_uniform_name;
+  qbGpuBuffer light_ubo;
+
+  std::array<struct LightDirectional, kMaxDirectionalLights> directional_lights;
+  std::array<bool, kMaxDirectionalLights> enabled_directional_lights;
+
+  std::array<struct LightPoint, kMaxPointLights> point_lights;
+  std::array<bool, kMaxPointLights> enabled_point_lights;
+
+  std::array<struct LightSpot, kMaxSpotLights> spot_lights;
+  std::array<bool, kMaxSpotLights> enabled_spot_lights;
 
   size_t albedo_map_binding;
   size_t normal_map_binding;
@@ -43,6 +87,13 @@ typedef struct qbForwardRenderer_ {
   size_t roughness_map_binding;
   size_t ao_map_binding;
   size_t emission_map_binding;
+
+  qbImage empty_albedo_map;
+  qbImage empty_normal_map;
+  qbImage empty_metallic_map;
+  qbImage empty_roughness_map;
+  qbImage empty_ao_map;
+  qbImage empty_emission_map;
 } qbForwardRenderer_, *qbForwardRenderer;
 
 struct CameraUniform {
@@ -51,17 +102,23 @@ struct CameraUniform {
 
 struct ModelUniform {
   alignas(16) glm::mat4 m;
+  alignas(16) glm::mat4 rot;
 };
 
 struct MaterialUniform {
-  glm::vec4 albedo;
+  glm::vec3 albedo;
   float metallic;
+  glm::vec3 emission;
   float roughness;
-  glm::vec4 emission;
 };
 
 struct LightUniform {
+  LightDirectional directionals[kMaxDirectionalLights];
+  LightPoint points[kMaxPointLights];
+  LightSpot spots[kMaxSpotLights];
 
+  glm::vec3 view_pos;
+  float _view_pos_pad;
 };
 
 void rendergroup_oncreate(struct qbRenderer_* self, qbRenderGroup group) {
@@ -115,8 +172,30 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
     *qb_renderpass_frame(passes[i]) = camera_fbo;
   }
   CameraUniform m;
-  m.vp = camera->projection_mat * camera->view_mat * camera->rotation_mat;
+  m.vp = camera->projection_mat * camera->view_mat;
   qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUniform), &m);
+
+  LightUniform l = {};
+  for (size_t i = 0; i < r->directional_lights.size(); ++i) {
+    if (r->enabled_directional_lights[i]) {
+      l.directionals[i] = r->directional_lights[i];
+    }
+  }
+
+  for (size_t i = 0; i < r->point_lights.size(); ++i) {
+    if (r->enabled_point_lights[i]) {
+      l.points[i] = r->point_lights[i];
+    }
+  }
+
+  for (size_t i = 0; i < r->spot_lights.size(); ++i) {
+    if (r->enabled_spot_lights[i]) {
+      l.spots[i] = r->spot_lights[i];
+    }
+  }
+  l.view_pos = camera->origin;
+
+  qb_gpubuffer_update(r->light_ubo, 0, sizeof(LightUniform), &l);
 
   qb_renderpipeline_render(pipeline, event);
   qb_renderpipeline_present(pipeline, camera_fbo, event);
@@ -230,12 +309,12 @@ void rendergroup_attach_material(struct qbRenderer_* self, qbRenderGroup group,
   };
 
   qbImage material_images[] = {
-    material->albedo_map,
-    material->normal_map,
-    material->metallic_map,
-    material->roughness_map,
-    material->ao_map,
-    material->emission_map,
+    material->albedo_map ? material->albedo_map : r->empty_albedo_map,
+    material->normal_map ? material->normal_map : r->empty_normal_map,
+    material->metallic_map ? material->metallic_map : r->empty_metallic_map,
+    material->roughness_map ? material->roughness_map : r->empty_roughness_map,
+    material->ao_map ? material->ao_map : r->empty_ao_map,
+    material->emission_map ? material->emission_map : r->empty_emission_map,
   };
 
   for (int i = 0; i < 6; ++i) {
@@ -287,33 +366,111 @@ void set_gui_renderpass(struct qbRenderer_* self, qbRenderPass gui_renderpass) {
   qb_renderpipeline_append(self->render_pipeline, gui_renderpass);
 }
 
-void light_add(struct qbRenderer_* self, qbId id) {
-
+void light_enable(struct qbRenderer_* self, qbId id, qbLightType light_type) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  switch (light_type) {
+    case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
+      if (id < kMaxDirectionalLights) {
+        r->enabled_directional_lights[id] = true;;
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_POINT:
+      if (id < kMaxPointLights) {
+        r->enabled_point_lights[id] = true;
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
+      if (id < kMaxSpotLights) {
+        r->enabled_spot_lights[id] = true;
+      }
+      break;
+  }
 }
 
-void light_remove(struct qbRenderer_* self, qbId id) {
-
+void light_disable(struct qbRenderer_* self, qbId id, qbLightType light_type) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  switch (light_type) {
+    case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
+      if (id < kMaxDirectionalLights) {
+        r->enabled_directional_lights[id] = false;
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_POINT:
+      if (id < kMaxPointLights) {
+        r->enabled_point_lights[id] = false;
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
+      if (id < kMaxSpotLights) {
+        r->enabled_spot_lights[id] = false;
+      }
+      break;
+  }
 }
 
-void light_enable(struct qbRenderer_* self, qbId id) {
-
-}
-
-void light_disable(struct qbRenderer_* self, qbId id) {
-
+bool light_isenabled(struct qbRenderer_* self, qbId id, qbLightType light_type) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  switch (light_type) {
+    case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
+      if (id < kMaxDirectionalLights) {
+        return r->enabled_directional_lights[id];
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_POINT:
+      if (id < kMaxPointLights) {
+        return r->enabled_point_lights[id];
+      }
+      break;
+    case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
+      if (id < kMaxSpotLights) {
+        return r->enabled_spot_lights[id];
+      }
+      break;
+  }
+  return false;
 }
 
 void light_directional(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness) {
-
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  if (id >= kMaxDirectionalLights) {
+    return;
+  }
+  
+  r->directional_lights[id] = LightDirectional{ rgb, brightness, dir };
 }
 
 void light_point(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  if (id >= kMaxPointLights) {
+    return;
+  }
 
+  r->point_lights[id] = LightPoint{ rgb, brightness, pos, range };
 }
 
-void light_spotlight(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir,
-                     float brightness, float range, float angle_deg) {
+void light_spot(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir,
+                float brightness, float range, float angle_deg) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  if (id >= kMaxSpotLights) {
+    return;
+  }
 
+  r->spot_lights[id] = LightSpot{ rgb, brightness, pos, range, dir, angle_deg };
+}
+
+size_t light_max(struct qbRenderer_* self, qbLightType light_type) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  
+  switch (light_type) {
+    case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
+      return kMaxDirectionalLights;
+    case qbLightType::QB_LIGHT_TYPE_POINT:
+      return kMaxPointLights;
+    case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
+      return kMaxSpotLights;
+  }
+
+  return 0;
 }
 
 void init_supported_geometry(qbForwardRenderer forward_renderer) {
@@ -402,12 +559,11 @@ void init_supported_geometry(qbForwardRenderer forward_renderer) {
   supported_geometry->bindings_count = 3;
 }
 
-qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr forward_attr) {
+struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbForwardRenderer ret = new qbForwardRenderer_;
-  *renderer = (qbRenderer)ret;
 
-  ret->renderer.width = forward_attr->width;
-  ret->renderer.height = forward_attr->height;
+  ret->renderer.width = width;
+  ret->renderer.height = height;
   ret->renderer.rendergroup_oncreate = rendergroup_oncreate;
   ret->renderer.rendergroup_ondestroy = rendergroup_ondestroy;
   ret->renderer.rendergroup_add = model_add;
@@ -418,11 +574,49 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
   ret->renderer.meshbuffer_attach_textures = meshbuffer_attach_textures;
   ret->renderer.set_gui_renderpass = set_gui_renderpass;
   ret->renderer.rendergroup_attach_material = rendergroup_attach_material;
-  ret->renderer.render = render;
+  
+  ret->renderer.light_enable = light_enable;
+  ret->renderer.light_disable = light_disable;
+  ret->renderer.light_isenabled = light_isenabled;
+  ret->renderer.light_directional = light_directional;
+  ret->renderer.light_point = light_point;
+  ret->renderer.light_spot = light_spot;
+  ret->renderer.light_max = light_max;
 
+  ret->renderer.render = render;
+  ret->directional_lights = {};
+  ret->enabled_directional_lights = {};
+  ret->point_lights = {};
+  ret->enabled_point_lights = {};
+  ret->spot_lights = {};
+  ret->enabled_spot_lights = {};
+  
+  {
+    // If there is a sampler defined, there needs to be a corresponding image,
+    // otherwise there is undetermined behavior. In the case that there isn't a
+    // image given, an empty image is placed in its stead.
+    char pixel_0[4] = {};
+    qbPixelMap map_0 = qb_pixelmap_create(1, 1, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_0);
+
+    char pixel_1[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+    qbPixelMap map_1 = qb_pixelmap_create(1, 1, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_1);
+
+    char pixel_n[4] = { 0x80, 0x80, 0xFF, 0xFF };
+    qbPixelMap map_n = qb_pixelmap_create(1, 1, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_n);
+
+    qbImageAttr_ attr = {};
+    attr.type = qbImageType::QB_IMAGE_TYPE_2D;
+    
+    qb_image_create(&ret->empty_albedo_map, &attr, map_1);
+    qb_image_create(&ret->empty_normal_map, &attr, map_n);
+    qb_image_create(&ret->empty_metallic_map, &attr, map_0);
+    qb_image_create(&ret->empty_roughness_map, &attr, map_0);
+    qb_image_create(&ret->empty_ao_map, &attr, map_0);
+    qb_image_create(&ret->empty_emission_map, &attr, map_0);
+  }
   {
     qbRenderPipelineAttr_ attr = {};
-    attr.viewport = { 0.0, 0.0, forward_attr->width, forward_attr->height };
+    attr.viewport = { 0.0, 0.0, width, height };
     attr.viewport_scale = 1.0f;
     attr.name = "qbForwardRenderer";
 
@@ -443,14 +637,15 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
   size_t native_sampler_count;
   
   size_t uniform_start_binding;
-  size_t user_uniform_count = forward_attr->uniform_count;
+  size_t user_uniform_count = args->uniform_count;
 
   size_t sampler_start_binding;
-  size_t user_sampler_count = forward_attr->image_sampler_count;
+  size_t user_sampler_count = args->image_sampler_count;
 
   ret->camera_uniform_name = "qb_camera";
   ret->model_uniform_name = "qb_model";
   ret->material_uniform_name = "qb_material";
+  ret->light_uniform_name = "qb_lights";
 
   {
     qbShaderResourceInfo_ info = {};
@@ -458,7 +653,7 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
     info.stages = QB_SHADER_STAGE_VERTEX;
     info.name = ret->camera_uniform_name.data();
 
-    qbGpuBufferAttr_ attr;
+    qbGpuBufferAttr_ attr = {};
     attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
     attr.data = nullptr;
     attr.size = sizeof(CameraUniform);
@@ -481,6 +676,21 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
     info.name = ret->material_uniform_name.data();
 
     resource_uniforms.push_back({ info, nullptr });
+  }
+  {
+    qbShaderResourceInfo_ info = {};
+    info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+    info.stages = QB_SHADER_STAGE_FRAGMENT;
+    info.name = ret->light_uniform_name.data();
+
+
+    qbGpuBufferAttr_ attr;
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+    attr.data = nullptr;
+    attr.size = sizeof(LightUniform);
+
+    qb_gpubuffer_create(&ret->light_ubo, &attr);
+    resource_uniforms.push_back({ info, ret->light_ubo });
   }
   {
     qbShaderResourceInfo_ info = {};
@@ -544,15 +754,15 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
   native_sampler_count = resource_samplers.size();
   {
     std::vector<std::pair<qbShaderResourceInfo_, qbGpuBuffer>> user_uniforms;
-    user_uniforms.resize(forward_attr->shader_resource_count);
-    for (size_t i = 0; i < forward_attr->shader_resource_count; ++i) {
-      qbShaderResourceInfo info = forward_attr->shader_resources + i;
+    user_uniforms.resize(args->shader_resource_count);
+    for (size_t i = 0; i < args->shader_resource_count; ++i) {
+      qbShaderResourceInfo info = args->shader_resources + i;
       uint32_t binding = info->binding;
       user_uniforms[binding].first = *info;
     }
-    for (size_t i = 0; i < forward_attr->uniform_count; ++i) {
-      qbGpuBuffer uniform = forward_attr->uniforms[i];
-      uint32_t binding = forward_attr->uniform_bindings[i];
+    for (size_t i = 0; i < args->uniform_count; ++i) {
+      qbGpuBuffer uniform = args->uniforms[i];
+      uint32_t binding = args->uniform_bindings[i];
       user_uniforms[binding].second = uniform;
     }
     for (auto&& e : user_uniforms) {
@@ -560,9 +770,9 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
     }
 
     std::vector<std::pair<qbShaderResourceInfo_, qbImageSampler>> user_samplers;
-    user_samplers.resize(forward_attr->image_sampler_count);
-    for (size_t i = 0; i < forward_attr->image_sampler_count; ++i) {
-      qbImageSampler sampler = forward_attr->image_samplers[i];
+    user_samplers.resize(args->image_sampler_count);
+    for (size_t i = 0; i < args->image_sampler_count; ++i) {
+      qbImageSampler sampler = args->image_samplers[i];
 
       qbShaderResourceInfo_ info;
       info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
@@ -599,6 +809,8 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
         ret->model_uniform = e.first.binding;
       } else if (std::string(e.first.name) == ret->material_uniform_name) {
         ret->material_uniform = e.first.binding;
+      } else if (std::string(e.first.name) == ret->light_uniform_name) {
+        ret->light_uniform = e.first.binding;
       }
 
       if (uniform_index == native_uniform_count) {
@@ -638,8 +850,8 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
 
   {   
     qbShaderModuleAttr_ attr = {};
-    attr.vs = "resources/material.vs";
-    attr.fs = "resources/material.fs";
+    attr.vs = "resources/pbr.vs";
+    attr.fs = "resources/pbr.fs";
     attr.resources = resources.data();
     attr.resources_count = resources.size();
 
@@ -656,13 +868,20 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
   }
 
   {
-    qbRenderPassAttr_ attr;
+    qbClearValue_ clear = {};
+    clear.attachments = (qbFrameBufferAttachment)(qbFrameBufferAttachment::QB_COLOR_ATTACHMENT |
+                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);
+    clear.depth = 0.0;
+    clear.color = { 1.0, 1.0, 0.0, 1.0 };
+
+    qbRenderPassAttr_ attr = {};
     attr.frame_buffer = nullptr;
     attr.supported_geometry = *ret->supported_geometry;
     attr.shader = shader_module;
 
-    attr.viewport = { 0.0, 0.0, forward_attr->width, forward_attr->height };
+    attr.viewport = { 0.0, 0.0, width, height };
     attr.viewport_scale = 1.0f;
+    attr.clear = clear;
 
     qb_renderpass_create(&ret->scene_3d_pass, &attr);
     qb_renderpipeline_append(ret->renderer.render_pipeline, ret->scene_3d_pass);
@@ -695,6 +914,7 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
       ModelUniform model_uniform;
       model_uniform.m = glm::translate(glm::mat4(1), transform->position) *
              glm::translate(transform->orientation, transform->pivot);
+      model_uniform.rot = transform->orientation;
       qb_gpubuffer_update(model_buffer, 0, sizeof(ModelUniform), &model_uniform);
 
       MaterialUniform material_uniform;
@@ -718,12 +938,12 @@ qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr f
   ret->texture_units_count = user_sampler_count;
 
   ret->renderer.state = ret;
+  return (qbRenderer)ret;
 }
 
-qbResult qb_forwardrenderer_destroy(qbRenderer* renderer) {
-  qbForwardRenderer r = *(qbForwardRenderer*)renderer;
+void qb_forwardrenderer_destroy(qbRenderer renderer) {
+  qbForwardRenderer r = (qbForwardRenderer)renderer;
   qb_event_unsubscribe(qb_render_event(), r->render_system);
   qb_system_destroy(&r->render_system);
-  return QB_OK;
 }
 

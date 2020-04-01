@@ -4,6 +4,7 @@
 #include <cubez/mesh.h>
 #include <cubez/input.h>
 #include <cubez/render.h>
+#include <cubez/audio.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/gui.h>
 #include "forward_renderer.h"
@@ -67,7 +68,7 @@ void create_main_menu() {
   {
     qbImageAttr_ attr;
     attr.type = QB_IMAGE_TYPE_2D;
-    qb_image_load(&ball_image, &attr, "resources/ball.bmp");
+    qb_image_load(&ball_image, &attr, "resources/soccer_ball.bmp");
   }
 
   std::vector<qbWindow> windows;
@@ -170,7 +171,7 @@ void create_game() {
   qbCamera main_camera;
   {
     qbCameraAttr_ attr = {};
-    attr.fov = 3.14159f / 2.0f;
+    attr.fov = 3.14159f / 4.0f;
     attr.height = 800;
     attr.width = 1200;
     attr.znear = 0.1;
@@ -182,6 +183,24 @@ void create_game() {
   }
   create_main_menu();
 
+  {
+    qb_light_point(0, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 5.0 }, 15.0f, 200.0f);
+    qb_light_point(1, { 1.0, 0.0, 0.0 }, { -25.0, 0.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(2, { 0.0, 1.0, 0.0 }, { 25.0, 0.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(3, { 0.0, 0.0, 1.0 }, { 0.0, -25.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(4, { 1.0, 0.0, 1.0 }, { 0.0, 25.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(2, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(3, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(4, qbLightType::QB_LIGHT_TYPE_POINT);
+
+    qb_light_directional(0, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, -1.0 }, 0.05f);
+    qb_light_directional(1, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, 1.0 }, 0.1f);
+    qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
+    //qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
+  }
+
   qb_coro_sync(print_timing_info, qbVoid(&timing_info));
   qbEntity block;
   {
@@ -192,19 +211,28 @@ void create_game() {
         qbImageAttr_ image_attr = {};
         image_attr.type = qbImageType::QB_IMAGE_TYPE_2D;
         image_attr.generate_mipmaps = true;
-        qb_image_load(&attr.albedo_map, &image_attr, "resources/ball.bmp");
+        qb_image_load(&attr.albedo_map, &image_attr,
+                      "resources/soccer_ball.bmp");
+        qb_image_load(&attr.normal_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_normal.png");
+        qb_image_load(&attr.metallic_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_metallic.png");
+        qb_image_load(&attr.roughness_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_roughness.png");
       }
-      attr.albedo = { 1, 0, 1 };
+      attr.albedo = { 1, 1, 1 };
+      attr.metallic = 8.0f;
+      attr.roughness = 0.5;      
       qb_material_create(&material, &attr, "ball");
     }
 
     qbTransform_ t = {
-      glm::vec3(-0.5, -0.5, 0),
-      glm::vec3(5, -5, 0),
+      glm::vec3(0, 0, 0),
+      glm::vec3(0.5, -5, 0),
       glm::mat4(1)
     };
 
-    qbRenderable r = qb_draw_rect(1, 1);
+    qbRenderable r = qb_draw_sphere(2, 50, 50);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -214,21 +242,111 @@ void create_game() {
     qb_entity_create(&block, attr);
     qb_entityattr_destroy(&attr);
   }
+  {
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      attr.emission = { 1, 1, 1 };
+      qb_material_create(&material, &attr, "ball");
+    }
+
+
+    std::vector<glm::vec3> positions = {
+      { 0, 0, 5 },
+      { 25, 0, 5 },
+      { -25, 0, 5 },
+      { 0, 25, 5 },
+      { 0, -25, 5 },
+    };
+
+    for (auto&& pos : positions) {
+      qbTransform_ t = {
+        glm::vec3(0, 0, 0),
+        pos,
+        glm::mat4(1)
+      };
+
+      qbRenderable r = qb_draw_cube(1, 1, 1);
+
+      qbEntity unused;
+      qbEntityAttr attr;
+      qb_entityattr_create(&attr);
+      qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+      qb_entityattr_addcomponent(attr, qb_material(), &material);
+      qb_entityattr_addcomponent(attr, qb_transform(), &t);
+      qb_entity_create(&unused, attr);
+      qb_entityattr_destroy(&attr);
+    }
+  }
+  {
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      attr.albedo = { 1, 1, 1 };
+      attr.metallic = 1.10;
+      attr.roughness = 0.005;
+      qb_material_create(&material, &attr, "ball");
+    }
+
+    qbTransform_ t = {
+      glm::vec3(-50, -50, -5),
+      glm::vec3(0, 0, 0),
+      glm::mat4(1)
+      //glm::rotate(glm::mat4(1), -3.141592f / 2.0f, glm::vec3(1, 0, 0))
+    };
+
+    qbRenderable r = qb_draw_rect(100, 100);
+
+    qbEntity unused;
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &material);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&unused, attr);
+    qb_entityattr_destroy(&attr);
+  }
 
   qb_coro_sync([](qbVar v) {
     qbEntity block = v.i;
     qbTransform t;
     qb_instance_find(qb_transform(), block, &t);
-    t->orientation = glm::rotate(t->orientation, -3.14159f / 2.0f, glm::vec3(0, 1, 0));
-    t->position.y += 5.0f;
+    //t->orientation = glm::rotate(t->orientation, -3.14159f / 2.0f, glm::vec3(1, 1, 0));
+    //t->position.y += 5.0f;
     int frame = 0;
+    qbCamera camera = qb_camera_active();
     while (true) {
-      t->orientation = glm::rotate(t->orientation, -0.063f, glm::vec3(0, 0, 1));
-      t->position.z = 0.0f + 5.0f*glm::cos((float)(frame) / 100.0f);
-      t->position.y = 0.0f - 5.0f*glm::sin((float)(frame) / 100.0f);
+      t->orientation = glm::rotate(t->orientation, -0.001f, glm::vec3(0, 0, 1));
+
+      //t->position.z = 0.0f + 5.0f*glm::cos((float)(frame) / 100.0f);
+      //t->position.y = 0.0f - 5.0f*glm::sin((float)(frame) / 100.0f);
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0.5, 0, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(-0.5, 0, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_Q)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, 0.5, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_E)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, -0.5, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
+        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, -0.025f, glm::vec3(0, 0, 1)));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
+        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, 0.025f, glm::vec3(0, 0, 1)));
+      }
 
       ++frame;
-      qb_coro_waitframes(1);
+      qb_coro_wait(0.01);
     }
     return qbNone;
   }, qbInt(block));
@@ -239,22 +357,16 @@ void create_game() {
 void initialize_universe(qbUniverse* uni) {
   uint32_t width = 1200;
   uint32_t height = 800;
-  float scale = 1.0f;
  
-  qbUniverseAttr_ uni_attr;
+  qbUniverseAttr_ uni_attr = {};
   uni_attr.title = "Cubez example";
   uni_attr.width = width;
   uni_attr.height = height;
   uni_attr.enabled = qbFeature::QB_FEATURE_ALL;
+
+  uni_attr.create_renderer = qb_forwardrenderer_create;
+  uni_attr.destroy_renderer = qb_forwardrenderer_destroy;
   qb_init(uni, &uni_attr);
-
-  qbForwardRendererAttr_ attr = {};
-  attr.width = width;
-  attr.height = height;
-
-  qbRenderer renderer;
-  qb_forwardrenderer_create(&renderer, &attr);
-  qb_init_graphics(uni, renderer);
 }
 
 int main(int, char* []) {
@@ -263,6 +375,8 @@ int main(int, char* []) {
   initialize_universe(&uni);
   qb_start();
   create_game();
+
+  // https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

@@ -19,6 +19,7 @@
 #include <vector>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include "stb_image.h"
 
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
@@ -1177,29 +1178,39 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
   qbImage image = *image_ref = new qbImage_;
 
   // Load the image from the file into SDL's surface representation
-  SDL_Surface* surf = SDL_LoadBMP(file);
-  if (!surf) {
-    std::cout << "Could not load texture " << file << std::endl;
+  int w, h, n;
+  unsigned char* pixels = stbi_load(file, &w, &h, &n, 0);
+
+  if (!pixels) {
+    std::cout << "Could not load texture " << file << ": " << stbi_failure_reason() << std::endl;
+    return;
   }
+
   GLenum image_type = TranslateQbImageTypeToOpenGl(attr->type);
   
   glGenTextures(1, &image->id);
   glBindTexture(image_type, image->id);
 
   if (image_type == GL_TEXTURE_1D) {
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, surf->w * surf->h, 0, GL_BGRA, GL_UNSIGNED_BYTE, surf->pixels);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, w * h, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
   } else if (image_type == GL_TEXTURE_2D) {
-    if (surf->format->BytesPerPixel == 3 && surf->format->Amask == 0) {
-      glTexImage2D(image_type, 0, GL_RGBA8, surf->w, surf->h, 0, GL_RGB, GL_UNSIGNED_BYTE, surf->pixels);
+    if (n == 1) {
+      glTexImage2D(image_type, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
+    } else if (n == 2) {
+      glTexImage2D(image_type, 0, GL_RG, w, h, 0, GL_RG, GL_UNSIGNED_BYTE, pixels);
+    } else if (n == 3) {
+      glTexImage2D(image_type, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    } else if (n == 4) {
+      glTexImage2D(image_type, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     } else {
-      glTexImage2D(image_type, 0, GL_RGBA8, surf->w, surf->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+      assert(false && "Received an unsupported amount of channels");
     }
   }
   if (attr->generate_mipmaps) {
     glGenerateMipmap(image_type);
   }
 
-  SDL_FreeSurface(surf);
+  stbi_image_free(pixels);
   CHECK_GL();
 }
 

@@ -190,12 +190,20 @@ glm::vec3 qb_collider_farthest(const qbCollider_* collider, glm::vec3 dir) {
 
 struct qbRenderable_* qb_draw_cube(int size_x, int size_y, int size_z) {
   MeshBuilder builder = MeshBuilder::Box(size_x, size_y, size_z);
-  FATAL("unimplemented");
-  return nullptr;
+  qbRenderable_* ret;
+  qb_renderable_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  return ret;
 }
 
 struct qbRenderable_* qb_draw_rect(int w, int h) {
   MeshBuilder builder = MeshBuilder::Rect(w, h);
+  qbRenderable_* ret;
+  qb_renderable_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  return ret;
+}
+
+struct qbRenderable_* qb_draw_sphere(float radius, int slices, int zslices) {
+  MeshBuilder builder = MeshBuilder::Sphere(radius, slices, zslices);
   qbRenderable_* ret;
   qb_renderable_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
   return ret;

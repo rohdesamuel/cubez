@@ -33,7 +33,7 @@ typedef struct qbForwardRendererAttr_ {
 
 } qbForwardRendererAttr_, *qbForwardRendererAttr;
 
-qbResult qb_forwardrenderer_create(qbRenderer* renderer, qbForwardRendererAttr attr);
-qbResult qb_forwardrenderer_destroy(qbRenderer* renderer);
+qbRenderer qb_forwardrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+void qb_forwardrenderer_destroy(qbRenderer renderer);
 
 #endif

@@ -8,11 +8,12 @@ struct RenderSettings {
   int width;
   int height;
 
-  qbRenderer renderer;
+  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+  void(*destroy_renderer)(struct qbRenderer_* renderer);
+  qbRendererAttr_* opt_renderer_args;
 };
 
 void render_initialize(RenderSettings* settings);
-void renderer_initialize(struct qbRenderer_* renderer);
 void render_shutdown();
 
 #endif  // RENDER_INTERNAL__H

@@ -2,6 +2,7 @@
 #include <cubez/input.h>
 #include "shader.h"
 #include "render_internal.h"
+#include "gui_internal.h"
 
 #include <atomic>
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,28 +21,6 @@
 #include "render_defs.h"
 #include "sparse_map.h"
 #include "sparse_set.h"
-
-typedef struct qbLightDirectional_ {
-  glm::vec3 rgb;
-  glm::vec3 dir;
-  float brightness;
-};
-
-typedef struct qbLightPoint_ {
-  glm::vec3 rgb;
-  glm::vec3 pos;
-  float brightness;
-  float range;
-};
-
-typedef struct qbLightSpotlight_ {
-  glm::vec3 rgb;
-  glm::vec3 pos;
-  glm::vec3 dir;
-  float brightness;
-  float range;
-  float angle_deg;
-};
 
 typedef struct qbCameraInternal_ {
   qbCamera_ camera;
@@ -68,14 +47,15 @@ SDL_Window *win = nullptr;
 SDL_GLContext context;
 
 qbRenderer renderer_;
+void(*destroy_renderer)(struct qbRenderer_* renderer);
 
 qbCameraInternal active_camera;
 std::vector<qbCameraInternal> cameras;
 
 qbId light_id;
-SparseMap<qbLightDirectional_, std::vector<qbLightDirectional_>> directional_lights;
-SparseMap<qbLightPoint_, std::vector<qbLightPoint_>> point_lights;
-SparseMap<qbLightSpotlight_, std::vector<qbLightSpotlight_>> spot_lights;
+SparseSet directional_lights;
+SparseSet point_lights;
+SparseSet spot_lights;
 SparseSet enabled;
 
 qbComponent qb_renderable_ = 0;
@@ -124,7 +104,9 @@ qbResult qb_render(qbRenderEvent event) {
 }
 
 void initialize_context(const RenderSettings& settings) {
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+    printf("SDL could not initialize! SDL Error: %s\n", SDL_GetError());
+  }
   
   // Request an OpenGL 3.3 context
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -161,6 +143,12 @@ void initialize_context(const RenderSettings& settings) {
   SDL_GL_SwapWindow(win);
 }
 
+void renderer_initialize(const RenderSettings& settings) {
+  renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);
+  renderer_->set_gui_renderpass(qb_renderer(), gui_create_renderpass(settings.width, settings.height));
+  destroy_renderer = settings.destroy_renderer;
+}
+
 void render_initialize(RenderSettings* settings) {
   std::cout << "Initializing rendering context\n";
   initialize_context(*settings);  
@@ -195,15 +183,15 @@ void render_initialize(RenderSettings* settings) {
     qb_event_create(&render_event, attr);
     qb_eventattr_destroy(&attr);
   }
-}
-
-void renderer_initialize(struct qbRenderer_* renderer) {
-  renderer_ = renderer;
+  gui_initialize();
+  renderer_initialize(*settings);
 }
 
 void render_shutdown() {
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(win);
+  destroy_renderer(renderer_);
+  renderer_ = nullptr;
 }
 
 uint32_t qb_window_width() {
@@ -321,8 +309,10 @@ void qb_camera_rotation(qbCamera camera_ref, glm::mat4 rotation) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->rotation_mat = rotation;
 
-  glm::vec3 forward = camera->rotation_mat * glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f };
-  glm::vec3 up = camera->rotation_mat * glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f };
+  glm::vec3 forward = glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f } * camera->rotation_mat;
+  glm::vec3 up = glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f } * camera->rotation_mat;
+  camera->forward = forward;
+  camera->up = up;
   camera->view_mat = glm::lookAt(camera->origin, camera->origin + forward, up);
 }
 
@@ -330,8 +320,10 @@ void qb_camera_origin(qbCamera camera_ref, glm::vec3 origin) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->origin = origin;
 
-  glm::vec3 forward = camera->rotation_mat * glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f };
-  glm::vec3 up = camera->rotation_mat * glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f };
+  glm::vec3 forward = glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f } * camera->rotation_mat;
+  glm::vec3 up = glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f } * camera->rotation_mat;
+  camera->forward = forward;
+  camera->up = up;
   camera->view_mat = glm::lookAt(camera->origin, camera->origin + forward, up);
 }
 
@@ -484,107 +476,37 @@ qbRenderGroup qb_renderable_rendergroup(qbRenderable renderable) {
   return renderable->render_group;
 }
 
-qbId qb_light_add() {
-  if (qb_light_count() < qb_light_max()) {
-    qbId new_id = light_id++;
-
-    auto r = qb_renderer();
-    r->light_add(r, new_id);
-    return new_id;
-  }
-  return -1;
+void qb_light_enable(qbId id, qbLightType type) {
+  auto r = qb_renderer();
+  r->light_enable(r, id, type);
 }
 
-void qb_light_remove(qbId id) {
-  if (id == -1) {
-    return;
-  }
-
-  bool removed = false;
-  if (directional_lights.has(id)) {
-    directional_lights.erase(id);
-    removed = true;
-  } else if (point_lights.has(id)) {
-    point_lights.erase(id);
-    removed = true;
-  } else if (spot_lights.has(id)) {
-    spot_lights.erase(id);
-    removed = true;
-  }
-
-  if (removed) {
-    auto r = qb_renderer();
-    r->light_remove(r, id);
-  }
+void qb_light_disable(qbId id, qbLightType type) {
+  auto r = qb_renderer();
+  r->light_disable(r, id, type);
 }
 
-void qb_light_enable(qbId id) {
-  if (id == -1) {
-    return;
-  }
-
-  if (!enabled.has(id)) {
-    enabled.insert(id);
-    auto r = qb_renderer();
-    r->light_enable(r, id);
-  }
-}
-
-void qb_light_disable(qbId id) {
-  if (id == -1) {
-    return;
-  }
-
-  if (enabled.has(id)) {
-    enabled.erase(id);
-    auto r = qb_renderer();
-    r->light_disable(r, id);
-  }
-}
-
-bool qb_light_isenabled(qbId id) {
-  if (id == -1) {
-    return false;
-  }
-
-  return enabled.has(id);
+bool qb_light_isenabled(qbId id, qbLightType type) {
+  auto r = qb_renderer();
+  return r->light_isenabled(r, id, type);
 }
 
 void qb_light_directional(qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness) {
-  if (id == -1) {
-    return;
-  }
-
-  directional_lights[id] = { rgb, dir, brightness };
   auto r = qb_renderer();
   r->light_directional(r, id, rgb, dir, brightness);
 }
 
-void qb_light_point(qbId id, glm::vec3 rgb, glm::vec3 pos, float range, float brightness) {
-  if (id == -1) {
-    return;
-  }
-
-  point_lights[id] = { rgb, pos, range, brightness };
+void qb_light_point(qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range) {
   auto r = qb_renderer();
   r->light_point(r, id, rgb, pos, brightness, range);
 }
 
 void qb_light_spotlight(qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir, float brightness, float range, float angle_deg) {
-  if (id == -1) {
-    return;
-  }
-
-  spot_lights[id] = { rgb, pos, dir, brightness, range, angle_deg };
   auto r = qb_renderer();
-  r->light_spotlight(r, id, rgb, pos, dir, brightness, range, angle_deg);
+  r->light_spot(r, id, rgb, pos, dir, brightness, range, angle_deg);
 }
 
-size_t qb_light_max() {
+size_t qb_light_max(qbLightType light_type) {
   auto r = qb_renderer();
-  return r->max_lights(r);
-}
-
-size_t qb_light_count() {
-  return directional_lights.size() + point_lights.size() + spot_lights.size();
+  return r->light_max(r, light_type);
 }

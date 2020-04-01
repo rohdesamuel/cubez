@@ -150,7 +150,7 @@ void Initialize(Settings settings) {
     {
       qbMaterialAttr_ attr = {};
       attr.albedo = { 1, 0, 0 };
-      //qb_material_create(&material, &attr);
+      qb_material_create(&material, &attr, "");
     }
 
     qbTransform_ t = {};

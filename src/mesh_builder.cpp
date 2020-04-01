@@ -266,7 +266,23 @@ MeshBuilder MeshBuilder::Box(float x, float y, float z) {
   int t3 = builder.AddTexture({ 1, 1 });
   int t4 = builder.AddTexture({ 0, 1 });
   
-  int n1 = builder.AddNormal({ 0, 0, 0 });
+  // Top
+  int n1 = builder.AddNormal({  0,  0,  1 });
+
+  // Bottom
+  int n2 = builder.AddNormal({  0,  0, -1 });
+
+  // Front
+  int n3 = builder.AddNormal({  1,  0,  0 });
+
+  // Back
+  int n4 = builder.AddNormal({ -1,  0,  0 });
+
+  // Left
+  int n5 = builder.AddNormal({  0, -1,  0 });
+
+  // Right
+  int n6 = builder.AddNormal({  0,  1,  0 });
 
   // Top
   builder.AddFace({
@@ -283,60 +299,60 @@ MeshBuilder MeshBuilder::Box(float x, float y, float z) {
   // Bottom
   builder.AddFace({
     { p5, p6, p7 },
-    { n1, n1, n1 },
+    { n2, n2, n2 },
     { t1, t2, t3 },
   });
   builder.AddFace({
     { p7, p8, p5 },
-    { n1, n1, n1 },
+    { n2, n2, n2 },
     { t3, t4, t1 },
   });
 
   // Front
   builder.AddFace({
     { p7, p3, p4 },
-    { n1, n1, n1 },
+    { n3, n3, n3 },
     { t1, t2, t3 },
   });
   builder.AddFace({
     { p4, p8, p7 },
-    { n1, n1, n1 },
+    { n3, n3, n3 },
     { t3, t4, t1 },
   });
 
   // Back
   builder.AddFace({
     { p5, p1, p2 },
-    { n1, n1, n1 },
+    { n4, n4, n4 },
     { t1, t2, t3 },
   });
   builder.AddFace({
     { p2, p6, p5 },
-    { n1, n1, n1 },
+    { n4, n4, n4 },
     { t3, t4, t1 },
   });
 
   // Left
   builder.AddFace({
     { p8, p4, p1 },
-    { n1, n1, n1 },
+    { n5, n5, n5 },
     { t1, t2, t3 },
   });
   builder.AddFace({
     { p1, p5, p8 },
-    { n1, n1, n1 },
+    { n5, n5, n5 },
     { t3, t4, t1 },
   });
 
   // Right
   builder.AddFace({
     { p6, p2, p3 },
-    { n1, n1, n1 },
+    { n6, n6, n6 },
     { t1, t2, t3 },
   });
   builder.AddFace({
     { p3, p7, p6 },
-    { n1, n1, n1 },
+    { n6, n6, n6 },
     { t3, t4, t1 },
   });
    
