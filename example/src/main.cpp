@@ -364,8 +364,16 @@ void initialize_universe(qbUniverse* uni) {
   uni_attr.height = height;
   uni_attr.enabled = qbFeature::QB_FEATURE_ALL;
 
+  qbRendererAttr_ renderer_attr = {};
   uni_attr.create_renderer = qb_forwardrenderer_create;
   uni_attr.destroy_renderer = qb_forwardrenderer_destroy;
+  uni_attr.renderer_args = &renderer_attr;
+
+  qbAudioAttr_ audio_attr = {};
+  audio_attr.sample_frequency = 44100;
+  audio_attr.buffered_samples = 15;
+  uni_attr.audio_args = &audio_attr;
+
   qb_init(uni, &uni_attr);
 }
 

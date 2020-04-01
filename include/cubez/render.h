@@ -60,14 +60,17 @@ typedef struct qbRenderer_ {
                                      uint32_t uniform_bindings[],
                                      qbGpuBuffer uniforms[]);
 
-  void(*light_add)(struct qbRenderer_* self, qbId id);
-  void(*light_remove)(struct qbRenderer_* self, qbId id);
-  void(*light_enable)(struct qbRenderer_* self, qbId id);
-  void(*light_disable)(struct qbRenderer_* self, qbId id);
-  void(*light_directional)(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness);
-  void(*light_point)(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range);
-  void(*light_spotlight)(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir,
-                                 float brightness, float range, float angle_deg);
+  void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_directional)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
+                           glm::vec3 dir, float brightness);
+  void(*light_point)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
+                     glm::vec3 pos, float brightness, float range);
+  void(*light_spot)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
+                    glm::vec3 pos, glm::vec3 dir, float brightness,
+                    float range, float angle_deg);
+  size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
 
   // TODO: This should be a surface that the underlying renderer draws to.
   void(*set_gui_renderpass)(struct qbRenderer_* self, qbRenderPass gui_renderpass);
@@ -79,6 +82,31 @@ typedef struct qbRenderer_ {
 
   void* state;
 } qbRenderer_, *qbRenderer;
+
+typedef struct qbRendererAttr_ {
+  // A list of any new uniforms to be used in the shader. The bindings should
+  // start at 0. These should not include any texture sampler uniforms. For
+  // those, use the image_samplers value.
+  qbShaderResourceInfo shader_resources;
+  size_t shader_resource_count;
+
+  // The bindings should start at 0. These should not include any texture
+  // sampler uniforms. For those, use the image_samplers value.
+  // Unimplemented.
+  qbGpuBuffer* uniforms;
+  uint32_t* uniform_bindings;
+  size_t uniform_count;
+
+  // A list of any new texture samplers to be used in the shader. This will
+  // automatically create all necessary qbShaderResourceInfos. Do not create
+  // individual qbShaderResourceInfos for the given samplers.
+  qbImageSampler* image_samplers;
+  size_t image_sampler_count;
+
+  // Optional arguments to pass to the create_renderer function.
+  void* opt_args;
+
+} qbRendererAttr_, *qbRendererAttr;
 
 typedef struct qbCameraAttr_ {
   uint32_t width;
@@ -116,7 +144,7 @@ typedef struct qbRenderEvent_ {
   qbCamera camera;
 } qbRenderEvent_, *qbRenderEvent;
 
-enum qbLightType_ {
+enum qbLightType {
   QB_LIGHT_TYPE_DIRECTIONAL,
   QB_LIGHT_TYPE_SPOTLIGHT,
   QB_LIGHT_TYPE_POINT,
@@ -142,18 +170,14 @@ QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera);
 QB_API glm::vec3 qb_camera_screentoworld(qbCamera camera, glm::vec2 screen);
 QB_API glm::vec2 qb_camera_worldtoscreen(qbCamera camera, glm::vec3 world);
 
-QB_API qbId qb_light_add();
-QB_API void qb_light_remove(qbId id);
-QB_API void qb_light_enable(qbId id);
-QB_API void qb_light_disable(qbId id);
-QB_API bool qb_light_isenabled(qbId);
+QB_API void qb_light_enable(qbId id, qbLightType light_type);
+QB_API void qb_light_disable(qbId id, qbLightType light_type);
+QB_API bool qb_light_isenabled(qbId id, qbLightType light_type);
+
 QB_API void qb_light_directional(qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness);
 QB_API void qb_light_point(qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range);
-QB_API void qb_light_spotlight(qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir,
-                               float brightness, float range, float angle_deg);
-QB_API size_t qb_light_max();
-QB_API size_t qb_light_count();
 
+QB_API size_t qb_light_max(qbLightType light_type);
 
 QB_API qbResult qb_render(qbRenderEvent event);
 QB_API qbEvent qb_render_event();

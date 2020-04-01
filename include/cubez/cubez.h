@@ -80,11 +80,15 @@ typedef struct {
   uint32_t height;
 
   qbFeature enabled;
-  struct qbRenderer_* renderer;
+
+  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+  void (*destroy_renderer)(struct qbRenderer_* renderer);
+
+  struct qbRendererAttr_* renderer_args;
+  struct qbAudioAttr_* audio_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
-QB_API qbResult qb_init_graphics(qbUniverse* universe, struct qbRenderer_* renderer);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
 

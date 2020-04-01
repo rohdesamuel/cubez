@@ -1,6 +1,7 @@
 #include <cubez/cubez.h>
 #include <cubez/utils.h>
 #include <cubez/render.h>
+#include <cubez/audio.h>
 #include "defs.h"
 #include "private_universe.h"
 #include "byte_vector.h"
@@ -12,6 +13,7 @@
 #include "log_internal.h"
 #include "render_internal.h"
 #include "gui_internal.h"
+#include "audio_internal.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -63,12 +65,21 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     render_settings.title = attr->title;
     render_settings.width = attr->width;
     render_settings.height = attr->height;
-    render_initialize(&render_settings);
+    render_settings.create_renderer = attr->create_renderer;
+    render_settings.destroy_renderer = attr->destroy_renderer;
 
-    gui_initialize();
+    qbRendererAttr_ empty_args = {};
+    render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
+    render_initialize(&render_settings);
   }
 
-  if (universe_->enabled & QB_FEATURE_AUDIO) {}
+  if (universe_->enabled & QB_FEATURE_AUDIO) {
+    AudioSettings s = {};
+    s.sample_frequency = attr->audio_args->sample_frequency;
+    s.buffered_samples = attr->audio_args->buffered_samples;
+    audio_initialize(s);
+  }
+
   if (universe_->enabled & QB_FEATURE_GAME_LOOP) {
     qb_timer_create(&fps_timer, 50);
     qb_timer_create(&update_timer, 50);
@@ -76,14 +87,6 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   }
 
   return ret;
-}
-
-qbResult qb_init_graphics(qbUniverse* universe, struct qbRenderer_* renderer) {
-  renderer_initialize(renderer);
-  auto width = qb_renderer()->width;
-  auto height = qb_renderer()->height;
-  qb_renderer()->set_gui_renderpass(qb_renderer(), gui_create_renderpass(width, height));
-  return QB_OK;
 }
 
 qbResult qb_start() {
@@ -96,6 +99,8 @@ qbResult qb_start() {
 }
 
 qbResult qb_stop() {
+  render_shutdown();
+  audio_shutdown();
   qbResult ret = AS_PRIVATE(stop());
   universe_ = nullptr;
   return ret;

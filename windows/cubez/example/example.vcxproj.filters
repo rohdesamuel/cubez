@@ -30,6 +30,9 @@
     <Image Include="..\..\..\example\resources\transporter.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="..\..\..\example\resources\soccer_ball.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\src\main.cpp">
@@ -100,6 +103,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\..\..\example\resources\material.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\pbr.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\pbr.fs">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

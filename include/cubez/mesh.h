@@ -123,5 +123,6 @@ QB_API qbMaterial qb_material_find(const char* name);
 
 QB_API struct qbRenderable_* qb_draw_cube(int size_x, int size_y, int size_z);
 QB_API struct qbRenderable_* qb_draw_rect(int w, int h);
+QB_API struct qbRenderable_* qb_draw_sphere(float radius, int slices, int zslices);
 
 #endif   // MESH__H
