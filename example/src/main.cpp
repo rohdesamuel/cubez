@@ -1,439 +1,395 @@
 #include <cubez/cubez.h>
 #include <cubez/utils.h>
+#include <cubez/log.h>
+#include <cubez/mesh.h>
+#include <cubez/input.h>
+#include <cubez/render.h>
+#include <cubez/audio.h>
+#include <cubez/render_pipeline.h>
+#include <cubez/gui.h>
+#include "forward_renderer.h"
 
-#include "ball.h"
-#include "physics.h"
-#include "player.h"
-#include "log.h"
-#include "mesh.h"
-#include "mesh_builder.h"
-#include "input.h"
-#include "render.h"
-#include "shader.h"
-#include "planet.h"
-#include "gui.h"
+#include "pong.h"
 
 #include <algorithm>
+#include <iostream>
 #include <thread>
 #include <unordered_map>
-
-const char simple_vs[] = R"(
-#version 200
-
-in vec3 inPos;
-in vec3 inCol;
-
-out vec3 vCol;
-
-void main() {
-  vCol = inCol;
-  gl_Position = vec4(inPos, 1.0);
-}
-)";
-
-const char simple_fs[] = R"(
-#version 130
-
-in vec3 vCol;
-out vec4 frag_color;
-
-void main() {
-  frag_color = vec4(vCol, 1.0);
-}
-)";
-
-
-void check_for_gl_errors() {
-  GLenum error = glGetError();
-  if (error) {
-    const GLubyte* error_str = gluErrorString(error);
-    std::cout << "Error(" << error << "): " << error_str << std::endl;
-  }
-}
-
-void initialize_universe(qbUniverse* uni) {
-  qb_init(uni);
-
-  {
-    logging::initialize();
-  }
-
-  {
-    physics::Settings settings;
-    physics::initialize(settings);
-  }
-  
-  {
-    render::Settings s;
-    s.title = "Cubez example";
-    s.width = 1200;
-    s.height = 800;
-    s.znear = 0.1f;
-    s.zfar = 10000.0f;
-    s.fov = 70.0f;
-    render::initialize(s);
-
-    render::qb_camera_setyaw(90.0f);
-    render::qb_camera_setpitch(0.0f);
-    render::qb_camera_setposition({400.0f, -250.0f, 250.0f});
-
-    check_for_gl_errors();
-  }
-  
-  {
-    input::initialize();
-  }
-  {
-    /*
-
-    // Operations done in the global scene (QB_GLOBAL_SCENE) will persist until
-    // the game ends. By default, all API calls are executed on the global
-    // scene.
-    qb_scene_activate(QB_GLOBAL_SCENE);
-    qb_texture_load(...);
-    qb_model_load(...);
-
-    // Create two scenes: one for the main menu, and then another scene that
-    // holds all the game objects.
-    qbScene main_menu;
-    qbScene game_prefetch;
-    qb_scene_load(&main_menu);
-    qb_scene_create(&game_prefetch);
-
-    // Sets the scene to be active. While the scene is active, all API calls
-    // will only affect the active scene. The game loop will only run over
-    // the active scene.
-    qb_scene_activate(main_menu);
-    qb_component_create(...);
-    qb_entity_create(...);
-    qb_material_create(...);
-    qb_event_send(...);
-    
-
-    // "set"ing a scene will not run the game loop over it. All API calls
-    // performed will only be executed on the "set" scene. The game loop will
-    // NOT run over the "set" scene.
-    qb_with_scene(game_prefetch, [](){
-      qb_scene_push(game_prefetch);
-      qb_entity_create(...);
-      qb_model_load(...);
-      qb_scene_pop();
-    });
-
-    ...
-
-    // Once the user clicks on the "Start Game" button, activate the game scene
-    // and purge the old scene.
-    qb_button_press("MainMenu/StartGame", []() {
-      qb_scene_activate(game_prefetch);
-      qb_scene_destroy(main_menu);
-    });
-
-    */
-  }
-
-#if 1
-  qbShader mesh_shader;
-  qbTexture ball_texture;
-  MeshBuilder block_mesh;
-  qbMaterial ball_material;
-  qbMaterial red_material;
-  {
-    // Load resources.
-    std::cout << "Loading resources.\n";
-    qb_shader_load(&mesh_shader, "mesh_shader", "resources/mesh.vs", "resources/mesh.fs");
-    qb_texture_load(&ball_texture, "ball_texture", "resources/soccer_ball.bmp");
-    block_mesh = MeshBuilder::FromFile("resources/block.obj");
-
-    qbMaterialAttr attr;
-    qb_materialattr_create(&attr);
-    qb_materialattr_setcolor(attr, glm::vec4{ 1.0, 0.0, 1.0, 1.0 });
-    qb_materialattr_addtexture(attr, ball_texture, {0, 0}, {0, 0});
-    qb_materialattr_setshader(attr, mesh_shader);
-    qb_material_create(&ball_material, attr);
-    qb_materialattr_destroy(&attr);
-  }
-  {
-    qbMaterialAttr attr;
-    qb_materialattr_create(&attr);
-    qb_materialattr_setcolor(attr, glm::vec4{ 1.0, 0.0, 0.0, 1.0 });
-    qb_materialattr_setshader(attr, mesh_shader);
-    qb_material_create(&red_material, attr);
-    qb_materialattr_destroy(&attr);
-  }
-
-  {
-    ball::Settings settings;
-    settings.mesh = block_mesh.BuildRenderable(qbRenderMode::QB_TRIANGLES);
-    settings.collision_mesh = new Mesh(block_mesh.BuildMesh());
-    settings.material = ball_material;
-    settings.material_exploded = red_material;
-
-    ball::initialize(settings);
-    check_for_gl_errors();
-  }
-#if 0
-  {
-    qbEntityAttr attr;
-    qb_entityattr_create(&attr);
-
-    physics::Transform t{{400.0f, 300.0f, -32.0f}, {}, true};
-    qb_entityattr_addcomponent(attr, physics::component(), &t);
-
-    qbMesh mesh;
-    qb_mesh_load(&mesh, "floor_mesh", "C:\\Users\\Sam\\Source\\Repos\\cubez\\windows\\cubez\\x64\\Release\\floor.obj");
-    render::create(mesh, ball_material);
-
-    qbEntity unused;
-    qb_entity_create(&unused, attr);
-
-    qb_entityattr_destroy(&attr);
-  }
-#endif
-  {
-    player::Settings settings;
-    settings.start_pos = {0, 0, 0};
-
-    player::initialize(settings);
-    check_for_gl_errors();
-  }
-
-  auto new_game = [mesh_shader](const framework::JSObject&, const framework::JSArgs&) {
-    planet::Settings settings;
-    settings.shader = mesh_shader;
-    settings.resource_folder = "resources/";
-    planet::Initialize(settings);
-
-    return framework::JSValue();
-  };
-  {
-    planet::Settings settings;
-    settings.shader = mesh_shader;
-    settings.resource_folder = "resources/";
-    planet::Initialize(settings);
-  }
-  {
-    glm::vec2 menu_size(render::window_width(), render::window_height());
-    glm::vec2 menu_pos(0, 0);
-
-    gui::JSCallbackMap callbacks;
-    callbacks["NewGame"] = new_game;
-
-    //gui::FromFile("file:///game.html", menu_pos, menu_size, callbacks);
-  }
-
-#endif
-}
-
-qbScene create_main_menu() {
-  qbScene scene;
-  qb_scene_create(&scene, "Main Menu");
-  qb_scene_set(scene);
-
-  
-
-  qb_scene_reset();
-  return scene;
-}
-
-qbCoro test_coro;
-qbCoro generator_coro;
-qbCoro wait_coro;
-
-qbVar load_texture(qbVar var) {
-  qbTexture tex = nullptr;
-  qb_texture_load(&tex, "", (const char*)var.p);
-  return qbVoid(tex);
-}
-
-qbVar generator(qbVar var) {
-  qbCoro c = qb_coro_async(load_texture, qbVoid("resources/soccer_ball.bmp"));
-
-  for (;;) {
-    var = qb_coro_yield(qbInt(var.i - 1));    
-
-    qbVar ret = qb_coro_await(c);
-    if ((ret = qb_coro_peek(c)).tag != QB_TAG_UNSET) {
-      logging::out("Texture loaded!");
-      var = qbInt(0);
-      qb_coro_destroy(&c);
-    }
-    //qb_coro_wait(1.0);
-  }
-  return qbNone;
-}
-
-qbVar test_entry(qbVar var) {
-  qbVar ret = var;
-  int num_times_run = 0;
-
-  while (true) {
-    if (ret.tag != QB_TAG_UNSET) {
-      logging::out("%lld", ret.i);
-    }
-    ret = qb_coro_call(generator_coro, ret);
-    //qb_coro_await(generator_coro);
-    num_times_run++;
-
-    qb_coro_yield(qbNone);
-    if (ret.tag == QB_TAG_UNSET) {
-      continue;
-    } else if (ret.i <= 0) {
-      break;
-    }
-  }
-
-  logging::out("number of times run: %d", num_times_run);
-  return qbNone;
-}
-
-struct TimingInfo {
-  uint64_t frame;
-  double udpate_fps;
-  double render_fps;
-  double total_fps;
-};
+#include <glm/ext.hpp>
 
 qbVar print_timing_info(qbVar var) {
   for (;;) {
-    TimingInfo* info = (TimingInfo*)var.p;
+    qbTiming info = (qbTiming)var.p;
 
     std::string out =
       "Frame: " + std::to_string(info->frame) + "\n"
       "Total FPS:  " + std::to_string(info->total_fps) + "\n"
       "Render FPS: " + std::to_string(info->render_fps) + "\n"
-      "Update FPS: " + std::to_string(info->udpate_fps);
-
-    logging::out(out.c_str());
-
+      "Update FPS: " + std::to_string(info->udpate_fps) + "\n";
+    //qb_log(QB_INFO, out.c_str());
     qb_coro_wait(1.0);
   }
 }
 
-qbVar ball_random_walk(qbVar v) {
-  qbEntity ball = v.u;
-
-  physics::Transform* t;
-  qb_instance_find(physics::component(), ball, &t);
-
-  for (int i = 0; i < 10; ++i) {
-    qb_coro_wait(1.0);
-    t->v = {
-      (((float)(rand() % 1000)) / 1000) - 0.5,
-      (((float)(rand() % 1000)) / 1000) - 0.5,
-      (((float)(rand() % 1000)) / 1000) - 0.5
-    };
+void main_menu_activate(qbScene scene, size_t count, const char* keys[], void* values[]) {
+  auto it = std::find(keys, keys + count, "main_menu");
+  if (it != keys + count) {
+    return;
   }
-
-  qb_entity_destroy(ball);
-  return qbNone;
 }
 
-qbVar create_random_balls(qbVar) {
-  std::vector<qbCoro> coros;
-  coros.reserve(100);
-  for (;;) {
-    glm::vec3 v = {
-      (((float)(rand() % 1000)) / 1000) - 0.5,
-      (((float)(rand() % 1000)) / 1000) - 0.5,
-      (((float)(rand() % 1000)) / 1000) - 0.5
-    };
-    qbEntity ball = ball::create({}, v);
-    coros.push_back(qb_coro_sync(ball_random_walk, qbUint(ball)));
-    qb_coro_wait(1.0);
+qbTiming_ timing_info;
+qbScene main_menu_scene;
+qbScene game_scene;
+void create_main_menu() {
+  qb_scene_create(&main_menu_scene, "Main Menu");
+  qb_scene_set(main_menu_scene);
 
-    for (auto it = coros.begin(); it != coros.end(); ++it) {
-      qbCoro c = *it;
-      if (qb_coro_done(c)) {
-        qb_coro_destroy(&c);
-        it = coros.erase(it);
-      }
+  qbWindowCallbacks_ window_callbacks = {};
+  window_callbacks.onfocus = [](qbWindow) {
+    std::cout << "onfocus\n";
+    return true;
+  };
+  window_callbacks.onclick = [](qbWindow, qbMouseButtonEvent e) {
+    std::cout << "onclick ( " << e->button << ", " << (bool)e->state << " )\n";
+    return true;
+  };
+  window_callbacks.onscroll = [](qbWindow window, qbMouseScrollEvent e) {
+    std::cout << "onscroll ( " << e->xrel << ", " << e->yrel << " )\n";
+    if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+      qb_window_moveby(window, { e->yrel * 5, 0.0f, 0.0f });
+    } else {
+      qb_window_moveby(window, { e->xrel, e->yrel * 5, 0.0f });
     }
+    return true;
+  };
+
+  qbImage ball_image;
+  {
+    qbImageAttr_ attr;
+    attr.type = QB_IMAGE_TYPE_2D;
+    qb_image_load(&ball_image, &attr, "resources/soccer_ball.bmp");
   }
+
+  std::vector<qbWindow> windows;
+  qbWindow parent;
+
+  {
+    qbWindowAttr_ attr = {};
+    attr.background_color = { 0.0, 0.0, 0.0, 0.95 };
+    attr.callbacks = &window_callbacks;
+    qb_window_create(&parent, &attr, { 0.0f, 0.0f }, { 512.0f, 64.0f }, nullptr, true);
+  }
+
+  qbWindow text_box;
+  {
+    qbTextboxAttr_ textbox_attr = {};
+    textbox_attr.align = QB_TEXT_ALIGN_LEFT;
+    textbox_attr.text_color = { 1.0f, 0.0f, 0.0f, 1.0f };
+    qb_textbox_create(&text_box, &textbox_attr, { 16.0f, 0.0f }, { 512.0f, 64.0f }, parent, true, 48, u"");
+  }
+  qb_window_movetoback(parent);
+  qb_window_movetofront(text_box);
+
+  qbWindow main_menu;
+  {
+    qbWindowAttr_ attr = {};
+    attr.background_color = { 0.0, 0.0, 0.0, 0.95 };
+
+    qb_window_create(&main_menu, &attr, { (1200.0f * 0.5f) - 256.0f, 100.0f }, { 512.0f, 600.0f }, nullptr, true);
+    windows.push_back(main_menu);
+  }
+
+  qbWindow main_menu_border;
+  {
+    qbWindowAttr_ attr = {};
+    attr.background_color = { 1.0, 1.0, 1.0, 0.9 };
+
+    qb_window_create(&main_menu_border, &attr, { -4.0f, -4.0f }, { 520.0f, 608.0f }, main_menu, true);
+    qb_window_movetoback(main_menu_border);
+    windows.push_back(main_menu_border);
+  }
+
+  qbWindow new_game;
+  {
+    qbWindowCallbacks_ callbacks = {};
+    callbacks.onclick = [](qbWindow w, qbMouseButtonEvent e) {
+      return true;
+    };
+    callbacks.onscroll = [](qbWindow w, qbMouseScrollEvent e) {
+      qb_window_resizeby(w, { e->yrel, 0 });
+      return true;
+    };
+    qbWindowAttr_ attr = {};
+    attr.background_color = { 1.0, 1.0, 1.0, 0.15 };
+    attr.callbacks = &callbacks;
+
+    qb_window_create(&new_game, &attr, { 0.0f, 100.0f }, { 512.0f, 64.0f }, main_menu, true);
+    windows.push_back(new_game);
+  }
+
+  {
+    qbTextboxAttr_ attr = {};
+    attr.align = QB_TEXT_ALIGN_CENTER;
+    attr.text_color = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    qbWindow new_game_text;
+    qb_textbox_create(&new_game_text, &attr, { 0.0f, 0.0f }, { 512.0f, 64.0f }, new_game, true, 48, u"New Game");
+    windows.push_back(new_game_text);
+  }
+  
+  qb_window_close(main_menu);
+  //qb_window_open(main_menu);
+
+  qb_scene_attach(main_menu_scene, "main_menu", new std::vector<qbWindow>(std::move(windows)));
+  qb_coro_sync([](qbVar text) {
+    qbWindow text_box = (qbWindow)text.p;
+    while (true) {
+      int fps = (int)timing_info.total_fps;
+      {
+        std::wstring text_fps = std::to_wstring(fps);
+        while (text_fps.length() < 4) {
+          text_fps.insert(text_fps.begin(), L'0');
+        }
+        text_fps = std::wstring(L"FPS: ") + text_fps;
+        qb_textbox_text(text_box, (char16_t*)text_fps.data());
+      }
+      qb_coro_waitframes(10);
+    }
+
+    return qbNone;
+  }, qbVoid(text_box));
+
+  //qb_window_movetofront(text_box);
+  qb_scene_reset();
 }
 
+void create_game() {
+  qb_scene_create(&game_scene, "Game");
+  qb_scene_set(game_scene);
 
-TimingInfo timing_info;
-int main(int, char* []) {
-  // Create and initialize the game engine.
-  qbUniverse uni;
-  initialize_universe(&uni);
+  qbCamera main_camera;
+  {
+    qbCameraAttr_ attr = {};
+    attr.fov = 3.14159f / 4.0f;
+    attr.height = 800;
+    attr.width = 1200;
+    attr.znear = 0.1;
+    attr.zfar = 1000;
+    attr.origin = glm::vec3(-10, 0, 0);
+    attr.rotation_mat = glm::mat4(1);
+    qb_camera_create(&main_camera, &attr);
+    qb_camera_activate(main_camera);
+  }
+  create_main_menu();
 
-  qb_coro_sync(create_random_balls, qbNone);
-  test_coro = qb_coro_sync(test_entry, qbInt(100000));
-  generator_coro = qb_coro_create(generator);
+  {
+    qb_light_point(0, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 5.0 }, 15.0f, 200.0f);
+    qb_light_point(1, { 1.0, 0.0, 0.0 }, { -25.0, 0.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(2, { 0.0, 1.0, 0.0 }, { 25.0, 0.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(3, { 0.0, 0.0, 1.0 }, { 0.0, -25.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_point(4, { 1.0, 0.0, 1.0 }, { 0.0, 25.0, 5.0 }, 10.0f, 200.0f);
+    qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(2, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(3, qbLightType::QB_LIGHT_TYPE_POINT);
+    qb_light_enable(4, qbLightType::QB_LIGHT_TYPE_POINT);
 
-  qb_start();
-  
-  int frame = 0;
-  qbTimer fps_timer;
-  qbTimer update_timer;
-  qbTimer render_timer;
+    qb_light_directional(0, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, -1.0 }, 0.05f);
+    qb_light_directional(1, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, 1.0 }, 0.1f);
+    qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
+    //qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
+  }
 
   qb_coro_sync(print_timing_info, qbVoid(&timing_info));
-
-  qb_timer_create(&fps_timer, 50);
-  qb_timer_create(&update_timer, 50);
-  qb_timer_create(&render_timer, 50);
-
-  const double kClockResolution = 1e9;
-  double t = 0.0;
-  const double dt = 0.01;
-  double current_time = qb_timer_query() * 0.000000001;
-  double start_time = (double)qb_timer_query();
-  double accumulator = 0.0;
-  //gui::qbRenderTarget target;
-  //gui::qb_rendertarget_create(&target, { 250, 0 }, { 500, 500 }, {});
-  
-  while (1) {
-    qb_timer_start(fps_timer);
-
-    double new_time = qb_timer_query() * 0.000000001;
-    double frame_time = new_time - current_time;
-    frame_time = std::min(0.25, frame_time);
-    current_time = new_time;
-
-    accumulator += frame_time;
-    
-    input::handle_input([](SDL_Event*) {
-      render::shutdown();
-      SDL_Quit();
-      qb_stop();
-      exit(0);
-    });
-    while (accumulator >= dt) {
-      qb_timer_start(update_timer);
-      qb_loop();
-      qb_timer_add(update_timer);
-
-      accumulator -= dt;
-      t += dt;
+  qbEntity block;
+  {
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      {
+        qbImageAttr_ image_attr = {};
+        image_attr.type = qbImageType::QB_IMAGE_TYPE_2D;
+        image_attr.generate_mipmaps = true;
+        qb_image_load(&attr.albedo_map, &image_attr,
+                      "resources/soccer_ball.bmp");
+        qb_image_load(&attr.normal_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_normal.png");
+        qb_image_load(&attr.metallic_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_metallic.png");
+        qb_image_load(&attr.roughness_map, &image_attr,
+                      "resources/rustediron1-alt2-bl/rustediron2_roughness.png");
+      }
+      attr.albedo = { 1, 1, 1 };
+      attr.metallic = 8.0f;
+      attr.roughness = 0.5;      
+      qb_material_create(&material, &attr, "ball");
     }
 
-    qb_timer_start(render_timer);
+    qbTransform_ t = {
+      glm::vec3(0, 0, 0),
+      glm::vec3(0.5, -5, 0),
+      glm::mat4(1)
+    };
 
-    render::RenderEvent e;
-    e.frame = frame;
-    e.alpha = accumulator / dt;
-    render::present(&e);
-    
-    qb_timer_add(render_timer);
+    qbRenderable r = qb_draw_sphere(2, 50, 50);
 
-    ++frame;
-    qb_timer_stop(fps_timer);
-
-    // Calculate then communicate TimingInfo to Coroutine.
-    auto update_timer_avg = qb_timer_average(update_timer);
-    auto render_timer_avg = qb_timer_average(render_timer);
-    auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
-
-    double update_fps = update_timer_avg == 0 ? 0 : kClockResolution / update_timer_avg;
-    double render_fps = render_timer_avg == 0 ? 0 : kClockResolution / render_timer_avg;
-    double total_fps = fps_timer_elapsed == 0 ? 0 : kClockResolution / fps_timer_elapsed;
-
-    timing_info.frame = frame;
-    timing_info.render_fps = render_fps;
-    timing_info.total_fps = total_fps;
-    timing_info.udpate_fps = update_fps;
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &material);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&block, attr);
+    qb_entityattr_destroy(&attr);
   }
+  {
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      attr.emission = { 1, 1, 1 };
+      qb_material_create(&material, &attr, "ball");
+    }
+
+
+    std::vector<glm::vec3> positions = {
+      { 0, 0, 5 },
+      { 25, 0, 5 },
+      { -25, 0, 5 },
+      { 0, 25, 5 },
+      { 0, -25, 5 },
+    };
+
+    for (auto&& pos : positions) {
+      qbTransform_ t = {
+        glm::vec3(0, 0, 0),
+        pos,
+        glm::mat4(1)
+      };
+
+      qbRenderable r = qb_draw_cube(1, 1, 1);
+
+      qbEntity unused;
+      qbEntityAttr attr;
+      qb_entityattr_create(&attr);
+      qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+      qb_entityattr_addcomponent(attr, qb_material(), &material);
+      qb_entityattr_addcomponent(attr, qb_transform(), &t);
+      qb_entity_create(&unused, attr);
+      qb_entityattr_destroy(&attr);
+    }
+  }
+  {
+    qbMaterial material;
+    {
+      qbMaterialAttr_ attr = {};
+      attr.albedo = { 1, 1, 1 };
+      attr.metallic = 1.10;
+      attr.roughness = 0.005;
+      qb_material_create(&material, &attr, "ball");
+    }
+
+    qbTransform_ t = {
+      glm::vec3(-50, -50, -5),
+      glm::vec3(0, 0, 0),
+      glm::mat4(1)
+      //glm::rotate(glm::mat4(1), -3.141592f / 2.0f, glm::vec3(1, 0, 0))
+    };
+
+    qbRenderable r = qb_draw_rect(100, 100);
+
+    qbEntity unused;
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &material);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&unused, attr);
+    qb_entityattr_destroy(&attr);
+  }
+
+  qb_coro_sync([](qbVar v) {
+    qbEntity block = v.i;
+    qbTransform t;
+    qb_instance_find(qb_transform(), block, &t);
+    //t->orientation = glm::rotate(t->orientation, -3.14159f / 2.0f, glm::vec3(1, 1, 0));
+    //t->position.y += 5.0f;
+    int frame = 0;
+    qbCamera camera = qb_camera_active();
+    while (true) {
+      t->orientation = glm::rotate(t->orientation, -0.001f, glm::vec3(0, 0, 1));
+
+      //t->position.z = 0.0f + 5.0f*glm::cos((float)(frame) / 100.0f);
+      //t->position.y = 0.0f - 5.0f*glm::sin((float)(frame) / 100.0f);
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0.5, 0, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(-0.5, 0, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_Q)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, 0.5, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_E)) {
+        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, -0.5, 0, 1) * camera->rotation_mat));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
+        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, -0.025f, glm::vec3(0, 0, 1)));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
+        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, 0.025f, glm::vec3(0, 0, 1)));
+      }
+
+      ++frame;
+      qb_coro_wait(0.01);
+    }
+    return qbNone;
+  }, qbInt(block));
+
+  qb_scene_reset();
+}
+
+void initialize_universe(qbUniverse* uni) {
+  uint32_t width = 1200;
+  uint32_t height = 800;
+ 
+  qbUniverseAttr_ uni_attr = {};
+  uni_attr.title = "Cubez example";
+  uni_attr.width = width;
+  uni_attr.height = height;
+  uni_attr.enabled = qbFeature::QB_FEATURE_ALL;
+
+  qbRendererAttr_ renderer_attr = {};
+  uni_attr.create_renderer = qb_forwardrenderer_create;
+  uni_attr.destroy_renderer = qb_forwardrenderer_destroy;
+  uni_attr.renderer_args = &renderer_attr;
+
+  qbAudioAttr_ audio_attr = {};
+  audio_attr.sample_frequency = 44100;
+  audio_attr.buffered_samples = 15;
+  uni_attr.audio_args = &audio_attr;
+
+  qb_init(uni, &uni_attr);
+}
+
+int main(int, char* []) {
+  // Create and initialize the game engine.
+  qbUniverse uni = {};
+  initialize_universe(&uni);
+  qb_start();
+  create_game();
+
+  // https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
+
+  qbLoopCallbacks_ loop_callbacks = {};
+  qbLoopArgs_ loop_args = {};  
+  while (qb_loop(&loop_callbacks, &loop_args) != QB_DONE) {
+    qb_timing(uni, &timing_info);
+  }
+  return 0;
 }

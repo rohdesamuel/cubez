@@ -4,9 +4,9 @@
 #include <atomic>
 #include <iostream>
 
-#include "collision_utils.h"
-#include "mesh_builder.h"
-#include "input.h"
+//#include "collision_utils.h"
+//#include "mesh_builder.h"
+//#include "input.h"
 
 namespace physics {
 
@@ -86,7 +86,8 @@ void initialize(const Settings&) {
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_CROSS);
     qb_systemattr_setfunction(attr,
         [](qbInstance* insts, qbFrame*) {
-          qbEntity e_a = qb_instance_getentity(insts[0]);
+      #if 0
+      qbEntity e_a = qb_instance_getentity(insts[0]);
           qbEntity e_b = qb_instance_getentity(insts[1]);
 
           if (e_a == e_b) {
@@ -115,6 +116,7 @@ void initialize(const Settings&) {
             qb_entity_addcomponent(e_a, physics::collision(), &collision);
             qb_entity_addcomponent(e_b, physics::collision(), &collision);
           }
+#endif
         });
     qb_system_create(&collision_system, attr);
     qb_system_disable(collision_system);

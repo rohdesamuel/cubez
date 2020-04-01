@@ -187,6 +187,16 @@ Coro coro_new(_entry fn) {
   return c;
 }
 
+Coro coro_clone(Coro target) {
+  Coro c = (Coro)malloc(sizeof(struct _Coro));
+  _stack_init(c, STACK_DEFAULT);
+
+  c->start = target->start;
+  c->is_done = 0;
+  _coro_enter(c);
+  return c;
+}
+
 Coro coro_this() {
   return _cur == &_on_exit ? nullptr : _cur;
 }

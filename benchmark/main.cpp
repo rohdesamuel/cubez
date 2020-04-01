@@ -46,7 +46,7 @@ void comflab(qbInstance* insts, qbFrame*) {
   comflab->dingy++;
 }
 
-uint64_t create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
+double create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
   qbTimer timer;
   qb_timer_create(&timer, 0);
 
@@ -62,18 +62,18 @@ uint64_t create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
   qb_timer_stop(timer);
 
   qb_entityattr_destroy(&attr);
-  uint64_t result = qb_timer_elapsed(timer);
+  double result = qb_timer_elapsed(timer);
   qb_timer_destroy(&timer);
 
   return result;
 }
 
-volatile int64_t count = 0;
+int64_t count = 0;
 int64_t* Count() {
-  return (int64_t*)&count;
+  return &count;
 }
 
-uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterations) {
+double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterations) {
   qbTimer timer;
   qb_timer_create(&timer, 0);
   {
@@ -93,13 +93,13 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
   {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
-    qb_systemattr_addmutable(attr, position_component);
+    qb_systemattr_addconst(attr, position_component);
     qb_systemattr_setfunction(attr,
       [](qbInstance* instance, qbFrame*) {        
 
         PositionComponent p;
-        qb_instance_getmutable(*instance, &p);
-        *Count() += (int64_t)p.p.x;
+        qb_instance_getconst(*instance, &p);
+        *Count() += (uint64_t)p.p.x ^ 0x12983;
       });
 
     qbSystem system;
@@ -114,12 +114,12 @@ uint64_t iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iterati
   qb_timer_stop(timer);
   std::cout << "Count = " << *Count() << std::endl;
 
-  uint64_t elapsed = qb_timer_elapsed(timer);
+  double elapsed = qb_timer_elapsed(timer);
   qb_timer_destroy(&timer);
   return elapsed;
 }
 
-uint64_t coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
+double coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
   qbTimer timer;
   qb_timer_create(&timer, 0);
 
@@ -145,7 +145,7 @@ uint64_t coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
 
   double elapsed = qb_timer_elapsed(timer);
   qb_timer_destroy(&timer);
-  return elapsed / iterations;
+  return elapsed;
 }
 
 template<class F>
@@ -153,7 +153,17 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
   std::cout << "Running benchmark: " << name << "\n";
   uint64_t elapsed = 0;
   for (uint64_t i = 0; i < test_iterations; ++i) {
-    elapsed += f(count, iterations);
+    uint64_t before = elapsed;
+    qbScene test_scene;
+    qb_scene_create(&test_scene, "");
+    qb_scene_activate(test_scene);
+
+    elapsed += f(count, iterations) / iterations;
+
+    qb_scene_destroy(&test_scene);
+    if (before > elapsed) {
+      std::cout << "overflow\n";
+    }
   }
   std::cout << "Finished benchmark\n";
   std::cout << "Total elapsed: " << elapsed << "ns\n";
@@ -164,6 +174,10 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
 
 
 int main() {
+  std::cout << "Number of processors: " << omp_get_max_threads() << std::endl;
+  omp_set_num_threads(omp_get_max_threads());
+  //omp_set_num_threads(1);
+
   qbUniverse uni;
   qb_init(&uni);
   qb_start();
@@ -190,16 +204,16 @@ int main() {
     qb_componentattr_destroy(&attr);
   }
 
-  uint64_t count = 10'000'000;
-  uint64_t iterations = 1;
+  uint64_t count = 1'000'000;
+  uint64_t iterations = 500;
   uint64_t test_iterations = 1;
   
   /*do_benchmark("Create entities benchmark",
                create_entities_benchmark, count, iterations, 1);*/
-  /*do_benchmark("Unpack one component benchmark",
-    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);*/
-  do_benchmark("coroutine_overhead_benchmark",
-               coroutine_overhead_benchmark, 1, 1000000, 1);
+  do_benchmark("Unpack one component benchmark",
+    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
+  /*do_benchmark("coroutine_overhead_benchmark",
+               coroutine_overhead_benchmark, 1, 1000000, 1);*/
   qb_stop();
   while (1);
 }

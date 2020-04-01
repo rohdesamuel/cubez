@@ -16,6 +16,12 @@ typedef void(*qbInstanceOnDestroy)(qbInstance instance);
 struct qbScene_ {
   const char* name;
   class GameState* state;
+  std::vector<std::function<void(qbScene scene, size_t count, const char* keys[], void* values[])>> ondestroy;
+  std::vector<std::function<void(qbScene scene, size_t count, const char* keys[], void* values[])>> onactivate;
+  std::vector<std::function<void(qbScene scene, size_t count, const char* keys[], void* values[])>> ondeactivate;
+  
+  std::vector<const char*> keys;
+  std::vector<void*> values;
 };
 
 struct qbCoro_ {
@@ -59,9 +65,9 @@ struct qbTicket_ {
 struct qbSystemAttr_ {
   qbId program;
   
-  qbTransform transform;
-  qbCallback callback;
-  qbCondition condition;
+  qbTransformFn transform;
+  qbCallbackFn callback;
+  qbConditionFn condition;
 
   qbTrigger trigger;
   int16_t priority;

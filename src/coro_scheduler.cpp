@@ -57,7 +57,7 @@ qbCoro CoroScheduler::schedule_sync(qbVar(*entry)(qbVar), qbVar var) {
 
   qbCoro user_coro = new qbCoro_;
   user_coro->main = nullptr;
-  user_coro->ret = qbUnset;
+  user_coro->ret = qbFuture;
   user_coro->arg = var;
   user_coro->is_async = true;
 
@@ -71,13 +71,13 @@ qbCoro CoroScheduler::schedule_sync(qbVar(*entry)(qbVar), qbVar var) {
 
 qbCoro CoroScheduler::schedule_async(qbVar(*entry)(qbVar), qbVar var) {
   qbCoro user_coro = new qbCoro_;
-  user_coro->ret = qbUnset;
+  user_coro->ret = qbFuture;
   user_coro->is_async = true;
 
   thread_pool_->enqueue([user_coro, entry] (qbVar var) {
     user_coro->main = coro_new(entry);
     int is_done = false;
-    qbVar ret = qbUnset;
+    qbVar ret = qbFuture;
     do {
       ret = qb_coro_call(user_coro, var);
       is_done = coro_done(user_coro->main);
@@ -91,15 +91,15 @@ qbCoro CoroScheduler::schedule_async(qbVar(*entry)(qbVar), qbVar var) {
 }
 
 qbVar CoroScheduler::await(qbCoro coro) {
-  qbVar ret = qbUnset;
+  qbVar ret = qbFuture;
   while ((ret = peek(coro)).tag == QB_TAG_UNSET) {
     if (coro->is_async) {
-      qb_coro_yield(qbUnset);
+      qb_coro_yield(qbFuture);
     } else if (!coro_done(coro->main)) {
       // Calling coro_done is thread-safe with a synchronous coroutine because
       // it is defined to be on the same thread.
       ret = qb_coro_call(coro, coro->arg);
-      qb_coro_yield(qbUnset);
+      qb_coro_yield(qbFuture);
     }
   }
   return ret;

@@ -2,7 +2,6 @@
 #define PHYSICS__H
 
 #include <cubez/cubez.h>
-#include "mesh_builder.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -25,18 +24,6 @@ struct qbCollision {
   qbEntity b;
 };
 
-struct qbCollisionMesh {
-  std::vector<glm::vec3> convex_hull;
-
-  glm::vec3 max;
-  glm::vec3 min;
-};
-
-struct qbCollidable {
-  Mesh* collision_mesh;
-
-  float r;
-};
 
 struct Settings {
   float gravity = 0.0f;

@@ -14,8 +14,11 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
 
-  Task* task = new Task(p);
-  program_threads_[id] = std::unique_ptr<Task>(task);
+  if (id > 0) {
+    program_threads_[id] = new Task(p);
+  } else {
+    main_program_ = p;
+  }
   return id;
 }
 
@@ -27,12 +30,14 @@ qbResult ProgramRegistry::DetatchProgram(qbId program, const std::function<GameS
     program_thread->Run(game_state_fn);
     detached_[program] = std::move(program_thread);
     programs_.erase(program);
+    program_threads_.erase(program);
   }
   return QB_OK;
 }
 
-qbResult ProgramRegistry::JoinProgram(qbId program) {
-  programs_[program] = detached_.find(program)->second->Release();
+qbResult ProgramRegistry::JoinProgram(qbId program) {  
+  qbProgram* prog = programs_[program] = detached_.find(program)->second->Release();
+  program_threads_[program] = new Task(prog);
   detached_.erase(detached_.find(program));
   return QB_OK;
 }
@@ -52,6 +57,8 @@ void ProgramRegistry::Run(GameState* state) {
   for (auto& task : program_threads_) {
     task.second->Run(state);
   }
+
+  RunProgram(main_program_->id, state);
 
   for (auto& task : program_threads_) {
     task.second->Wait();

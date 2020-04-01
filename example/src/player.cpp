@@ -96,7 +96,7 @@ void initialize(const Settings& settings) {
 
           if (SDL_GetRelativeMouseMode()) {
             float speed = 1.0f;
-            glm::vec3 origin = render::qb_camera_getorigin();
+            glm::vec3 origin = qb_camera_getorigin();
             if (input::is_key_pressed(QB_KEY_W)) {
               origin.x -= speed * glm::cos(glm::radians(dir));
               origin.y -= speed * glm::sin(glm::radians(dir));
@@ -113,12 +113,12 @@ void initialize(const Settings& settings) {
               origin.x += speed * glm::cos(glm::radians(dir + 90));
               origin.y += speed * glm::sin(glm::radians(dir + 90));
             }
-            render::qb_camera_setorigin(origin);
+            qb_camera_setorigin(origin);
           }
           t->p.x = dis * glm::sin(glm::radians(zdir)) * glm::cos(glm::radians(dir));
           t->p.y = dis * glm::sin(glm::radians(zdir)) * glm::sin(glm::radians(dir));
           t->p.z = dis * glm::cos(glm::radians(zdir));
-          render::qb_camera_setposition(t->p);
+          qb_camera_setposition(t->p);
         });
 
     qbSystem unused;
@@ -151,12 +151,12 @@ void initialize(const Settings& settings) {
       physics::Transform* t;
       qb_instance_getconst(insts[1], &t);
 
-      glm::vec3 orig = render::qb_camera_getposition() + render::qb_camera_getorigin();
+      glm::vec3 orig = qb_camera_getposition() + qb_camera_getorigin();
       int x, y;
       input::get_mouse_position(&x, &y);
 
       glm::vec3 dir;
-      render::qb_camera_screentoworld({ x, y }, &dir);
+      qb_camera_screentoworld({ x, y }, &dir);
       dir = glm::normalize(dir);
       Ray ray(std::move(orig), std::move(dir));
 
@@ -175,7 +175,7 @@ void initialize(const Settings& settings) {
         if (input::is_key_pressed(qbKey::QB_KEY_LALT)) {
           physics::Transform* other;
           qb_instance_find(physics::component(), selected, &other);
-          render::qb_camera_setorigin(other->p);
+          qb_camera_setorigin(other->p);
         }
       }
     });

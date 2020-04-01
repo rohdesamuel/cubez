@@ -14,8 +14,8 @@
 namespace ball {
 
 // State
-render::qbRenderable render_state;
-render::qbRenderable exploded_render_state;
+qbRenderable render_state;
+qbRenderable exploded_render_state;
 qbMesh mesh;
 Mesh* collision_mesh;
 
@@ -33,8 +33,8 @@ void initialize(const Settings& settings) {
     MeshBuilder builder = MeshBuilder::Sphere(64.0f, 22, 22);
     mesh = builder.BuildRenderable(qbRenderMode::QB_TRIANGLES);//settings.mesh;
     collision_mesh = new Mesh(builder.BuildMesh());//settings.collision_mesh;
-    render_state = render::create(mesh, settings.material);
-    exploded_render_state = render::create(mesh, settings.material_exploded);
+    render_state = create(mesh, settings.material);
+    exploded_render_state = create(mesh, settings.material_exploded);
   }
   {
     qbComponentAttr attr;
@@ -149,7 +149,7 @@ qbEntity create(glm::vec3 pos, glm::vec3 vel, bool explodable, bool /** collidab
   physics::Transform t{pos, vel, false};
   qb_entityattr_addcomponent(attr, physics::component(), &t);
 
-  qb_entityattr_addcomponent(attr, render::component(), &render_state);
+  qb_entityattr_addcomponent(attr, component(), &render_state);
 
   /*if (collidable) {
     physics::qbCollidable c;
