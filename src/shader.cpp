@@ -87,7 +87,6 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
   }
 
   {
-    printf("Shader program information for program %d\n", program_);
     GLint count;
 
     GLint size; // size of the variable
@@ -100,31 +99,24 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
     // https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Memory_layout
     // https://www.khronos.org/opengl/wiki/Program_Introspection
     glGetProgramiv(program_, GL_ACTIVE_UNIFORMS, &count);
-    printf("Active Uniforms: %d\n", count);
 
     for (int32_t i = 0; i < count; i++) {
       glGetActiveUniform(program_, (GLuint)i, bufSize, &length, &size, &type, name);
-      printf("Uniform #%d Type: %u Name: %s\n", i, type, name);
 
       uint32_t index;
       char *uniformNames[] = { name };
       glGetUniformIndices(program_, 1, uniformNames, &index);
-      printf("Index is %d\n", index);
 
-      uint32_t indices[] = { i };
+      uint32_t indices[] = { (GLuint)i };
       int32_t block_index;
       glGetActiveUniformsiv(program_, 1, indices, GL_UNIFORM_BLOCK_INDEX, &block_index);
-      printf("Block index is %d\n", block_index);
     }
 
     glGetProgramiv(program_, GL_ACTIVE_UNIFORM_BLOCKS, &count);
-    printf("Active UniformsBlocks: %d\n", count);
 
     for (int32_t i = 0; i < count; i++) {
       glGetActiveUniformBlockName(program_, (GLuint)i, bufSize, &length, name);
-      printf("UniformBlock #%d Type: %u Name: %s\n", i, type, name);
     }
-    printf("\n");
   }
 
   glDetachShader(program_, f);
@@ -164,7 +156,6 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const
   }
 
   {
-    printf("Shader program information for program %d\n", program_);
     GLint count;
 
     GLint size; // size of the variable
@@ -177,31 +168,24 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const
                     // https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Memory_layout
                     // https://www.khronos.org/opengl/wiki/Program_Introspection
     glGetProgramiv(program_, GL_ACTIVE_UNIFORMS, &count);
-    printf("Active Uniforms: %d\n", count);
 
     for (int32_t i = 0; i < count; i++) {
       glGetActiveUniform(program_, (GLuint)i, bufSize, &length, &size, &type, name);
-      printf("Uniform #%d Type: %u Name: %s\n", i, type, name);
 
       uint32_t index;
       char *uniformNames[] = { name };
       glGetUniformIndices(program_, 1, uniformNames, &index);
-      printf("Index is %d\n", index);
 
-      uint32_t indices[] = { i };
+      uint32_t indices[] = { (GLuint)i };
       int32_t block_index;
       glGetActiveUniformsiv(program_, 1, indices, GL_UNIFORM_BLOCK_INDEX, &block_index);
-      printf("Block index is %d\n", block_index);
     }
 
     glGetProgramiv(program_, GL_ACTIVE_UNIFORM_BLOCKS, &count);
-    printf("Active UniformsBlocks: %d\n", count);
 
     for (int32_t i = 0; i < count; i++) {
       glGetActiveUniformBlockName(program_, (GLuint)i, bufSize, &length, name);
-      printf("UniformBlock #%d Type: %u Name: %s\n", i, type, name);
     }
-    printf("\n");
   }
 
   glDetachShader(program_, f);

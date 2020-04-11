@@ -30,7 +30,6 @@
 #include "gui_internal.h"
 #include <atomic>
 #include <iostream>
-#include <glm/ext.hpp>
 #include <set>
 #include <list>
 
@@ -39,10 +38,11 @@
 
 #include "font_registry.h"
 #include "font_render.h"
+#include <cglm/struct.h>
 
 // std140 layout
 struct GuiUniformCamera {
-  alignas(16) glm::mat4 projection;
+  alignas(16) mat4s projection;
   
   static uint32_t Binding() {
     return 0;
@@ -57,8 +57,8 @@ enum GuiRenderMode {
 
 // std140 layout
 struct GuiUniformModel {
-  alignas(16) glm::mat4 modelview;
-  alignas(16) glm::vec4 color;
+  alignas(16) mat4s modelview;
+  alignas(16) vec4s color;
   alignas(4)  GuiRenderMode render_mode;
 
   static uint32_t Binding() {
@@ -74,12 +74,12 @@ struct qbWindow_ {
   // Z is depth
 
   // pos = parent->pos + rel_pos
-  glm::vec3 pos;
+  vec3s pos;
 
   // Relative position to the parent. If there is no parent, this is relative
   // to the top-left corner, i.e. absolute position.
-  glm::vec3 rel_pos;
-  glm::vec2 size;
+  vec3s rel_pos;
+  vec2s size;
 
   GuiUniformModel uniform;
   qbGpuBuffer ubo;
@@ -90,9 +90,9 @@ struct qbWindow_ {
   // True if there is a need to update the buffers.
   bool dirty;
 
-  glm::vec4 color;
-  glm::vec4 text_color;
-  glm::vec2 scale;
+  vec4s color;
+  vec4s text_color;
+  vec2s scale;
   uint32_t font_size;
   qbTextAlign align;
   qbImage background;
@@ -103,8 +103,8 @@ struct TextBox {
   qbWindow_ window;
 
   const char16_t* text;
-  glm::vec4 color;
-  glm::vec2 scale;
+  vec4s color;
+  vec2s scale;
 };
 
 qbRenderPass gui_render_pass;
@@ -140,33 +140,31 @@ qbWindow FindFarthestWindow() {
   return windows.back();
 }
 
-qbWindow FindClosestWindow(glm::ivec2 mouse) {
+qbWindow FindClosestWindow(int x, int y) {
   if (windows.empty()) {
     return nullptr;
   }
   for (qbWindow window : windows) {
-    glm::vec3 window_pos = window->pos;
-    if (mouse.x >= window_pos.x &&
-        mouse.x < window_pos.x + window->size.x &&
-        mouse.y >= window_pos.y &&
-        mouse.y < window_pos.y + window->size.y) {
+    if (x >= window->pos.x &&
+        x < window->pos.x + window->size.x &&
+        y >= window->pos.y &&
+        y < window->pos.y + window->size.y) {
       return window;
     }
   }
   return nullptr;
 }
 
-qbWindow FindClosestWindow(glm::ivec2 mouse, std::function<bool(qbWindow)> handler) {
+qbWindow FindClosestWindow(int x, int y, std::function<bool(qbWindow)> handler) {
   if (windows.empty()) {
     return nullptr;
   }
   qbWindow closest = nullptr;
   for (qbWindow window : windows) {
-    glm::vec3 window_pos = window->pos;
-    if (mouse.x >= window_pos.x &&
-        mouse.x < window_pos.x + window->size.x &&
-        mouse.y >= window_pos.y &&
-        mouse.y < window_pos.y + window->size.y) {
+    if (x >= window->pos.x &&
+        x < window->pos.x + window->size.x &&
+        y >= window->pos.y &&
+        y < window->pos.y + window->size.y) {
       closest = window;
       bool handled = handler(closest);
       if (handled) {
@@ -177,17 +175,16 @@ qbWindow FindClosestWindow(glm::ivec2 mouse, std::function<bool(qbWindow)> handl
   return closest;
 }
 
-qbWindow FindFarthestWindow(glm::ivec2 mouse) {
+qbWindow FindFarthestWindow(int x, int y) {
   if (windows.empty()) {
     return nullptr;
   }
   qbWindow farthest = nullptr;
   for (qbWindow window : windows) {
-    glm::vec3 window_pos = window->pos;
-    if (mouse.x >= window_pos.x &&
-        mouse.x < window_pos.x + window->size.x &&
-        mouse.y >= window_pos.y &&
-        mouse.y < window_pos.y + window->size.y) {
+    if (x >= window->pos.x &&
+        x < window->pos.x + window->size.x &&
+        y >= window->pos.y &&
+        y < window->pos.y + window->size.y) {
       farthest = window;
     }
   }
@@ -232,10 +229,10 @@ void gui_shutdown() {
 }
 
 void gui_handle_input(qbInputEvent input_event) {
-  glm::ivec2 pos;
-  qb_get_mouse_position(&pos.x, &pos.y);
+  int x, y;
+  qb_get_mouse_position(&x, &y);
 
-  FindClosestWindow(pos, [input_event](qbWindow closest){
+  FindClosestWindow(x, y, [input_event](qbWindow closest){
     bool handled = false;
     if (input_event->type == QB_INPUT_EVENT_KEY) {
       return true;
@@ -357,7 +354,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
     {
       GuiUniformCamera camera;
-      camera.projection = glm::ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
+      camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
       qb_gpubuffer_update(camera_ubo, 0, sizeof(GuiUniformCamera), &camera.projection);
     }
   }
@@ -386,10 +383,8 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.supported_geometry.bindings_count = 1;
     attr.supported_geometry.attributes = attributes;
     attr.supported_geometry.attributes_count = 3;
-
     attr.shader = shader_module;
-
-    attr.viewport = { 0.0, 0.0, width, height };
+    attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
 
     qbClearValue_ clear;
@@ -440,15 +435,15 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
   return gui_render_pass;
 }
 
-void qb_window_create_(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool open,
+void qb_window_create_(qbWindow* window_ref, vec3s pos, vec2s size, bool open,
                        qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
-                       glm::vec4 color, qbGpuBuffer ubo, qbMeshBuffer dbo, GuiRenderMode render_mode) {
+                       vec4s color, qbGpuBuffer ubo, qbMeshBuffer dbo, GuiRenderMode render_mode) {
   qbWindow window = *window_ref = new qbWindow_;
   window->id = window_id++;
   window->parent = parent;
   window->rel_pos = pos;// glm::vec3{ pos.x, pos.y, 0.0f };
   window->pos = window->parent
-    ? window->parent->pos + window->rel_pos
+    ? glms_vec3_add(window->parent->pos, window->rel_pos)
     : window->rel_pos;
   window->size = size;
   window->dirty = true;
@@ -470,7 +465,7 @@ void qb_window_create_(qbWindow* window_ref, glm::vec3 pos, glm::vec2 size, bool
   }
 }
 
-void qb_window_create(qbWindow* window, qbWindowAttr attr, glm::vec2 pos, glm::vec2 size, qbWindow parent, bool open) {
+void qb_window_create(qbWindow* window, qbWindowAttr attr, vec2s pos, vec2s size, qbWindow parent, bool open) {
   qbGpuBuffer ubo;
   qbMeshBuffer dbo;
   {
@@ -504,12 +499,12 @@ void qb_window_create(qbWindow* window, qbWindowAttr attr, glm::vec2 pos, glm::v
   GuiRenderMode render_mode = attr->background
     ? GUI_RENDER_MODE_IMAGE
     : GUI_RENDER_MODE_SOLID;
-  qb_window_create_(window, { pos, 0.0f }, size, open, attr->callbacks, parent, attr->background, attr->background_color, ubo, dbo, render_mode);
+  qb_window_create_(window, vec3s{ pos.x, pos.y, 0.0f }, size, open, attr->callbacks, parent, attr->background, attr->background_color, ubo, dbo, render_mode);
   (*window)->scale = { 1.0, 1.0 };
 }
 
-void qb_textbox_createtext(qbTextAlign align, size_t font_size, glm::vec2 size, glm::vec2 scale, const char16_t* text, std::vector<float>* vertices, std::vector<int>* indices, qbImage* atlas) {
-  Font* font = font_registry->Get(kDefaultFont, font_size);
+void qb_textbox_createtext(qbTextAlign align, size_t font_size, vec2s size, vec2s scale, const char16_t* text, std::vector<float>* vertices, std::vector<int>* indices, qbImage* atlas) {
+  Font* font = font_registry->Get(kDefaultFont, (uint32_t)font_size);
   FontRender renderer(font);
   renderer.Render(text, align, size, scale, vertices, indices);
   *atlas = font->Atlas();
@@ -520,7 +515,7 @@ void qb_textbox_createtext(qbTextAlign align, size_t font_size, glm::vec2 size, 
 // https://gamedev.stackexchange.com/questions/150704/freetype-create-signed-distance-field-based-font
 void qb_textbox_create(qbWindow* window,
                        qbTextboxAttr textbox_attr,
-                       glm::vec2 pos, glm::vec2 size, qbWindow parent, bool open,
+                       vec2s pos, vec2s size, qbWindow parent, bool open,
                        uint32_t font_size,
                        const char16_t* text) {
 
@@ -576,7 +571,7 @@ void qb_textbox_create(qbWindow* window,
     qb_meshbuffer_attachimages(dbo, 1, image_bindings, images);
   }
 
-  qb_window_create_(window, { pos, 0.0f }, size,
+  qb_window_create_(window, vec3s{ pos.x, pos.y, 0.0f }, size,
                     open, nullptr,
                     parent, nullptr, textbox_attr->text_color,
                     ubo, dbo, GUI_RENDER_MODE_STRING);
@@ -626,11 +621,11 @@ void qb_textbox_text(qbWindow window, const char16_t* text) {
   qb_gpubuffer_destroy(&dst_ebo);
 }
 
-void qb_textbox_color(qbWindow window, glm::vec4 text_color) {
+void qb_textbox_color(qbWindow window, vec4s text_color) {
   window->text_color = text_color;
 }
 
-void qb_textbox_scale(qbWindow window, glm::vec2 scale) {
+void qb_textbox_scale(qbWindow window, vec2s scale) {
   window->scale = scale;
 }
 
@@ -680,14 +675,14 @@ void qb_window_close(qbWindow window) {
 }
 
 void qb_window_updateuniform(qbWindow window) {
-  glm::mat4 model = glm::mat4(1.0);  
-  //model = glm::rotate(model, 3.1415f, glm::vec3(0.0f, 0.0f, 1.0f));
-  model = glm::translate(model, glm::vec3(window->pos));
+  mat4s model = GLMS_MAT4_IDENTITY_INIT;
+
+  model = glms_translate(model, window->pos);
 
   if (window->render_mode == GUI_RENDER_MODE_STRING) {
-    model = glm::scale(model, glm::vec3(window->scale, 1.0f));
+    model = glms_scale(model, vec3s{ window->scale.x, window->scale.y, 1.0f });
   } else {
-    model = glm::scale(model, glm::vec3(window->size, 1.0f));
+    model = glms_scale(model, vec3s{ window->size.x, window->size.y, 1.0f });
   }
 
   window->uniform.modelview = model;
@@ -701,9 +696,10 @@ void gui_window_updateuniforms() {
   for (auto& window : windows) {
     if (window->dirty || (window->parent && window->parent->dirty)) {
       // If the parent is dirty, then this will update the position properly.
-      window->pos = window->parent
-        ? window->parent->pos + window->rel_pos
-        : window->rel_pos;
+      window->pos = window->rel_pos;
+      if (window->parent) {
+        window->pos = glms_vec3_add(window->parent->pos, window->rel_pos);
+      }
     }
     window->rel_pos.z = 0;
     window->pos.z = depth;
@@ -764,31 +760,31 @@ void qb_window_movebackward(qbWindow window) {
   }
 }
 
-void qb_window_moveto(qbWindow window, glm::vec3 pos) {
+void qb_window_moveto(qbWindow window, vec3s pos) {
   window->pos = pos;
-  window->pos.z = glm::clamp(window->rel_pos.z, -0.9999f, 0.9999f);
+  window->pos.z = glm_clamp(window->pos.z, -0.9999f, 0.9999f);
   window->rel_pos = window->parent
-    ? window->parent->pos - window->rel_pos
+    ? glms_vec3_sub(window->parent->pos, window->rel_pos)
     : window->rel_pos;
   window->dirty = true;
 }
 
-void qb_window_resizeto(qbWindow window, glm::vec2 size) {
+void qb_window_resizeto(qbWindow window, vec2s size) {
   window->size = size;
   window->dirty = true;
 }
 
-void qb_window_moveby(qbWindow window, glm::vec3 pos_delta) {
-  window->rel_pos += pos_delta;
-  window->rel_pos.z = glm::clamp(window->rel_pos.z, -0.9999f, 0.9999f);
+void qb_window_moveby(qbWindow window, vec3s pos_delta) {
+  window->rel_pos = glms_vec3_add(window->rel_pos, pos_delta);
+  window->rel_pos.z = glm_clamp(window->rel_pos.z, -0.9999f, 0.9999f);
   window->pos = window->parent
-    ? window->parent->pos + window->rel_pos
+    ? glms_vec3_add(window->parent->pos, window->rel_pos)
     : window->rel_pos;
   window->dirty = true;
 }
 
-void qb_window_resizeby(qbWindow window, glm::vec2 size_delta) {
-  window->size += size_delta;
+void qb_window_resizeby(qbWindow window, vec2s size_delta) {
+  window->size = glms_vec2_add(window->size, size_delta);
   window->dirty = true;
 }
 
@@ -796,20 +792,20 @@ qbWindow qb_window_focus() {
   return focused;
 }
 
-qbWindow qb_window_focusat(glm::ivec2 mouse_coord) {
-  return FindClosestWindow(mouse_coord);
+qbWindow qb_window_focusat(int x, int y) {
+  return FindClosestWindow(x, y);
 }
 
-glm::vec2 qb_window_size(qbWindow window) {
+vec2s qb_window_size(qbWindow window) {
   return window->size;
 }
 
-glm::vec2 qb_window_pos(qbWindow window) {
-  return window->pos;
+vec2s qb_window_pos(qbWindow window) {
+  return { window->pos.x, window->pos.y };
 }
 
-glm::vec2 qb_window_relpos(qbWindow window) {
-  return window->rel_pos;
+vec2s qb_window_relpos(qbWindow window) {
+  return { window->rel_pos.x, window->rel_pos.y };
 }
 
 qbWindow qb_window_parent(qbWindow window) {

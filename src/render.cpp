@@ -5,11 +5,11 @@
 #include "gui_internal.h"
 
 #include <atomic>
-#include <glm/gtc/matrix_transform.hpp>
 
 #define GL3_PROTOTYPES 1
 
 #include <GL/glew.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -21,6 +21,8 @@
 #include "render_defs.h"
 #include "sparse_map.h"
 #include "sparse_set.h"
+
+#include <cglm/struct.h>
 
 typedef struct qbCameraInternal_ {
   qbCamera_ camera;
@@ -226,19 +228,19 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
   camera->znear = attr->znear;
   camera->zfar = attr->zfar;
   
-  camera->view_mat = glm::lookAt(
-    glm::vec3( 0.0f, 0.0f, 0.0f),
-    glm::vec3(-1.0f, 0.0f, 0.0f),
-    glm::vec3( 0.0f, 0.0f, 1.0f)
+  camera->view_mat = glms_lookat(
+    vec3s{ 0.0f, 0.0f, 0.0f },
+    vec3s{ -1.0f, 0.0f, 0.0f },
+    vec3s{ 0.0f, 0.0f, 1.0f }
   );
 
-  camera->projection_mat = glm::perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
-  camera->rotation_mat = attr->rotation_mat;
+  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
+  camera->rotation_mat= attr->rotation_mat;
   camera->origin = attr->origin;
 
-  glm::vec3 forward = camera->rotation_mat * glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f };
-  glm::vec3 up = camera->rotation_mat * glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f };
-  camera->view_mat = glm::lookAt(camera->origin, camera->origin + forward, up);
+  vec3s forward = glms_mat4_mulv3(camera->rotation_mat, { 1.0f, 0.0f, 0.0f }, 1.0f);
+  vec3s up = glms_mat4_mulv3(camera->rotation_mat, { 0.0f, 0.0f, 1.0f }, 1.0f);
+  camera->view_mat = glms_look(camera->origin, forward, up);
   camera->forward = forward;
   camera->up = up;
 
@@ -282,7 +284,7 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
   camera->width = width;
   camera->height = height;
   camera->ratio = (float)width / (float)height;
-  camera->projection_mat = glm::perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
+  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
   
   qbCameraInternal internal = (qbCameraInternal)camera_ref;
   qb_framebuffer_resize(internal->fbo, width, height);
@@ -291,7 +293,7 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
 void qb_camera_fov(qbCamera camera_ref, float fov) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->fov = fov;
-  camera->projection_mat = glm::perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
+  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
 }
 
 void qb_camera_clip(qbCamera camera_ref, float znear, float zfar) {
@@ -302,53 +304,55 @@ void qb_camera_clip(qbCamera camera_ref, float znear, float zfar) {
 
   camera->zfar = zfar;
   camera->znear = znear;
-  camera->projection_mat = glm::perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
+  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
 }
 
-void qb_camera_rotation(qbCamera camera_ref, glm::mat4 rotation) {
+void qb_camera_rotation(qbCamera camera_ref, mat4s rotation) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->rotation_mat = rotation;
 
-  glm::vec3 forward = glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f } * camera->rotation_mat;
-  glm::vec3 up = glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f } * camera->rotation_mat;
-  camera->forward = forward;
-  camera->up = up;
-  camera->view_mat = glm::lookAt(camera->origin, camera->origin + forward, up);
+  static vec4s forward = { 1.0f, 0.0f, 0.0f, 1.0f };
+  static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
+  camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
+  camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
+  camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
 }
 
-void qb_camera_origin(qbCamera camera_ref, glm::vec3 origin) {
+void qb_camera_origin(qbCamera camera_ref, vec3s  origin) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->origin = origin;
 
-  glm::vec3 forward = glm::vec4{ 1.0f, 0.0f, 0.0f, 1.0f } * camera->rotation_mat;
-  glm::vec3 up = glm::vec4{ 0.0f, 0.0f, 1.0f, 1.0f } * camera->rotation_mat;
-  camera->forward = forward;
-  camera->up = up;
-  camera->view_mat = glm::lookAt(camera->origin, camera->origin + forward, up);
+  static vec4s forward = { 1.0f, 0.0f, 0.0f, 1.0f };
+  static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
+  camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
+  camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
+  camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
 }
 
-glm::vec3 qb_camera_screentoworld(qbCamera camera, glm::vec2 screen) {
+vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
   // NORMALISED DEVICE SPACE
-  float x = 2.0 * screen.x / (float)qb_window_width() - 1;
-  float y = 2.0 * screen.y / (float)qb_window_height() - 1;
+  float x = 2.0f * screen.x / (float)qb_window_width() - 1.0f;
+  float y = 2.0f * screen.y / (float)qb_window_height() - 1.0f;
   
   // HOMOGENEOUS SPACE
-  glm::vec4 screenPos = glm::vec4(x, -y, 1.0f, 1.0f);
+  vec4s screenPos = { x, -y, 1.0f, 1.0f };
 
   // Projection/Eye Space
-  glm::mat4 project_view = camera->projection_mat * camera->view_mat;
-  glm::mat4 view_projection_inverse = glm::inverse(project_view);
+  mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+  mat4s view_projection_inverse = glms_mat4_inv(project_view);
 
-  glm::vec4 world_coord = view_projection_inverse * screenPos;
+  vec4s world_coord = glms_mat4_mulv(view_projection_inverse, screenPos);
   world_coord.w = 1.0f / world_coord.w;
   world_coord.x *= world_coord.w;
   world_coord.y *= world_coord.w;
   world_coord.z *= world_coord.w;
-  return glm::normalize(world_coord);
+
+  return glms_vec3(glms_vec4_normalize(world_coord));
 }
 
-glm::vec2 qb_camera_worldtoscreen(qbCamera camera, glm::vec3 world) {
-  return (camera->projection_mat * camera->view_mat) * glm::vec4{ world, 1.0f };
+vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
+  mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+  return glms_vec2(glms_mat4_mulv3(project_view, world, 1.0f));
 }
 
 QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera) {
@@ -491,17 +495,17 @@ bool qb_light_isenabled(qbId id, qbLightType type) {
   return r->light_isenabled(r, id, type);
 }
 
-void qb_light_directional(qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness) {
+void qb_light_directional(qbId id, vec3s  rgb, vec3s  dir, float brightness) {
   auto r = qb_renderer();
   r->light_directional(r, id, rgb, dir, brightness);
 }
 
-void qb_light_point(qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range) {
+void qb_light_point(qbId id, vec3s  rgb, vec3s  pos, float brightness, float range) {
   auto r = qb_renderer();
   r->light_point(r, id, rgb, pos, brightness, range);
 }
 
-void qb_light_spotlight(qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir, float brightness, float range, float angle_deg) {
+void qb_light_spotlight(qbId id, vec3s  rgb, vec3s  pos, vec3s  dir, float brightness, float range, float angle_deg) {
   auto r = qb_renderer();
   r->light_spot(r, id, rgb, pos, dir, brightness, range, angle_deg);
 }

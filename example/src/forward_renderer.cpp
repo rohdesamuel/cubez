@@ -3,9 +3,10 @@
 #include <cubez/render.h>
 #include <cubez/mesh.h>
 #include <map>
-#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <array>
+#include <assert.h>
+#include <cglm/struct.h>
 
 const size_t kMaxDirectionalLights = 4;
 const size_t kMaxPointLights = 32;
@@ -13,25 +14,25 @@ const size_t kMaxSpotLights = 8;
 
 struct LightPoint {
   // Interleave the brightness and radius to optimize std140 wasted bytes.
-  glm::vec3 rgb;
+  vec3s rgb;
   float brightness;
-  glm::vec3 pos;
+  vec3s pos;
   float radius;
 };
 
 typedef struct LightDirectional {
-  glm::vec3 rgb;
+  vec3s rgb;
   float brightness;
-  glm::vec3 dir;
+  vec3s dir;
   float _dir_pad;
 };
 
 typedef struct LightSpot {
-  glm::vec3 rgb;
+  vec3s rgb;
   float brightness;
-  glm::vec3 pos;
+  vec3s pos;
   float range;
-  glm::vec3 dir;
+  vec3s dir;
   float angle_deg;
 };
 
@@ -97,18 +98,18 @@ typedef struct qbForwardRenderer_ {
 } qbForwardRenderer_, *qbForwardRenderer;
 
 struct CameraUniform {
-  alignas(16) glm::mat4 vp;
+  alignas(16) mat4s vp;
 };
 
 struct ModelUniform {
-  alignas(16) glm::mat4 m;
-  alignas(16) glm::mat4 rot;
+  alignas(16) mat4s m;
+  alignas(16) mat4s rot;
 };
 
 struct MaterialUniform {
-  glm::vec3 albedo;
+  vec3s albedo;
   float metallic;
-  glm::vec3 emission;
+  vec3s emission;
   float roughness;
 };
 
@@ -117,7 +118,7 @@ struct LightUniform {
   LightPoint points[kMaxPointLights];
   LightSpot spots[kMaxSpotLights];
 
-  glm::vec3 view_pos;
+  vec3s view_pos;
   float _view_pos_pad;
 };
 
@@ -172,7 +173,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
     *qb_renderpass_frame(passes[i]) = camera_fbo;
   }
   CameraUniform m;
-  m.vp = camera->projection_mat * camera->view_mat;
+  m.vp = glms_mat4_mul(camera->projection_mat, camera->view_mat);
   qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUniform), &m);
 
   LightUniform l = {};
@@ -213,7 +214,7 @@ qbMeshBuffer meshbuffer_create(qbRenderer self, qbMesh mesh) {
     attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_VERTEX;
     attr.data = mesh->vertices;
     attr.elem_size = sizeof(float);
-    attr.size = mesh->vertex_count * sizeof(glm::vec3);
+    attr.size = mesh->vertex_count * sizeof(vec3s);
     qb_gpubuffer_create(&verts, &attr);
   }
 
@@ -223,7 +224,7 @@ qbMeshBuffer meshbuffer_create(qbRenderer self, qbMesh mesh) {
     attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_VERTEX;
     attr.data = mesh->normals;
     attr.elem_size = sizeof(float);
-    attr.size = mesh->normal_count * sizeof(glm::vec3);
+    attr.size = mesh->normal_count * sizeof(vec3s);
     qb_gpubuffer_create(&normals, &attr);
   }
 
@@ -233,7 +234,7 @@ qbMeshBuffer meshbuffer_create(qbRenderer self, qbMesh mesh) {
     attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_VERTEX;
     attr.data = mesh->uvs;
     attr.elem_size = sizeof(float);
-    attr.size = mesh->uv_count * sizeof(glm::vec2);
+    attr.size = mesh->uv_count * sizeof(vec2s);
     qb_gpubuffer_create(&uvs, &attr);
   }
 
@@ -430,7 +431,7 @@ bool light_isenabled(struct qbRenderer_* self, qbId id, qbLightType light_type) 
   return false;
 }
 
-void light_directional(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness) {
+void light_directional(struct qbRenderer_* self, qbId id, vec3s rgb, vec3s dir, float brightness) {
   qbForwardRenderer r = (qbForwardRenderer)self;
   if (id >= kMaxDirectionalLights) {
     return;
@@ -439,7 +440,7 @@ void light_directional(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::ve
   r->directional_lights[id] = LightDirectional{ rgb, brightness, dir };
 }
 
-void light_point(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range) {
+void light_point(struct qbRenderer_* self, qbId id, vec3s rgb, vec3s pos, float brightness, float range) {
   qbForwardRenderer r = (qbForwardRenderer)self;
   if (id >= kMaxPointLights) {
     return;
@@ -448,7 +449,7 @@ void light_point(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos
   r->point_lights[id] = LightPoint{ rgb, brightness, pos, range };
 }
 
-void light_spot(struct qbRenderer_* self, qbId id, glm::vec3 rgb, glm::vec3 pos, glm::vec3 dir,
+void light_spot(struct qbRenderer_* self, qbId id, vec3s rgb, vec3s pos, vec3s dir,
                 float brightness, float range, float angle_deg) {
   qbForwardRenderer r = (qbForwardRenderer)self;
   if (id >= kMaxSpotLights) {
@@ -616,7 +617,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   }
   {
     qbRenderPipelineAttr_ attr = {};
-    attr.viewport = { 0.0, 0.0, width, height };
+    attr.viewport = { 0.0f, 0.0f, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
     attr.name = "qbForwardRenderer";
 
@@ -684,7 +685,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     info.name = ret->light_uniform_name.data();
 
 
-    qbGpuBufferAttr_ attr;
+    qbGpuBufferAttr_ attr = {};
     attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
     attr.data = nullptr;
     attr.size = sizeof(LightUniform);
@@ -870,16 +871,15 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   {
     qbClearValue_ clear = {};
     clear.attachments = (qbFrameBufferAttachment)(qbFrameBufferAttachment::QB_COLOR_ATTACHMENT |
-                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);
+                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);    
     clear.depth = 0.0;
     clear.color = { 1.0, 1.0, 0.0, 1.0 };
 
     qbRenderPassAttr_ attr = {};
+    attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.frame_buffer = nullptr;
     attr.supported_geometry = *ret->supported_geometry;
     attr.shader = shader_module;
-
-    attr.viewport = { 0.0, 0.0, width, height };
     attr.viewport_scale = 1.0f;
     attr.clear = clear;
 
@@ -912,16 +912,18 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qbGpuBuffer material_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->material_uniform);
 
       ModelUniform model_uniform;
-      model_uniform.m = glm::translate(glm::mat4(1), transform->position) *
-             glm::translate(transform->orientation, transform->pivot);
+      mat4s orientation = glms_translate(transform->orientation, transform->pivot);
+      mat4s pos = glms_translate(GLMS_MAT4_IDENTITY_INIT, transform->position);
+      model_uniform.m = glms_mat4_mul(pos, orientation);
       model_uniform.rot = transform->orientation;
       qb_gpubuffer_update(model_buffer, 0, sizeof(ModelUniform), &model_uniform);
 
       MaterialUniform material_uniform;
-      material_uniform.albedo = glm::vec4((*material)->albedo, 1);
       material_uniform.metallic = (*material)->metallic;
       material_uniform.roughness = (*material)->roughness;
-      material_uniform.emission = glm::vec4((*material)->emission, 1);
+      material_uniform.albedo = (*material)->albedo;
+      material_uniform.emission = (*material)->emission;
+
       qb_gpubuffer_update(material_buffer, 0, sizeof(MaterialUniform), &material_uniform);
     });
 

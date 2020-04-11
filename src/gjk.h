@@ -4,7 +4,7 @@
 #include "mesh_builder.h"
 
 namespace collision_utils {
-
+#if 0
 class Gjk {
 public:
   Gjk();
@@ -26,7 +26,7 @@ private:
   glm::vec3 a, b, c, d;
   int nrPointsSimplex = 0;
 };
-
+#endif
 }
 
 

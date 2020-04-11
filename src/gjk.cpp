@@ -1,3 +1,4 @@
+#if 0
 #include "gjk.h"
 
 namespace {
@@ -260,3 +261,4 @@ glm::vec3 Gjk::support(const Mesh& a, const Mesh& b, const glm::vec3& dir) const
 }
 
 }
+#endif

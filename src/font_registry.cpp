@@ -84,19 +84,21 @@ Font::Font(FT_Face face, const char* font_name): font_name_(font_name) {
     if (FT_Load_Char(face, i, FT_LOAD_RENDER))
       continue;
     Character c = {};
-    c.ax = g->advance.x >> 6;
-    c.ay = g->advance.y >> 6;
-    c.bw = g->bitmap.width;
-    c.bh = g->bitmap.rows;
-    c.bl = g->bitmap_left;
-    c.bt = g->bitmap_top;
+    c.ax = (float)(g->advance.x >> 6);
+    c.ay = (float)(g->advance.y >> 6);
+    c.bw = (float)g->bitmap.width;
+    c.bh = (float)g->bitmap.rows;
+    c.bl = (float)g->bitmap_left;
+    c.bt = (float)g->bitmap_top;
     c.tx = (float)x / w;
-    c.bx = g->metrics.horiBearingX >> 6;
-    c.by = g->metrics.horiBearingY >> 6;
+    c.bx = (float)(g->metrics.horiBearingX >> 6);
+    c.by = (float)(g->metrics.horiBearingY >> 6);
 
     characters_[i] = c;
 
-    qb_image_update(font_atlas_, { x, 0, 0 }, { g->bitmap.width, g->bitmap.rows, 0 }, g->bitmap.buffer);
+    ivec3s offset = { x, 0, 0 };
+    ivec3s sizes = { (int)g->bitmap.width, (int)g->bitmap.rows, 0 };
+    qb_image_update(font_atlas_, offset, sizes, g->bitmap.buffer);
     x += g->bitmap.width;
   }
 }

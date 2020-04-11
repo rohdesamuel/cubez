@@ -4,7 +4,7 @@ FontRender::FontRender(Font* font): font_(font) { }
 
 // Todo: improve with decomposed signed distance fields: 
 // https://gamedev.stackexchange.com/questions/150704/freetype-create-signed-distance-field-based-font
-void FontRender::Render(const char16_t* text, qbTextAlign align, glm::vec2 bounding_size, glm::vec2 font_scale,
+void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale,
                         std::vector<float>* vertices, std::vector<int>* indices) {
   if (!text) {
     return;
@@ -31,7 +31,7 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, glm::vec2 bound
     if (text[i] == '\n') {
       float offset = 0.0f;
       if (align == QB_TEXT_ALIGN_CENTER) {
-        offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw) * 0.5;
+        offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw) * 0.5f;
       } else if (align == QB_TEXT_ALIGN_RIGHT) {
         offset = bounding_size.x - line_bitmapwidth + (prev_char.ax - prev_char.bx - prev_char.bw);
       }
@@ -73,7 +73,7 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, glm::vec2 bound
     if (line_bitmapwidth > bounding_size.x) {
       float offset = 0.0f;
       if (align == QB_TEXT_ALIGN_CENTER) {
-        offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw)*0.5f + c.ax *0.5;
+        offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw)*0.5f + c.ax *0.5f;
       } else if (align == QB_TEXT_ALIGN_RIGHT) {
         //offset = size.x - line_width - line_final_char_width + c.ax * scale.x;
         offset = bounding_size.x - line_bitmapwidth + (prev_char.ax - prev_char.bx - prev_char.bw) + c.ax;
