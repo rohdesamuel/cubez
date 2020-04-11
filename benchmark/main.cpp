@@ -58,7 +58,7 @@ double create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
     qbEntity entity;
     qb_entity_create(&entity, attr);
   }
-  qb_loop();
+  qb_loop(0, 0);
   qb_timer_stop(timer);
 
   qb_entityattr_destroy(&attr);
@@ -106,10 +106,10 @@ double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iteration
     qb_system_create(&system, attr);
     qb_systemattr_destroy(&attr);
   }
-  qb_loop();
+  qb_loop(0, 0);
   qb_timer_start(timer);
   for (uint64_t i = 0; i < iterations; ++i) {
-    qb_loop();
+    qb_loop(0, 0);
   }
   qb_timer_stop(timer);
   std::cout << "Count = " << *Count() << std::endl;
@@ -135,9 +135,9 @@ double coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
   }
 
   qb_timer_start(timer);
-  qb_loop();
+  qb_loop(0, 0);
   for (uint64_t i = 0; i < iterations; ++i) {
-    qb_loop();
+    qb_loop(0, 0);
   }
   qb_timer_stop(timer);
 
@@ -179,7 +179,9 @@ int main() {
   //omp_set_num_threads(1);
 
   qbUniverse uni;
-  qb_init(&uni);
+  qbUniverseAttr_ attr = {};
+  attr.enabled = qbFeature::QB_FEATURE_GAME_LOOP;
+  qb_init(&uni, &attr);
   qb_start();
 
   {
