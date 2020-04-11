@@ -7,47 +7,12 @@
 #include <bitset>
 #include <vector>
 
+#include <cglm/types-struct.h>
+
 typedef struct {
-  glm::vec3 orig;
-  glm::vec3 dir;
+  vec3s orig;
+  vec3s dir;
 } qbRay_, *qbRay;
-
-class Ray {
-public:
-  Ray(glm::vec3&& origin, glm::vec3&& dir)
-    : orig(origin), dir(dir) {}
-
-  glm::vec3 orig;
-  glm::vec3 dir;
-};
-
-class Mesh {
-public:
-  glm::vec3 FarthestPoint(const glm::vec3& dir) const;
-  glm::vec3 Max() const;
-  glm::vec3 Min() const;
-
-private:
-  std::vector<glm::vec3> v_;
-
-  glm::vec3 max_;
-  glm::vec3 min_;
-  glm::vec3 r_;
-
-  friend class MeshBuilder;
-};
-
-class Model {
-public:
-  static Model FromFile(const std::string& filename);
-  bool CollidesWith(const glm::vec3& a_origin, const glm::vec3& b_origin,
-                    const Model& a, const Model& b);
-
-private:
-  std::vector<Mesh> meshes_;
-  std::vector<qbMesh> render_meshes_;
-  std::vector<Mesh> collision_meshes_;
-};
 
 class MeshBuilder {
 public:
@@ -63,13 +28,14 @@ public:
   static MeshBuilder Box(float x, float y, float z);
   static MeshBuilder Rect(float x, float y);
 
-  int AddVertex(glm::vec3&& v);
-  int AddTexture(glm::vec2&& vt);
-  int AddNormal(glm::vec3&& vn);
-  int AddFace(Face&& face);
-  int AddFace(std::vector<glm::vec3>&& vertices,
-              std::vector<glm::vec2>&& textures,
-              std::vector<glm::vec3>&& normals);
+  int AddVertex(vec3s v);
+  int AddVertexWithOffset(vec3s v, vec3s center);
+  int AddTexture(vec2s vt);
+  int AddNormal(vec3s vn);
+  int AddFace(Face face);
+  int AddFace(std::vector<vec3s>&& vertices,
+              std::vector<vec2s>&& textures,
+              std::vector<vec3s>&& normals);
 
   qbCollider Collider();
   qbModel Model(qbRenderFaceType_ render_mode);
@@ -78,20 +44,20 @@ public:
 
 private:
   uint32_t FaceToTriangles(const Face& face,
-                           std::vector<glm::vec3>* v_list,
-                           std::vector<glm::vec3>* vn_list,
-                           std::vector<glm::vec2>* vt_list);
+                           std::vector<vec3>* v_list,
+                           std::vector<vec3>* vn_list,
+                           std::vector<vec2>* vt_list);
   uint32_t FaceToLines(const Face& face,
-                       std::vector<glm::vec3>* v_list,
-                       std::vector<glm::vec3>* vn_list,
-                       std::vector<glm::vec2>* vt_list);
+                       std::vector<vec3>* v_list,
+                       std::vector<vec3>* vn_list,
+                       std::vector<vec2>* vt_list);
   uint32_t FaceToPoints(const Face& face,
-                        std::vector<glm::vec3>* v_list,
-                        std::vector<glm::vec3>* vn_list,
-                        std::vector<glm::vec2>* vt_list);
-  std::vector<glm::vec3> v_;
-  std::vector<glm::vec2> vt_;
-  std::vector<glm::vec3> vn_;
+                        std::vector<vec3>* v_list,
+                        std::vector<vec3>* vn_list,
+                        std::vector<vec2>* vt_list);
+  std::vector<vec3s> v_;
+  std::vector<vec2s> vt_;
+  std::vector<vec3s> vn_;
   std::vector<Face> f_;
 };
 

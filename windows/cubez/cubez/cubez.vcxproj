@@ -163,7 +163,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -181,7 +181,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Full</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -226,7 +226,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
@@ -250,11 +250,13 @@
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
     <ClInclude Include="..\..\..\include\cubez\input.h" />
     <ClInclude Include="..\..\..\include\cubez\log.h" />
+    <ClInclude Include="..\..\..\include\cubez\mat_defs.h" />
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
     <ClInclude Include="..\..\..\include\cubez\timer.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
+    <ClInclude Include="..\..\..\include\cubez\vec_defs.h" />
     <ClInclude Include="..\..\..\include\cubez\xdr.h" />
     <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
@@ -264,6 +266,7 @@
     <ClInclude Include="..\..\..\src\buddy_system_allocator.h" />
     <ClInclude Include="..\..\..\src\byte_queue.h" />
     <ClInclude Include="..\..\..\src\byte_vector.h" />
+    <ClInclude Include="..\..\..\src\cglm\config.h" />
     <ClInclude Include="..\..\..\src\collision_utils.h" />
     <ClInclude Include="..\..\..\src\component.h" />
     <ClInclude Include="..\..\..\src\component_registry.h" />
@@ -281,7 +284,6 @@
     <ClInclude Include="..\..\..\src\font_render.h" />
     <ClInclude Include="..\..\..\src\frame_buffer.h" />
     <ClInclude Include="..\..\..\src\game_state.h" />
-    <ClInclude Include="..\..\..\src\gjk.h" />
     <ClInclude Include="..\..\..\src\gui_internal.h" />
     <ClInclude Include="..\..\..\src\input_internal.h" />
     <ClInclude Include="..\..\..\src\instance_registry.h" />
@@ -308,6 +310,25 @@
     <ClCompile Include="..\..\..\src\apex_memmove.cpp" />
     <ClCompile Include="..\..\..\src\audio.cpp" />
     <ClCompile Include="..\..\..\src\barrier.cpp" />
+    <ClCompile Include="..\..\..\src\cglm\affine.c" />
+    <ClCompile Include="..\..\..\src\cglm\bezier.c" />
+    <ClCompile Include="..\..\..\src\cglm\box.c" />
+    <ClCompile Include="..\..\..\src\cglm\cam.c" />
+    <ClCompile Include="..\..\..\src\cglm\curve.c" />
+    <ClCompile Include="..\..\..\src\cglm\ease.c" />
+    <ClCompile Include="..\..\..\src\cglm\euler.c" />
+    <ClCompile Include="..\..\..\src\cglm\frustum.c" />
+    <ClCompile Include="..\..\..\src\cglm\io.c" />
+    <ClCompile Include="..\..\..\src\cglm\mat2.c" />
+    <ClCompile Include="..\..\..\src\cglm\mat3.c" />
+    <ClCompile Include="..\..\..\src\cglm\mat4.c" />
+    <ClCompile Include="..\..\..\src\cglm\plane.c" />
+    <ClCompile Include="..\..\..\src\cglm\project.c" />
+    <ClCompile Include="..\..\..\src\cglm\quat.c" />
+    <ClCompile Include="..\..\..\src\cglm\sphere.c" />
+    <ClCompile Include="..\..\..\src\cglm\vec2.c" />
+    <ClCompile Include="..\..\..\src\cglm\vec3.c" />
+    <ClCompile Include="..\..\..\src\cglm\vec4.c" />
     <ClCompile Include="..\..\..\src\collision_utils.cpp" />
     <ClCompile Include="..\..\..\src\component.cpp" />
     <ClCompile Include="..\..\..\src\component_registry.cpp" />
@@ -322,7 +343,6 @@
     <ClCompile Include="..\..\..\src\font_registry.cpp" />
     <ClCompile Include="..\..\..\src\font_render.cpp" />
     <ClCompile Include="..\..\..\src\game_state.cpp" />
-    <ClCompile Include="..\..\..\src\gjk.cpp" />
     <ClCompile Include="..\..\..\src\gui.cpp" />
     <ClCompile Include="..\..\..\src\input.cpp" />
     <ClCompile Include="..\..\..\src\instance_registry.cpp" />

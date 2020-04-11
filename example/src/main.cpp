@@ -15,7 +15,8 @@
 #include <iostream>
 #include <thread>
 #include <unordered_map>
-#include <glm/ext.hpp>
+#include <string>
+#include <cglm/struct.h>
 
 qbVar print_timing_info(qbVar var) {
   for (;;) {
@@ -56,10 +57,13 @@ void create_main_menu() {
   };
   window_callbacks.onscroll = [](qbWindow window, qbMouseScrollEvent e) {
     std::cout << "onscroll ( " << e->xrel << ", " << e->yrel << " )\n";
+
     if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
-      qb_window_moveby(window, { e->yrel * 5, 0.0f, 0.0f });
+      vec3s delta = { (float)(e->yrel * 5), 0.0f, 0.0f };
+      qb_window_moveby(window, delta);
     } else {
-      qb_window_moveby(window, { e->xrel, e->yrel * 5, 0.0f });
+      vec3s delta = { (float)e->xrel, (float)(e->yrel * 5), 0.0f };
+      qb_window_moveby(window, delta);
     }
     return true;
   };
@@ -76,7 +80,7 @@ void create_main_menu() {
 
   {
     qbWindowAttr_ attr = {};
-    attr.background_color = { 0.0, 0.0, 0.0, 0.95 };
+    attr.background_color = { 0.0f, 0.0f, 0.0f, 0.95f };
     attr.callbacks = &window_callbacks;
     qb_window_create(&parent, &attr, { 0.0f, 0.0f }, { 512.0f, 64.0f }, nullptr, true);
   }
@@ -94,7 +98,7 @@ void create_main_menu() {
   qbWindow main_menu;
   {
     qbWindowAttr_ attr = {};
-    attr.background_color = { 0.0, 0.0, 0.0, 0.95 };
+    attr.background_color = { 0.0f, 0.0f, 0.0f, 0.95f };
 
     qb_window_create(&main_menu, &attr, { (1200.0f * 0.5f) - 256.0f, 100.0f }, { 512.0f, 600.0f }, nullptr, true);
     windows.push_back(main_menu);
@@ -103,7 +107,7 @@ void create_main_menu() {
   qbWindow main_menu_border;
   {
     qbWindowAttr_ attr = {};
-    attr.background_color = { 1.0, 1.0, 1.0, 0.9 };
+    attr.background_color = { 1.0f, 1.0f, 1.0f, 0.9f };
 
     qb_window_create(&main_menu_border, &attr, { -4.0f, -4.0f }, { 520.0f, 608.0f }, main_menu, true);
     qb_window_movetoback(main_menu_border);
@@ -117,11 +121,11 @@ void create_main_menu() {
       return true;
     };
     callbacks.onscroll = [](qbWindow w, qbMouseScrollEvent e) {
-      qb_window_resizeby(w, { e->yrel, 0 });
+      qb_window_resizeby(w, { (float)e->yrel, 0.0f });
       return true;
     };
     qbWindowAttr_ attr = {};
-    attr.background_color = { 1.0, 1.0, 1.0, 0.15 };
+    attr.background_color = { 1.0f, 1.0f, 1.0f, 0.15f };
     attr.callbacks = &callbacks;
 
     qb_window_create(&new_game, &attr, { 0.0f, 100.0f }, { 512.0f, 64.0f }, main_menu, true);
@@ -174,10 +178,10 @@ void create_game() {
     attr.fov = 3.14159f / 4.0f;
     attr.height = 800;
     attr.width = 1200;
-    attr.znear = 0.1;
+    attr.znear = 0.1f;
     attr.zfar = 1000;
-    attr.origin = glm::vec3(-10, 0, 0);
-    attr.rotation_mat = glm::mat4(1);
+    attr.origin = vec3s{ -10, 0, 0 };
+    attr.rotation_mat = GLMS_MAT4_IDENTITY_INIT;
     qb_camera_create(&main_camera, &attr);
     qb_camera_activate(main_camera);
   }
@@ -195,8 +199,8 @@ void create_game() {
     qb_light_enable(3, qbLightType::QB_LIGHT_TYPE_POINT);
     qb_light_enable(4, qbLightType::QB_LIGHT_TYPE_POINT);
 
-    qb_light_directional(0, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, -1.0 }, 0.05f);
-    qb_light_directional(1, { 0.9, 0.9, 1.0 }, { 0.0, 0.0, 1.0 }, 0.1f);
+    qb_light_directional(0, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, -1.0f }, 0.05f);
+    qb_light_directional(1, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, 1.0f }, 0.1f);
     qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
     //qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
   }
@@ -227,9 +231,9 @@ void create_game() {
     }
 
     qbTransform_ t = {
-      glm::vec3(0, 0, 0),
-      glm::vec3(0.5, -5, 0),
-      glm::mat4(1)
+      vec3s{0.0f, 0.0f, 0.0f},
+      vec3s{0.5f, -5.0f, 0.0f},
+      GLMS_MAT4_IDENTITY_INIT
     };
 
     qbRenderable r = qb_draw_sphere(2, 50, 50);
@@ -251,7 +255,7 @@ void create_game() {
     }
 
 
-    std::vector<glm::vec3> positions = {
+    std::vector<vec3s> positions = {
       { 0, 0, 5 },
       { 25, 0, 5 },
       { -25, 0, 5 },
@@ -261,9 +265,9 @@ void create_game() {
 
     for (auto&& pos : positions) {
       qbTransform_ t = {
-        glm::vec3(0, 0, 0),
+        vec3s{0, 0, 0},
         pos,
-        glm::mat4(1)
+        GLMS_MAT4_IDENTITY_INIT
       };
 
       qbRenderable r = qb_draw_cube(1, 1, 1);
@@ -282,17 +286,16 @@ void create_game() {
     qbMaterial material;
     {
       qbMaterialAttr_ attr = {};
-      attr.albedo = { 1, 1, 1 };
-      attr.metallic = 1.10;
-      attr.roughness = 0.005;
+      attr.albedo = { 1.0f, 1.0f, 1.0f };
+      attr.metallic = 1.10f;
+      attr.roughness = 0.005f;
       qb_material_create(&material, &attr, "ball");
     }
 
     qbTransform_ t = {
-      glm::vec3(-50, -50, -5),
-      glm::vec3(0, 0, 0),
-      glm::mat4(1)
-      //glm::rotate(glm::mat4(1), -3.141592f / 2.0f, glm::vec3(1, 0, 0))
+      vec3s{0, 0, 0},
+      vec3s{ -50, -50, -5 },
+      GLMS_MAT4_IDENTITY_INIT
     };
 
     qbRenderable r = qb_draw_rect(100, 100);
@@ -311,38 +314,51 @@ void create_game() {
     qbEntity block = v.i;
     qbTransform t;
     qb_instance_find(qb_transform(), block, &t);
-    //t->orientation = glm::rotate(t->orientation, -3.14159f / 2.0f, glm::vec3(1, 1, 0));
+    //t->orientation = rotate(t->orientation, -3.14159f / 2.0f, vec3s(1, 1, 0));
     //t->position.y += 5.0f;
     int frame = 0;
     qbCamera camera = qb_camera_active();
     while (true) {
-      t->orientation = glm::rotate(t->orientation, -0.001f, glm::vec3(0, 0, 1));
+      t->orientation = glms_rotate(t->orientation, -0.001f, vec3s{ 0.0f, 0.0f, 1.0f });
 
-      //t->position.z = 0.0f + 5.0f*glm::cos((float)(frame) / 100.0f);
-      //t->position.y = 0.0f - 5.0f*glm::sin((float)(frame) / 100.0f);
+      //t->position.z = 0.0f + 5.0f*cos((float)(frame) / 100.0f);
+      //t->position.y = 0.0f - 5.0f*sin((float)(frame) / 100.0f);
 
+      vec4s dir = {};
       if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
-        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0.5, 0, 0, 1) * camera->rotation_mat));
+        dir = { 0.5f, 0.0f, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
-        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(-0.5, 0, 0, 1) * camera->rotation_mat));
+        dir = { -0.5f, 0.0f, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_Q)) {
-        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, 0.5, 0, 1) * camera->rotation_mat));
+        dir = { 0.0f, 0.5f, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_E)) {
-        qb_camera_origin(camera, camera->origin + glm::vec3(glm::vec4(0, -0.5, 0, 1) * camera->rotation_mat));
+        dir = { 0.0f, -0.5f, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
-        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, -0.025f, glm::vec3(0, 0, 1)));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, 0.025f, vec3s{ 0, 0, 1 }));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
-        qb_camera_rotation(camera, glm::rotate(camera->rotation_mat, 0.025f, glm::vec3(0, 0, 1)));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, -0.025f, vec3s{ 0, 0, 1 }));
       }
 
       ++frame;

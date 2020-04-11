@@ -3,7 +3,8 @@
 
 #include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
-#include <glm/glm.hpp>
+#include <cglm/cglm.h>
+#include <cglm/types-struct.h>
 
 // TODO: Add a 2D "surface" that you can draw to.
 
@@ -32,6 +33,8 @@ typedef struct qbRenderer_ {
 
   // Reserved
   void(*surface_add)(struct qbRenderer_* self, struct qbSurface_*);
+
+  // Reserved
   void(*surface_remove)(struct qbRenderer_* self, struct qbSurface_*);
 
   size_t(*max_texture_units)(struct qbRenderer_* self);
@@ -63,12 +66,12 @@ typedef struct qbRenderer_ {
   void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
   void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
   bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
-  void(*light_directional)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
-                           glm::vec3 dir, float brightness);
-  void(*light_point)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
-                     glm::vec3 pos, float brightness, float range);
-  void(*light_spot)(struct qbRenderer_* self, qbId id, glm::vec3 rgb,
-                    glm::vec3 pos, glm::vec3 dir, float brightness,
+  void(*light_directional)(struct qbRenderer_* self, qbId id, vec3s rgb,
+                           vec3s dir, float brightness);
+  void(*light_point)(struct qbRenderer_* self, qbId id, vec3s rgb,
+                     vec3s pos, float brightness, float range);
+  void(*light_spot)(struct qbRenderer_* self, qbId id, vec3s rgb,
+                    vec3s pos, vec3s dir, float brightness,
                     float range, float angle_deg);
   size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
 
@@ -115,8 +118,8 @@ typedef struct qbCameraAttr_ {
   float znear;
   float zfar;
 
-  glm::mat4 rotation_mat;
-  glm::vec3 origin;
+  mat4s rotation_mat;
+  vec3s origin;
 } qbCameraAttr_, *qbCameraAttr;
 
 typedef struct qbCamera_ {
@@ -127,12 +130,12 @@ typedef struct qbCamera_ {
   float znear;
   float zfar;
 
-  glm::mat4 view_mat;
-  glm::mat4 projection_mat;
-  glm::mat4 rotation_mat;
-  glm::vec3 origin;
-  glm::vec3 up;
-  glm::vec3 forward;
+  mat4s view_mat;
+  mat4s projection_mat;
+  mat4s rotation_mat;
+  vec3s origin;
+  vec3s up;
+  vec3s forward;
 } qbCamera_;
 typedef const qbCamera_* qbCamera;
 
@@ -163,19 +166,19 @@ QB_API qbCamera qb_camera_active();
 QB_API void qb_camera_resize(qbCamera camera, uint32_t width, uint32_t height);
 QB_API void qb_camera_fov(qbCamera camera, float fov);
 QB_API void qb_camera_clip(qbCamera camera, float znear, float zfar);
-QB_API void qb_camera_rotation(qbCamera camera, glm::mat4 rotation);
-QB_API void qb_camera_origin(qbCamera camera, glm::vec3 origin);
+QB_API void qb_camera_rotation(qbCamera camera, mat4s rotation);
+QB_API void qb_camera_origin(qbCamera camera, vec3s origin);
 QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera);
 
-QB_API glm::vec3 qb_camera_screentoworld(qbCamera camera, glm::vec2 screen);
-QB_API glm::vec2 qb_camera_worldtoscreen(qbCamera camera, glm::vec3 world);
+QB_API void qb_camera_screentoworld(qbCamera camera, vec2s screen, vec3s out);
+QB_API void qb_camera_worldtoscreen(qbCamera camera, vec3s world, vec2s out);
 
 QB_API void qb_light_enable(qbId id, qbLightType light_type);
 QB_API void qb_light_disable(qbId id, qbLightType light_type);
 QB_API bool qb_light_isenabled(qbId id, qbLightType light_type);
 
-QB_API void qb_light_directional(qbId id, glm::vec3 rgb, glm::vec3 dir, float brightness);
-QB_API void qb_light_point(qbId id, glm::vec3 rgb, glm::vec3 pos, float brightness, float range);
+QB_API void qb_light_directional(qbId id, vec3s rgb, vec3s dir, float brightness);
+QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float brightness, float range);
 
 QB_API size_t qb_light_max(qbLightType light_type);
 
@@ -188,9 +191,9 @@ QB_API qbResult qb_render_makecurrent();
 QB_API qbResult qb_render_makenull();
 
 typedef struct qbTransform_ {
-  glm::vec3 pivot;
-  glm::vec3 position;
-  glm::mat4 orientation;
+  vec3s pivot;
+  vec3s position;
+  mat4s orientation;
 } qbTransform_, *qbTransform;
 
 QB_API void qb_renderable_create(qbRenderable* renderable, struct qbModel_* model);

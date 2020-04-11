@@ -17,8 +17,7 @@
 #include "shader.h"
 #include <cubez/utils.h>
 #include <vector>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
+#include <assert.h>
 #include "stb_image.h"
 
 #ifdef _DEBUG
@@ -136,7 +135,7 @@ typedef struct qbRenderPass_ {
 
   qbShaderModule shader_program;
 
-  glm::vec4 viewport;
+  vec4s viewport;
   float viewport_scale;
 
   qbClearValue_ clear;
@@ -299,7 +298,7 @@ void* qb_pixelmap_pixels(qbPixelMap pixels) {
   return pixels->pixels;
 }
 
-qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, glm::vec2 src_rect, glm::vec2 dest_rect) {
+qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec2s dest_rect) {
   return QB_OK;
 }
 
@@ -397,8 +396,9 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       attr.viewport_scale = pipeline_attr->viewport_scale;
 
       qbClearValue_ clear;
-      clear.attachments = QB_COLOR_ATTACHMENT;
       clear.color = { 0.0, 0.0, 0.0, 1.0 };
+      clear.attachments = QB_COLOR_ATTACHMENT;
+
       attr.clear = clear;
 
       qb_renderpass_create(&(*pipeline)->present_pass, &attr);
@@ -803,7 +803,7 @@ void qb_meshbuffer_render(qbMeshBuffer buffer, uint32_t bindings[]) {
   if (buffer->instance_count == 0) {
     glDrawElements(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr);
   } else {
-    glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr, buffer->instance_count);
+    glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr, (GLsizei)buffer->instance_count);
   }
   CHECK_GL();
 }
@@ -831,14 +831,13 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   *render_pass_ref = new qbRenderPass_;
   qbRenderPass render_pass = *render_pass_ref;
 
-  render_pass->frame_buffer = attr->frame_buffer;
-  render_pass->viewport = attr->viewport;
+  render_pass->frame_buffer = attr->frame_buffer;  
   render_pass->viewport_scale = attr->viewport_scale;
   render_pass->shader_program = attr->shader;
   render_pass->clear = attr->clear;
   render_pass->name = STRDUP(attr->name);
   render_pass->ext = attr->ext;
-
+  render_pass->viewport = attr->viewport;
 
   qbGeometryDescriptor descriptor = &render_pass->supported_geometry;
   descriptor->attributes_count = attr->supported_geometry.attributes_count;
@@ -944,10 +943,10 @@ void qb_renderpass_clear(qbRenderPass render_pass) {
 
   GLenum clear = 0;
   if (render_pass->clear.attachments & QB_COLOR_ATTACHMENT) {
-    glClearColor(render_pass->clear.color.r,
-                 render_pass->clear.color.g,
-                 render_pass->clear.color.b,
-                 render_pass->clear.color.a);
+    glClearColor(render_pass->clear.color.x,
+                 render_pass->clear.color.y,
+                 render_pass->clear.color.z,
+                 render_pass->clear.color.w);
     clear |= GL_COLOR_BUFFER_BIT;
   }
   if (render_pass->clear.attachments & QB_DEPTH_ATTACHMENT) {
@@ -981,9 +980,9 @@ void qb_renderpass_draw(qbRenderPass render_pass) {
 
   CHECK_GL();
   qbShaderModule module = render_pass->shader_program;
-  glViewport(render_pass->viewport.x, render_pass->viewport.y,
-             GLsizei(render_pass->viewport.p * render_pass->viewport_scale),
-             GLsizei(render_pass->viewport.q * render_pass->viewport_scale));
+  glViewport((GLint)render_pass->viewport.x, (GLint)render_pass->viewport.y,
+             GLsizei(render_pass->viewport.z * render_pass->viewport_scale),
+             GLsizei(render_pass->viewport.w * render_pass->viewport_scale));
 
   // Render passes are defined by having different shaders. When shaders are
   // re-linked (glUseProgram), it resets the uniform block binding and bound
@@ -1025,7 +1024,7 @@ void qb_renderpass_draw(qbRenderPass render_pass) {
         uint32_t module_binding = render_pass->shader_program->sampler_bindings[j];
         if (module_binding == buffer_binding) {
           image_id = group->images[i]->id;
-          offset = j;
+          offset = (uint32_t)j;
           break;
         }
       }
@@ -1214,7 +1213,7 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
   CHECK_GL();
 }
 
-void qb_image_update(qbImage image, glm::ivec3 offset, glm::ivec3 sizes, void* data) {
+void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data) {
   GLenum image_type = TranslateQbImageTypeToOpenGl(image->type);
   GLenum format = TranslateQbPixelFormatToOpenGl(image->format);
   GLenum type = TranslateQbPixelFormatToOpenGlSize(image->format);

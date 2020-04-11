@@ -2,7 +2,8 @@
 #define CUBEZ_RENDER_PIPELINE__H
 
 #include <cubez/cubez.h>
-#include <glm/glm.hpp>
+#include <cglm/cglm.h>
+#include <cglm/types-struct.h>
 
 typedef struct qbRenderPipeline_* qbRenderPipeline;
 typedef struct qbRenderPass_* qbRenderPass;
@@ -209,7 +210,7 @@ typedef struct {
 typedef struct {
   qbFrameBufferAttachment attachments;
 
-  glm::vec4 color;
+  vec4s color;
   float depth;
   uint32_t stencil;
 } qbClearValue_;
@@ -257,7 +258,7 @@ typedef struct {
   qbClearValue_ clear;
   qbCullFace cull;
 
-  glm::vec4 viewport;
+  vec4s viewport;
   float viewport_scale;
 
   qbRenderExt ext;
@@ -267,7 +268,7 @@ typedef const qbRenderPassAttr_* qbRenderPassAttr;
 typedef struct {
   const char* name;
 
-  glm::vec4 viewport;
+  vec4s viewport;
   float viewport_scale;
 
   qbRenderExt ext;
@@ -303,7 +304,7 @@ QB_API void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count,
 
 QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format, void* pixels);
 QB_API void qb_pixelmap_destroy(qbPixelMap* pixel_map);
-QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, glm::vec2 src_rect, glm::vec2 dest_rect);
+QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec2s dest_rect);
 
 QB_API void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr attr);
 QB_API void qb_renderpipeline_destroy(qbRenderPipeline* pipeline);
@@ -356,7 +357,7 @@ QB_API void qb_image_raw(qbImage* image, qbImageAttr attr, qbPixelFormat format,
 QB_API void qb_image_destroy(qbImage* image);
 QB_API const char* qb_image_name(qbImage image);
 QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const char* file);
-QB_API void qb_image_update(qbImage image, glm::ivec3 offset, glm::ivec3 sizes, void* data);
+QB_API void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data);
 
 QB_API void qb_gpubuffer_create(qbGpuBuffer* buffer, qbGpuBufferAttr attr);
 QB_API void qb_gpubuffer_destroy(qbGpuBuffer* buffer);

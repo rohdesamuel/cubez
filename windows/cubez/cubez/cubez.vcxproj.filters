@@ -34,6 +34,9 @@
     <Filter Include="Source Files\audio">
       <UniqueIdentifier>{a3738078-1c1d-4248-9ae1-b3a3e4e8d0c5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\cglm">
+      <UniqueIdentifier>{c6cac696-7183-438c-af09-3696673f7c90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -192,9 +195,6 @@
     <ClInclude Include="..\..\..\src\collision_utils.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\gjk.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\render_defs.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
@@ -212,6 +212,15 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\cute_sound.h">
       <Filter>Header Files\audio</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\mat_defs.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\vec_defs.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\cglm\config.h">
+      <Filter>Source Files\cglm</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -311,9 +320,6 @@
     <ClCompile Include="..\..\..\src\collision_utils.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\gjk.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\mesh.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
@@ -325,6 +331,63 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\audio.cpp">
       <Filter>Source Files\audio</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\affine.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\bezier.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\box.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\cam.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\curve.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\ease.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\euler.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\frustum.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\io.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\mat2.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\mat3.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\mat4.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\plane.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\project.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\quat.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\sphere.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\vec2.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\vec3.c">
+      <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\cglm\vec4.c">
+      <Filter>Source Files\cglm</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

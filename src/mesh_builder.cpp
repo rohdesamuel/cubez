@@ -2,12 +2,7 @@
 #include "collision_utils.h"
 
 #include <cubez/render.h>
-#include <glm/glm.hpp>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-#include <glm/gtx/component_wise.hpp>
-#include <glm/gtx/extended_min_max.hpp>
 #include <GL/glew.h>
 #include <algorithm>
 #include <map>
@@ -16,14 +11,54 @@
 #include <cstring>
 #include <string>
 #include <iostream>
+#include <cglm/struct/vec3.h>
 
-struct VertexAttribute {
-  glm::vec3 v;
-  glm::vec3 vn;
-  glm::vec2 vt;
 
-  bool operator<(const VertexAttribute& other) const {
-    return memcmp(this, &other, sizeof(VertexAttribute)) > 0;
+size_t hash_combine(size_t seed, size_t hash) {
+  hash += 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  return seed ^ hash;
+}
+
+namespace std {
+template<>
+struct hash<vec3s> {
+  size_t operator()(const vec3s& v) const {
+    size_t seed = 0;
+    hash<float> hasher;
+    seed = hash_combine(seed, hasher(v.x));
+    seed = hash_combine(seed, hasher(v.y));
+    seed = hash_combine(seed, hasher(v.z));
+    return seed;
+  }
+};
+
+template<>
+struct hash<mat3s> {
+  size_t operator()(const mat3s& m) const {
+    size_t seed = 0;
+    hash<vec3s> hasher;
+    seed = hash_combine(seed, hasher(m.col[0]));
+    seed = hash_combine(seed, hasher(m.col[1]));
+    seed = hash_combine(seed, hasher(m.col[2]));
+    return seed;
+  }
+};
+}
+
+struct VectorCompare {
+  vec3s v;
+  bool operator() (const vec3s& lhs, const vec3s& rhs) const {
+    return std::hash<vec3s>()(lhs) < std::hash<vec3s>()(rhs);
+  }
+  bool operator< (const VectorCompare& other) const {
+    return std::hash<vec3s>()(v) < std::hash<vec3s>()(other.v);
+  }
+};
+
+struct MatrixCompare {
+  mat3s mat;
+  bool operator< (const MatrixCompare& other) const {
+    return std::hash<mat3s>()(mat) < std::hash<mat3s>()(other.mat);
   }
 };
 
@@ -44,17 +79,17 @@ bool check_for_gl_errors() {
 qbResult process_line(MeshBuilder* builder, const std::string& token,
                       const std::string& line) {
   if (token == "v") {
-    glm::vec3 v = { 0, 0, 0 };
+    vec3s v = { 0, 0, 0 };
     if (SSCANF(line.c_str(), "%f %f %f", &v.x, &v.y, &v.z) == 3) {
       builder->AddVertex(std::move(v));
     }
   } else if (token == "vt") {
-    glm::vec2 vt = { 0, 0 };
+    vec2s vt = { 0, 0 };
     if (SSCANF(line.c_str(), "%f %f", &vt.x, &vt.y) == 2) {
       builder->AddTexture(std::move(vt));
     }
   } else if (token == "vn") {
-    glm::vec3 vn = { 0, 0, 0 };
+    vec3s vn = { 0, 0, 0 };
     if (SSCANF(line.c_str(), "%f %f %f", &vn.x, &vn.y, &vn.z) == 3) {
       builder->AddNormal(std::move(vn));
     }
@@ -95,31 +130,6 @@ qbResult process_line(MeshBuilder* builder, const std::string& line) {
 
 }
 
-glm::vec3 Mesh::Max() const {
-  return max_;
-}
-
-glm::vec3 Mesh::Min() const {
-  return min_;
-}
-
-glm::vec3 Mesh::FarthestPoint(const glm::vec3& dir) const {
-  float max_dot = 0.0f;
-  int ret = 0;
-
-  int index = 0;
-  for (const auto& v : v_) {
-    float dot = glm::dot(v, dir);
-    if (dot > max_dot) {
-      max_dot = dot;
-      ret = index;
-    }
-    ++index;
-  }
-
-  return v_[ret];
-}
-
 MeshBuilder MeshBuilder::FromFile(const std::string& filename) {
   std::ifstream file;
   file.open(filename, std::ios::in);
@@ -138,29 +148,36 @@ cleanup:
   return builder;
 }
 
-int MeshBuilder::AddVertex(glm::vec3&& v) {
+int MeshBuilder::AddVertex(vec3s v) {
   v_.push_back(v);
-  return v_.size() - 1;
+  return (int)v_.size() - 1;
 }
 
-int MeshBuilder::AddTexture(glm::vec2&& vt) {
+int MeshBuilder::AddVertexWithOffset(vec3s v, vec3s center) {
+  center = glms_vec3_negate(center);
+  v = glms_vec3_add(v, center);
+  v_.push_back(v);
+  return (int)v_.size() - 1;
+}
+
+int MeshBuilder::AddTexture(vec2s vt) {
   vt_.push_back(vt);
-  return vt_.size() - 1;
+  return (int)vt_.size() - 1;
 }
 
-int MeshBuilder::AddNormal(glm::vec3&& vn) {
+int MeshBuilder::AddNormal(vec3s vn) {
   vn_.push_back(vn);
-  return vn_.size() - 1;
+  return (int)vn_.size() - 1;
 }
 
-int MeshBuilder::AddFace(Face&& face) {
+int MeshBuilder::AddFace(Face face) {
   f_.push_back(face);
-  return f_.size() - 1;
+  return (int)f_.size() - 1;
 }
 
-int MeshBuilder::AddFace(std::vector<glm::vec3>&& vertices,
-                         std::vector<glm::vec2>&& textures,
-                         std::vector<glm::vec3>&& normals) {
+int MeshBuilder::AddFace(std::vector<vec3s>&& vertices,
+                         std::vector<vec2s>&& textures,
+                         std::vector<vec3s>&& normals) {
   Face f;
   for (size_t i = 0; i < vertices.size(); ++i) {
     f.v[i] = AddVertex(std::move(vertices[i]));
@@ -172,7 +189,7 @@ int MeshBuilder::AddFace(std::vector<glm::vec3>&& vertices,
     f.vn[i] = AddNormal(std::move(normals[i]));
   }
   f_.push_back(std::move(f));
-  return f_.size() - 1;
+  return (int)f_.size() - 1;
 }
 
 MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
@@ -181,50 +198,54 @@ MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
   float dir_step = 360.0f / slices;
   for (float zdir = 0; zdir < 180; zdir += zdir_step) {
     for (float dir = 0; dir < 360; dir += dir_step) {
-      float zdir_rad_t = glm::radians(zdir);
-      float zdir_rad_d = glm::radians(zdir + zdir_step);
-      float dir_rad_l = glm::radians(dir);
-      float dir_rad_r = glm::radians(dir + dir_step);
+      float zdir_rad_t = glm_rad(zdir);
+      float zdir_rad_d = glm_rad(zdir + zdir_step);
+      float dir_rad_l = glm_rad(dir);
+      float dir_rad_r = glm_rad(dir + dir_step);
 
-      glm::vec3 p0 = radius * glm::vec3(
+      vec3s p0 = {
         sin(zdir_rad_t) * cos(dir_rad_l),
         sin(zdir_rad_t) * sin(dir_rad_l),
         cos(zdir_rad_t)
-      );
-      glm::vec2 t0 = {
-        dir_rad_l / glm::two_pi<float>(),
-        zdir_rad_t / glm::pi<float>()
+      };      
+      vec2s t0 = {
+        dir_rad_l / (2.0f * GLM_PIf),
+        zdir_rad_t / GLM_PIf
       };
+      p0 = glms_vec3_scale(p0, radius);
 
-      glm::vec3 p1 = radius * glm::vec3(
+      vec3s p1 = {
         sin(zdir_rad_t) * cos(dir_rad_r),
         sin(zdir_rad_t) * sin(dir_rad_r),
         cos(zdir_rad_t)
-      );
-      glm::vec2 t1 = {
-        dir_rad_r / glm::two_pi<float>(),
-        zdir_rad_t / glm::pi<float>()
       };
+      vec2s t1 = {
+        dir_rad_r / (2.0f * GLM_PIf),
+        zdir_rad_t / GLM_PIf
+      };
+      p1 = glms_vec3_scale(p1, radius);
 
-      glm::vec3 p2 = radius * glm::vec3(
+      vec3s p2 = {
         sin(zdir_rad_d) * cos(dir_rad_r),
         sin(zdir_rad_d) * sin(dir_rad_r),
         cos(zdir_rad_d)
-      );
-      glm::vec2 t2 = {
-        dir_rad_r / glm::two_pi<float>(),
-        zdir_rad_d / glm::pi<float>()
       };
+      vec2s t2 = {
+        dir_rad_r / (2.0f * GLM_PIf),
+        zdir_rad_d / GLM_PIf
+      };
+      p2 = glms_vec3_scale(p2, radius);
 
-      glm::vec3 p3 = radius * glm::vec3(
+      vec3s p3 = {
         sin(zdir_rad_d) * cos(dir_rad_l),
         sin(zdir_rad_d) * sin(dir_rad_l),
         cos(zdir_rad_d)
-      );
-      glm::vec2 t3 = {
-        dir_rad_l / glm::two_pi<float>(),
-        zdir_rad_d / glm::pi<float>()
       };
+      vec2s t3 = {
+        dir_rad_l / (2.0f * GLM_PIf),
+        zdir_rad_d / GLM_PIf
+      };
+      p3 = glms_vec3_scale(p3, radius);
 
       if (zdir > 0) {
         builder.AddFace({
@@ -232,7 +253,9 @@ MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
         }, {
           t2, t1, t0
         }, {
-          p2 / radius, p1 / radius, p0 / radius
+          glms_vec3_scale(p2, 1.0f / radius),
+          glms_vec3_scale(p1, 1.0f / radius),
+          glms_vec3_scale(p0, 1.0f / radius),
         });
       }
 
@@ -241,7 +264,9 @@ MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
       }, {
         t2, t0, t3
       }, {
-        p2 / radius, p0 / radius, p3 / radius
+        glms_vec3_scale(p2, 1.0f / radius),
+        glms_vec3_scale(p0, 1.0f / radius),
+        glms_vec3_scale(p3, 1.0f / radius),
       });
     }
   }
@@ -251,15 +276,15 @@ MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
 MeshBuilder MeshBuilder::Box(float x, float y, float z) {
   MeshBuilder builder;
   
-  glm::vec3 center = 0.5f * glm::vec3{ x, y, z };
-  int p1 = builder.AddVertex(glm::vec3{ 0, 0, z } - center);
-  int p2 = builder.AddVertex(glm::vec3{ 0, y, z } - center);
-  int p3 = builder.AddVertex(glm::vec3{ x, y, z } - center);
-  int p4 = builder.AddVertex(glm::vec3{ x, 0, z } - center);
-  int p5 = builder.AddVertex(glm::vec3{ 0, 0, 0 } - center);
-  int p6 = builder.AddVertex(glm::vec3{ 0, y, 0 } - center);
-  int p7 = builder.AddVertex(glm::vec3{ x, y, 0 } - center);
-  int p8 = builder.AddVertex(glm::vec3{ x, 0, 0 } - center);
+  vec3s center = glms_vec3_scale(vec3s{ x, y, z }, 0.5f);
+  int p1 = builder.AddVertexWithOffset(vec3s{ 0, 0, z }, center);
+  int p2 = builder.AddVertexWithOffset(vec3s{ 0, y, z }, center);
+  int p3 = builder.AddVertexWithOffset(vec3s{ x, y, z }, center);
+  int p4 = builder.AddVertexWithOffset(vec3s{ x, 0, z }, center);
+  int p5 = builder.AddVertexWithOffset(vec3s{ 0, 0, 0 }, center);
+  int p6 = builder.AddVertexWithOffset(vec3s{ 0, y, 0 }, center);
+  int p7 = builder.AddVertexWithOffset(vec3s{ x, y, 0 }, center);
+  int p8 = builder.AddVertexWithOffset(vec3s{ x, 0, 0 }, center);
 
   int t1 = builder.AddTexture({ 0, 0 });
   int t2 = builder.AddTexture({ 1, 0 });
@@ -362,10 +387,10 @@ MeshBuilder MeshBuilder::Box(float x, float y, float z) {
 MeshBuilder MeshBuilder::Rect(float x, float y) {
   MeshBuilder builder;
 
-  int p1 = builder.AddVertex(glm::vec3{ 0, 0, 0 });
-  int p2 = builder.AddVertex(glm::vec3{ 0, y, 0 });
-  int p3 = builder.AddVertex(glm::vec3{ x, y, 0 });
-  int p4 = builder.AddVertex(glm::vec3{ x, 0, 0 });
+  int p1 = builder.AddVertex(vec3s{ 0, 0, 0 });
+  int p2 = builder.AddVertex(vec3s{ 0, y, 0 });
+  int p3 = builder.AddVertex(vec3s{ x, y, 0 });
+  int p4 = builder.AddVertex(vec3s{ x, 0, 0 });
 
   int t1 = builder.AddTexture({ 0, 0 });
   int t2 = builder.AddTexture({ 1, 0 });
@@ -389,77 +414,56 @@ MeshBuilder MeshBuilder::Rect(float x, float y) {
   return builder;
 }
 
-struct VectorCompare {
-  glm::vec3 v;
-  bool operator() (const glm::vec3& lhs, const glm::vec3& rhs) const {
-    return std::hash<glm::vec3>()(lhs) < std::hash<glm::vec3>()(rhs);
-  }
-  bool operator< (const VectorCompare& other) const {
-    return std::hash<glm::vec3>()(v) < std::hash<glm::vec3>()(other.v);
-  }
-};
-
 qbCollider MeshBuilder::Collider() {
   qbCollider collider = new qbCollider_;
   
-  std::set<glm::vec3, VectorCompare> verts;
-  glm::vec3 max(std::numeric_limits<float>::min());
-  glm::vec3 min(std::numeric_limits<float>::max());
+  std::set<vec3s, VectorCompare> verts;
+  vec3s max, min;
+  max = glms_vec3_fill(std::numeric_limits<float>::min());
+  min = glms_vec3_fill(std::numeric_limits<float>::max());
 
-  for (const glm::vec3& v: v_) {
-    max.x = std::max(max.x, v.x);
-    max.y = std::max(max.y, v.y);
-    max.z = std::max(max.z, v.z);
-
-    min.x = std::min(min.x, v.x);
-    min.y = std::min(min.y, v.y);
-    min.z = std::min(min.z, v.z);
+  for (vec3s& v: v_) {
+    max = glms_vec3_maxv(max, v);
+    min = glms_vec3_minv(min, v);
 
     verts.insert(v);
    }
 
-  collider->vertices = new glm::vec3[verts.size()];
-  collider->count = verts.size();
+  collider->vertices = new vec3s[verts.size()];
+  collider->count = (uint8_t)verts.size();
   size_t i = 0;
-  for (auto&& v : verts) {
+  for (auto v : verts) {
     collider->vertices[i] = v;
     ++i;
   }
 
   collider->max = max;
   collider->min = min;
-  collider->r.x = std::max(glm::length(max.x), glm::length(min.x));
-  collider->r.y = std::max(glm::length(max.y), glm::length(min.y));
-  collider->r.z = std::max(glm::length(max.z), glm::length(min.z));
+  collider->r.x = std::max(std::abs(max.x), std::abs(min.x));
+  collider->r.y = std::max(std::abs(max.y), std::abs(min.y));
+  collider->r.z = std::max(std::abs(max.z), std::abs(min.z));
 
   return collider;
 }
 
-struct MatrixCompare {
-  glm::mat3 mat;
-  bool operator< (const MatrixCompare& other) const {
-    return std::hash<glm::mat3>()(mat) < std::hash<glm::mat3>()(other.mat);
-  }
-};
-
 qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
-  std::vector<glm::vec3> vertices;
-  std::vector<glm::vec3> normals;
-  std::vector<glm::vec2> uvs;
+  std::vector<vec3s> vertices;
+  std::vector<vec3s> normals;
+  std::vector<vec2s> uvs;
   std::vector<uint32_t> indices;
 
   if (render_mode == qbRenderFaceType_::QB_TRIANGLES) {
     std::map<MatrixCompare, uint32_t> mapped_indices;
     for (const Face& face : f_) {
       for (int i = 0; i < 3; ++i) {
-        const glm::vec3& v = v_[face.v[i]];
-        const glm::vec2& vt = vt_[face.vt[i]];
-        const glm::vec3& vn = vn_[face.vn[i]];
+        const vec3s& v = v_[face.v[i]];
+        const vec2s& vt = vt_[face.vt[i]];
+        const vec3s& vn = vn_[face.vn[i]];
 
-        glm::mat3 mat;
-        mat[0] = v;
-        mat[1] = glm::vec3(vt, 0);
-        mat[2] = vn;
+        mat3s mat;
+        mat.col[0] = v;
+        mat.col[1] = vec3s{ vt.x, vt.y, 0.0f };
+        mat.col[2] = vn;
 
         MatrixCompare mc{ mat };
 
@@ -469,7 +473,7 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
           normals.push_back(vn);
           uvs.push_back(vt);
 
-          uint32_t new_index = vertices.size() - 1;
+          uint32_t new_index = (uint32_t)vertices.size() - 1;
           indices.push_back(new_index);
           mapped_indices[mc] = new_index;
         } else {
@@ -481,14 +485,14 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
     std::map<VectorCompare, uint32_t> mapped_indices;
     if (f_.empty()) {
       for (size_t i = 0; i < v_.size(); ++i) {
-        const glm::vec3& v = v_[i];
+        const vec3s& v = v_[i];
         VectorCompare vc{ v };
 
         auto it = mapped_indices.find(vc);
         if (it == mapped_indices.end()) {
           vertices.push_back(v);
 
-          uint32_t new_index = vertices.size() - 1;
+          uint32_t new_index = (uint32_t)vertices.size() - 1;
           indices.push_back(new_index);
           mapped_indices[vc] = new_index;
         } else {
@@ -508,7 +512,7 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
               normals.push_back(vn_[face.vn[index]]);
               uvs.push_back(vt_[face.vt[index]]);
 
-              uint32_t new_index = vertices.size() - 1;
+              uint32_t new_index = (uint32_t)vertices.size() - 1;
               indices.push_back(new_index);
               mapped_indices[vc] = new_index;
             } else {
@@ -522,14 +526,14 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
     std::map<VectorCompare, uint32_t> mapped_indices;
     if (f_.empty()) {
       for (size_t i = 0; i < v_.size(); ++i) {
-        const glm::vec3& v = v_[i];
+        const vec3s& v = v_[i];
         VectorCompare vc{ v };
 
         auto it = mapped_indices.find(vc);
         if (it == mapped_indices.end()) {
           vertices.push_back(v);
 
-          uint32_t new_index = vertices.size() - 1;
+          uint32_t new_index = (uint32_t)vertices.size() - 1;
           indices.push_back(new_index);
           mapped_indices[vc] = new_index;
         } else {
@@ -547,7 +551,7 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
             normals.push_back(vn_[face.vn[i]]);
             uvs.push_back(vt_[face.vt[i]]);
 
-            uint32_t new_index = vertices.size() - 1;
+            uint32_t new_index = (uint32_t)vertices.size() - 1;
             indices.push_back(new_index);
             mapped_indices[vc] = new_index;
           } else {
@@ -570,8 +574,8 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
   
   qbMesh mesh = ret->meshes;
   mesh->vertex_count = vertices.size();
-  mesh->vertices = new glm::vec3[mesh->vertex_count];
-  memcpy(mesh->vertices, vertices.data(), vertices.size() * sizeof(glm::vec3));
+  mesh->vertices = new vec3s[mesh->vertex_count];
+  memcpy(mesh->vertices, vertices.data(), vertices.size() * sizeof(vec3));
 
   mesh->index_count = indices.size();
   mesh->indices = new uint32_t[mesh->index_count];
@@ -580,15 +584,15 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
   mesh->normal_count = normals.size();
   mesh->normals = nullptr;
   if (mesh->normal_count > 0) {    
-    mesh->normals = new glm::vec3[mesh->normal_count];
-    memcpy(mesh->normals, normals.data(), normals.size() * sizeof(glm::vec3));
+    mesh->normals = new vec3s[mesh->normal_count];
+    memcpy(mesh->normals, normals.data(), normals.size() * sizeof(vec3));
   }
 
   mesh->uv_count = uvs.size();
   mesh->uvs = nullptr;
   if (mesh->uv_count > 0) {
-    mesh->uvs = new glm::vec2[mesh->uv_count];
-    memcpy(mesh->uvs, uvs.data(), uvs.size() * sizeof(glm::vec2));
+    mesh->uvs = new vec2s[mesh->uv_count];
+    memcpy(mesh->uvs, uvs.data(), uvs.size() * sizeof(vec2));
   }
 
   return ret;

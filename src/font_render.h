@@ -8,7 +8,7 @@ class FontRender {
 public:
   FontRender(Font* font);
   void Render(const char16_t* text, qbTextAlign align,
-              glm::vec2 bounding_size, glm::vec2 font_scale,
+              vec2s bounding_size, vec2s font_scale,
               std::vector<float>* vertices, std::vector<int>* indices);
 
 private:

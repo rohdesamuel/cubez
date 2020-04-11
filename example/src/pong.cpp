@@ -4,7 +4,7 @@
 #include <cubez/render_pipeline.h>
 #include <cubez/render.h>
 #include <cubez/mesh.h>
-#include <glm/ext.hpp>
+#include <cglm/struct.h>
 
 namespace pong
 {
@@ -14,18 +14,18 @@ qbRenderPass scene_pass;
 qbComponent transform_component;
 
 struct Paddle {
-  glm::vec2 pos;
-  glm::vec2 vel;
+  vec2s pos;
+  vec2s vel;
 };
 
 struct Ball {
-  glm::vec2 pos;
-  glm::vec2 vel;
+  vec2s pos;
+  vec2s vel;
 };
 
 // std140 layout
 struct PaddleUniformModel {
-  alignas(16) glm::mat4 modelview;
+  alignas(16) mat4s modelview;
 };
 
 qbGpuBuffer top_paddle_ubo;
@@ -35,8 +35,8 @@ qbGpuBuffer ball_ubo;
 qbGpuBuffer vbo;
 qbGpuBuffer ebo;
 
-glm::vec2 paddle_size = { 128, 16 };
-glm::vec2 ball_size = { 16, 16 };
+vec2s paddle_size = { 128, 16 };
+vec2s ball_size = { 16, 16 };
 uint32_t screen_width;
 uint32_t screen_height;
 
@@ -44,21 +44,21 @@ Paddle top_paddle;
 Paddle bot_paddle;
 Ball ball;
 
-void update_ubo(qbGpuBuffer ubo, glm::vec2 pos, glm::vec2 size) {
-  glm::mat4 model = glm::mat4(1.0);
-  model = glm::translate(model, glm::vec3(pos, 0));
-  model = glm::translate(model, glm::vec3(0.5f * size.x, 0.5f * size.y, 0.0f));
-  model = glm::translate(model, glm::vec3(-0.5f * size.x, -0.5f * size.y, 0.0f));
-  model = glm::scale(model, glm::vec3(size, 1.0f));
+void update_ubo(qbGpuBuffer ubo, vec2s pos, vec2s size) {
+  mat4s model = GLMS_MAT4_IDENTITY_INIT;
+  model = glms_translate(model, vec3s{ pos.x, pos.y, 0 });
+  model = glms_translate(model, vec3s{ 0.5f * size.x, 0.5f * size.y, 0.0f });
+  model = glms_translate(model, vec3s{ -0.5f * size.x, -0.5f * size.y, 0.0f });
+  model = glms_scale(model, vec3s{ size.x, size.y, 1.0f });
 
   PaddleUniformModel uniform;
   uniform.modelview = model;
   qb_gpubuffer_update(ubo, 0, sizeof(PaddleUniformModel), &uniform.modelview);
 }
 
-bool CheckAabb(const glm::vec2& a_origin, const glm::vec2& b_origin,
-               const glm::vec2& a_min, const glm::vec2& a_max,
-               const glm::vec2& b_min, const glm::vec2& b_max) {
+bool CheckAabb(const vec2s& a_origin, const vec2s& b_origin,
+               const vec2s& a_min, const vec2s& a_max,
+               const vec2s& b_min, const vec2s& b_max) {
   return
     a_origin.x + a_min.x <= b_origin.x + b_max.x && a_origin.x + a_max.x >= b_origin.x + b_min.x &&
     a_origin.y + a_min.y <= b_origin.y + b_max.y && a_origin.y + a_max.y >= b_origin.y + b_min.y;
@@ -72,8 +72,8 @@ void Initialize(Settings settings) {
     qb_coro_sync([](qbVar) {
       float speed = 5;
       float dir = 90.0f;
-      ball.vel.x = speed * glm::cos(dir);
-      ball.vel.y = speed * glm::sin(dir);
+      ball.vel.x = speed * cos(dir);
+      ball.vel.y = speed * sin(dir);
       while (true) {
         if (ball.pos.x - (ball_size.x / 2) < 0) {
           ball.vel.x *= -1;
@@ -88,44 +88,40 @@ void Initialize(Settings settings) {
             ball.pos.y > screen_height) {
           float dir = 3.141592f * 0.5f;
           speed = 5.0f;
-          ball.vel.x = speed * glm::cos(dir);
-          ball.vel.y = speed * glm::sin(dir);
+          ball.vel.x = speed * cos(dir);
+          ball.vel.y = speed * sin(dir);
           ball.pos =
             { (screen_width / 2) - (ball_size.x / 2),
               (screen_height / 2) - (ball_size.x / 2) };
         }
 
-        if (CheckAabb(ball.pos, top_paddle.pos,
-                      (ball_size *  0.0f), (ball_size * 1.0f),
-                      (paddle_size* 0.0f), (paddle_size* 1.0f))) {
-          glm::vec2 ball_o = ball.pos + (ball_size * 0.5f);
-          glm::vec2 paddle_o = top_paddle.pos + (paddle_size * 0.5f);
-          glm::vec2 r = glm::normalize(ball_o - paddle_o);
-          glm::vec2 n = { 0.0f, 1.0f };
-          ball.vel = r * speed;
+        if (CheckAabb(ball.pos, top_paddle.pos, { 0.0f, 0.0f }, ball_size, { 0.0f, 0.0f }, paddle_size)) {
+          vec2s ball_o = glms_vec2_add(ball.pos, glms_vec2_scale(ball_size, 0.5f));
+          vec2s paddle_o = glms_vec2_add(top_paddle.pos, glms_vec2_scale(paddle_size, 0.5f));
+          vec2s r = glms_vec2_normalize(glms_vec2_sub(ball_o, paddle_o));
+          vec2s n = { 0.0f, 1.0f };
+          ball.vel = glms_vec2_scale(r, speed);
           speed *= 1.04f;
         }
 
-        if (CheckAabb(ball.pos, bot_paddle.pos,
-                      (ball_size *  0.0f), (ball_size * 1.0f),
-                      (paddle_size* 0.0f), (paddle_size* 1.0f)) &&
-          ball.pos.y + ball_size.y / 2 < bot_paddle.pos.y + paddle_size.y / 2) {
-          glm::vec2 ball_o = ball.pos + (ball_size * 0.5f);
-          glm::vec2 paddle_o = bot_paddle.pos + (paddle_size * 0.5f);
-          glm::vec2 r = glm::normalize(ball_o - paddle_o);
-          glm::vec2 n = { 0.0f, -1.0f };
-          ball.vel = r * speed;
+        if (CheckAabb(ball.pos, bot_paddle.pos, { 0.0f, 0.0f }, ball_size, { 0.0f, 0.0f }, paddle_size) &&
+            ball.pos.y + ball_size.y / 2 < bot_paddle.pos.y + paddle_size.y / 2) {
+          vec2s ball_o = glms_vec2_add(ball.pos, glms_vec2_scale(ball_size, 0.5f));
+          vec2s paddle_o = glms_vec2_add(bot_paddle.pos, glms_vec2_scale(paddle_size, 0.5f));
+          vec2s r = glms_vec2_normalize(glms_vec2_sub(ball_o, paddle_o));
+          vec2s n = { 0.0f, -1.0f };
+          ball.vel = glms_vec2_scale(r, speed);
           speed *= 1.04f;
         }
 
-        ball.pos += ball.vel;
-        top_paddle.pos += top_paddle.vel;
-        bot_paddle.pos += bot_paddle.vel;
+        ball.pos = glms_vec2_add(ball.pos, ball.vel);
+        top_paddle.pos = glms_vec2_add(top_paddle.pos, top_paddle.vel);
+        bot_paddle.pos = glms_vec2_add(bot_paddle.pos, bot_paddle.vel);
 
-        glm::ivec2 mouse;
-        qb_get_mouse_position(&mouse.x, &mouse.y);
+        int mouse_x, mouse_y;
+        qb_get_mouse_position(&mouse_x, &mouse_y);
 
-        bot_paddle.pos.x = mouse.x - paddle_size.x / 2;
+        bot_paddle.pos.x = mouse_x - paddle_size.x / 2;
         qb_coro_yield(qbNone);
       }
       return qbNone;
