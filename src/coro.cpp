@@ -41,7 +41,7 @@
 * overhead per call, 256 calls = 1024. If stack allocation is performed,
 * this will need to be increased.
 */
-#define STACK_TGROW (1 << 20)
+#define STACK_TGROW (1 << 10)
 #define STACK_DEFAULT sizeof(intptr_t) * STACK_TGROW
 #define STACK_TSHRINK 2 * STACK_DEFAULT
 #define STACK_ADJ STACK_DEFAULT
@@ -51,8 +51,9 @@ struct _Coro {
   Coro parent;
   _ctxt ctxt;
   _entry start;
-  intptr_t stack_base;
+  void* stack_base;
   size_t stack_size;
+  size_t stack_used;
   int is_done;
 };
 
@@ -64,6 +65,85 @@ struct _Coro {
 THREAD_LOCAL volatile Coro _cur;
 THREAD_LOCAL volatile qbVar _value;
 THREAD_LOCAL struct _Coro _on_exit;
+THREAD_LOCAL uintptr_t _sp_base;
+
+void _fix_frame_pointer(jmp_buf buf) {
+#if defined(__COMPILE_AS_WINDOWS__) && defined(__COMPILE_AS_64__)
+  // See https://stackoverflow.com/questions/26605063/an-invalid-or-unaligned-stack-was-encountered-during-an-unwind-operation.
+  ((_JUMP_BUFFER*)buf)->Frame = 0;
+#endif
+}
+
+void _coro_save(Coro to, uintptr_t mark) {
+  uintptr_t sp = (_stack_grows_up ? _sp_base : mark);
+  size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
+  if (to->stack_size < sz + STACK_TGROW || to->stack_size > sz - STACK_TSHRINK) {
+    size_t newsz = sz + STACK_ADJ;
+    free(to->stack_base);
+    to->stack_base = calloc(1, newsz);
+    to->stack_size = newsz;
+  }
+  to->stack_used = sz;
+  memcpy(to->stack_base, (void *)sp, sz);
+}
+
+void _coro_restore(uintptr_t target_sz, void ** pad) {
+  if ((uintptr_t)&pad - _sp_base > target_sz) {
+    size_t sz = _cur->stack_used;
+    void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
+    memcpy(sp, _cur->stack_base, sz);
+    _fix_frame_pointer(_cur->ctxt);
+    _rstr_and_jmp(_cur->ctxt);
+  } else {
+    /* recurse until the stack depth is greater than target stack depth */
+    void* padding[STACK_TGROW];
+    _coro_restore(target_sz, padding);
+  }
+}
+
+qbVar _coro_fastcall(Coro target, qbVar value) {
+#ifdef __COMPILE_AS_64__
+  char stack_top[16];
+#elif defined (__COMPILE_AS_32__) 
+  char stack_top[8];
+#endif
+  *(qbVar*)(&_value) = value; /* pass value to 'target' */
+  if (!_save_and_resumed(_cur->ctxt)) {
+    /* _sp_base - &local is used to calculate the size of the env */
+    uintptr_t target_sz = (_stack_grows_up
+                           ? 0
+                           : target->stack_size);
+    _coro_save(_cur, (uintptr_t)&stack_top);
+    _cur = target;
+    _coro_restore(target_sz, NULL);
+  }
+  /* when someone called us, just return the value */
+  return *(qbVar*)(&_value);
+}
+
+/*
+* This function invokes the start function of the coroutine when the
+* coroutine is first called. If it was called from coro_new, then it sets
+* up the stack and initializes the saved context.
+*/
+void _coro_enter(Coro c) {
+  if (_save_and_resumed(c->ctxt)) {       /* start the coroutine; stack is empty at this point. */
+    qbVar _return;
+    _return.p = _cur;
+    _cur->start(*(qbVar*)(&_value));
+    _cur->is_done = 1;
+    /* return the exited coroutine to the exit handler */
+    _coro_fastcall(&_on_exit, _return);
+  } else {
+    void* stack_top;
+    _coro_save(c, (intptr_t)&stack_top);
+  }
+}
+
+void _stack_init(Coro c, size_t init_size) {
+  c->stack_size = init_size;
+  c->stack_base = calloc(1, c->stack_size);
+}
 
 #if defined(__clang__)
 #pragma clang optimize off
@@ -74,125 +154,45 @@ THREAD_LOCAL struct _Coro _on_exit;
 #pragma optimize( "", off )
 #endif
 
-void _fix_frame_pointer(jmp_buf buf) {
-#if defined(__COMPILE_AS_WINDOWS__) && defined(__COMPILE_AS_64__)
-  // See https://stackoverflow.com/questions/26605063/an-invalid-or-unaligned-stack-was-encountered-during-an-unwind-operation.
-  ((_JUMP_BUFFER*)buf)->Frame = 0;
-#endif
-}
-
-/* copy the old stack frame to the new stack frame */
-void _coro_cpframe(intptr_t local_sp, intptr_t new_sp) {
-  intptr_t src = local_sp - (_stack_grows_up ? _frame_offset : 0);
-  intptr_t dst = new_sp - (_stack_grows_up ? _frame_offset : 0);
-  /* copy local stack frame to the new stack */
-  memcpy((void *)dst, (void *)src, _frame_offset);
-}
-
-/* rebase any values in saved state to the new stack */
-void _coro_rebase(Coro c, intptr_t local_sp, intptr_t new_sp) {
-  intptr_t * s = (intptr_t *)c->ctxt;
-  ptrdiff_t diff = new_sp - local_sp; /* subtract old base, and add new base */
-  int i;
-  for (i = 0; i < _offsets_len; ++i) {
-    s[_offsets[i]] = new_sp; //+= diff;
-  }
-}
-
-qbVar _coro_fastcall(Coro target, qbVar value) {
-  /* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
-
-  *(qbVar*)(&_value) = value; /* pass value to 'target' */
-  if (!_save_and_resumed(_cur->ctxt)) {
-    /* we are calling someone else, so we set up the environment, and jump to target */
-    _cur = target;
-    _fix_frame_pointer(_cur->ctxt);
-    _rstr_and_jmp(_cur->ctxt);
-  }
-  /* when someone called us, just return the value */
-  return *(qbVar*)(&_value);
-}
-
-void _coro_initstack(Coro c) {
-  /* local and new stack pointers at identical relative positions on the stack */
-  intptr_t local_sp = (intptr_t)&local_sp;
-
-  /* I don't know what the addition "- sizeof(void *)" is for when
-  the stack grows downards */
-  intptr_t new_sp = c->stack_base +
-    (_stack_grows_up
-     ? _frame_offset
-     : c->stack_size - _frame_offset - sizeof(void *));
-
-  // Align the stack to 16 bytes.
-  new_sp &= ~(uintptr_t)0x0F;
-
-  /* copy local stack frame to the new stack */
-  _coro_cpframe(local_sp, new_sp);
-
-  /* reset any locals in the saved state to point to the new stack */
-  _coro_rebase(c, local_sp, new_sp);
-}
-
-/*
-* This function invokes the start function of the coroutine when the
-* coroutine is first called. If it was called from coro_new, then it sets
-* up the stack and initializes the saved context.
-*/
-void _coro_enter(Coro c) {
-  if (_save_and_resumed(c->ctxt)) {	/* start the coroutine; stack is empty at this point. */
-    qbVar _return;
-    _return.p = _cur;
-    _return = _cur->start(*(qbVar*)(&_value));
-    _cur->is_done = 1;
-    /* return the exited coroutine to the exit handler */
-    _coro_fastcall(_cur->parent, _return);
-  }
-  /* this code executes when _coro_enter is called from coro_new */
-INIT_CTXT:
-  _coro_initstack(c);
-}
-
 /*
 * We probe the current machine and extract the data needed to modify the
 * machine context. The current thread is then initialized as the currently
 * executing coroutine.
 */
-Coro coro_initialize() {
-  _probe_arch();
+Coro coro_initialize(void* sp_base) {
+  _infer_stack_direction();
+  _sp_base = (intptr_t)sp_base;
+  _stack_init(&_on_exit, STACK_DEFAULT);
+
   _cur = &_on_exit;
-  memset(&_on_exit, 0, sizeof(_on_exit));
+  _coro_enter(&_on_exit);
   return _cur;
 }
 
-Coro coro_new(_entry fn) {
-  /* FIXME: should not malloc directly? */
-  Coro c = (Coro)malloc(sizeof(struct _Coro));
-  memset((void*)c, 0, sizeof(struct _Coro));
+#if defined(__clang__)
+#pragma clang optimize on
+#elif defined(__GNUC__) || defined(__GNUG__)
+#pragma GCC pop_options
+#elif defined(_MSC_VER)
+#pragma optimize( "", on )
+#endif
 
-  c->stack_size = STACK_DEFAULT;
-  c->stack_base = (intptr_t)malloc(c->stack_size);// _aligned_malloc(c->stack_size, 16);// ;
-  memset((void*)c->stack_base, 0, c->stack_size);
+Coro coro_new(_entry fn) {
+  Coro c = (Coro)malloc(sizeof(struct _Coro));
+  _stack_init(c, STACK_DEFAULT);
+
   c->start = fn;
   c->is_done = 0;
-
   _coro_enter(c);
   return c;
 }
 
-Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size) {
-  assert((stack_size >= 256) && "Stack size must be at least 256 bytes");
-
-  /* FIXME: should not malloc directly? */
+Coro coro_clone(Coro target) {
   Coro c = (Coro)malloc(sizeof(struct _Coro));
-  memset((void*)c, 0, sizeof(struct _Coro));
+  _stack_init(c, STACK_DEFAULT);
 
-  c->stack_size = stack_size;
-  c->stack_base = stack;
-  memset((void*)c->stack_base, 0, c->stack_size);
-  c->start = fn;
+  c->start = target->start;
   c->is_done = 0;
-
   _coro_enter(c);
   return c;
 }
@@ -212,15 +212,21 @@ int coro_done(Coro c) {
 * one running, then restore it. The target is now running, and it simply returns _value.
 */
 qbVar coro_call(Coro target, qbVar value) {
-  /* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
-
+#ifdef __COMPILE_AS_64__
+  char stack_top[16];
+#elif defined (__COMPILE_AS_32__) 
+  char stack_top[8];
+#endif
   *(qbVar*)(&_value) = value; /* pass value to 'target' */
   if (!_save_and_resumed(_cur->ctxt)) {
-    /* we are calling someone else, so we set up the environment, and jump to target */
+    /* _sp_base - &local is used to calculate the size of the env */
+    uintptr_t target_sz = (_stack_grows_up
+                           ? 0
+                           : target->stack_size);
+    _coro_save(_cur, (uintptr_t)&stack_top);
     target->parent = _cur;
     _cur = target;
-    _fix_frame_pointer(_cur->ctxt);
-    _rstr_and_jmp(_cur->ctxt);
+    _coro_restore(target_sz, NULL);
   }
   /* when someone called us, just return the value */
   return *(qbVar*)(&_value);
@@ -233,73 +239,9 @@ qbVar coro_yield(qbVar var) {
   return qbNone;
 }
 
-Coro coro_clone(Coro c) {
-  Coro cnew = (Coro)malloc(sizeof(struct _Coro));
-  size_t stack_sz = c->stack_size;
-  intptr_t stack_base = (intptr_t)malloc(stack_sz);
-  /* copy the context then the stack data */
-  memcpy(cnew, c, sizeof(struct _Coro));
-  memcpy((void *)stack_base, (void *)c->stack_base, stack_sz);
-  cnew->stack_base = stack_base;
-  cnew->stack_size = stack_sz;
-  /* ensure new context references new stack */
-  _coro_rebase(cnew, c->stack_base, stack_base);
-  return cnew;
-}
-
 void coro_free(Coro c) {
-  free((void *)c->stack_base);
+  if (c->stack_base != NULL) {
+    free((void *)c->stack_base);
+  }
   free(c);
 }
-
-/*
-* Resume execution with a new stack:
-*  1. allocate a new stack
-*  2. copy all relevant data
-*  3. mark save point
-*  4. rebase the context using the new stack
-*  5. restore the context with the new stack
-*/
-static void _coro_resume_with(size_t sz) {
-  /* allocate bigger stack */
-  intptr_t old_sp = _cur->stack_base;
-  void * new_sp = malloc(sz);
-  memcpy(new_sp, (void *)old_sp, _cur->stack_size);
-  _cur->stack_base = (intptr_t)new_sp;
-  _cur->stack_size = sz;
-  /* save the current context; execution resumes here with new stack */
-  if (!_save_and_resumed(_cur->ctxt)) {
-    /* rebase jmp_buf using new stack */
-    _coro_rebase(_cur, old_sp, (intptr_t)new_sp);
-    _fix_frame_pointer(_cur->ctxt);
-    _rstr_and_jmp(_cur->ctxt);
-  }
-  free((void *)old_sp);
-}
-
-/*
-* The stack poll uses some hysteresis to avoid thrashing. We grow the stack if
-* there's less than STACK_TGROW bytes left in the current stack, and we only shrink
-* if there's more than STACK_TSHRINK empty.
-*/
-void coro_poll() {
-  /* check the current stack pointer */
-  size_t stack_size = _cur->stack_size;
-  size_t empty = (_stack_grows_up
-                  ? stack_size - ((uintptr_t)&empty - _cur->stack_base)
-                  : (uintptr_t)&empty - _cur->stack_base);
-
-  if (empty < STACK_TGROW) {	/* grow stack */
-    _coro_resume_with(stack_size + STACK_ADJ);
-  } else if (empty > STACK_TSHRINK) {	/* shrink stack */
-    _coro_resume_with(stack_size - STACK_ADJ);
-  }
-}
-
-#if defined(__clang__)
-#pragma clang optimize on
-#elif defined(__GNUC__) || defined(__GNUG__)
-#pragma GCC pop_options
-#elif defined(_MSC_VER)
-#pragma optimize( "", on )
-#endif

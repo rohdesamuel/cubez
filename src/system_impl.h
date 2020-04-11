@@ -20,6 +20,7 @@ class SystemImpl {
 
  private:
   void CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state);
+  void CopyToInstance(Component* component, qbEntity entity, void* instance_data, qbInstance instance, GameState* state);
 
   void Run_0(qbFrame* f);
   void Run_1(Component* component, qbFrame* f, GameState* state);
@@ -37,9 +38,9 @@ class SystemImpl {
   std::vector<qbInstance_> instances_;  
   std::vector<qbTicket_*> tickets_;
 
-  qbTransform transform_;
-  qbCallback callback_;
-  qbCondition condition_;
+  qbTransformFn transform_;
+  qbCallbackFn callback_;
+  qbConditionFn condition_;
 };
 
 

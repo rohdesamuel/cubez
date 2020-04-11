@@ -13,21 +13,21 @@
 typedef struct qbTimer_* qbTimer;
 
 // Returns a strictly increasing monotonic timestamp with units of nanoseconds.
-API int64_t qb_timer_query();
+QB_API int64_t qb_timer_query();
 
-API qbResult qb_timer_create(qbTimer* timer, uint8_t window_size);
-API qbResult qb_timer_destroy(qbTimer* timer);
+QB_API qbResult qb_timer_create(qbTimer* timer, uint8_t window_size);
+QB_API qbResult qb_timer_destroy(qbTimer* timer);
 
-API void qb_timer_start(qbTimer timer);
+QB_API void qb_timer_start(qbTimer timer);
 
-API void qb_timer_stop(qbTimer timer);
+QB_API void qb_timer_stop(qbTimer timer);
 
-API void qb_timer_add(qbTimer timer);
+QB_API void qb_timer_add(qbTimer timer);
 
-API void qb_timer_reset(qbTimer timer);
+QB_API void qb_timer_reset(qbTimer timer);
 
-API int64_t qb_timer_elapsed(qbTimer timer);
+QB_API int64_t qb_timer_elapsed(qbTimer timer);
 
-API int64_t qb_timer_average(qbTimer timer);
+QB_API int64_t qb_timer_average(qbTimer timer);
 
 #endif  // CUBEZ_UTILS__H

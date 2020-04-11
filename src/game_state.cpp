@@ -2,12 +2,20 @@
 #include "private_universe.h"
 
 GameState::GameState(std::unique_ptr<EntityRegistry> entities,
-                     std::unique_ptr<ComponentRegistry> components)
-  : entities_(std::move(entities)), components_(std::move(components)) {
+                     std::unique_ptr<InstanceRegistry> instances,
+                     ComponentRegistry* components)
+  : entities_(std::move(entities)),
+    instances_(std::move(instances)),
+    components_(components) {
   destroyed_entities_.resize(10);
   removed_components_.resize(10);
 }
 
+GameState::~GameState() {
+  for (qbEntity entity : *entities_) {
+    EntityDestroyInternal(entity);
+  }
+}
 
 void GameState::Flush() {
   for (auto& removed_components : removed_components_) {
@@ -29,7 +37,7 @@ void GameState::Flush() {
 
 qbResult GameState::EntityCreate(qbEntity* entity, const qbEntityAttr_& attr) {
   qbResult result = entities_->CreateEntity(entity, attr);
-  components_->CreateInstancesFor(*entity, attr.component_list, this);
+  instances_->CreateInstancesFor(*entity, attr.component_list, this);
   return result;
 }
 
@@ -42,7 +50,7 @@ qbResult GameState::EntityDestroy(qbEntity entity) {
 qbResult GameState::EntityDestroyInternal(qbEntity entity) {
   qbResult result = QB_OK;
   if (entities_->Has(entity)) {
-    components_->DestroyInstancesFor(entity, this);
+    instances_->DestroyInstancesFor(entity, this);
     result = entities_->DestroyEntity(entity);
   }
   return result;
@@ -53,12 +61,12 @@ qbResult GameState::EntityFind(qbEntity* entity, qbId entity_id) {
 }
 
 bool GameState::EntityHasComponent(qbEntity entity, qbComponent component) {
-  return (*components_)[component].Has(entity);
+  return (*instances_)[component].Has(entity);
 }
 
 qbResult GameState::EntityAddComponent(qbEntity entity, qbComponent component,
                                        void* instance_data) {
-  return components_->CreateInstanceFor(entity, component, instance_data, this);
+  return instances_->CreateInstanceFor(entity, component, instance_data, this);
 }
 
 qbResult GameState::EntityRemoveComponent(qbEntity entity, qbComponent component) {
@@ -68,11 +76,7 @@ qbResult GameState::EntityRemoveComponent(qbEntity entity, qbComponent component
 }
 
 qbResult GameState::EntityRemoveComponentInternal(qbEntity entity, qbComponent component) {
-  return components_->DestroyInstanceFor(entity, component, this) == 1 ? QB_OK : QB_UNKNOWN;
-}
-
-qbResult GameState::ComponentCreate(qbComponent* component, qbComponentAttr attr) {
-  return components_->Create(component, std::move(attr));
+  return instances_->DestroyInstanceFor(entity, component, this) == 1 ? QB_OK : QB_UNKNOWN;
 }
 
 qbResult GameState::ComponentSubscribeToOnCreate(qbSystem system,
@@ -86,17 +90,13 @@ qbResult GameState::ComponentSubscribeToOnDestroy(qbSystem system,
 }
 
 Component* GameState::ComponentGet(qbComponent component) {
-  return &(*components_)[component];
+  return &(*instances_)[component];
 }
 
 void* GameState::ComponentGetEntityData(qbComponent component, qbEntity entity) {
-  return (*components_)[component][entity];
+  return (*instances_)[component][entity];
 }
 
 size_t GameState::ComponentGetCount(qbComponent component) {
-  return (*components_)[component].Size();
-}
-
-void GameState::AddMutableComponent(qbComponent component) {
-  mutable_components_.insert(component);
+  return (*instances_)[component].Size();
 }

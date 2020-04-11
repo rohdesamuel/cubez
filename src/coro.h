@@ -32,18 +32,14 @@ typedef qbVar(*_entry)(qbVar var);
 /*
 * Initialize the coroutine library, returning a coroutine for the thread that called init.
 */
-Coro coro_initialize();
+Coro coro_initialize(void* local_sp);
 
 /*
 * Create a new coroutine from the given function.
 */
 Coro coro_new(_entry fn);
 
-/*
-* Create a new coroutine from the given function, and with the
-* given stack.
-*/
-Coro coro_new_unsafe(_entry fn, uintptr_t stack, size_t stack_size);
+Coro coro_clone(Coro target);
 
 // Returns the currently running Coroutine, or NULL if none.
 Coro coro_this();
@@ -62,20 +58,8 @@ qbVar coro_yield(qbVar var);
 int coro_done(Coro c);
 
 /*
-* Clone a given coroutine. This can be used to implement multishot continuations.
-*/
-/*EXPORT
-coro coro_clone(coro c);*/
-
-/*
 * Free the coroutine and return the space for the stack.
 */
 void coro_free(Coro c);
-
-/*
-* Poll the current coroutine to ensure sufficient resources are allocated. This
-* should be called periodically to ensure a coroutine doesn't segfault.
-*/
-void coro_poll();
 
 #endif /* __CORO_H__ */

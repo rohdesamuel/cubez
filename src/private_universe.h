@@ -132,19 +132,47 @@ class PrivateUniverse {
   qbBarrier barrier_create();
   void barrier_destroy(qbBarrier barrier);
 
+  // Scene methods.
+  qbResult scene_create(qbScene* scene, const char* name);
+  qbResult scene_destroy(qbScene* scene);
+  qbScene scene_global();
+  qbResult scene_set(qbScene scene);
+  qbResult scene_reset();
+  qbResult scene_activate(qbScene scene);
+  qbResult scene_attach(qbScene scene, const char* key, void* value);
+  qbResult scene_ondestroy(qbScene scene, void(*fn)(qbScene scene,
+                                                    size_t count,
+                                                    const char* keys[],
+                                                    void* values[]));
+  qbResult scene_onactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                     size_t count,
+                                                     const char* keys[],
+                                                     void* values[]));
+  qbResult scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                       size_t count,
+                                                       const char* keys[],
+                                                       void* values[]));
+
   // Current program id of running thread.
   static thread_local qbId program_id;
 
  private:
   GameState* Baseline() {
-    return &baseline_;
+    return baseline_->state;
+  }
+
+  GameState* WorkingScene() {
+    return working_->state;
   }
 
   Runner runner_;
 
   // Must be initialized first.
   std::unique_ptr<ProgramRegistry> programs_;
-  GameState baseline_;
+  std::unique_ptr<ComponentRegistry> components_;
+  qbScene baseline_;
+  qbScene active_;
+  qbScene working_;
 
   std::vector<qbBarrier> barriers_;
 };

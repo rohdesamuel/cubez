@@ -41,18 +41,24 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[ERROR] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   __debugbreak(); std::cin.get(); exit(-1); }
 #else
 #define INFO(x) { std::cerr << "[INFO] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[ERROR] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   std::cin.get(); exit(-1); }
 #endif  // __COMPILE_AS_WINDOWS__
 
 #else
 
 #define INFO(x)
-#define FATAL(x)
+#ifdef __COMPILE_AS_WINDOWS__
+#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  __debugbreak(); std::cin.get(); exit(-1); }
+#else
+#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
+  std::cin.get(); exit(-1); }
+#endif  // __COMPILE_AS_WINDOWS__
 
 #define DEBUG_ASSERT(expr, exit_code) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
@@ -64,13 +70,19 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C }
 #include <cstdint>
+#else
+#ifndef bool
+#define bool int
+#define true 1
+#define false 0
+#endif  // ifndef bool
 #endif  // ifdef __cplusplus
 
 #ifdef __COMPILE_AS_WINDOWS__
 #ifdef __BUILDING_DLL__
-#define API extern "C" __declspec(dllexport)
+#define QB_API extern "C" __declspec(dllexport)
 #else 
-#define API extern "C" __declspec(dllimport)
+#define QB_API extern "C" __declspec(dllimport)
 #define CPP_API 
 #endif  // _EXPORT_BUILD
 #define STRCPY strcpy_s
@@ -99,6 +111,7 @@ typedef int64_t qbId;
 enum qbResult {
   QB_OK = 0,
   QB_UNKNOWN = 1,
+  QB_DONE = 2,
   QB_ERROR_MEMORY_LEAK = -1,
   QB_ERROR_MEMORY_OUT_OF_BOUNDS = -2,
   QB_ERROR_OUT_OF_MEMORY = -3,

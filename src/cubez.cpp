@@ -1,5 +1,7 @@
 #include <cubez/cubez.h>
 #include <cubez/utils.h>
+#include <cubez/render.h>
+#include <cubez/audio.h>
 #include "defs.h"
 #include "private_universe.h"
 #include "byte_vector.h"
@@ -7,44 +9,194 @@
 #include "system_impl.h"
 #include "utils_internal.h"
 #include "coro_scheduler.h"
+#include "input_internal.h"
+#include "log_internal.h"
+#include "render_internal.h"
+#include "gui_internal.h"
+#include "audio_internal.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
 const qbVar qbNone = { QB_TAG_VOID, 0 };
-const qbVar qbUnset = { QB_TAG_UNSET, 0 };
+const qbVar qbFuture = { QB_TAG_UNSET, 0 };
 
 static qbUniverse* universe_ = nullptr;
-Coro main;
+qbTiming_ timing_info;
+qbTimer fps_timer;
+qbTimer update_timer;
+qbTimer render_timer;
 CoroScheduler* coro_scheduler;
+Coro coro_main;
 
+struct GameLoop {
+  const double kClockResolution = 1e9;
+  const double dt = 0.01;
 
-qbResult qb_init(qbUniverse* u) {
-  utils_initialize();
+  double t;
+  double current_time;
+  double start_time;
+  double accumulator;
+  bool is_running;
+} game_loop;
 
+qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   universe_ = u;
-  universe_->self = new PrivateUniverse();
+  u->enabled = attr->enabled;
 
-  main = coro_initialize();
+  utils_initialize();
+  coro_main = coro_initialize(u);
+  
+  universe_->self = new PrivateUniverse();
   coro_scheduler = new CoroScheduler(4);
 
-  return AS_PRIVATE(init());
+  qbResult ret = AS_PRIVATE(init());
+
+  if (universe_->enabled == QB_FEATURE_ALL) {
+    universe_->enabled = (qbFeature)0xFFFF;
+  }
+  if (universe_->enabled & QB_FEATURE_LOGGER) {
+    log_initialize();
+  }
+  if (universe_->enabled & QB_FEATURE_INPUT) {
+    input_initialize();
+  }
+  if (universe_->enabled & QB_FEATURE_GRAPHICS) {
+    RenderSettings render_settings;
+    render_settings.title = attr->title;
+    render_settings.width = attr->width;
+    render_settings.height = attr->height;
+    render_settings.create_renderer = attr->create_renderer;
+    render_settings.destroy_renderer = attr->destroy_renderer;
+
+    qbRendererAttr_ empty_args = {};
+    render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
+    render_initialize(&render_settings);
+  }
+
+  if (universe_->enabled & QB_FEATURE_AUDIO) {
+    AudioSettings s = {};
+    s.sample_frequency = attr->audio_args->sample_frequency;
+    s.buffered_samples = attr->audio_args->buffered_samples;
+    audio_initialize(s);
+  }
+
+  if (universe_->enabled & QB_FEATURE_GAME_LOOP) {
+    qb_timer_create(&fps_timer, 50);
+    qb_timer_create(&update_timer, 50);
+    qb_timer_create(&render_timer, 50);
+  }
+
+  return ret;
 }
 
 qbResult qb_start() {
+  game_loop.t = 0.0;
+  game_loop.current_time = qb_timer_query() * 0.000000001;
+  game_loop.start_time = (double)qb_timer_query();
+  game_loop.accumulator = 0.0;
+  game_loop.is_running = true;
   return AS_PRIVATE(start());
 }
 
 qbResult qb_stop() {
+  render_shutdown();
+  audio_shutdown();
   qbResult ret = AS_PRIVATE(stop());
   universe_ = nullptr;
   return ret;
 }
 
-qbResult qb_loop() {
-  qbResult result = AS_PRIVATE(loop());
-  coro_scheduler->run_sync();
+qbResult loop(qbLoopCallbacks callbacks,
+              qbLoopArgs args) {
+  qb_timer_start(fps_timer);
 
-  return result;
+  double new_time = qb_timer_query() * 0.000000001;
+  double frame_time = new_time - game_loop.current_time;
+  frame_time = std::min(0.25, frame_time);
+  game_loop.current_time = new_time;
+  game_loop.accumulator += frame_time;
+
+  qb_handle_input([]() {
+    qb_stop();
+    game_loop.is_running = false;
+  });
+
+  if (callbacks && callbacks->on_fixedupdate) {
+    callbacks->on_fixedupdate(universe_->frame, args->fixed_update);
+  }
+  while (game_loop.accumulator >= game_loop.dt) {
+    qb_timer_start(update_timer);
+    if (callbacks && callbacks->on_update) {
+      callbacks->on_update(universe_->frame, args->update);
+    }
+    qbResult result = AS_PRIVATE(loop());
+    coro_scheduler->run_sync();
+    qb_timer_add(update_timer);
+
+    game_loop.accumulator -= game_loop.dt;
+    game_loop.t += game_loop.dt;
+  }
+
+  qb_timer_start(render_timer);
+
+  qbRenderEvent_ e;
+  e.frame = universe_->frame;
+  e.alpha = game_loop.accumulator / game_loop.dt;
+  e.camera = qb_camera_active();
+  e.renderer = qb_renderer();
+
+  if (callbacks && callbacks->on_prerender) {
+    callbacks->on_prerender(&e, args->prerender);
+  }
+
+  gui_window_updateuniforms();
+  if (e.camera) {
+    qb_render(&e);
+  }
+
+  if (callbacks && callbacks->on_postrender) {
+    callbacks->on_postrender(&e, args->postrender);
+  }
+
+  qb_timer_add(render_timer);
+
+  ++universe_->frame;
+  qb_timer_stop(fps_timer);
+
+  auto update_timer_avg = qb_timer_average(update_timer);
+  auto render_timer_avg = qb_timer_average(render_timer);
+  auto fps_timer_elapsed = qb_timer_elapsed(fps_timer);
+
+  double update_fps = update_timer_avg == 0 ? 0 : game_loop.kClockResolution / update_timer_avg;
+  double render_fps = render_timer_avg == 0 ? 0 : game_loop.kClockResolution / render_timer_avg;
+  double total_fps = fps_timer_elapsed == 0 ? 0 : game_loop.kClockResolution / fps_timer_elapsed;
+
+  timing_info.frame = universe_->frame;
+  timing_info.render_fps = render_fps;
+  timing_info.total_fps = total_fps;
+  timing_info.udpate_fps = update_fps;
+
+  return game_loop.is_running ? QB_OK : QB_DONE;
+}
+
+qbResult qb_loop(qbLoopCallbacks callbacks,
+                 qbLoopArgs args) {
+  if (!game_loop.is_running) {
+    return QB_DONE;
+  }
+
+  if (universe_->enabled & QB_FEATURE_GAME_LOOP) {
+    return loop(callbacks, args);
+  } else {
+    qbResult result = AS_PRIVATE(loop());
+    coro_scheduler->run_sync();
+    return result;
+  }
+}
+
+qbResult qb_timing(qbUniverse universe, qbTiming timing) {
+  *timing = timing_info;
+  return QB_OK;
 }
 
 qbId qb_create_program(const char* name) {
@@ -195,17 +347,17 @@ qbResult qb_systemattr_addmutable(qbSystemAttr attr, qbComponent component) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_setfunction(qbSystemAttr attr, qbTransform transform) {
+qbResult qb_systemattr_setfunction(qbSystemAttr attr, qbTransformFn transform) {
   attr->transform = transform;
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_setcallback(qbSystemAttr attr, qbCallback callback) {
+qbResult qb_systemattr_setcallback(qbSystemAttr attr, qbCallbackFn callback) {
   attr->callback = callback;
 	return qbResult::QB_OK;
 }
 
-qbResult qb_systemattr_setcondition(qbSystemAttr attr, qbCondition condition) {
+qbResult qb_systemattr_setcondition(qbSystemAttr attr, qbConditionFn condition) {
   attr->condition = condition;
   return qbResult::QB_OK;
 }
@@ -351,15 +503,15 @@ qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer)
 
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   qbCoro ret = new qbCoro_();
-  ret->ret = qbUnset;
+  ret->ret = qbFuture;
   ret->main = coro_new(entry);
   return ret;
 }
 
-qbCoro qb_coro_create_unsafe(qbVar(*entry)(qbVar var), void* stack, size_t stack_size) {
+qbCoro qb_coro_copy(qbCoro coro) {
   qbCoro ret = new qbCoro_();
-  ret->ret = qbUnset;
-  ret->main = coro_new_unsafe(entry, (uintptr_t)stack, stack_size);
+  ret->ret = qbFuture;
+  ret->main = coro_clone(coro->main);
   return ret;
 }
 
@@ -396,19 +548,26 @@ qbVar qb_coro_yield(qbVar var) {
 }
 
 void qb_coro_wait(double seconds) {
+  if (seconds == 0) {
+    seconds = 1e-9;
+  }
   double start = (double)qb_timer_query() / 1e9;
   double end = start + seconds;
   while ((double)qb_timer_query() / 1e9 < end) {
-    qb_coro_yield(qbUnset);
+    qb_coro_yield(qbFuture);
   }
 }
 
 void qb_coro_waitframes(uint32_t frames) {
-  uint32_t frames_waited = 0;
+  volatile uint32_t frames_waited = 0;
   while (frames_waited < frames) {
-    qb_coro_yield(qbUnset);
+    qb_coro_yield(qbFuture);
     ++frames_waited;
   }
+}
+
+bool qb_coro_done(qbCoro coro) {
+  return qb_coro_peek(coro).tag != QB_TAG_UNSET;
 }
 
 qbVar qbVoid(void* p) {
@@ -432,6 +591,13 @@ qbVar qbInt(int64_t i) {
   return v;
 }
 
+qbVar qbFloat(float f) {
+  qbVar v;
+  v.tag = QB_TAG_FLOAT;
+  v.f = f;
+  return v;
+}
+
 qbVar qbDouble(double d) {
   qbVar v;
   v.tag = QB_TAG_DOUBLE;
@@ -444,4 +610,65 @@ qbVar qbChar(char c) {
   v.tag = QB_TAG_CHAR;
   v.c = c;
   return v;
+}
+
+qbResult qb_scene_create(qbScene* scene, const char* name) {
+  return AS_PRIVATE(scene_create(scene, name));
+}
+
+qbResult qb_scene_destroy(qbScene* scene) {
+  return AS_PRIVATE(scene_destroy(scene));
+}
+
+qbScene qb_scene_global() {
+  return AS_PRIVATE(scene_global());
+}
+
+qbResult qb_scene_save(qbScene* scene, const char* file) {
+  return QB_OK;
+}
+
+qbResult qb_scene_load(qbScene* scene, const char* name, const char* file) {
+  return QB_OK;
+}
+
+qbResult qb_scene_set(qbScene scene) {
+  return AS_PRIVATE(scene_set(scene));
+}
+
+const char* qb_scene_name(qbScene scene) {
+  return scene->name;
+}
+
+qbResult qb_scene_reset() {
+  return AS_PRIVATE(scene_reset());
+}
+
+qbResult qb_scene_activate(qbScene scene) {
+  return AS_PRIVATE(scene_activate(scene));
+}
+
+qbResult qb_scene_attach(qbScene scene, const char* key, void* value) {
+  return AS_PRIVATE(scene_attach(scene, key, value));
+}
+
+qbResult qb_scene_ondestroy(qbScene scene, void(*fn)(qbScene scene,
+                                                     size_t count,
+                                                     const char* keys[],
+                                                     void* values[])) {
+  return AS_PRIVATE(scene_ondestroy(scene, fn));
+}
+
+qbResult qb_scene_onactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                      size_t count,
+                                                      const char* keys[],
+                                                      void* values[])) {
+  return AS_PRIVATE(scene_onactivate(scene, fn));
+}
+
+qbResult qb_scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                        size_t count,
+                                                        const char* keys[],
+                                                        void* values[])) {
+  return AS_PRIVATE(scene_ondeactivate(scene, fn));
 }

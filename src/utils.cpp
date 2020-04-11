@@ -35,7 +35,7 @@ typedef struct qbTimer_ {
 
 // 1e9 converts to ns
 // 1e6 converts to us
-const int64_t kTimeUnits = 1e9;
+const int64_t kTimeUnits = (int64_t)1000000000;
 uint64_t kStartTime = 0;
 
 #ifdef __COMPILE_AS_WINDOWS__

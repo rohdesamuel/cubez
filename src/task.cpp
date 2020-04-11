@@ -8,7 +8,7 @@ Task::Task(qbProgram* program) : task_(program) {
   game_state_ = nullptr;
 
   thread_ = new std::thread([this]() {
-    Coro main = coro_initialize();
+    Coro main = coro_initialize(&main);
     for (;;) {
       std::unique_lock<std::mutex> lock(state_lock_);
       state = WAITING;
@@ -54,5 +54,5 @@ void Task::Stop() {
 
 void Task::Wait() {
   std::unique_lock<std::mutex> lock(state_lock_);
-  should_wait_.wait(lock, [this] { return state == WAITING || state == STOPPED; });
+  should_wait_.wait(lock, [this] { return game_state_ == nullptr; });
 }

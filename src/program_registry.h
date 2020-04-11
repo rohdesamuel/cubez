@@ -28,12 +28,15 @@ class ProgramRegistry {
   qbResult RunProgram(qbId program, GameState* state);
 
  private:
+  void RunMain(GameState* state);
+
   qbProgram* AllocProgram(qbId id, const char* name);
 
   std::atomic_long id_;
+  qbProgram* main_program_;
   SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
-  std::unordered_map<size_t, std::unique_ptr<Task>> program_threads_;
+  std::unordered_map<size_t, Task*> program_threads_;
 };
 
 #endif  // PROGRAM_REGISTRY__H

@@ -49,12 +49,12 @@ qbResult Runner::transition(
 }
 #else
 qbResult Runner::transition(const std::vector<State>&, State next) {
-  std::lock_guard<std::mutex> lock(state_change_);
+  //std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
   return QB_OK;
 }
 qbResult Runner::transition(std::vector<State>&&, State next) {
-  std::lock_guard<std::mutex> lock(state_change_);
+  //std::lock_guard<std::mutex> lock(state_change_);
   state_ = next;
   return QB_OK;
 }
@@ -94,10 +94,12 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
   return QB_ERROR_BAD_RUN_STATE;
 }
 
-PrivateUniverse::PrivateUniverse()
-  : baseline_(std::make_unique<EntityRegistry>(),
-              std::make_unique<ComponentRegistry>()) {
+PrivateUniverse::PrivateUniverse() {  
   programs_ = std::make_unique<ProgramRegistry>();
+  components_ = std::make_unique<ComponentRegistry>();
+
+  scene_create(&baseline_, "");
+  working_ = active_ = baseline_;
 
   // Create the default program.
   create_program("");
@@ -114,10 +116,12 @@ qbResult PrivateUniverse::start() {
 }
 
 qbResult PrivateUniverse::loop() {
+  // Reset the working scene to the active scene.
+  scene_reset();
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
-  Baseline()->Flush();
-  programs_->Run(Baseline());
+  WorkingScene()->Flush();
+  programs_->Run(WorkingScene());
 
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
@@ -131,11 +135,11 @@ qbId PrivateUniverse::create_program(const char* name) {
 }
 
 qbResult PrivateUniverse::run_program(qbId program) {
-  return programs_->RunProgram(program, Baseline());
+  return programs_->RunProgram(program, WorkingScene());
 }
 
 qbResult PrivateUniverse::detach_program(qbId program) {
-  return programs_->DetatchProgram(program, [this]() { return Baseline(); });
+  return programs_->DetatchProgram(program, [this]() { return WorkingScene(); });
 }
 
 qbResult PrivateUniverse::join_program(qbId program) {
@@ -197,14 +201,16 @@ qbResult PrivateUniverse::event_destroy(qbEvent*) {
 }
 
 qbResult PrivateUniverse::event_flushall(qbProgram program) {
-  qbResult err = runner_.assert_in_state(RunState::RUNNING);
-  if (err != QB_OK) {
-    return err;
-  }
+  DEBUG_OP(
+    qbResult err = runner_.assert_in_state(RunState::RUNNING);
+    if (err != QB_OK) {
+      return err;
+    }
+  );
 
   qbProgram* p = programs_->GetProgram(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  ProgramImpl::FromRaw(p)->FlushAllEvents(Baseline());
+  ProgramImpl::FromRaw(p)->FlushAllEvents(WorkingScene());
 	return qbResult::QB_OK;
 }
 
@@ -225,44 +231,44 @@ qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Event*)event->event)->SendMessageSync(message, Baseline());
+  return ((Event*)event->event)->SendMessageSync(message, WorkingScene());
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
-  return Baseline()->EntityCreate(entity, attr);
+  return WorkingScene()->EntityCreate(entity, attr);
 }
 
 qbResult PrivateUniverse::entity_destroy(qbEntity entity) {
-  return Baseline()->EntityDestroy(entity);
+  return WorkingScene()->EntityDestroy(entity);
 }
 
 qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
-  return Baseline()->EntityFind(entity, entity_id);
+  return WorkingScene()->EntityFind(entity, entity_id);
 }
 
 bool PrivateUniverse::entity_hascomponent(qbEntity entity,
                                           qbComponent component) {
-  return Baseline()->EntityHasComponent(entity, component);
+  return WorkingScene()->EntityHasComponent(entity, component);
 }
 
 qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
                                               qbComponent component,
                                               void* instance_data) {
-  return Baseline()->EntityAddComponent(entity, component,
+  return WorkingScene()->EntityAddComponent(entity, component,
                                                        instance_data);
 }
 
 qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
                                                 qbComponent component) {
-  return Baseline()->EntityRemoveComponent(entity, component);
+  return WorkingScene()->EntityRemoveComponent(entity, component);
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  return Baseline()->ComponentCreate(component, attr);
+  return components_->Create(component, attr);
 }
 
 size_t PrivateUniverse::component_getcount(qbComponent component) {
-  return Baseline()->ComponentGetCount(component);
+  return WorkingScene()->ComponentGetCount(component);
 }
 
 qbResult PrivateUniverse::instance_oncreate(qbComponent component,
@@ -282,7 +288,7 @@ qbResult PrivateUniverse::instance_oncreate(qbComponent component,
   qbSystem system;
   qb_system_create(&system, attr);
 
-  Baseline()->ComponentSubscribeToOnCreate(system, component);
+  WorkingScene()->ComponentSubscribeToOnCreate(system, component);
   qb_systemattr_destroy(&attr);
   return QB_OK;
 }
@@ -304,7 +310,7 @@ qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
   qbSystem system;
   qb_system_create(&system, attr);
 
-  Baseline()->ComponentSubscribeToOnDestroy(system, component);
+  WorkingScene()->ComponentSubscribeToOnDestroy(system, component);
   qb_systemattr_destroy(&attr);
 
   return QB_OK;
@@ -331,16 +337,16 @@ qbResult PrivateUniverse::instance_getmutable(qbInstance instance, void* pbuffer
 qbResult PrivateUniverse::instance_getcomponent(qbInstance instance,
                                                 qbComponent component,
                                                 void* pbuffer) {
-  *(void**)pbuffer = Baseline()->ComponentGetEntityData(component, instance->entity);
+  *(void**)pbuffer = WorkingScene()->ComponentGetEntityData(component, instance->entity);
   return QB_OK;
 }
 
 bool PrivateUniverse::instance_hascomponent(qbInstance instance, qbComponent component) {
-  return Baseline()->EntityHasComponent(instance->entity, component);
+  return WorkingScene()->EntityHasComponent(instance->entity, component);
 }
 
 qbResult PrivateUniverse::instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
-  *(void**)pbuffer = Baseline()->ComponentGetEntityData(component, entity);
+  *(void**)pbuffer = WorkingScene()->ComponentGetEntityData(component, entity);
   return QB_OK;
 }
 
@@ -354,4 +360,134 @@ void PrivateUniverse::barrier_destroy(qbBarrier barrier) {
   barriers_.erase(std::find(barriers_.begin(), barriers_.end(), barrier));
   delete (Barrier*)(barrier)->impl;
   delete barrier;
+}
+
+qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
+  if (scene_global() && *scene == scene_global()) {
+    return QB_OK;
+  }
+
+  qbScene ret = new qbScene_();
+  ret->state = new GameState(std::make_unique<EntityRegistry>(),
+                             std::make_unique<InstanceRegistry>(*components_),
+                             components_.get());
+  if (name) {
+    const size_t kNameBufLen = 128;
+    const size_t kMaxNameLen = kNameBufLen - 1;
+
+    char* new_name = new char[kNameBufLen];
+    memset(new_name, 0, kNameBufLen);
+
+    size_t len = std::min(strlen(name), kMaxNameLen);
+    memcpy(new_name, name, len);
+    
+    ret->name = new_name;
+  } else {
+    ret->name = new char('\0');
+  }
+  *scene = ret;
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_destroy(qbScene* scene) {
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
+  if (*scene == scene_global()) {
+    return QB_OK;
+  }
+
+  // Inform users of destruction.
+  for (auto& fn : (*scene)->ondestroy) {
+    fn(*scene,
+       (*scene)->keys.empty() ? 0 : (*scene)->keys.size(),
+       (*scene)->keys.empty() ? nullptr : (*scene)->keys.data(),
+       (*scene)->values.empty() ? nullptr : (*scene)->values.data());
+  }
+
+  // Delete the game state to destroy all entities.
+  delete (*scene)->name;
+  delete (*scene)->state;
+  delete *scene;
+  *scene = nullptr;
+  working_ = active_ = nullptr;
+
+  scene_activate(scene_global());
+  scene_set(scene_global());
+
+  return QB_OK;
+}
+
+qbScene PrivateUniverse::scene_global() {
+  return baseline_;
+}
+
+qbResult PrivateUniverse::scene_set(qbScene scene) {
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
+  working_ = scene;
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_reset() {
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
+  working_ = active_;
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_attach(qbScene scene, const char* key, void* value) {
+  scene->keys.push_back(key);
+  scene->values.push_back(value);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_activate(qbScene scene) {
+  if (active_ == scene) {
+    return QB_OK;
+  }
+
+  DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
+  // Deactivate the currently active scene.
+  if (active_) {
+    for (auto& fn : active_->ondeactivate) {
+      fn(scene,
+         scene->keys.empty() ? 0 : scene->keys.size(),
+         scene->keys.empty() ? nullptr : scene->keys.data(),
+         scene->values.empty() ? nullptr : scene->values.data());
+    }
+  }
+  
+  // Activate the new scene.
+  active_ = scene;
+  scene_set(scene);
+
+  for (auto& fn : scene->onactivate) {
+    fn(scene,
+       scene->keys.empty() ? 0 : scene->keys.size(),
+       scene->keys.empty() ? nullptr : scene->keys.data(),
+       scene->values.empty() ? nullptr : scene->values.data());
+  }
+
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_ondestroy(qbScene scene, void(*fn)(qbScene scene,
+                                                                   size_t count,
+                                                                   const char* keys[],
+                                                                   void* values[])) {
+  scene->ondestroy.push_back(fn);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_onactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                                    size_t count,
+                                                                    const char* keys[],
+                                                                    void* values[])) {
+  scene->onactivate.push_back(fn);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene,
+                                                                      size_t count,
+                                                                      const char* keys[],
+                                                                      void* values[])) {
+  scene->ondeactivate.push_back(fn);
+  return QB_OK;
 }
