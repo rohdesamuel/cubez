@@ -124,12 +124,12 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x86\Debug;$(ProjectRoot)\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -140,13 +140,13 @@
       <Optimization>Full</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x86\Optimized Debug;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x86\Optimized Debug;$(ProjectRoot)\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -157,13 +157,13 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
       <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Debug;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -174,14 +174,14 @@
       <Optimization>Full</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Optimized Debug;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Optimized Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -193,7 +193,7 @@
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <MinimalRebuild>true</MinimalRebuild>
@@ -208,7 +208,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x86\Release;$(ProjectRoot)\deps\win\x86\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -222,7 +222,7 @@
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Sam\Source\Repos\cubez\include;C:\Users\Sam\Source\Repos\cubez\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_MBCS;GLM_ENABLE_EXPERIMENTAL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <MinimalRebuild>true</MinimalRebuild>
@@ -237,7 +237,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\Sam\Source\Repos\cubez\windows\cubez\x64\Release;C:\Users\Sam\Source\Repos\cubez\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Release;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Shlwapi.lib;Ws2_32.lib;OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;cubez.lib;Ultralight.lib;UltralightCore.lib;WebCore.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
