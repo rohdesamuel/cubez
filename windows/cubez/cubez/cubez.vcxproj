@@ -250,15 +250,10 @@
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
     <ClInclude Include="..\..\..\include\cubez\input.h" />
     <ClInclude Include="..\..\..\include\cubez\log.h" />
-    <ClInclude Include="..\..\..\include\cubez\mat_defs.h" />
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
-    <ClInclude Include="..\..\..\include\cubez\timer.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
-    <ClInclude Include="..\..\..\include\cubez\vec_defs.h" />
-    <ClInclude Include="..\..\..\include\cubez\xdr.h" />
-    <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
     <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />
@@ -282,7 +277,6 @@
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\font_registry.h" />
     <ClInclude Include="..\..\..\src\font_render.h" />
-    <ClInclude Include="..\..\..\src\frame_buffer.h" />
     <ClInclude Include="..\..\..\src\game_state.h" />
     <ClInclude Include="..\..\..\src\gui_internal.h" />
     <ClInclude Include="..\..\..\src\input_internal.h" />
@@ -307,7 +301,6 @@
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\apex_memmove.cpp" />
     <ClCompile Include="..\..\..\src\audio.cpp" />
     <ClCompile Include="..\..\..\src\barrier.cpp" />
     <ClCompile Include="..\..\..\src\cglm\affine.c" />

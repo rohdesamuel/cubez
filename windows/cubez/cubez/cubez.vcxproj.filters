@@ -102,13 +102,7 @@
     <ClInclude Include="..\..\..\src\event.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\frame_buffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\block_vector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\apex_memmove.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\game_state.h">
@@ -118,12 +112,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\timer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\xdr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\coro.h">
@@ -213,12 +201,6 @@
     <ClInclude Include="..\..\..\src\cute_sound.h">
       <Filter>Header Files\audio</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\mat_defs.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\vec_defs.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\cglm\config.h">
       <Filter>Source Files\cglm</Filter>
     </ClInclude>
@@ -265,9 +247,6 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\snapshot.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\apex_memmove.cpp">
-      <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\game_state.cpp">
       <Filter>Source Files</Filter>

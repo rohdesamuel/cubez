@@ -61,6 +61,9 @@
     <ClInclude Include="..\..\..\example\src\forward_renderer.h">
       <Filter>Header Files\modules</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\gui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert">
