@@ -107,8 +107,32 @@ qbResult process_line(MeshBuilder* builder, const std::string& token,
         --face.vt[i];
       }
       builder->AddFace(std::move(face));
+    } else if (SSCANF(line.c_str(),
+                      "%d//%d %d//%d %d//%d",
+                      &face.v[0], &face.vn[0],
+                      &face.v[1], &face.vn[1],
+                      &face.v[2], &face.vn[2]) == 6) {
+      // Convert from 1-indexing to 0-indexing.
+      for (int i = 0; i < 3; ++i) {
+        --face.v[i];
+        --face.vn[i];
+      }
+      face.vt[0] = face.vt[1] = face.vt[2] = -1;
+      builder->AddFace(std::move(face));
+    } else if (SSCANF(line.c_str(),
+                      "%d/%d %d/%d %d/%d",
+                       &face.v[0], &face.vt[0],
+                       &face.v[1], &face.vt[1],
+                       &face.v[2], &face.vt[2]) == 6) {
+      // Convert from 1-indexing to 0-indexing.
+      for (int i = 0; i < 3; ++i) {
+        --face.v[i];
+        --face.vt[i];
+      }
+      face.vn[0] = face.vn[1] = face.vn[2] = -1;
+      builder->AddFace(std::move(face));
     }
-  } else if (token != "#") {
+  } else if (token != "#" && token != "mtllib" && token != "o") {
     // Bad format
     return QB_UNKNOWN;
   }
@@ -457,8 +481,15 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
     for (const Face& face : f_) {
       for (int i = 0; i < 3; ++i) {
         const vec3s& v = v_[face.v[i]];
-        const vec2s& vt = vt_[face.vt[i]];
-        const vec3s& vn = vn_[face.vn[i]];
+        vec2s vt = {};
+        vec3s vn = {};
+        if (face.vt[i] >= 0) {
+          vt = vt_[face.vt[i]];
+        }
+
+        if (face.vn[i] >= 0) {
+          vn = vn_[face.vn[i]];
+        }
 
         mat3s mat;
         mat.col[0] = v;
@@ -469,9 +500,13 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
 
         auto it = mapped_indices.find(mc);
         if (it == mapped_indices.end()) {
-          vertices.push_back(v);
-          normals.push_back(vn);
-          uvs.push_back(vt);
+          if (face.vt[i] >= 0) {
+            uvs.push_back(vt);
+          }
+          if (face.vn[i] >= 0) {
+            normals.push_back(vn);
+          }
+          vertices.push_back(v);          
 
           uint32_t new_index = (uint32_t)vertices.size() - 1;
           indices.push_back(new_index);
