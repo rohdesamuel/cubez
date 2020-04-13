@@ -7,8 +7,8 @@
 
 Example:
 
-qbAudioLoaded jump_wav = qb_audio_loadwav("resources/jump.wav");
-qbAudioPlaying jump = qb_audio_ready(jump_wav);
+qbAudioBuffer jump_wav = qb_audio_loadwav("resources/jump.wav");
+qbAudioPlaying jump = qb_audio_upload(jump_wav);
 qb_audio_play(jump);
 ...
 
@@ -22,7 +22,7 @@ typedef struct qbAudioAttr_ {
   uint32_t buffered_samples;
 } qbAudioAttr_, *qbAudioAttr;
 
-typedef struct qbAudioLoaded_ *qbAudioLoaded;
+typedef struct qbAudioBuffer_ *qbAudioBuffer;
 typedef struct qbAudioPlaying_ *qbAudioPlaying;
 
 typedef enum qbAudoLoop {
@@ -30,11 +30,11 @@ typedef enum qbAudoLoop {
   QB_AUDIO_LOOP_ENABLE = 1
 } qbAudoLoop;
 
-QB_API qbAudioLoaded qb_audio_loadwav(const char* file);
-QB_API qbAudioPlaying qb_audio_ready(qbAudioLoaded loaded);
+QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
+QB_API qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded);
 
-QB_API void qb_audio_free(qbAudioLoaded loaded);
-QB_API int qb_audio_size(qbAudioLoaded loaded);
+QB_API void qb_audio_free(qbAudioBuffer loaded);
+QB_API int qb_audio_size(qbAudioBuffer loaded);
 
 QB_API int qb_audio_isplaying(qbAudioPlaying playing);
 QB_API void qb_audio_play(qbAudioPlaying playing);
