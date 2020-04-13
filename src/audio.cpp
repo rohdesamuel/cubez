@@ -8,10 +8,10 @@
 
 cs_context_t* ctx;
 
-typedef struct qbAudioLoaded_ {
+typedef struct qbAudioBuffer_ {
   qbId id;
   cs_loaded_sound_t loaded;
-} qbAudioLoaded_, *qbAudioLoaded;
+} qbAudioLoaded_, *qbAudioBuffer;
 
 typedef struct qbAudioPlaying_ {
   qbId id;
@@ -32,43 +32,26 @@ void audio_initialize(const AudioSettings& settings) {
   ctx = cs_make_context(0, settings.sample_frequency, buffered_samples, num_elements_in_playing_pool, no_allocator_used);
   sound_id = 0;
   cs_spawn_mix_thread(ctx);
-/*
-  cs_loaded_sound_t loaded = cs_load_wav("resources/jump.wav");
-
-  cs_playing_sound_t jump = cs_make_playing_sound(&loaded);
-  cs_spawn_mix_thread(ctx);
-
-  cs_sleep(500);
-
-  int count = 10;
-  while (count--) {
-    cs_sleep(500);
-    cs_insert_sound(ctx, &jump);
-  }
-
-  cs_sleep(500);
-  cs_free_sound(&loaded);
-  */
 }
 
 void audio_shutdown() {
   cs_shutdown_context(ctx);
 }
 
-qbAudioLoaded qb_audio_loadwav(const char* file) {
+qbAudioBuffer qb_audio_loadwav(const char* file) {
   qbId id = sound_id;
   loaded_.insert(id, qbAudioLoaded_{ sound_id, cs_load_wav(file) });
   return &loaded_[id];
 }
 
-qbAudioPlaying qb_audio_ready(qbAudioLoaded loaded) {
+qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded) {
   qbId id = sound_id;
   qbAudioPlaying_ sound = { sound_id, cs_make_playing_sound(&loaded->loaded) };
   sounds_.insert(id, sound);
   return &sounds_[id];
 }
 
-void qb_audio_free(qbAudioLoaded loaded) {
+void qb_audio_free(qbAudioBuffer loaded) {
   if (sounds_.has(loaded->id)) {
     cs_stop_sound(&sounds_[loaded->id].playing);
     sounds_.erase(loaded->id);
@@ -77,7 +60,7 @@ void qb_audio_free(qbAudioLoaded loaded) {
   loaded_.erase(loaded->id);
 }
 
-int qb_audio_size(qbAudioLoaded loaded) {
+int qb_audio_size(qbAudioBuffer loaded) {
   return cs_sound_size(&loaded->loaded);
 }
 
