@@ -7,7 +7,7 @@
 * Rendering
   * Camera
   * Lighting
-  * WAV obj loading (no material importing)
+  * Wavefront obj loading (no material importing yet)
   * Customizable rendering backend (OpenGL, needs Vulkan implementation)
   * Customizable rendering frontend (Forward Rendering, implemented client-side)
   * Default Forward PBR with materials (Albedo, Normal, Metallic, Roughness, AO, Emission)
@@ -16,7 +16,7 @@
   * WAV audio loading
   * Play/stop, Pause, loop, pan, volume
 * Game Loop
-  * Pure ECS implementation for updates
+  * Classic ECS implementation for updates
   * Semaphores for system ordering
   * Reader/Writer lock for component mutations
   * Events (Publisher/ Subscriber model)
@@ -44,7 +44,7 @@ msvc version >= 19.0
 
 ### Entities and Components
 
-The engine design is a pure ECS design. This means that entities are ids into component arrays. Components are implemented in the backend as sparse arrays.
+The engine design is a classic ECS design. This means that entities are ids into component arrays. Components are implemented in the backend as sparse arrays.
 
 **Why use entities and components?** Allows for a modular design pattern favoring composition over inheritance. Also allows for more cache coherency, i.e. better performance for smaller components.
 
