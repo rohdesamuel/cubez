@@ -75,6 +75,8 @@ typedef struct qbRenderer_ {
                     float range, float angle_deg);
   size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
 
+  qbFrameBuffer(*camera_framebuffer_create)(struct qbRenderer_* self, uint32_t width, uint32_t height);
+
   // TODO: This should be a surface that the underlying renderer draws to.
   void(*set_gui_renderpass)(struct qbRenderer_* self, qbRenderPass gui_renderpass);
 

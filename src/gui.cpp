@@ -389,7 +389,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
     qbClearValue_ clear;
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
-    clear.color = { 0.0, 0.0, 0.0, 1.0 };
+    clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
     clear.depth = 1.0f;
     attr.clear = clear;
 

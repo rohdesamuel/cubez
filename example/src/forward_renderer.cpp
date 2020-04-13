@@ -474,6 +474,29 @@ size_t light_max(struct qbRenderer_* self, qbLightType light_type) {
   return 0;
 }
 
+
+qbFrameBuffer camera_framebuffer_create(struct qbRenderer_* self, uint32_t width, uint32_t height) {
+  qbFrameBufferAttr_ fbo_attr = {};
+  fbo_attr.width = width;
+  fbo_attr.height = height;
+
+  qbFrameBufferAttachment attachments[] = {
+    (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT),
+    QB_COLOR_ATTACHMENT,
+  };
+
+  uint32_t bindings[] = { 0, 1 };
+
+  fbo_attr.attachments = attachments;
+  fbo_attr.color_binding = bindings;
+  fbo_attr.attachments_count = sizeof(attachments) / sizeof(qbFrameBufferAttachment);
+
+  qbFrameBuffer fbo;
+  qb_framebuffer_create(&fbo, &fbo_attr);
+
+  return fbo;
+}
+
 void init_supported_geometry(qbForwardRenderer forward_renderer) {
   // https://stackoverflow.com/questions/40450342/what-is-the-purpose-of-binding-from-vkvertexinputbindingdescription
   qbBufferBinding attribute_bindings = new qbBufferBinding_[3];
@@ -583,6 +606,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->renderer.light_point = light_point;
   ret->renderer.light_spot = light_spot;
   ret->renderer.light_max = light_max;
+  ret->renderer.camera_framebuffer_create = camera_framebuffer_create;
 
   ret->renderer.render = render;
   ret->directional_lights = {};
