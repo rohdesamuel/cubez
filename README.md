@@ -1,4 +1,4 @@
-# Cubez - A Fast C API Game Engine
+# Cubez - C API Game Engine
 
 **Cubez** is an Entity Component System Game Engine.
 
