@@ -231,7 +231,7 @@ qb_event_send(collision_events, &collision);
 ```
 
 Creating and destroying a scene.
-```
+```c++
 qbScene world_1, world_2;
 qb_scene_create(&world_1, "world_1");
 qb_scene_create(&world_2, "world_2");
