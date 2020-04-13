@@ -341,6 +341,7 @@ qb_audio_play(jump);
 
 ### User Input
 
+#### input.h
 ```c++
 
 qb_coro_sync([](qbVar v) {
