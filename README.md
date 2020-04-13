@@ -30,7 +30,7 @@ Comes with pre-compiled binaries with the following versions:
 
 * glew --> 2.1.0
 * sdl2 --> 2.0.9
-* freetype --> 2.10.0 (not pre-compiled for \*nix)
+* freetype --> 2.10.0 (not pre-compiled for Linix)
 
 ### Linux
 
