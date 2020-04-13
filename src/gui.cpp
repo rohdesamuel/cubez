@@ -5,24 +5,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
-#include <Ultralight/Renderer.h>
-#include <Ultralight/View.h>
-#include <Ultralight/platform/Platform.h>
-#include <Ultralight/platform/Config.h>
-#include <Ultralight/platform/GPUDriver.h>
-
-#ifdef __COMPILE_AS_WINDOWS__
-#define FRAMEWORK_PLATFORM_WIN
-#include <Framework/platform/win/FileSystemWin.h>
-#include <Framework/platform/win/FontLoaderWin.h>
-#elif defined(__COMPILE_AS_LINUX__)
-#define FRAMEWORK_PLATFORM_LINUX
-#include <Framework/platform/common/FileSystemBasic.h>
-#include <Framework/platform/common/FontLoaderRoboto.h>
-#endif
-#include <Framework/Platform.h>
-#include <Framework/Overlay.h>
-
 #include <memory>
 
 #define STB_IMAGE_IMPLEMENTATION
