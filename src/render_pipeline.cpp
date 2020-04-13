@@ -35,7 +35,8 @@ typedef struct qbRenderPipeline_ {
 
 typedef struct qbFrameBuffer_ {
   uint32_t id;
-  qbImage render_target;
+  std::vector<qbImage> render_targets;
+
   qbImage depth_target;
   qbImage stencil_target;
   qbImage depthstencil_target;
@@ -479,7 +480,7 @@ void qb_renderpipeline_render(qbRenderPipeline render_pipeline, qbRenderEvent ev
 
 void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
                                qbRenderEvent event) {
-  render_pipeline->present_pass->groups[0]->meshes[0]->images[0] = frame_buffer->render_target;
+  render_pipeline->present_pass->groups[0]->meshes[0]->images[0] = frame_buffer->render_targets[0];
   qb_renderpass_clear(render_pipeline->present_pass);
   qb_renderpass_draw(render_pipeline->present_pass);
 }
@@ -1240,6 +1241,53 @@ void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data) {
   CHECK_GL();
 }
 
+qbImage qb_framebuffer_createdrawbuffer(uint32_t color_binding, uint32_t width, uint32_t height) {
+  qbImage ret = nullptr;
+  qbImageAttr_ image_attr = {};
+  image_attr.type = QB_IMAGE_TYPE_2D;
+  qb_image_raw(&ret, &image_attr,
+                qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, width, height, nullptr);
+  glBindTexture(GL_TEXTURE_2D, ret->id);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + color_binding, GL_TEXTURE_2D, ret->id, 0);
+  CHECK_GL();
+
+  return ret;
+}
+
+qbImage qb_framebuffer_createbuffer(qbFrameBufferAttachment attachment, uint32_t width, uint32_t height) {
+  qbImage ret = nullptr;
+  if (attachment & QB_DEPTH_STENCIL_ATTACHMENT) {
+    qbImageAttr_ image_attr = {};
+    image_attr.type = QB_IMAGE_TYPE_2D;
+    qb_image_raw(&ret, &image_attr,
+                 qbPixelFormat::QB_PIXEL_FORMAT_D24_S8, width, height, nullptr);
+    glBindTexture(GL_TEXTURE_2D, ret->id);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, ret->id, 0);
+    CHECK_GL();
+  } else {
+    if (attachment & QB_DEPTH_ATTACHMENT) {
+      qbImageAttr_ image_attr = {};
+      image_attr.type = QB_IMAGE_TYPE_2D;
+      qb_image_raw(&ret, &image_attr,
+                   qbPixelFormat::QB_PIXEL_FORMAT_D32, width, height, nullptr);
+      glBindTexture(GL_TEXTURE_2D, ret->id);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ret->id, 0);
+      CHECK_GL();
+    }
+    if (attachment & QB_STENCIL_ATTACHMENT) {
+      qbImageAttr_ image_attr = {};
+      image_attr.type = QB_IMAGE_TYPE_2D;
+      qb_image_raw(&ret, &image_attr,
+                   qbPixelFormat::QB_PIXEL_FORMAT_S8, width, height, nullptr);
+      glBindTexture(GL_TEXTURE_2D, ret->id);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, ret->id, 0);
+      CHECK_GL();
+    }
+  }
+
+  return ret;
+}
+
 void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   uint32_t frame_buffer_id = 0;
   glGenFramebuffers(1, &frame_buffer_id);
@@ -1249,50 +1297,43 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_id);
   CHECK_GL();
 
-  if (attr->attachments & QB_COLOR_ATTACHMENT) {
-    qbImageAttr_ image_attr = {};
-    image_attr.type = QB_IMAGE_TYPE_2D;
-    qb_image_raw(&frame_buffer->render_target, &image_attr,
-                 qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, attr->width, attr->height, nullptr);
-    glBindTexture(GL_TEXTURE_2D, frame_buffer->render_target->id);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame_buffer->render_target->id, 0);
-    CHECK_GL();
-  }
+  std::vector<qbImage> draw_buffers;
+  std::vector<qbImage> buffers;
 
-  if (attr->attachments & QB_DEPTH_STENCIL_ATTACHMENT) {
-    qbImageAttr_ image_attr = {};
-    image_attr.type = QB_IMAGE_TYPE_2D;
-    qb_image_raw(&frame_buffer->depthstencil_target, &image_attr,
-                 qbPixelFormat::QB_PIXEL_FORMAT_D24_S8, attr->width, attr->height, nullptr);
-    glBindTexture(GL_TEXTURE_2D, frame_buffer->depthstencil_target->id);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, frame_buffer->depthstencil_target->id, 0);
-    CHECK_GL();
-  } else {
-    if (attr->attachments & QB_DEPTH_ATTACHMENT) {
-      qbImageAttr_ image_attr = {};
-      image_attr.type = QB_IMAGE_TYPE_2D;
-      qb_image_raw(&frame_buffer->depth_target, &image_attr,
-                   qbPixelFormat::QB_PIXEL_FORMAT_D32, attr->width, attr->height, nullptr);
-      glBindTexture(GL_TEXTURE_2D, frame_buffer->depth_target->id);
-      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, frame_buffer->depth_target->id, 0);
-      CHECK_GL();
+  uint32_t color_binding_idx = 0;
+  for (size_t i = 0; i < attr->attachments_count; ++i) {
+    qbFrameBufferAttachment attachment = attr->attachments[i];
+    if (attachment & QB_COLOR_ATTACHMENT) {
+      draw_buffers.push_back(qb_framebuffer_createdrawbuffer(attr->color_binding[color_binding_idx], attr->width, attr->height));
+      ++color_binding_idx;
     }
-    if (attr->attachments & QB_STENCIL_ATTACHMENT) {
-      qbImageAttr_ image_attr = {};
-      image_attr.type = QB_IMAGE_TYPE_2D;
-      qb_image_raw(&frame_buffer->stencil_target, &image_attr,
-                   qbPixelFormat::QB_PIXEL_FORMAT_S8, attr->width, attr->height, nullptr);
-      glBindTexture(GL_TEXTURE_2D, frame_buffer->stencil_target->id);
-      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, frame_buffer->stencil_target->id, 0);
-      CHECK_GL();
+
+    qbImage maybe_buffer = qb_framebuffer_createbuffer(attachment, attr->width, attr->height);
+    if (maybe_buffer) {
+      if (attachment & QB_DEPTH_STENCIL_ATTACHMENT) {
+        frame_buffer->depthstencil_target = maybe_buffer;
+      } else {
+        if (attachment & QB_DEPTH_ATTACHMENT) {
+          frame_buffer->depth_target = maybe_buffer;
+        }
+        if (attachment & QB_STENCIL_ATTACHMENT) {
+          frame_buffer->stencil_target = maybe_buffer;
+        }
+      }
+      buffers.push_back(maybe_buffer);
     }
   }
 
-  if (attr->attachments & QB_COLOR_ATTACHMENT) {
-    GLenum drawBuffers[1] = { GL_COLOR_ATTACHMENT0 + attr->color_binding };
-    glDrawBuffers(1, drawBuffers);
+  if (!draw_buffers.empty()) {
+    GLenum draw_buffers_bindings[16] = {};
+    for (size_t i = 0; i < attr->attachments_count; ++i) {
+      draw_buffers_bindings[i] = GL_COLOR_ATTACHMENT0 + attr->color_binding[i];
+    }
+    glDrawBuffers((GLsizei)attr->attachments_count, draw_buffers_bindings);
     CHECK_GL();
   }
+
+  frame_buffer->render_targets = std::move(draw_buffers);
 
   GLenum result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   CHECK_GL();
@@ -1303,10 +1344,17 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
 }
 
 void qb_framebuffer_clear(qbFrameBuffer frame_buffer) {
-  delete frame_buffer->render_target;
-  delete frame_buffer->depth_target;
-  delete frame_buffer->stencil_target;
-  delete frame_buffer->depthstencil_target;
+  for (qbImage& img : frame_buffer->render_targets) {
+    qb_image_destroy(&img);
+  }
+  qb_image_destroy(&frame_buffer->depth_target);
+  qb_image_destroy(&frame_buffer->stencil_target);
+  qb_image_destroy(&frame_buffer->depthstencil_target);
+  
+  frame_buffer->render_targets = {};
+  frame_buffer->depth_target = nullptr;
+  frame_buffer->stencil_target = nullptr;
+  frame_buffer->depthstencil_target = nullptr;
 }
 
 void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) {
@@ -1320,8 +1368,9 @@ void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer) {
   *frame_buffer = nullptr;
 }
 
-qbImage qb_framebuffer_rendertarget(qbFrameBuffer frame_buffer) {
-  return frame_buffer->render_target;
+size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets) {
+  *targets = frame_buffer->render_targets.data();
+  return frame_buffer->render_targets.size();
 }
 
 qbImage qb_framebuffer_depthtarget(qbFrameBuffer frame_buffer) {

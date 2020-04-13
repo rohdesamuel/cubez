@@ -215,12 +215,6 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
   qbCamera_* camera = (qbCamera_*)*camera_ref;
   memset(camera, 0, sizeof(qbCamera_));
 
-  qbFrameBufferAttr_ fbo_attr = {};
-  fbo_attr.width = attr->width;
-  fbo_attr.height = attr->height;
-  fbo_attr.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
-  fbo_attr.color_binding = 0;
-
   camera->width = attr->width;
   camera->height = attr->height;
   camera->ratio = (float)attr->width / (float)attr->height;
@@ -244,9 +238,8 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
   camera->forward = forward;
   camera->up = up;
 
-  qbFrameBuffer fbo;
-  qb_framebuffer_create(&fbo, &fbo_attr);
-  cam->fbo = fbo;
+  auto r = qb_renderer();
+  cam->fbo = r->camera_framebuffer_create(r, camera->width, camera->height);;
   cameras.push_back(cam);
 }
 

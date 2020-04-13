@@ -58,8 +58,9 @@ typedef struct {
   uint32_t width;
   uint32_t height;
 
-  qbFrameBufferAttachment attachments;
-  uint32_t color_binding;
+  qbFrameBufferAttachment* attachments;
+  uint32_t* color_binding;
+  size_t attachments_count;
 
 } qbFrameBufferAttr_;
 typedef const qbFrameBufferAttr_* qbFrameBufferAttr;
@@ -319,7 +320,7 @@ QB_API size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass p
 
 QB_API void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
 QB_API void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer);
-QB_API qbImage qb_framebuffer_rendertarget(qbFrameBuffer frame_buffer);
+QB_API size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets);
 QB_API qbImage qb_framebuffer_depthtarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_stenciltarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_depthstenciltarget(qbFrameBuffer frame_buffer);
