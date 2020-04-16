@@ -35,6 +35,7 @@ typedef struct qbGpuBuffer_* qbGpuBuffer;
 typedef struct qbMeshBuffer_* qbMeshBuffer;
 typedef struct qbRenderEvent_* qbRenderEvent;
 typedef struct qbRenderGroup_* qbRenderGroup;
+typedef struct qbSurface_* qbSurface;
 
 // Null-terminated linked list of user-defined extensions. Can be extended by
 // defining a struct with the qbRenderExt_ as the first member. A pointer to
@@ -309,6 +310,29 @@ typedef struct {
   size_t resources_count;
 } qbShaderModuleAttr_, *qbShaderModuleAttr;
 
+typedef struct qbSurfaceAttr_ {
+  uint32_t width;
+  uint32_t height;
+
+  const char* vs;
+  const char* fs;
+
+  qbShaderResourceInfo resources;
+  size_t resources_count;
+
+  qbImageSampler* samplers;
+  uint32_t* sampler_bindings;
+  size_t samplers_count;
+
+  qbGpuBuffer* uniforms;
+  uint32_t* uniform_bindings;
+  size_t uniforms_count;
+
+  qbPixelFormat pixel_format;
+  size_t target_count;
+} qbSurfaceAttr_, *qbSurfaceAttr;
+
+
 // TODO: Should this be recursive to allow for hierarchical models?
 // TODO: Should there be a transform (position+orientation) for Render Groups?
 typedef struct qbRenderGroupAttr_ {
@@ -345,6 +369,7 @@ QB_API size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass p
 QB_API void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
 QB_API void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer);
 QB_API void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value);
+QB_API qbImage qb_framebuffer_target(qbFrameBuffer frame_buffer, size_t i);
 QB_API size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets);
 QB_API qbImage qb_framebuffer_depthtarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_stenciltarget(qbFrameBuffer frame_buffer);
@@ -428,5 +453,10 @@ QB_API size_t qb_rendergroup_images(qbRenderGroup buffer, qbImage** images);
 QB_API size_t qb_rendergroup_uniforms(qbRenderGroup buffer, qbGpuBuffer** uniforms);
 
 QB_API qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name);
+
+QB_API void qb_surface_create(qbSurface* surface, qbSurfaceAttr attr);
+QB_API void qb_surface_destroy(qbSurface* surface);
+QB_API void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output);
+QB_API qbFrameBuffer qb_surface_target(qbSurface surface, size_t i);
 
 #endif  // CUBEZ_RENDER_PIPELINE__H

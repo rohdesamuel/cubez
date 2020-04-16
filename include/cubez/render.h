@@ -24,15 +24,6 @@
 #include <cglm/cglm.h>
 #include <cglm/types-struct.h>
 
-// TODO: Add a 2D "surface" that you can draw to.
-
-/*
-
-GLSL Keywords:
-  qb_texture_unit_1 .. qb_texture_unit_N
-
-*/
-
 typedef struct qbRenderable_* qbRenderable;
 
 typedef struct qbRenderer_ {
@@ -48,12 +39,6 @@ typedef struct qbRenderer_ {
   // Thread-safe
   // Removes the given model from the background qbRenderPipeline.
   void(*rendergroup_remove)(struct qbRenderer_* self, qbRenderGroup model);
-
-  // Reserved
-  void(*surface_add)(struct qbRenderer_* self, struct qbSurface_*);
-
-  // Reserved
-  void(*surface_remove)(struct qbRenderer_* self, struct qbSurface_*);
 
   size_t(*max_texture_units)(struct qbRenderer_* self);
   size_t(*max_uniform_units)(struct qbRenderer_* self);
