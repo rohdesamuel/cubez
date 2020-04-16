@@ -170,6 +170,13 @@ typedef struct qbRenderGroup_ {
 
 } qbRenderGroup_, *qbRenderGroup;
 
+typedef struct qbSurface_ {
+  std::vector<qbFrameBuffer> targets;
+
+  qbRenderPass pass;
+  qbMeshBuffer dbo;
+} qbSurface_, *qbSurface;
+
 namespace
 {
 
@@ -1410,6 +1417,11 @@ void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value) 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+qbImage qb_framebuffer_target(qbFrameBuffer frame_buffer, size_t i) {
+  assert(i < frame_buffer->render_targets.size());
+  return frame_buffer->render_targets[i];
+}
+
 size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets) {
   *targets = frame_buffer->render_targets.data();
   return frame_buffer->render_targets.size();
@@ -1715,4 +1727,167 @@ size_t qb_rendergroup_removeuniform_bybinding(qbRenderGroup buffer, uint32_t bin
     return 1;
   }
   return 0;
+}
+
+void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
+  qbSurface surface = *surface_ref = new qbSurface_;
+
+  qbGeometryDescriptor_ descriptor;
+  {
+    qbVertexAttribute_ attributes[2] = {};
+    {
+      qbVertexAttribute_* attr = attributes;
+      attr->binding = 0;
+      attr->location = 0;
+
+      attr->count = 2;
+      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+      attr->normalized = false;
+      attr->offset = (void*)0;
+    }
+    {
+      qbVertexAttribute_* attr = attributes + 1;
+      attr->binding = 0;
+      attr->location = 1;
+
+      attr->count = 2;
+      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
+      attr->normalized = false;
+      attr->offset = (void*)(2 * sizeof(float));
+    }
+
+    qbShaderModule shader_module;
+    {
+      qbShaderModuleAttr_ attr = {};
+      attr.vs = surface_attr->vs;
+      attr.fs = surface_attr->fs;
+
+      attr.resources = surface_attr->resources;
+      attr.resources_count = surface_attr->resources_count;
+
+      qb_shadermodule_create(&shader_module, &attr);
+      qb_shadermodule_attachsamplers(shader_module, surface_attr->samplers_count,
+                                     surface_attr->sampler_bindings, surface_attr->samplers);
+      qb_shadermodule_attachuniforms(shader_module, surface_attr->uniforms_count,
+                                     surface_attr->uniform_bindings, surface_attr->uniforms);
+    }
+
+    qbBufferBinding_ binding;
+    binding.binding = 0;
+    binding.stride = 4 * sizeof(float);
+    binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
+    {
+      qbRenderPassAttr_ attr = {};
+      descriptor.bindings = &binding;
+      descriptor.bindings_count = 1;
+      descriptor.attributes = attributes;
+      descriptor.attributes_count = 2;
+      attr.supported_geometry = descriptor;
+      attr.shader = shader_module;
+      attr.viewport = { 0.0f, 0.0f, (float)surface_attr->width, (float)surface_attr->height };
+      attr.viewport_scale = 1.0f;
+
+      qbClearValue_ clear;
+      clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT);
+      clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
+      clear.depth = 1.0f;
+      attr.clear = clear;
+
+      qb_renderpass_create(&surface->pass, &attr);
+    }
+
+    qbGpuBuffer gpu_buffers[2];
+    {
+      qbGpuBufferAttr_ attr = {};
+      float vertices[] = {
+        // Positions   // UVs
+        -1.0f, -1.0f,    0.0f, 0.0f,
+        1.0f, -1.0f,    1.0f, 0.0f,
+        1.0f, 1.0f,    1.0f, 1.0f,
+        -1.0f, 1.0f,    0.0f, 1.0f,
+      };
+
+      attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
+      attr.data = vertices;
+      attr.size = sizeof(vertices);
+      attr.elem_size = sizeof(float);
+      qb_gpubuffer_create(gpu_buffers, &attr);
+    }
+    {
+      qbGpuBufferAttr_ attr = {};
+      int indices[] = {
+        0, 1, 3,
+        1, 2, 3
+      };
+      attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
+      attr.data = indices;
+      attr.size = sizeof(indices);
+      attr.elem_size = sizeof(int);
+      qb_gpubuffer_create(gpu_buffers + 1, &attr);
+    }
+
+    {
+      qbMeshBufferAttr_ attr = {};
+      attr.descriptor = descriptor;
+
+      qb_meshbuffer_create(&surface->dbo, &attr);
+    }
+
+    qbGpuBuffer vertices[] = { gpu_buffers[0] };
+    qb_meshbuffer_attachvertices(surface->dbo, vertices);
+    qb_meshbuffer_attachindices(surface->dbo, gpu_buffers[1]);
+
+    uint32_t image_bindings[] = { 1, 2 };
+    qbImage images[] = { nullptr, nullptr };
+    qb_meshbuffer_attachimages(surface->dbo, 2, image_bindings, images);
+
+    qbRenderGroup group;
+    {
+      qbRenderGroupAttr_ attr = {};
+      qbMeshBuffer meshes[] = { surface->dbo };
+      attr.mesh_count = 1;
+      attr.meshes = meshes;
+      qb_rendergroup_create(&group, &attr);
+    }
+    qb_renderpass_append(surface->pass, group);
+  }
+
+  for (size_t i = 0; i < surface_attr->target_count; ++i) {
+    qbFrameBufferAttr_ attr;
+    attr.width = surface_attr->width;
+    attr.height = surface_attr->height;
+
+    qbFrameBufferAttachment attachments[] = { QB_COLOR_ATTACHMENT };
+    uint32_t color_bindings[] = { 0 };
+
+    attr.attachments = attachments;
+    attr.color_binding = color_bindings;
+    attr.attachments_count = 1;
+
+    qbFrameBuffer fbo;
+    qb_framebuffer_create(&fbo, &attr);
+    surface->targets.push_back(fbo);
+  }
+}
+
+void qb_surface_destroy(qbSurface* surface_ref) {
+  qbSurface surface = *surface_ref;
+  qb_meshbuffer_destroy(&surface->dbo);
+  
+  for (qbFrameBuffer& fbo : surface->targets) {
+    qb_framebuffer_destroy(&fbo);
+  }
+  qb_renderpass_destroy(&surface->pass);
+}
+
+void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output) {
+  for (size_t i = 0; i < surface->dbo->images_count; ++i) {
+    surface->dbo->images[i] = input[i];
+  }
+  qb_renderpass_draw(surface->pass, output);
+}
+
+qbFrameBuffer qb_surface_target(qbSurface surface, size_t i) {
+  assert(i < surface->targets.size());
+  return surface->targets[i];
 }

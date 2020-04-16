@@ -114,32 +114,20 @@ typedef struct qbForwardRenderer_ {
   qbImage empty_ao_map;
   qbImage empty_emission_map;
 
-  qbFrameBuffer blur_pingpong[2];
-  qbRenderPass blur_pass;
-  qbMeshBuffer blur_dbo;
+  qbSurface blur_surface;
   qbGpuBuffer blur_ubo;
 
-  qbFrameBuffer merge_frame;
-  qbRenderPass merge_pass;
-  qbMeshBuffer merge_dbo;
+  qbSurface merge_surface;
   qbGpuBuffer merge_ubo;
 } qbForwardRenderer_, *qbForwardRenderer;
 
 struct qbBlurArgs {
   int32_t horizontal;
-
-  static constexpr int Binding() {
-    return 0;
-  }
 };
 
 struct qbMergeArgs {
   int32_t bloom;
   float exposure;
-
-  static constexpr int Binding() {
-    return 0;
-  }
 };
 
 struct CameraUniform {
@@ -257,58 +245,46 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   if (1)
   {
     {
-      qbImage *images, *targets;
-      qb_meshbuffer_images(r->blur_dbo, &images);
-      qb_framebuffer_rendertargets(camera_fbo, &targets);
-      images[0] = targets[1];
-
       qbBlurArgs args;
       args.horizontal = 1;
       qb_gpubuffer_update(r->blur_ubo, 0, sizeof(qbBlurArgs), &args);
-      qb_renderpass_draw(r->blur_pass, r->blur_pingpong[0]);
+
+      qbImage read[] = { qb_framebuffer_target(camera_fbo, 1) };
+      qbFrameBuffer write = qb_surface_target(r->blur_surface, 0);
+      qb_surface_draw(r->blur_surface, read, write);
     }
 
     for (int i = 0; i < 10; ++i) {
       qbBlurArgs args;
       args.horizontal = i % 2;
-
-      qbFrameBuffer read = r->blur_pingpong[i % 2];
-      qbFrameBuffer write = r->blur_pingpong[(i + 1) % 2];
-
-      qbImage *images, *targets;
-      qb_meshbuffer_images(r->blur_dbo, &images);
-      qb_framebuffer_rendertargets(read, &targets);
-      images[0] = targets[0];
-
       qb_gpubuffer_update(r->blur_ubo, 0, sizeof(qbBlurArgs), &args);
-      qb_renderpass_draw(r->blur_pass, write);
+
+      qbImage read[] = { qb_framebuffer_target(qb_surface_target(r->blur_surface, i % 2), 0) };
+      qbFrameBuffer write = qb_surface_target(r->blur_surface, (i + 1) % 2);
+      qb_surface_draw(r->blur_surface, read, write);
     }
   }
 
   if (1)
   {
-    qbFrameBuffer blur_frame = r->blur_pingpong[0];
-    qbFrameBuffer scene_frame = camera_fbo;
-    qbFrameBuffer write = r->merge_frame;
-
-    qbImage *images, *targets;
-    qb_meshbuffer_images(r->merge_dbo, &images);
-
-    qb_framebuffer_rendertargets(blur_frame, &targets);
-    images[0] = targets[0];
-
-    qb_framebuffer_rendertargets(scene_frame, &targets);
-    images[1] = targets[0];
+    qbFrameBuffer blur_frame = qb_surface_target(r->blur_surface, 0);
+    qbImage read[] = {
+      qb_framebuffer_target(blur_frame, 0),
+      qb_framebuffer_target(camera_fbo, 0)
+    };
+    qbFrameBuffer write = qb_surface_target(r->merge_surface, 0);
 
     qbMergeArgs args;
     args.bloom = true;
     args.exposure = 1.0f;
     qb_gpubuffer_update(r->merge_ubo, 0, sizeof(qbMergeArgs), &args);
-    qb_renderpass_draw(r->merge_pass, write);
+    
+    qb_surface_draw(r->merge_surface, read, write);
   }
 
-  qb_renderpass_draw(r->gui_pass, r->merge_frame);
-  qb_renderpipeline_present(self->render_pipeline, r->merge_frame, event);
+  qbFrameBuffer final = qb_surface_target(r->merge_surface, 0);
+  qb_renderpass_draw(r->gui_pass, final);
+  qb_renderpipeline_present(self->render_pipeline, final, event);
 }
 
 void render_callback(qbFrame* f) {
@@ -687,372 +663,142 @@ void init_supported_geometry(qbForwardRenderer forward_renderer) {
   supported_geometry->bindings_count = 3;
 }
 
-qbRenderPass create_blur_renderpass(qbForwardRenderer r, uint32_t width, uint32_t height) {
-  qbGeometryDescriptor_ descriptor;
-  qbRenderPass ret;
+qbSurface create_blur_surface(qbForwardRenderer r, uint32_t width, uint32_t height) {
+  qbSurfaceAttr_ attr;
+  attr.width = width;
+  attr.height = height;
+  attr.vs = "resources/blur.vs";
+  attr.fs = "resources/blur.fs";
+
+  qbShaderResourceInfo_ resources[2] = {};
   {
-    qbVertexAttribute_ attributes[2] = {};
-    {
-      qbVertexAttribute_* attr = attributes;
-      attr->binding = 0;
-      attr->location = 0;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)0;
-    }
-    {
-      qbVertexAttribute_* attr = attributes + 1;
-      attr->binding = 0;
-      attr->location = 1;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)(2 * sizeof(float));
-    }
-
-    qbShaderModule shader_module;
-    {
-      qbShaderResourceInfo_ resources[2] = {};
-      {
-        qbShaderResourceInfo info = resources;
-        info->binding = 0;
-        info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-        info->stages = QB_SHADER_STAGE_FRAGMENT;
-        info->name = "qb_blur_args";
-      }
-      {
-        qbShaderResourceInfo info = resources + 1;
-        info->binding = 1;
-        info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-        info->stages = QB_SHADER_STAGE_FRAGMENT;
-        info->name = "qb_blur_sampler";
-      }
-
-      qbShaderModuleAttr_ attr = {};
-      attr.vs = "resources/blur.vs";
-      attr.fs = "resources/blur.fs";
-
-      attr.resources = resources;
-      attr.resources_count = sizeof(resources) / sizeof(resources[0]);
-
-      qb_shadermodule_create(&shader_module, &attr);
-
-      qbImageSampler sampler;
-      {
-        qbImageSamplerAttr_ attr = {};
-        attr.image_type = QB_IMAGE_TYPE_2D;
-        attr.min_filter = QB_FILTER_TYPE_LINEAR;
-        attr.mag_filter = QB_FILTER_TYPE_LINEAR;
-        attr.s_wrap = qbImageWrapType::QB_IMAGE_WRAP_TYPE_CLAMP_TO_EDGE;
-        attr.t_wrap = qbImageWrapType::QB_IMAGE_WRAP_TYPE_CLAMP_TO_EDGE;
-        qb_imagesampler_create(&sampler, &attr);
-      }
-
-      uint32_t bindings[] = { 1 };
-      qbImageSampler samplers[] = { sampler };
-      qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
-    }
-    {
-      qbGpuBufferAttr_ attr = {};
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-      attr.data = nullptr;
-      attr.size = sizeof(qbBlurArgs);
-
-      qb_gpubuffer_create(&r->blur_ubo, &attr);
-
-      uint32_t bindings[] = { qbBlurArgs::Binding() };
-      qbGpuBuffer ubo_buffers[] = { r->blur_ubo };
-      qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
-    }
-
-    qbBufferBinding_ binding;
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
-    {
-      qbRenderPassAttr_ attr = {};
-      descriptor.bindings = &binding;
-      descriptor.bindings_count = 1;
-      descriptor.attributes = attributes;
-      descriptor.attributes_count = 2;
-      attr.supported_geometry = descriptor;
-
-      attr.shader = shader_module;
-
-      attr.viewport = { 0.0f, 0.0f, (float)width, (float)height };
-      attr.viewport_scale = 1.0f;
-
-      qbClearValue_ clear;
-      clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT);
-      clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
-      clear.depth = 1.0f;
-      attr.clear = clear;
-
-      qb_renderpass_create(&ret, &attr);
-    }
-
-    qbGpuBuffer gpu_buffers[2];
-    {
-      qbGpuBufferAttr_ attr = {};
-      float vertices[] = {
-        // Positions    // UVs
-        -1.0f, -1.0f,   0.0f, 0.0f,
-         1.0f, -1.0f,   1.0f, 0.0f,
-         1.0f,  1.0f,   1.0f, 1.0f,
-        -1.0f,  1.0f,   0.0f, 1.0f,
-      };
-
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
-      attr.data = vertices;
-      attr.size = sizeof(vertices);
-      attr.elem_size = sizeof(float);
-      qb_gpubuffer_create(gpu_buffers, &attr);
-    }
-    {
-      qbGpuBufferAttr_ attr = {};
-      int indices[] = {
-        0, 1, 3,
-        1, 2, 3
-      };
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
-      attr.data = indices;
-      attr.size = sizeof(indices);
-      attr.elem_size = sizeof(int);
-      qb_gpubuffer_create(gpu_buffers + 1, &attr);
-    }
-
-    {
-      qbMeshBufferAttr_ attr = {};
-      attr.descriptor = descriptor;
-
-      qb_meshbuffer_create(&r->blur_dbo, &attr);
-    }
-
-    qbGpuBuffer vertices[] = { gpu_buffers[0] };
-    qb_meshbuffer_attachvertices(r->blur_dbo, vertices);
-    qb_meshbuffer_attachindices(r->blur_dbo, gpu_buffers[1]);
-
-    uint32_t image_bindings[] = { 1 };
-    qbImage images[] = { nullptr };
-    qb_meshbuffer_attachimages(r->blur_dbo, 1, image_bindings, images);
-
-    qbRenderGroup group;
-    {
-      qbRenderGroupAttr_ attr = {};
-      qbMeshBuffer meshes[] = { r->blur_dbo };
-      attr.mesh_count = 1;
-      attr.meshes = meshes;
-      qb_rendergroup_create(&group, &attr);
-    }
-    qb_renderpass_append(ret, group);
+    qbShaderResourceInfo info = resources;
+    info->binding = 0;
+    info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+    info->stages = QB_SHADER_STAGE_FRAGMENT;
+    info->name = "qb_blur_args";
   }
-
-  for (int i = 0; i < 2; ++i) {
-    qbFrameBufferAttr_ attr;
-    attr.width = width;
-    attr.height = height;
-    
-    qbFrameBufferAttachment attachments[] = { QB_COLOR_ATTACHMENT };
-    uint32_t color_bindings[] = { 0 };
-    attr.attachments = attachments;
-    attr.color_binding = color_bindings;
-    attr.attachments_count = 1;
-
-    qb_framebuffer_create(r->blur_pingpong + i, &attr);
+  {
+    qbShaderResourceInfo info = resources + 1;
+    info->binding = 1;
+    info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+    info->stages = QB_SHADER_STAGE_FRAGMENT;
+    info->name = "qb_blur_sampler";
   }
+  attr.resources = resources;
+  attr.resources_count = sizeof(resources) / sizeof(resources[0]);
 
+  qbImageSampler sampler;
+  {
+    qbImageSamplerAttr_ attr = {};
+    attr.image_type = QB_IMAGE_TYPE_2D;
+    attr.min_filter = QB_FILTER_TYPE_LINEAR;
+    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+    attr.s_wrap = qbImageWrapType::QB_IMAGE_WRAP_TYPE_CLAMP_TO_EDGE;
+    attr.t_wrap = qbImageWrapType::QB_IMAGE_WRAP_TYPE_CLAMP_TO_EDGE;
+    qb_imagesampler_create(&sampler, &attr);
+  }
+  uint32_t sampler_bindings[] = { 1 };
+  qbImageSampler samplers[] = { sampler };
+  attr.samplers = samplers;
+  attr.sampler_bindings = sampler_bindings;
+  attr.samplers_count = 1;
+
+  qbGpuBuffer ubo;
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+    attr.data = nullptr;
+    attr.size = sizeof(qbBlurArgs);
+
+    qb_gpubuffer_create(&r->blur_ubo, &attr);
+  }
+  uint32_t ubo_bindings[] = { 0 };
+  qbGpuBuffer uniforms[] = { r->blur_ubo };
+  attr.uniforms = uniforms;
+  attr.uniform_bindings = ubo_bindings;
+  attr.uniforms_count = 1;
+
+  attr.pixel_format = QB_PIXEL_FORMAT_RGBA8;
+  attr.target_count = 2;
+
+  qbSurface ret;
+  qb_surface_create(&ret, &attr);
   return ret;
 }
 
-qbRenderPass create_merge_renderpass(qbForwardRenderer r, uint32_t width, uint32_t height) {
-  qbGeometryDescriptor_ descriptor;
-  qbRenderPass ret;
+qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t height) {
+  qbSurfaceAttr_ attr;
+  attr.width = width;
+  attr.height = height;
+  attr.vs = "resources/merge.vs";
+  attr.fs = "resources/merge.fs";
+
+  qbShaderResourceInfo_ resources[3] = {};
   {
-    qbVertexAttribute_ attributes[2] = {};
-    {
-      qbVertexAttribute_* attr = attributes;
-      attr->binding = 0;
-      attr->location = 0;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)0;
-    }
-    {
-      qbVertexAttribute_* attr = attributes + 1;
-      attr->binding = 0;
-      attr->location = 1;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)(2 * sizeof(float));
-    }
-
-    qbShaderModule shader_module;
-    {
-      qbShaderResourceInfo_ resources[3] = {};
-      {
-        qbShaderResourceInfo info = resources;
-        info->binding = 0;
-        info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-        info->stages = QB_SHADER_STAGE_FRAGMENT;
-        info->name = "qb_merge_args";
-      }
-      {
-        qbShaderResourceInfo info = resources + 1;
-        info->binding = 1;
-        info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-        info->stages = QB_SHADER_STAGE_FRAGMENT;
-        info->name = "qb_merge_sampler";
-      }
-      {
-        qbShaderResourceInfo info = resources + 2;
-        info->binding = 2;
-        info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-        info->stages = QB_SHADER_STAGE_FRAGMENT;
-        info->name = "qb_scene_sampler";
-      }
-
-      qbShaderModuleAttr_ attr = {};
-      attr.vs = "resources/merge.vs";
-      attr.fs = "resources/merge.fs";
-
-      attr.resources = resources;
-      attr.resources_count = sizeof(resources) / sizeof(resources[0]);
-
-      qb_shadermodule_create(&shader_module, &attr);
-
-      qbImageSampler samplers[2];
-      {
-        qbImageSamplerAttr_ attr = {};
-        attr.image_type = QB_IMAGE_TYPE_2D;
-        attr.min_filter = QB_FILTER_TYPE_LINEAR;
-        attr.mag_filter = QB_FILTER_TYPE_LINEAR;
-        qb_imagesampler_create(samplers, &attr);
-      }
-      {
-        qbImageSamplerAttr_ attr = {};
-        attr.image_type = QB_IMAGE_TYPE_2D;
-        attr.min_filter = QB_FILTER_TYPE_LINEAR;
-        attr.mag_filter = QB_FILTER_TYPE_LINEAR;
-        qb_imagesampler_create(samplers + 1, &attr);
-      }
-
-      uint32_t bindings[] = { 1, 2 };
-      qb_shadermodule_attachsamplers(shader_module, 2, bindings, samplers);
-    }
-    {
-      qbGpuBufferAttr_ attr = {};
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-      attr.data = nullptr;
-      attr.size = sizeof(qbMergeArgs);
-
-      qb_gpubuffer_create(&r->merge_ubo, &attr);
-
-      uint32_t bindings[] = { qbMergeArgs::Binding() };
-      qbGpuBuffer ubo_buffers[] = { r->merge_ubo };
-      qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
-    }
-
-    qbBufferBinding_ binding;
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
-    {
-      qbRenderPassAttr_ attr = {};
-      descriptor.bindings = &binding;
-      descriptor.bindings_count = 1;
-      descriptor.attributes = attributes;
-      descriptor.attributes_count = 2;
-      attr.supported_geometry = descriptor;
-      attr.shader = shader_module;
-      attr.viewport = { 0.0f, 0.0f, (float)width, (float)height };
-      attr.viewport_scale = 1.0f;
-
-      qbClearValue_ clear;
-      clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT);
-      clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
-      clear.depth = 1.0f;
-      attr.clear = clear;
-
-      qb_renderpass_create(&ret, &attr);
-    }
-
-    qbGpuBuffer gpu_buffers[2];
-    {
-      qbGpuBufferAttr_ attr = {};
-      float vertices[] = {
-        // Positions   // UVs
-        -1.0f, -1.0f,    0.0f, 0.0f,
-        1.0f, -1.0f,    1.0f, 0.0f,
-        1.0f, 1.0f,    1.0f, 1.0f,
-        -1.0f, 1.0f,    0.0f, 1.0f,
-      };
-
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
-      attr.data = vertices;
-      attr.size = sizeof(vertices);
-      attr.elem_size = sizeof(float);
-      qb_gpubuffer_create(gpu_buffers, &attr);
-    }
-    {
-      qbGpuBufferAttr_ attr = {};
-      int indices[] = {
-        0, 1, 3,
-        1, 2, 3
-      };
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
-      attr.data = indices;
-      attr.size = sizeof(indices);
-      attr.elem_size = sizeof(int);
-      qb_gpubuffer_create(gpu_buffers + 1, &attr);
-    }
-
-    {
-      qbMeshBufferAttr_ attr = {};
-      attr.descriptor = descriptor;
-
-      qb_meshbuffer_create(&r->merge_dbo, &attr);
-    }
-
-    qbGpuBuffer vertices[] = { gpu_buffers[0] };
-    qb_meshbuffer_attachvertices(r->merge_dbo, vertices);
-    qb_meshbuffer_attachindices(r->merge_dbo, gpu_buffers[1]);
-
-    uint32_t image_bindings[] = { 1, 2 };
-    qbImage images[] = { nullptr, nullptr };
-    qb_meshbuffer_attachimages(r->merge_dbo, 2, image_bindings, images);
-
-    qbRenderGroup group;
-    {
-      qbRenderGroupAttr_ attr = {};
-      qbMeshBuffer meshes[] = { r->merge_dbo };
-      attr.mesh_count = 1;
-      attr.meshes = meshes;
-      qb_rendergroup_create(&group, &attr);
-    }
-    qb_renderpass_append(ret, group);
+    qbShaderResourceInfo info = resources;
+    info->binding = 0;
+    info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+    info->stages = QB_SHADER_STAGE_FRAGMENT;
+    info->name = "qb_merge_args";
   }
-
   {
-    qbFrameBufferAttr_ attr;
-    attr.width = width;
-    attr.height = height;
-
-    qbFrameBufferAttachment attachments[] = { QB_COLOR_ATTACHMENT };
-    uint32_t color_bindings[] = { 0 };
-    attr.attachments = attachments;
-    attr.color_binding = color_bindings;
-    attr.attachments_count = 1;
-
-    qb_framebuffer_create(&r->merge_frame, &attr);
+    qbShaderResourceInfo info = resources + 1;
+    info->binding = 1;
+    info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+    info->stages = QB_SHADER_STAGE_FRAGMENT;
+    info->name = "qb_merge_sampler";
   }
+  {
+    qbShaderResourceInfo info = resources + 2;
+    info->binding = 2;
+    info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+    info->stages = QB_SHADER_STAGE_FRAGMENT;
+    info->name = "qb_scene_sampler";
+  }
+  attr.resources = resources;
+  attr.resources_count = sizeof(resources) / sizeof(resources[0]);
 
+  qbImageSampler samplers[2];
+  {
+    qbImageSamplerAttr_ attr = {};
+    attr.image_type = QB_IMAGE_TYPE_2D;
+    attr.min_filter = QB_FILTER_TYPE_LINEAR;
+    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+    qb_imagesampler_create(samplers, &attr);
+  }
+  {
+    qbImageSamplerAttr_ attr = {};
+    attr.image_type = QB_IMAGE_TYPE_2D;
+    attr.min_filter = QB_FILTER_TYPE_LINEAR;
+    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+    qb_imagesampler_create(samplers + 1, &attr);
+  }
+  uint32_t sampler_bindings[] = { 1, 2 };
+  attr.samplers = samplers;
+  attr.sampler_bindings = sampler_bindings;
+  attr.samplers_count = 2;
+
+  qbGpuBuffer ubo;
+  {
+    qbGpuBufferAttr_ attr = {};
+    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+    attr.data = nullptr;
+    attr.size = sizeof(qbMergeArgs);
+
+    qb_gpubuffer_create(&r->merge_ubo, &attr);
+  }
+  uint32_t ubo_bindings[] = { 0 };
+  qbGpuBuffer uniforms[] = { r->merge_ubo };
+  attr.uniforms = uniforms;
+  attr.uniform_bindings = ubo_bindings;
+  attr.uniforms_count = 1;
+
+  attr.pixel_format = QB_PIXEL_FORMAT_RGBA8;
+  attr.target_count = 1;
+
+  qbSurface ret;
+  qb_surface_create(&ret, &attr);
   return ret;
 }
 
@@ -1433,8 +1179,8 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->uniform_count = user_uniform_count;
   ret->texture_start_binding = sampler_start_binding;
   ret->texture_units_count = user_sampler_count;
-  ret->blur_pass = create_blur_renderpass(ret, width, height);
-  ret->merge_pass = create_merge_renderpass(ret, width, height);
+  ret->blur_surface = create_blur_surface(ret, width, height);
+  ret->merge_surface = create_merge_surface(ret, width, height);
   ret->renderer.state = ret;
   return (qbRenderer)ret;
 }
