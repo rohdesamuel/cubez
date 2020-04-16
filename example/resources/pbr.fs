@@ -8,6 +8,7 @@ uniform sampler2D qb_material_ao_map;
 uniform sampler2D qb_material_emission_map;
 
 layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 emission_color;
 
 layout (std140) uniform qb_material
 {
@@ -125,9 +126,9 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 // ----------------------------------------------------------------------------
 void main()
 {		
-    vec3 albedo     = pow(texture(qb_material_albedo_map, o.tex).rgb, vec3(2.2));
-    float metallic  = texture(qb_material_metallic_map, o.tex).r;
-    float roughness = texture(qb_material_roughness_map, o.tex).r;
+    vec3 albedo     = pow(texture(qb_material_albedo_map, o.tex).rgb + material.albedo, vec3(2.2));
+    float metallic  = texture(qb_material_metallic_map, o.tex).r + material.metallic;
+    float roughness = texture(qb_material_roughness_map, o.tex).r + material.roughness;
     float ao        = texture(qb_material_ao_map, o.tex).r;
 
     vec3 N = getNormalFromMap();
@@ -218,14 +219,15 @@ void main()
     // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ao;
     
-    vec3 emissive = vec3(material.emission);
+    vec3 emissive = vec3(material.emission) + texture(qb_material_emission_map, o.tex).rgb;
 
     vec3 color = ambient + Lo;
 
     // HDR tonemapping
     color = color / (color + vec3(1.0));
     // gamma correct
-    color = pow(color, vec3(1.0/2.2)) + emissive; 
+    color = pow(color, vec3(1.0/2.2)); 
 
     out_color = vec4(color, 1.0);
+    emission_color = vec4(emissive, 1.0);
 }

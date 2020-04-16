@@ -204,6 +204,9 @@
     <ClInclude Include="..\..\..\src\cglm\config.h">
       <Filter>Source Files\cglm</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\apex_memmove.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -367,6 +370,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\cglm\vec4.c">
       <Filter>Source Files\cglm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\apex_memmove.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

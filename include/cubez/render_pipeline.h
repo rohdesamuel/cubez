@@ -49,6 +49,14 @@ typedef enum {
   QB_PIXEL_FORMAT_RG8,
   QB_PIXEL_FORMAT_RGB8,
   QB_PIXEL_FORMAT_RGBA8,
+  QB_PIXEL_FORMAT_R16F,
+  QB_PIXEL_FORMAT_RG16F,
+  QB_PIXEL_FORMAT_RGB16F,
+  QB_PIXEL_FORMAT_RGBA16F,
+  QB_PIXEL_FORMAT_R32F,
+  QB_PIXEL_FORMAT_RG32F,
+  QB_PIXEL_FORMAT_RGB32F,
+  QB_PIXEL_FORMAT_RGBA32F,
   QB_PIXEL_FORMAT_D32,
   QB_PIXEL_FORMAT_D24_S8,
   QB_PIXEL_FORMAT_S8
@@ -73,6 +81,14 @@ typedef enum {
 } qbFrameBufferAttachment;
 
 typedef struct {
+  qbFrameBufferAttachment attachments;
+
+  vec4s color;
+  float depth;
+  uint32_t stencil;
+} qbClearValue_, *qbClearValue;
+
+typedef struct {
   uint32_t width;
   uint32_t height;
 
@@ -80,6 +96,7 @@ typedef struct {
   uint32_t* color_binding;
   size_t attachments_count;
 
+  qbClearValue_ clear_value;
 } qbFrameBufferAttr_;
 typedef const qbFrameBufferAttr_* qbFrameBufferAttr;
 
@@ -226,14 +243,6 @@ typedef struct {
   qbRenderExt ext;
 } qbMeshBufferAttr_, *qbMeshBufferAttr;
 
-typedef struct {
-  qbFrameBufferAttachment attachments;
-
-  vec4s color;
-  float depth;
-  uint32_t stencil;
-} qbClearValue_;
-
 typedef enum {
   QB_CULL_NONE,
   QB_CULL_FRONT,
@@ -267,8 +276,6 @@ typedef struct {
 
 typedef struct {
   const char* name;
-
-  qbFrameBuffer frame_buffer;
 
   qbGeometryDescriptor_ supported_geometry;
 
@@ -327,9 +334,8 @@ QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_re
 
 QB_API void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr attr);
 QB_API void qb_renderpipeline_destroy(qbRenderPipeline* pipeline);
-QB_API void qb_renderpipeline_render(qbRenderPipeline render_pipeline, qbRenderEvent event);
 QB_API void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
-                               qbRenderEvent event);
+                                      qbRenderEvent event);
 QB_API void qb_renderpipeline_append(qbRenderPipeline pipeline, qbRenderPass pass);
 QB_API void qb_renderpipeline_prepend(qbRenderPipeline pipeline, qbRenderPass pass);
 QB_API size_t qb_renderpipeline_passes(qbRenderPipeline pipeline, qbRenderPass** passes);
@@ -338,6 +344,7 @@ QB_API size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass p
 
 QB_API void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
 QB_API void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer);
+QB_API void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value);
 QB_API size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets);
 QB_API qbImage qb_framebuffer_depthtarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_stenciltarget(qbFrameBuffer frame_buffer);
@@ -348,10 +355,7 @@ QB_API uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer);
 
 QB_API void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr);
 QB_API void qb_renderpass_destroy(qbRenderPass* render_pass);
-QB_API void qb_renderpass_clear(qbRenderPass render_pass);
-QB_API void qb_renderpass_draw(qbRenderPass render_pass);
-QB_API qbFrameBuffer* qb_renderpass_frame(qbRenderPass render_pass);
-QB_API void qb_renderpass_setframe(qbRenderPass render_pass, qbFrameBuffer fbo);
+QB_API void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 QB_API const char* qb_renderpass_name(qbRenderPass render_pass);
 QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
 

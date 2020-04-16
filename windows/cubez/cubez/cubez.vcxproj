@@ -254,6 +254,7 @@
     <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
+    <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
     <ClInclude Include="..\..\..\src\blockingconcurrentqueue.h" />
@@ -301,6 +302,7 @@
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\apex_memmove.cpp" />
     <ClCompile Include="..\..\..\src\audio.cpp" />
     <ClCompile Include="..\..\..\src\barrier.cpp" />
     <ClCompile Include="..\..\..\src\cglm\affine.c" />

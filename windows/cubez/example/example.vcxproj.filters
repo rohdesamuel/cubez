@@ -114,5 +114,17 @@
     <None Include="..\..\..\example\resources\pbr.fs">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\..\..\example\resources\blur.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\blur.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\merge.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\merge.vs">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

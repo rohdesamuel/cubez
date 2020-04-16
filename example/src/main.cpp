@@ -175,7 +175,7 @@ void create_game() {
   qbCamera main_camera;
   {
     qbCameraAttr_ attr = {};
-    attr.fov = 3.14159f / 4.0f;
+    attr.fov = glm_rad(45.0f);
     attr.height = 800;
     attr.width = 1200;
     attr.znear = 0.1f;
@@ -188,17 +188,6 @@ void create_game() {
   create_main_menu();
 
   {
-    qb_light_point(0, { 1.0, 1.0, 1.0 }, { 0.0, 0.0, 5.0 }, 15.0f, 200.0f);
-    qb_light_point(1, { 1.0, 0.0, 0.0 }, { -25.0, 0.0, 5.0 }, 10.0f, 200.0f);
-    qb_light_point(2, { 0.0, 1.0, 0.0 }, { 25.0, 0.0, 5.0 }, 10.0f, 200.0f);
-    qb_light_point(3, { 0.0, 0.0, 1.0 }, { 0.0, -25.0, 5.0 }, 10.0f, 200.0f);
-    qb_light_point(4, { 1.0, 0.0, 1.0 }, { 0.0, 25.0, 5.0 }, 10.0f, 200.0f);
-    qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_POINT);
-    qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_POINT);
-    qb_light_enable(2, qbLightType::QB_LIGHT_TYPE_POINT);
-    qb_light_enable(3, qbLightType::QB_LIGHT_TYPE_POINT);
-    qb_light_enable(4, qbLightType::QB_LIGHT_TYPE_POINT);
-
     qb_light_directional(0, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, -1.0f }, 0.05f);
     qb_light_directional(1, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, 1.0f }, 0.1f);
     qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
@@ -216,27 +205,27 @@ void create_game() {
         image_attr.type = qbImageType::QB_IMAGE_TYPE_2D;
         image_attr.generate_mipmaps = true;
         qb_image_load(&attr.albedo_map, &image_attr,
-                      "resources/soccer_ball.bmp");
+                      "resources/rustediron1-alt2-bl/rustediron2_basecolor.png");
         qb_image_load(&attr.normal_map, &image_attr,
                       "resources/rustediron1-alt2-bl/rustediron2_normal.png");
         qb_image_load(&attr.metallic_map, &image_attr,
                       "resources/rustediron1-alt2-bl/rustediron2_metallic.png");
         qb_image_load(&attr.roughness_map, &image_attr,
                       "resources/rustediron1-alt2-bl/rustediron2_roughness.png");
+        qb_image_load(&attr.emission_map, &image_attr,
+                    "resources/rustediron1-alt2-bl/rustediron2_roughness.png");
       }
-      attr.albedo = { 1, 1, 1 };
-      attr.metallic = 8.0f;
-      attr.roughness = 0.5;      
+      attr.emission = { -0.5f, 0.0f, 0.0f };
       qb_material_create(&material, &attr, "ball");
     }
 
     qbTransform_ t = {
       vec3s{0.0f, 0.0f, 0.0f},
-      vec3s{0.5f, -5.0f, 0.0f},
+      vec3s{0.5f, -5.0f, -3.0f},
       GLMS_MAT4_IDENTITY_INIT
     };
-
-    qbRenderable r = qb_draw_sphere(2, 50, 50);
+    
+    qbRenderable r = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -247,14 +236,6 @@ void create_game() {
     qb_entityattr_destroy(&attr);
   }
   {
-    qbMaterial material;
-    {
-      qbMaterialAttr_ attr = {};
-      attr.emission = { 1, 1, 1 };
-      qb_material_create(&material, &attr, "ball");
-    }
-
-
     std::vector<vec3s> positions = {
       { 0, 0, 5 },
       { 25, 0, 5 },
@@ -262,8 +243,29 @@ void create_game() {
       { 0, 25, 5 },
       { 0, -25, 5 },
     };
+    std::vector<vec3s> colors = {
+      { 1.0, 1.0, 1.0 },
+      { 1.0, 0.0, 0.0 },
+      { 0.0, 1.0, 0.0 },
+      { 0.0, 0.0, 1.0 },
+      { 1.0, 0.0, 1.0 },
+    };
 
-    for (auto&& pos : positions) {
+    for (size_t i = 0; i < positions.size(); ++i) {
+      vec3s& pos = positions[i];
+      vec3s& color = colors[i];
+      qb_light_point(i, color, pos, 15.0f, 200.0f);
+      qb_light_enable(i, qbLightType::QB_LIGHT_TYPE_POINT);
+
+
+      qbMaterial material;
+      {
+        qbMaterialAttr_ attr = {};
+        attr.emission = color;
+        attr.albedo = color;
+        qb_material_create(&material, &attr, "ball");
+      }
+
       qbTransform_ t = {
         vec3s{0, 0, 0},
         pos,
@@ -286,19 +288,20 @@ void create_game() {
     qbMaterial material;
     {
       qbMaterialAttr_ attr = {};
-      attr.albedo = { 1.0f, 1.0f, 1.0f };
-      attr.metallic = 1.10f;
-      attr.roughness = 0.005f;
+      attr.albedo = { 1.f, 1.f, 1.f };
+      attr.metallic = 1.01f;
+      attr.roughness = 0.0f;
+      attr.emission = { 0.0f, 0.0f, 0.0f };
       qb_material_create(&material, &attr, "ball");
     }
 
     qbTransform_ t = {
       vec3s{0, 0, 0},
-      vec3s{ -50, -50, -5 },
+      vec3s{ 0, 0, 45 },
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbRenderable r = qb_draw_rect(100, 100);
+    qbRenderable r = qb_draw_cube(-100, -100, -100);
 
     qbEntity unused;
     qbEntityAttr attr;

@@ -267,12 +267,16 @@
     <None Include="..\..\..\example\resources\gui.vs" />
     <None Include="..\..\..\example\resources\material.fs" />
     <None Include="..\..\..\example\resources\material.vs" />
+    <None Include="..\..\..\example\resources\merge.fs" />
+    <None Include="..\..\..\example\resources\merge.vs" />
     <None Include="..\..\..\example\resources\mesh.fs" />
     <None Include="..\..\..\example\resources\mesh.vs" />
     <None Include="..\..\..\example\resources\mesh_fb.fs" />
     <None Include="..\..\..\example\resources\mesh_fb.vs" />
     <None Include="..\..\..\example\resources\pbr.fs" />
     <None Include="..\..\..\example\resources\pbr.vs" />
+    <None Include="..\..\..\example\resources\blur.fs" />
+    <None Include="..\..\..\example\resources\blur.vs" />
     <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
     <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
     <None Include="..\..\..\example\resources\simple.fs" />

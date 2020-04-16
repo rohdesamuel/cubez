@@ -95,9 +95,6 @@ typedef struct qbRenderer_ {
 
   qbFrameBuffer(*camera_framebuffer_create)(struct qbRenderer_* self, uint32_t width, uint32_t height);
 
-  // TODO: This should be a surface that the underlying renderer draws to.
-  void(*set_gui_renderpass)(struct qbRenderer_* self, qbRenderPass gui_renderpass);
-
   const char* title;
   int width;
   int height;
@@ -125,6 +122,12 @@ typedef struct qbRendererAttr_ {
   // individual qbShaderResourceInfos for the given samplers.
   qbImageSampler* image_samplers;
   size_t image_sampler_count;
+
+  // An optional renderpass to draw the gui.
+  qbRenderPass opt_gui_renderpass;
+
+  // An optional present pass to draw the final frame.
+  qbRenderPass opt_present_renderpass;
 
   // Optional arguments to pass to the create_renderer function.
   void* opt_args;
