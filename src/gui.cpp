@@ -377,7 +377,6 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
   {
     qbRenderPassAttr_ attr = {};
-    attr.frame_buffer = nullptr;
     attr.name = "Gui Render Pass";
     attr.supported_geometry.bindings = &binding;
     attr.supported_geometry.bindings_count = 1;

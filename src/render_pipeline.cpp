@@ -146,8 +146,6 @@ typedef struct qbRenderPass_ {
   qbRenderExt ext;
 
   uint32_t id;
-  qbFrameBuffer frame_buffer;
-
   std::vector<qbRenderGroup> groups;
 
   qbGeometryDescriptor_ supported_geometry;
@@ -240,6 +238,14 @@ GLenum TranslateQbPixelFormatToInternalOpenGl(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_RG8: return GL_RGBA8;
     case QB_PIXEL_FORMAT_RGB8: return GL_RGBA8;
     case QB_PIXEL_FORMAT_RGBA8: return GL_RGBA8;
+    case QB_PIXEL_FORMAT_R16F: return GL_R16F;
+    case QB_PIXEL_FORMAT_RG16F: return GL_RG16F;
+    case QB_PIXEL_FORMAT_RGB16F: return GL_RGB16F;
+    case QB_PIXEL_FORMAT_RGBA16F: return GL_RGBA16F;
+    case QB_PIXEL_FORMAT_R32F: return GL_R32F;
+    case QB_PIXEL_FORMAT_RG32F: return GL_RG32F;
+    case QB_PIXEL_FORMAT_RGB32F: return GL_RGB32F;
+    case QB_PIXEL_FORMAT_RGBA32F: return GL_RGBA32F;
     case QB_PIXEL_FORMAT_D32: return GL_DEPTH_COMPONENT24;
     case QB_PIXEL_FORMAT_D24_S8: return GL_DEPTH24_STENCIL8;
     case QB_PIXEL_FORMAT_S8: return GL_STENCIL_INDEX;
@@ -253,6 +259,14 @@ GLenum TranslateQbPixelFormatToOpenGl(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_RG8: return GL_RG;
     case QB_PIXEL_FORMAT_RGB8: return GL_RGB;
     case QB_PIXEL_FORMAT_RGBA8: return GL_RGBA;
+    case QB_PIXEL_FORMAT_R16F: return GL_RED;
+    case QB_PIXEL_FORMAT_RG16F: return GL_RG;
+    case QB_PIXEL_FORMAT_RGB16F: return GL_RGB;
+    case QB_PIXEL_FORMAT_RGBA16F: return GL_RGBA;
+    case QB_PIXEL_FORMAT_R32F: return GL_RED;
+    case QB_PIXEL_FORMAT_RG32F: return GL_RG;
+    case QB_PIXEL_FORMAT_RGB32F: return GL_RGB;
+    case QB_PIXEL_FORMAT_RGBA32F: return GL_RGBA;
     case QB_PIXEL_FORMAT_D32: return GL_DEPTH_COMPONENT;
     case QB_PIXEL_FORMAT_D24_S8: return GL_DEPTH_STENCIL;
     case QB_PIXEL_FORMAT_S8: return GL_STENCIL_INDEX;
@@ -266,6 +280,14 @@ GLenum TranslateQbPixelFormatToOpenGlSize(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_RG8:
     case QB_PIXEL_FORMAT_RGB8:
     case QB_PIXEL_FORMAT_RGBA8: return GL_UNSIGNED_BYTE;
+    case QB_PIXEL_FORMAT_R16F:
+    case QB_PIXEL_FORMAT_RG16F:
+    case QB_PIXEL_FORMAT_RGB16F:
+    case QB_PIXEL_FORMAT_RGBA16F: return GL_HALF_FLOAT;
+    case QB_PIXEL_FORMAT_R32F:
+    case QB_PIXEL_FORMAT_RG32F:
+    case QB_PIXEL_FORMAT_RGB32F:
+    case QB_PIXEL_FORMAT_RGBA32F: return GL_FLOAT;
     case QB_PIXEL_FORMAT_D32: return GL_FLOAT;
     case QB_PIXEL_FORMAT_D24_S8: return GL_UNSIGNED_INT_24_8;
     case QB_PIXEL_FORMAT_S8: return GL_UNSIGNED_BYTE;
@@ -275,7 +297,7 @@ GLenum TranslateQbPixelFormatToOpenGlSize(qbPixelFormat format) {
 
 }
 
-void qb_renderpass_draw(qbRenderPass render_pass);
+void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 
 qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format, void* pixels) {
   qbPixelMap p = new qbPixelMap_;
@@ -395,14 +417,12 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
     }
 
-    qbBufferBinding_ binding;
+    qbBufferBinding_ binding = {};
     binding.binding = 0;
     binding.stride = 4 * sizeof(float);
     binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
     {
       qbRenderPassAttr_ attr = {};
-      attr.frame_buffer = nullptr;
-
       attr.supported_geometry.bindings = &binding;
       attr.supported_geometry.bindings_count = 1;
 
@@ -414,7 +434,7 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       attr.viewport = pipeline_attr->viewport;
       attr.viewport_scale = pipeline_attr->viewport_scale;
 
-      qbClearValue_ clear;
+      qbClearValue_ clear = {};
       clear.color = { 0.0, 0.0, 0.0, 1.0 };
       clear.attachments = QB_COLOR_ATTACHMENT;
 
@@ -486,21 +506,12 @@ void qb_renderpipeline_destroy(qbRenderPipeline* pipeline) {
   *pipeline = nullptr;
 }
 
-void qb_renderpipeline_render(qbRenderPipeline render_pipeline, qbRenderEvent event) {
-  for (qbRenderPass pass : render_pipeline->render_passes) {
-    qb_renderpass_clear(pass);
-  }
-
-  for (qbRenderPass pass : render_pipeline->render_passes) {
-    qb_renderpass_draw(pass);
-  }
-}
-
 void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
                                qbRenderEvent event) {
   render_pipeline->present_pass->groups[0]->meshes[0]->images[0] = frame_buffer->render_targets[0];
-  qb_renderpass_clear(render_pipeline->present_pass);
-  qb_renderpass_draw(render_pipeline->present_pass);
+
+  qb_framebuffer_clear(0, &render_pipeline->present_pass->clear);
+  qb_renderpass_draw(render_pipeline->present_pass, 0);
 }
 
 void qb_renderpipeline_append(qbRenderPipeline pipeline, qbRenderPass pass) {
@@ -850,7 +861,6 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   *render_pass_ref = new qbRenderPass_;
   qbRenderPass render_pass = *render_pass_ref;
 
-  render_pass->frame_buffer = attr->frame_buffer;  
   render_pass->viewport_scale = attr->viewport_scale;
   render_pass->shader_program = attr->shader;
   render_pass->clear = attr->clear;
@@ -877,14 +887,6 @@ void qb_renderpass_destroy(qbRenderPass* render_pass) {
 
   delete *render_pass;
   *render_pass = nullptr;
-}
-
-qbFrameBuffer* qb_renderpass_frame(qbRenderPass render_pass) {
-  return &render_pass->frame_buffer;
-}
-
-void qb_renderpass_setframe(qbRenderPass render_pass, qbFrameBuffer fbo) {
-  render_pass->frame_buffer = fbo;
 }
 
 qbGeometryDescriptor qb_renderpass_supportedgeometry(qbRenderPass render_pass) {
@@ -953,35 +955,9 @@ void qb_renderpass_update(qbRenderPass render_pass, size_t count, qbRenderGroup*
   }
 }
 
-void qb_renderpass_clear(qbRenderPass render_pass) {
-  if (render_pass->frame_buffer) {
-    glBindFramebuffer(GL_FRAMEBUFFER, render_pass->frame_buffer->id);
-  } else {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  }
-
-  GLenum clear = 0;
-  if (render_pass->clear.attachments & QB_COLOR_ATTACHMENT) {
-    glClearColor(render_pass->clear.color.x,
-                 render_pass->clear.color.y,
-                 render_pass->clear.color.z,
-                 render_pass->clear.color.w);
-    clear |= GL_COLOR_BUFFER_BIT;
-  }
-  if (render_pass->clear.attachments & QB_DEPTH_ATTACHMENT) {
-    glClearDepth(render_pass->clear.depth);
-    clear |= GL_DEPTH_BUFFER_BIT;
-  }
-  if (render_pass->clear.attachments & QB_STENCIL_ATTACHMENT) {
-    glClearStencil(render_pass->clear.stencil);
-    clear |= GL_STENCIL_BUFFER_BIT;
-  }
-  glClear(clear);
-}
-
-void qb_renderpass_draw(qbRenderPass render_pass) {
-  if (render_pass->frame_buffer) {
-    glBindFramebuffer(GL_FRAMEBUFFER, render_pass->frame_buffer->id);
+void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer) {
+  if (frame_buffer) {
+    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
     glEnable(GL_CULL_FACE);
@@ -1062,6 +1038,7 @@ void qb_renderpass_draw(qbRenderPass render_pass) {
       qb_meshbuffer_render(mesh, render_pass->shader_program->sampler_bindings);
     }
   }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void qb_imagesampler_create(qbImageSampler* sampler_ref, qbImageSamplerAttr attr) {
@@ -1311,6 +1288,14 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   glGenFramebuffers(1, &frame_buffer_id);
   frame_buffer->id = frame_buffer_id;
   frame_buffer->attr = *attr;
+  frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
+  memcpy(frame_buffer->attr.color_binding, attr->color_binding,
+         frame_buffer->attr.attachments_count * sizeof(uint32_t));
+
+  frame_buffer->attr.attachments = new qbFrameBufferAttachment[frame_buffer->attr.attachments_count];
+  memcpy(frame_buffer->attr.attachments, attr->attachments,
+         frame_buffer->attr.attachments_count * sizeof(qbFrameBufferAttachment));
+
   CHECK_GL();
   glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_id);
   CHECK_GL();
@@ -1381,9 +1366,48 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
 }
 
 void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer) {
-  qb_framebuffer_clear(*frame_buffer);
+  for (qbImage& img : (*frame_buffer)->render_targets) {
+    qb_image_destroy(&img);
+  }
+  qb_image_destroy(&(*frame_buffer)->depth_target);
+  qb_image_destroy(&(*frame_buffer)->stencil_target);
+  qb_image_destroy(&(*frame_buffer)->depthstencil_target);
+
+  (*frame_buffer)->render_targets = {};
+  (*frame_buffer)->depth_target = nullptr;
+  (*frame_buffer)->stencil_target = nullptr;
+  (*frame_buffer)->depthstencil_target = nullptr;
+  delete[](*frame_buffer)->attr.color_binding;
+  delete[](*frame_buffer)->attr.attachments;
   delete *frame_buffer;
   *frame_buffer = nullptr;
+}
+
+void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value) {
+  if (frame_buffer) {
+    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
+  } else {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  }
+
+  GLenum clear = 0;
+  if (clear_value->attachments & QB_COLOR_ATTACHMENT) {
+    glClearColor(clear_value->color.x,
+                 clear_value->color.y,
+                 clear_value->color.z,
+                 clear_value->color.w);
+    clear |= GL_COLOR_BUFFER_BIT;
+  }
+  if (clear_value->attachments & QB_DEPTH_ATTACHMENT) {
+    glClearDepth(clear_value->depth);
+    clear |= GL_DEPTH_BUFFER_BIT;
+  }
+  if (clear_value->attachments & QB_STENCIL_ATTACHMENT) {
+    glClearStencil(clear_value->stencil);
+    clear |= GL_STENCIL_BUFFER_BIT;
+  }
+  glClear(clear);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage** targets) {
@@ -1404,7 +1428,18 @@ qbImage qb_framebuffer_depthstenciltarget(qbFrameBuffer frame_buffer) {
 }
 
 void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, uint32_t height) {
-  qb_framebuffer_clear(frame_buffer);
+  for (qbImage& img : frame_buffer->render_targets) {
+    qb_image_destroy(&img);
+  }
+  qb_image_destroy(&frame_buffer->depth_target);
+  qb_image_destroy(&frame_buffer->stencil_target);
+  qb_image_destroy(&frame_buffer->depthstencil_target);
+
+  frame_buffer->render_targets = {};
+  frame_buffer->depth_target = nullptr;
+  frame_buffer->stencil_target = nullptr;
+  frame_buffer->depthstencil_target = nullptr;
+
   frame_buffer->attr.width = width;
   frame_buffer->attr.height = height;
   qb_framebuffer_init(frame_buffer, &frame_buffer->attr);

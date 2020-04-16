@@ -164,8 +164,11 @@ void initialize_context(const RenderSettings& settings) {
 }
 
 void renderer_initialize(const RenderSettings& settings) {
-  renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);
-  renderer_->set_gui_renderpass(qb_renderer(), gui_create_renderpass(settings.width, settings.height));
+  if (!settings.opt_renderer_args->opt_gui_renderpass) {
+    settings.opt_renderer_args->opt_gui_renderpass = gui_create_renderpass(settings.width, settings.height);
+  }
+
+  renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);  
   destroy_renderer = settings.destroy_renderer;
 }
 
@@ -268,13 +271,6 @@ void qb_camera_destroy(qbCamera* camera) {
 
 void qb_camera_activate(qbCamera camera) {
   active_camera = (qbCameraInternal)camera;
-  qbRenderPipeline r = qb_renderer()->render_pipeline;
-  
-  qbRenderPass* passes;
-  size_t count = qb_renderpipeline_passes(r, &passes);
-  for (size_t i = 0; i < count; ++i) {
-    qb_renderpass_setframe(passes[i], ((qbCameraInternal)camera)->fbo);
-  }
 }
 
 void qb_camera_deactivate(qbCamera camera) {
