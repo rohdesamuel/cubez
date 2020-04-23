@@ -160,6 +160,9 @@ QB_API qbResult qb_on_mouse_event(qbSystem system);
 QB_API bool qb_is_key_pressed(qbKey key);
 QB_API bool qb_is_mouse_pressed(qbButton mouse_button);
 QB_API void qb_get_mouse_position(int* x, int* y);
+QB_API void qb_get_mouse_relposition(int* relx, int* rely);
+
+QB_API int qb_set_mouse_relative(int enabled);
 
 #endif  // INPUT__H
 

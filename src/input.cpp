@@ -228,3 +228,11 @@ bool qb_is_mouse_pressed(qbButton mouse_button) {
 void qb_get_mouse_position(int* x, int* y) {
   SDL_GetMouseState(x, y);
 }
+
+void qb_get_mouse_relposition(int* relx, int* rely) {
+  SDL_GetRelativeMouseState(relx, rely);
+}
+
+int qb_set_mouse_relative(int enabled) {
+  return SDL_SetRelativeMouseMode((SDL_bool)enabled);
+}
