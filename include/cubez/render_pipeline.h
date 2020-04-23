@@ -352,7 +352,7 @@ QB_API void qb_shadermodule_attachuniforms(qbShaderModule module, size_t count,
 QB_API void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count,
                                     uint32_t bindings[], qbImageSampler samplers[]);
 
-QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format, void* pixels);
+QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth, qbPixelFormat format, void* pixels);
 QB_API void qb_pixelmap_destroy(qbPixelMap* pixel_map);
 QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec2s dest_rect);
 
