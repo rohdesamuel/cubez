@@ -221,7 +221,7 @@ void create_game() {
 
     qbTransform_ t = {
       vec3s{0.0f, 0.0f, 0.0f},
-      vec3s{0.5f, -5.0f, -3.0f},
+      vec3s{0.0f, 0.0f, -3.0f},
       GLMS_MAT4_IDENTITY_INIT
     };
     
@@ -284,12 +284,13 @@ void create_game() {
       qb_entityattr_destroy(&attr);
     }
   }
+
   {
     qbMaterial material;
     {
       qbMaterialAttr_ attr = {};
-      attr.albedo = { 1.f, 1.f, 1.f };
-      attr.metallic = 1.01f;
+      attr.albedo = { .5f, .5f, .5f };
+      attr.metallic = 1.5f;
       attr.roughness = 0.0f;
       attr.emission = { 0.0f, 0.0f, 0.0f };
       qb_material_create(&material, &attr, "ball");
@@ -313,6 +314,7 @@ void create_game() {
     qb_entityattr_destroy(&attr);
   }
 
+
   qb_coro_sync([](qbVar v) {
     qbEntity block = v.i;
     qbTransform t;
@@ -321,48 +323,140 @@ void create_game() {
     //t->position.y += 5.0f;
     int frame = 0;
     qbCamera camera = qb_camera_active();
+    int mouse_x, mouse_y;
+    qb_get_mouse_position(&mouse_x, &mouse_y);
+    float cam_dir = 0.0f, cam_zdir = 0.0f;
+    float cam_dis = 20.0f;
+    float cam_dis_dt = 0.0f;
     while (true) {
       t->orientation = glms_rotate(t->orientation, -0.001f, vec3s{ 0.0f, 0.0f, 1.0f });
 
       //t->position.z = 0.0f + 5.0f*cos((float)(frame) / 100.0f);
       //t->position.y = 0.0f - 5.0f*sin((float)(frame) / 100.0f);
 
-      vec4s dir = {};
+      int x, y;
+      qb_get_mouse_relposition(&x, &y);
+
+      float dx, dy;
+      dx = (float)x * -0.001f;
+      dy = (float)y * 0.001f;
+
+      float speed = 0.001f;
+      if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+        speed *= 10.0f;
+      }
+      if (qb_is_key_pressed(qbKey::QB_KEY_LCTRL)) {
+        speed *= 0.1f;
+      }
+
+      {
+        mat4s m = camera->rotation_mat;
+        m = glms_rotate(m, dx, vec3s{ 0, 0, 1 });
+        m = glms_rotate(m, dy, vec3s{ 0, 1, 0 });
+        qb_camera_rotation(camera, m);
+
+        /*cam_dis += cam_dis_dt;
+
+        vec4s orig = glms_mat4_mulv(m, vec4s{ -cam_dis, 0.f, 0.f, 1.0f });
+        qb_camera_origin(camera, { orig.x, orig.y, orig.z });
+        cam_dis_dt *= 0.9f;*/
+      }
+
+
       if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
-        dir = { 0.5f, 0.0f, 0.0f, 1.0f };
+        /*if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+          cam_dis_dt = -0.1f;
+        } else {
+          cam_dis_dt = -0.01f;
+        }*/
+        vec4s dir = { speed, 0.0f, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
-        dir = { -0.5f, 0.0f, 0.0f, 1.0f };
+        /*if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+          cam_dis_dt = 0.1f;
+        } else {
+          cam_dis_dt = 0.01f;
+        }*/
+        
+        vec4s dir = { -speed, 0.0f, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
+          
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
+        vec4s dir = { 0.0f, speed, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
+        vec4s dir = { 0.0f, -speed, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_Q)) {
-        dir = { 0.0f, 0.5f, 0.0f, 1.0f };
-        qb_camera_origin(
-          camera,
-          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, -0.025f, vec3s{ 1, 0, 0 }));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_E)) {
-        dir = { 0.0f, -0.5f, 0.0f, 1.0f };
-        qb_camera_origin(
-          camera,
-          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat,  0.025f, vec3s{ 1, 0, 0 }));
+      }
+
+      /*
+
+      int x, y;
+      qb_get_mouse_relposition(&x, &y);
+
+      float dx, dy;
+      dx = (float)x * -0.001f;
+      dy = (float)y * 0.001f;
+      cam_dir += dx;
+      cam_zdir += dy;
+      cam_zdir = glm_clamp(cam_zdir, glm_rad(-90.0f), glm_rad(90.0f));
+      {
+        mat4s m = GLMS_MAT4_IDENTITY_INIT;
+        m = glms_rotate(m, cam_dir, vec3s{ 0, 0, 1 });
+        m = glms_rotate(m, cam_zdir, vec3s{ 0, 1, 0 });
+        qb_camera_rotation(camera, m);
+      }
+      
+      vec4s dir = {};
+      if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
+        dir = { 0.5f, 0.0f, 0.0f, 1.0f };
+        vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
+        d.z = 0.0f;
+        qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
+      }
+
+      if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
+        dir = { -0.5f, 0.0f, 0.0f, 1.0f };
+        vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
+        d.z = 0.0f;
+        qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
-        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, 0.025f, vec3s{ 0, 0, 1 }));
+        dir = { 0.0f, 0.5f, 0.0f, 1.0f };
+        vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
+        d.z = 0.0f;
+        qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
       }
 
       if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
-        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, -0.025f, vec3s{ 0, 0, 1 }));
-      }
+        dir = { 0.0f, -0.5f, 0.0f, 1.0f };
+        vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
+        d.z = 0.0f;
+        qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
+      }*/
 
       ++frame;
       qb_coro_wait(0.01);
@@ -402,6 +496,8 @@ int main(int, char* []) {
   initialize_universe(&uni);
   qb_start();
   create_game();
+
+  qb_set_mouse_relative(1);
 
   // https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
 
