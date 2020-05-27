@@ -54,15 +54,6 @@ typedef struct LightSpot {
   float angle_deg;
 };
 
-struct SdfVArgs {
-  vec4s unused;
-};
-
-struct SdfFArgs {
-  alignas(16) mat4s vp_inv;
-  alignas(16) vec3s eye;
-};
-
 typedef struct qbForwardRenderer_ {
   qbRenderer_ renderer;
 
@@ -128,18 +119,6 @@ typedef struct qbForwardRenderer_ {
 
   qbSurface merge_surface;
   qbGpuBuffer merge_ubo;
-
-  // https://0xef.wordpress.com/2013/01/19/ray-marching-signed-distance-fields/
-  // https://shaderbits.com/blog/creating-volumetric-ray-marcher  
-  // https://www.reddit.com/r/opengl/comments/2ui4i0/depth_test_using_multiple_depth_buffers_at_once/
-  // http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/
-  // http://iquilezles.org/www/articles/distfunctions/distfunctions.htm
-  // https://casual-effects.com/research/McGuire2019ProcGen/McGuire2019ProcGen.pdf
-  // https://www.shadertoy.com/view/lt3XDM
-  qbSurface sdf_surface;
-  qbGpuBuffer sdf_vubo;
-  qbGpuBuffer sdf_fubo;
-  qbImage sdf_layers;
 
   // Voxel
   // https://0fps.net/category/programming/voxels/
@@ -255,17 +234,6 @@ void update_light_ubo(qbForwardRenderer r, const struct qbCamera_* camera) {
   qb_gpubuffer_update(r->light_ubo, 0, sizeof(LightUniform), &l);
 }
 
-void update_sdf_ubo(qbForwardRenderer r, const struct qbCamera_* camera) {
-  SdfVArgs v_args = {};
-  SdfFArgs f_args = {};
-
-  mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
-  f_args.vp_inv = glms_mat4_inv(project_view);
-  f_args.eye = camera->origin;
-
-  qb_gpubuffer_update(r->sdf_vubo, 0, sizeof(v_args), &v_args);
-  qb_gpubuffer_update(r->sdf_fubo, 0, sizeof(f_args), &f_args);
-}
 
 void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event) {
   qbForwardRenderer r = (qbForwardRenderer)self;
@@ -273,7 +241,6 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
 
   update_camera_ubo(r, camera);
   update_light_ubo(r, camera);
-  update_sdf_ubo(r, camera);
   {
     qbClearValue_ clear = {};
     clear.attachments = qbFrameBufferAttachment(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
@@ -324,7 +291,6 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
 
   qbFrameBuffer final = qb_surface_target(r->merge_surface, 0);
 
-  qb_surface_draw(r->sdf_surface, &r->sdf_layers, final);
   qb_renderpass_draw(r->gui_pass, final);
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
@@ -793,132 +759,6 @@ float sphere_sdf(vec3s p, vec3s c, float radius) {
   return glms_vec3_norm(glms_vec3_sub(p, c)) - radius;
 }
 
-qbSurface create_sdf_surface(qbForwardRenderer r, uint32_t width, uint32_t height) {
-  qbSurfaceAttr_ attr = {};
-  attr.width = width;
-  attr.height = height;
-  attr.vs = "resources/sdf.vs";
-  attr.fs = "resources/sdf.fs";
-
-  qbShaderResourceInfo_ resources[3] = {};
-  {
-    qbShaderResourceInfo info = resources;
-    info->binding = 0;
-    info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-    info->stages = QB_SHADER_STAGE_VERTEX;
-    info->name = "qb_sdf_vargs";
-  }
-  {
-    qbShaderResourceInfo info = resources + 1;
-    info->binding = 1;
-    info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-    info->stages = QB_SHADER_STAGE_FRAGMENT;
-    info->name = "qb_sdf_fargs";
-  }
-  {
-    qbShaderResourceInfo info = resources + 2;
-    info->binding = 2;
-    info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-    info->stages = QB_SHADER_STAGE_FRAGMENT;
-    info->name = "qb_layer_sampler";
-  }
-  attr.resources = resources;
-  attr.resources_count = sizeof(resources) / sizeof(resources[0]);
-
-  qbImageSampler samplers[1];
-  {
-    qbImageSamplerAttr_ attr = {};
-    attr.image_type = QB_IMAGE_TYPE_3D;
-    attr.min_filter = QB_FILTER_TYPE_LINEAR;
-    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
-    qb_imagesampler_create(samplers, &attr);
-  }
-  uint32_t sampler_bindings[] = { 2 };
-  attr.samplers = samplers;
-  attr.sampler_bindings = sampler_bindings;
-  attr.samplers_count = 1;
-
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.data = nullptr;
-    attr.size = sizeof(SdfVArgs);
-
-    qb_gpubuffer_create(&r->sdf_vubo, &attr);
-  }
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.data = nullptr;
-    attr.size = sizeof(SdfFArgs);
-
-    qb_gpubuffer_create(&r->sdf_fubo, &attr);
-  }
-  uint32_t ubo_bindings[] = { 0, 1 };
-  qbGpuBuffer uniforms[] = { r->sdf_vubo, r->sdf_fubo };
-  attr.uniforms = uniforms;
-  attr.uniform_bindings = ubo_bindings;
-  attr.uniforms_count = 2;
-
-  {
-    typedef struct {
-      int r : 8;
-      int g : 8;
-      int b : 8;
-      int a : 8;
-    } rgba_t;
-
-    int size = 512;
-    float size_f = (float)size;
-    float radius = size_f / 2.5f;
-    int w, h, d;
-    w = h = d = size;
-    vec3s c = { size / 2.0f, size / 2.0f, size / 2.0f };
-    rgba_t* terrain_data = new rgba_t[w * h * d];
-    srand(0);
-    for (int k = 0; k < d; ++k) {
-      for (int j = 0; j < h; ++j) {
-        for (int i = 0; i < w; ++i) {
-          size_t idx = i + j * w + k * w * h;
-          vec3s p = glms_vec3_sub({ (float)i, (float)j, (float)k }, c);
-          
-          if (sphere_sdf({ (float)i, (float)j, (float)k }, c, radius) < 0.0f) {
-            terrain_data[idx] = { rand() % 255, 0x00, 0x00, 0xFF };  
-          } else {
-            terrain_data[idx] = { 0x00, 0x00, 0x00, 0x00 };
-          }
-
-
-          /*vec3s p = glms_vec3_sub({ (float)i, (float)j, (float)k }, c);
-          float r = glms_vec3_norm(p);
-
-          terrain_data[idx] = 
-            glm_max(
-              sphere_sdf({ (float)i, (float)j, (float)k }, c, radius),// + (float)(rand() % 100) / 100.0f,
-              //r - size_f / 2.5f + (float)(rand() % 100) / 10.0f,
-              -cube_sdf(p, vec3s{ 64, 0, 0 }, size_f / 2.5f)
-              ) / size_f;*/
-        }
-      }
-    }
-
-    qbPixelMap terrain = qb_pixelmap_create(size, size, size, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, terrain_data);
-    
-    qbImageAttr_ image_attr = {};
-    image_attr.type = qbImageType::QB_IMAGE_TYPE_3D;
-    image_attr.generate_mipmaps = false;
-    qb_image_create(&r->sdf_layers, &image_attr, terrain);
-    //qb_image_load(&r->sdf_layers, &image_attr, "resources/soccer_ball.bmp");
-
-    delete[] terrain_data;
-    qb_pixelmap_destroy(&terrain);
-  }
-
-  qbSurface ret;
-  qb_surface_create(&ret, &attr);
-  return ret;
-}
-
 qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t height) {
   qbSurfaceAttr_ attr;
   attr.width = width;
@@ -1373,7 +1213,6 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->texture_units_count = user_sampler_count;
   ret->blur_surface = create_blur_surface(ret, width, height);
   ret->merge_surface = create_merge_surface(ret, width, height);
-  ret->sdf_surface = create_sdf_surface(ret, width, height);
   ret->renderer.state = ret;
   return (qbRenderer)ret;
 }
