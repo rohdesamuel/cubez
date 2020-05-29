@@ -38,9 +38,6 @@
     <ClCompile Include="..\..\..\example\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\src\items.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\example\src\pong.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

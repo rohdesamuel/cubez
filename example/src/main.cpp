@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <string>
 #include <cglm/struct.h>
+#include <cubez/socket.h>
 
 qbVar print_timing_info(qbVar var) {
   for (;;) {
@@ -499,7 +500,28 @@ int main(int, char* []) {
 
   qb_set_mouse_relative(1);
 
-  // https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
+  qbSocket server_send;
+  qbEndpoint_ e = {};
+  qb_endpoint(&e, "127.0.0.1", 12345);
+  
+  qbSocketAttr_ attr = {};
+  attr.af = QB_IPV4;
+  attr.np = QB_UDP;
+
+  qb_socket_create(&server_send, &attr);
+  qb_socket_bind(server_send, &e);
+
+  char packet[64] = { "Hello, World!\0" };
+  if (qb_socket_sendto(server_send, packet, strlen(packet), 0, &e) < 0) {
+    std::cout << "bad send " << errno << std::endl;
+  }
+
+  memset(packet, 0, sizeof(packet));
+  if (qb_socket_recv(server_send, packet, 64, 0) < 0) {
+    std::cout << "bad recv " << errno << std::endl;
+  }
+
+  std::cout << packet << std::endl;
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

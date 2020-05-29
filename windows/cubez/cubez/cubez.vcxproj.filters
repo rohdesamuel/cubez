@@ -207,6 +207,15 @@
     <ClInclude Include="..\..\..\src\apex_memmove.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\network_impl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\network.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\socket.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -372,6 +381,12 @@
       <Filter>Source Files\cglm</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\apex_memmove.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\network.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\socket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

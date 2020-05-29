@@ -251,7 +251,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\src\forward_renderer.cpp" />
-    <ClCompile Include="..\..\..\example\src\items.cpp" />
     <ClCompile Include="..\..\..\example\src\main.cpp" />
     <ClCompile Include="..\..\..\example\src\pong.cpp" />
   </ItemGroup>

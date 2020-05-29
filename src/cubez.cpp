@@ -32,6 +32,7 @@
 #include "render_internal.h"
 #include "gui_internal.h"
 #include "audio_internal.h"
+#include "network_impl.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -104,6 +105,8 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qb_timer_create(&render_timer, 50);
   }
 
+  network_initialize();
+
   return ret;
 }
 
@@ -117,6 +120,7 @@ qbResult qb_start() {
 }
 
 qbResult qb_stop() {
+  network_shutdown();
   render_shutdown();
   audio_shutdown();
   qbResult ret = AS_PRIVATE(stop());
