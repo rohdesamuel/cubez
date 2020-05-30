@@ -38,9 +38,6 @@
     <ClCompile Include="..\..\..\example\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\src\items.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\example\src\pong.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,6 +121,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\..\..\example\resources\merge.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\sdf.fs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\sdf.vs">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

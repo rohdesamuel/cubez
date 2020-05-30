@@ -173,7 +173,6 @@ void renderer_initialize(const RenderSettings& settings) {
 }
 
 void render_initialize(RenderSettings* settings) {
-  std::cout << "Initializing rendering context\n";
   initialize_context(*settings);  
   window_width = settings->width;
   window_height = settings->height;

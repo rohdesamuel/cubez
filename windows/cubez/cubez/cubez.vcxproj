@@ -251,8 +251,10 @@
     <ClInclude Include="..\..\..\include\cubez\input.h" />
     <ClInclude Include="..\..\..\include\cubez\log.h" />
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
+    <ClInclude Include="..\..\..\include\cubez\network.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
+    <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
     <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
@@ -284,6 +286,7 @@
     <ClInclude Include="..\..\..\src\instance_registry.h" />
     <ClInclude Include="..\..\..\src\log_internal.h" />
     <ClInclude Include="..\..\..\src\mesh_builder.h" />
+    <ClInclude Include="..\..\..\src\network_impl.h" />
     <ClInclude Include="..\..\..\src\render_defs.h" />
     <ClInclude Include="..\..\..\src\render_internal.h" />
     <ClInclude Include="..\..\..\src\shader.h" />
@@ -345,6 +348,7 @@
     <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\mesh.cpp" />
     <ClCompile Include="..\..\..\src\mesh_builder.cpp" />
+    <ClCompile Include="..\..\..\src\network.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
@@ -353,6 +357,7 @@
     <ClCompile Include="..\..\..\src\render_pipeline.cpp" />
     <ClCompile Include="..\..\..\src\shader.cpp" />
     <ClCompile Include="..\..\..\src\snapshot.cpp" />
+    <ClCompile Include="..\..\..\src\socket.cpp" />
     <ClCompile Include="..\..\..\src\stb_image.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\task.cpp" />

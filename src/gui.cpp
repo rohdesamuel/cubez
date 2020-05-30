@@ -57,9 +57,9 @@ enum GuiRenderMode {
 
 // std140 layout
 struct GuiUniformModel {
-  alignas(16) mat4s modelview;
-  alignas(16) vec4s color;
-  alignas(4)  GuiRenderMode render_mode;
+  mat4s modelview;
+  vec4s color;
+  GuiRenderMode render_mode;
 
   static uint32_t Binding() {
     return 1;

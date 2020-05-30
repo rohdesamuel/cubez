@@ -24,6 +24,7 @@
 #include "sparse_map.h"
 #include "block_vector.h"
 
+// https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
 cs_context_t* ctx;
 
 typedef struct qbAudioBuffer_ {

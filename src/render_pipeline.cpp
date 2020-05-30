@@ -71,11 +71,11 @@ typedef struct qbImageSampler_ {
 typedef struct qbPixelMap_ {
   uint32_t width;
   uint32_t height;
+  uint32_t depth;
   qbPixelFormat format;
   void* pixels;
 
   size_t size;
-  size_t row_size;
   size_t pixel_size;
 
 } qbPixelMap_;
@@ -302,25 +302,53 @@ GLenum TranslateQbPixelFormatToOpenGlSize(qbPixelFormat format) {
   return 0;
 }
 
+size_t TranslateQbPixelFormatToPixelSize(qbPixelFormat format) {
+  switch (format) {
+    case QB_PIXEL_FORMAT_R8: return 1;
+    case QB_PIXEL_FORMAT_RG8: return 2;
+    case QB_PIXEL_FORMAT_RGB8: return 3;
+    case QB_PIXEL_FORMAT_RGBA8: return 4;
+    case QB_PIXEL_FORMAT_R16F: return 2;
+    case QB_PIXEL_FORMAT_RG16F: return 4;
+    case QB_PIXEL_FORMAT_RGB16F: return 6;
+    case QB_PIXEL_FORMAT_RGBA16F: return 8;
+    case QB_PIXEL_FORMAT_R32F: return 4;
+    case QB_PIXEL_FORMAT_RG32F: return 8;
+    case QB_PIXEL_FORMAT_RGB32F: return 12;
+    case QB_PIXEL_FORMAT_RGBA32F: return 16;
+    case QB_PIXEL_FORMAT_D32: return 4;
+    case QB_PIXEL_FORMAT_D24_S8: return 4;
+    case QB_PIXEL_FORMAT_S8: return 1;
+  }
+  return 0;
+}
+
 }
 
 void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 
-qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, qbPixelFormat format, void* pixels) {
+qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth, qbPixelFormat format, void* pixels) {
   qbPixelMap p = new qbPixelMap_;
   p->width = width;
   p->height = height;
+  p->depth = depth;
   p->format = format;
 
-  p->pixel_size = format == qbPixelFormat::QB_PIXEL_FORMAT_RGBA8 ? 4 : 0;
-  p->size = width * height * p->pixel_size;
+  p->pixel_size = TranslateQbPixelFormatToPixelSize(format);
+  if (height == 0) {
+    p->size = width;
+  } else if (depth == 0) {
+    p->size = width * height;
+  } else if (depth > 0) {
+    p->size = width * height * depth;
+  }
+  p->size *= p->pixel_size;
   if (p->size && pixels) {
     p->pixels = (void*)new char[p->size];
     memcpy(p->pixels, pixels, p->size);
   } else {
     p->pixels = nullptr;
   }
-  p->row_size =  p->pixel_size * p->width;
 
   return p;
 }
@@ -352,10 +380,6 @@ qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec
 
 size_t qb_pixelmap_size(qbPixelMap pixels) {
   return pixels->size;
-}
-
-size_t qb_pixelmap_rowsize(qbPixelMap pixels) {
-  return pixels->row_size;
 }
 
 size_t qb_pixelmap_pixelsize(qbPixelMap pixels) {
@@ -812,18 +836,20 @@ void qb_meshbuffer_render(qbMeshBuffer buffer, uint32_t bindings[]) {
   for (size_t i = 0; i < buffer->images_count; ++i) {
     glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 
+    qbImageType type;
     uint32_t image_id = 0;
     uint32_t module_binding = bindings[i];
 
     for (size_t j = 0; j < buffer->images_count; ++j) {
       uint32_t buffer_binding = buffer->sampler_bindings[j];
       if (module_binding == buffer_binding) {
+        type = buffer->images[j]->type;
         image_id = buffer->images[j]->id;
         break;
       }
     }
 
-    glBindTexture(GL_TEXTURE_2D, (GLuint)image_id);
+    glBindTexture(TranslateQbImageTypeToOpenGl(type), (GLuint)image_id);
   }
 
   // Bind uniform blocks for this draw buffer.
@@ -1022,17 +1048,19 @@ void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer) {
       uint32_t image_id = 0;
       uint32_t offset = 0;
       uint32_t buffer_binding = group->sampler_bindings[i];
+      qbImageType type = qbImageType::QB_IMAGE_TYPE_1D;
       for (size_t j = 0; j < render_pass->shader_program->samplers_count; ++j) {
         uint32_t module_binding = render_pass->shader_program->sampler_bindings[j];
         if (module_binding == buffer_binding) {
           image_id = group->images[i]->id;
+          type = group->images[i]->type;
           offset = (uint32_t)j;
           break;
         }
       }
       
       glActiveTexture((GLenum)(GL_TEXTURE0 + offset));
-      glBindTexture(GL_TEXTURE_2D, (GLuint)image_id);
+      glBindTexture(TranslateQbImageTypeToOpenGl(type), (GLuint)image_id);
     }
 
     // Bind uniform blocks for this group.
@@ -1105,7 +1133,6 @@ void qb_image_create(qbImage* image_ref, qbImageAttr attr, qbPixelMap pixel_map)
     glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
   }
 
-  
   GLenum format = TranslateQbPixelFormatToOpenGl(image->format);
   GLenum internal_format = TranslateQbPixelFormatToInternalOpenGl(image->format);
   GLenum type = TranslateQbPixelFormatToOpenGlSize(image->format);
@@ -1115,6 +1142,9 @@ void qb_image_create(qbImage* image_ref, qbImageAttr attr, qbPixelMap pixel_map)
                  0, format, type, pixel_map->pixels);
   } else if (image_type == GL_TEXTURE_2D) {
     glTexImage2D(image_type, 0, internal_format, pixel_map->width, pixel_map->height,
+                 0, format, type, pixel_map->pixels);
+  } else if (image_type == GL_TEXTURE_3D) {
+    glTexImage3D(image_type, 0, internal_format, pixel_map->width, pixel_map->height, pixel_map->depth,
                  0, format, type, pixel_map->pixels);
   }
   if (attr->generate_mipmaps) {
@@ -1148,7 +1178,7 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
   }
 
   GLenum pixel_format = TranslateQbPixelFormatToOpenGl(image->format);
-  GLenum internal_format = TranslateQbPixelFormatToInternalOpenGl(image->format);
+  GLenum internal_format = TranslateQbPixelFormatToOpenGl(image->format);
   GLenum type = TranslateQbPixelFormatToOpenGlSize(image->format);
   if (image_type == GL_TEXTURE_1D) {
     glTexImage1D(image_type, 0, internal_format,
@@ -1178,7 +1208,8 @@ const char* qb_image_name(qbImage image) {
 
 void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
   qbImage image = *image_ref = new qbImage_;
-
+  image->type = attr->type;
+  
   // Load the image from the file into SDL's surface representation
   int w, h, n;
   unsigned char* pixels = stbi_load(file, &w, &h, &n, 0);
@@ -1197,12 +1228,16 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, w * h, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
   } else if (image_type == GL_TEXTURE_2D) {
     if (n == 1) {
+      image->format = qbPixelFormat::QB_PIXEL_FORMAT_R8;
       glTexImage2D(image_type, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
     } else if (n == 2) {
+      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RG8;
       glTexImage2D(image_type, 0, GL_RG, w, h, 0, GL_RG, GL_UNSIGNED_BYTE, pixels);
     } else if (n == 3) {
+      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RGB8;
       glTexImage2D(image_type, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
     } else if (n == 4) {
+      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RGBA8;
       glTexImage2D(image_type, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     } else {
       assert(false && "Received an unsupported amount of channels");
@@ -1837,9 +1872,9 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
     qb_meshbuffer_attachvertices(surface->dbo, vertices);
     qb_meshbuffer_attachindices(surface->dbo, gpu_buffers[1]);
 
-    uint32_t image_bindings[] = { 1, 2 };
-    qbImage images[] = { nullptr, nullptr };
-    qb_meshbuffer_attachimages(surface->dbo, 2, image_bindings, images);
+    uint32_t* image_bindings = surface_attr->sampler_bindings;
+    std::vector<qbImage> images(surface_attr->samplers_count);
+    qb_meshbuffer_attachimages(surface->dbo, surface_attr->samplers_count, image_bindings, images.data());
 
     qbRenderGroup group;
     {

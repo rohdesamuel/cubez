@@ -251,7 +251,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\example\src\forward_renderer.cpp" />
-    <ClCompile Include="..\..\..\example\src\items.cpp" />
     <ClCompile Include="..\..\..\example\src\main.cpp" />
     <ClCompile Include="..\..\..\example\src\pong.cpp" />
   </ItemGroup>
@@ -277,6 +276,8 @@
     <None Include="..\..\..\example\resources\pbr.vs" />
     <None Include="..\..\..\example\resources\blur.fs" />
     <None Include="..\..\..\example\resources\blur.vs" />
+    <None Include="..\..\..\example\resources\sdf.fs" />
+    <None Include="..\..\..\example\resources\sdf.vs" />
     <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
     <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
     <None Include="..\..\..\example\resources\simple.fs" />
