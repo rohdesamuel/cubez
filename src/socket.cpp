@@ -290,10 +290,10 @@ qbResult qb_socket_listen(qbSocket socket, int backlog) {
 }
 
 qbResult qb_socket_accept(qbSocket socket, qbSocket* peer, qbEndpoint endpoint) {
-  sockaddr addr;
+  char addr[sizeof(sockaddr_in6)] = { 0 };
   int addr_len;
 
-  qbSocket res = accept(socket, &addr, &addr_len) < 0;
+  qbSocket res = accept(socket, (sockaddr*)addr, &addr_len);
 #ifdef __COMPILE_AS_WINDOWS__
   if (res == INVALID_SOCKET) {
     QB_RETURN_SOCKET_ERROR;
@@ -305,17 +305,20 @@ qbResult qb_socket_accept(qbSocket socket, qbSocket* peer, qbEndpoint endpoint) 
 #endif
 
   *peer = res;
-  if (addr_len == sizeof(sockaddr_in)) {
-    sockaddr_in* addr_in = (sockaddr_in*)&addr;
-    endpoint->af = QB_IPV4;
-    endpoint->port = ntohs(addr_in->sin_port);
-    endpoint->in_addr = addr_in->sin_addr.s_addr;
-  } else if (addr_len == sizeof(sockaddr_in6)) {
-    sockaddr_in6* addr_in = (sockaddr_in6*)&addr;
-    endpoint->af = QB_IPV6;    
-    endpoint->port = addr_in->sin6_port;
-    memcpy(endpoint->in6_addr, addr_in->sin6_addr.s6_addr, 16);
+  if (endpoint) {
+    if (addr_len == sizeof(sockaddr_in)) {
+      sockaddr_in* addr_in = (sockaddr_in*)&addr;
+      endpoint->af = QB_IPV4;
+      endpoint->port = addr_in->sin_port;
+      endpoint->in_addr = addr_in->sin_addr.s_addr;
+    } else if (addr_len == sizeof(sockaddr_in6)) {
+      sockaddr_in6* addr_in = (sockaddr_in6*)&addr;
+      endpoint->af = QB_IPV6;
+      endpoint->port = addr_in->sin6_port;
+      memcpy(endpoint->in6_addr, addr_in->sin6_addr.s6_addr, 16);
+    }
   }
+
   return QB_OK;
 }
 
