@@ -40,6 +40,15 @@ g++ version >= 7.0
 
 msvc version >= 19.0
 
+## Roadmap (in no particular order)
+
+* Add serialization library for game saving/loading
+* Add networking library for multiplayer
+* Add Lua scripting
+* Rework GUI module
+* Add scancodes to Keyboard input
+* Refactor text rendering
+
 ## Design
 
 ### Entities and Components
