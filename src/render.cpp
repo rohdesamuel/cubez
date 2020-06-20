@@ -181,21 +181,21 @@ void render_initialize(RenderSettings* settings) {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, qbRenderable);
-    qb_component_create(&qb_renderable_, attr);
+    qb_component_create(&qb_renderable_, "qbRenderable", attr);
     qb_componentattr_destroy(&attr);
   }
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, qbTransform_);
-    qb_component_create(&qb_transform_, attr);
+    qb_component_create(&qb_transform_, "qbTransform", attr);
     qb_componentattr_destroy(&attr);
   }
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, qbMaterial);
-    qb_component_create(&qb_material_, attr);
+    qb_component_create(&qb_material_, "qbMaterial", attr);
     qb_componentattr_destroy(&attr);
   }
   {
@@ -210,6 +210,10 @@ void render_initialize(RenderSettings* settings) {
 }
 
 void render_shutdown() {
+  if (!renderer_) {
+    return;
+  }
+
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(win);
   destroy_renderer(renderer_);

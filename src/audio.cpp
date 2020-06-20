@@ -54,6 +54,9 @@ void audio_initialize(const AudioSettings& settings) {
 }
 
 void audio_shutdown() {
+  if (!ctx) {
+    return;
+  }
   cs_shutdown_context(ctx);
 }
 
