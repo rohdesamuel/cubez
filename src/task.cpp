@@ -23,7 +23,7 @@
 
 Task::Task(qbProgram* program) : task_(program) {
   stop_ = false;
-  game_state_ = nullptr;
+  game_state_ = nullptr;  
 
   thread_ = new std::thread([this]() {
     Coro main = coro_initialize(&main);
@@ -37,7 +37,7 @@ Task::Task(qbProgram* program) : task_(program) {
         break;
       }
 
-      ProgramImpl::FromRaw(task_)->Run(game_state_);
+      ProgramImpl::FromRaw(task_)->Run(game_state_, lua_state_);
       game_state_ = nullptr;
       should_wait_.notify_all();
     }
@@ -54,9 +54,10 @@ void Task::Ready() {
   ProgramImpl::FromRaw(task_)->Ready();
 }
 
-void Task::Run(GameState* game_state) {
+void Task::Run(GameState* game_state, lua_State* lua_state) {
   std::unique_lock<std::mutex> lock(state_lock_);
   game_state_ = game_state;
+  lua_state_ = lua_state;
   should_run_.notify_one();
 }
 

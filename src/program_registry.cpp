@@ -21,8 +21,7 @@
 
 #include <cstring>
 
-ProgramRegistry::ProgramRegistry() :
-    program_threads_(std::thread::hardware_concurrency()) {
+ProgramRegistry::ProgramRegistry() {
   id_ = 0;
 }
 
@@ -32,8 +31,10 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
 
+  lua_State* lua_state = lua_thread_initialize();
+  program_lua_states_[id] = lua_state;
   if (id > 0) {
-    program_threads_[id] = new Task(p);
+    program_threads_[id] = new Task(p);    
   } else {
     main_program_ = p;
   }
@@ -43,18 +44,24 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
 qbResult ProgramRegistry::DetatchProgram(qbId program, const std::function<GameState*()>& game_state_fn) {
   if (programs_.has(program)) {
     qbProgram* to_detach = GetProgram(program);
+    lua_State* lua_state = program_lua_states_[program];
+
     std::unique_ptr<ProgramThread> program_thread(
-      new ProgramThread(to_detach));
+      new ProgramThread(to_detach, lua_state));
     program_thread->Run(game_state_fn);
     detached_[program] = std::move(program_thread);
     programs_.erase(program);
     program_threads_.erase(program);
+    program_lua_states_.erase(program);
   }
   return QB_OK;
 }
 
-qbResult ProgramRegistry::JoinProgram(qbId program) {  
-  qbProgram* prog = programs_[program] = detached_.find(program)->second->Release();
+qbResult ProgramRegistry::JoinProgram(qbId program) {
+  auto released = detached_.find(program)->second->Release();
+  qbProgram* prog = programs_[program] = released.first;
+
+  program_lua_states_[program] = released.second;
   program_threads_[program] = new Task(prog);
   detached_.erase(detached_.find(program));
   return QB_OK;
@@ -73,7 +80,7 @@ void ProgramRegistry::Run(GameState* state) {
   }
 
   for (auto& task : program_threads_) {
-    task.second->Run(state);
+    task.second->Run(state, program_lua_states_[task.first]);
   }
 
   RunProgram(main_program_->id, state);
@@ -89,7 +96,7 @@ void ProgramRegistry::Run(GameState* state) {
 
 qbResult ProgramRegistry::RunProgram(qbId program, GameState* state) {
   ProgramImpl* p = (ProgramImpl*)programs_[program]->self;
-  p->Run(state);
+  p->Run(state, program_lua_states_[program]);
   return QB_OK;
 }
 
@@ -100,4 +107,8 @@ qbProgram* ProgramRegistry::AllocProgram(qbId id, const char* name) {
   p->self = new ProgramImpl(p);
 
   return p;
+}
+
+lua_State* ProgramRegistry::main_lua_state() {
+  return program_lua_states_[main_program_->id];
 }

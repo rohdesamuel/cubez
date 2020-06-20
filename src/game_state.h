@@ -61,8 +61,6 @@ private:
 
   TypedBlockVector<std::vector<qbEntity>> destroyed_entities_;
   TypedBlockVector<std::vector<std::pair<qbEntity, qbComponent>>> removed_components_;
-
-  friend class StateDelta;
 };
 
 #endif  // GAME_STATE__H

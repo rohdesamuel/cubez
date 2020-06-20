@@ -33,11 +33,12 @@
 #include "gui_internal.h"
 #include "audio_internal.h"
 #include "network_impl.h"
+#include "lua_bindings.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
-const qbVar qbNone = { QB_TAG_VOID, 0 };
-const qbVar qbFuture = { QB_TAG_UNSET, 0 };
+const qbVar qbNone = { QB_TAG_PTR, 0 };
+const qbVar qbFuture = { QB_TAG_NIL, 0 };
 
 static qbUniverse* universe_ = nullptr;
 qbTiming_ timing_info;
@@ -65,6 +66,13 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   utils_initialize();
   coro_main = coro_initialize(u);
   
+  // Initialize Lua before PrivateUniverse is constructed because the Lua VM
+  // is initialized per-thread.
+  {
+    qbScriptAttr_ empty_args = {};
+    lua_bindings_initialize(attr->script_args ? attr->script_args : &empty_args);
+  }
+
   universe_->self = new PrivateUniverse();
   coro_scheduler = new CoroScheduler(4);
 
@@ -105,7 +113,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qb_timer_create(&render_timer, 50);
   }
 
-  network_initialize();
+  network_initialize();  
 
   return ret;
 }
@@ -132,11 +140,13 @@ qbResult loop(qbLoopCallbacks callbacks,
               qbLoopArgs args) {
   qb_timer_start(fps_timer);
 
+  const static double extra_render_time = universe_->enabled & QB_FEATURE_GRAPHICS ? 0.0 : game_loop.dt;
   double new_time = qb_timer_query() * 0.000000001;
   double frame_time = new_time - game_loop.current_time;
   frame_time = std::min(0.25, frame_time);
   game_loop.current_time = new_time;
-  game_loop.accumulator += frame_time;
+  
+  game_loop.accumulator += qb_timer_average(render_timer) * 1e-9 + extra_render_time;
 
   qb_handle_input([]() {
     qb_stop();
@@ -152,7 +162,8 @@ qbResult loop(qbLoopCallbacks callbacks,
       callbacks->on_update(universe_->frame, args->update);
     }
     qbResult result = AS_PRIVATE(loop());
-    coro_scheduler->run_sync();
+    coro_scheduler->run_sync();    
+
     qb_timer_add(update_timer);
 
     game_loop.accumulator -= game_loop.dt;
@@ -274,8 +285,22 @@ qbResult qb_componentattr_setshared(qbComponentAttr attr) {
   return qbResult::QB_OK;
 }
 
+qbResult qb_componentattr_setschema(qbComponentAttr attr, qbSchema schema) {
+  attr->schema = schema;
+  return qbResult::QB_OK;
+}
+
 qbResult qb_component_create(
-    qbComponent* component, qbComponentAttr attr) {
+    qbComponent* component, const char* name, qbComponentAttr attr) {
+  if (!name) {
+    return QB_UNKNOWN;
+  }
+
+  if (name[0] == '\0') {
+    return QB_UNKNOWN;
+  }
+
+  attr->name = STRDUP(name);
   return AS_PRIVATE(component_create(component, attr));
 }
 
@@ -283,8 +308,25 @@ qbResult qb_component_destroy(qbComponent*) {
 	return qbResult::QB_OK;
 }
 
-size_t qb_component_getcount(qbComponent component) {
+size_t qb_component_count(qbComponent component) {
   return AS_PRIVATE(component_getcount(component));
+}
+
+qbComponent qb_component_find(const char* name, qbSchema* schema) {
+  if (!name) {
+    return -1;
+  }
+
+  qbComponent ret = AS_PRIVATE(component_find(name));
+  if (schema) {
+    *schema = qb_component_schema(ret);
+  }
+
+  return ret;
+}
+
+qbSchema qb_component_schema(qbComponent component) {
+  return AS_PRIVATE(component_schema(component));
 }
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
@@ -499,19 +541,19 @@ qbResult qb_instance_ondestroy(qbComponent component,
   return AS_PRIVATE(instance_ondestroy(component, on_destroy));
 }
 
-qbEntity qb_instance_getentity(qbInstance instance) {
+qbEntity qb_instance_entity(qbInstance instance) {
   return instance->entity;
 }
 
-qbResult qb_instance_getconst(qbInstance instance, void* pbuffer) {
+qbResult qb_instance_const(qbInstance instance, void* pbuffer) {
   return AS_PRIVATE(instance_getconst(instance, pbuffer));
 }
 
-qbResult qb_instance_getmutable(qbInstance instance, void* pbuffer) {
+qbResult qb_instance_mutable(qbInstance instance, void* pbuffer) {
   return AS_PRIVATE(instance_getmutable(instance, pbuffer));
 }
 
-qbResult qb_instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer) {
+qbResult qb_instance_component(qbInstance instance, qbComponent component, void* pbuffer) {
   return AS_PRIVATE(instance_getcomponent(instance, component, pbuffer));
 }
 
@@ -521,6 +563,31 @@ bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
 
 qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
   return AS_PRIVATE(instance_find(component, entity, pbuffer));
+}
+
+qbRef qb_instance_at(qbInstance instance, const char* key) {
+  qbStruct_* s = (qbStruct_*)instance->data;
+
+  if (!key) {
+    return{ QB_TAG_PTR, (void*)&s->data };
+  }
+
+  for (const auto& f : s->internals.schema->fields) {
+    if (f.key == key) {
+      qbRef r;
+      r.tag = f.tag;
+      if (r.tag == QB_TAG_INT) {
+        r.i = (int64_t*)(&s->data + f.offset);
+      } else if (r.tag == QB_TAG_DOUBLE) {
+        r.d = (double*)(&s->data + f.offset);
+      } else {
+        memcpy(&r.bytes, &s->data + f.offset, f.size);
+      }
+      return r;
+    }
+  }
+
+  return{ QB_TAG_NIL, 0 };
 }
 
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
@@ -589,20 +656,13 @@ void qb_coro_waitframes(uint32_t frames) {
 }
 
 bool qb_coro_done(qbCoro coro) {
-  return qb_coro_peek(coro).tag != QB_TAG_UNSET;
+  return qb_coro_peek(coro).tag != QB_TAG_NIL;
 }
 
-qbVar qbVoid(void* p) {
+qbVar qbPtr(void* p) {
   qbVar v;
-  v.tag = QB_TAG_VOID;
+  v.tag = QB_TAG_PTR;
   v.p = p;
-  return v;
-}
-
-qbVar qbUint(uint64_t u) {
-  qbVar v;
-  v.tag = QB_TAG_UINT;
-  v.u = u;
   return v;
 }
 
@@ -613,13 +673,6 @@ qbVar qbInt(int64_t i) {
   return v;
 }
 
-qbVar qbFloat(float f) {
-  qbVar v;
-  v.tag = QB_TAG_FLOAT;
-  v.f = f;
-  return v;
-}
-
 qbVar qbDouble(double d) {
   qbVar v;
   v.tag = QB_TAG_DOUBLE;
@@ -627,11 +680,40 @@ qbVar qbDouble(double d) {
   return v;
 }
 
-qbVar qbChar(char c) {
+qbVar qbStruct(qbSchema schema, void* buf) {
+  if (!buf) {
+    buf = malloc(sizeof(qbStructInternals_) + schema->size);
+  }
+
   qbVar v;
-  v.tag = QB_TAG_CHAR;
-  v.c = c;
+  v.p = buf;
+  v.tag = QB_TAG_STRUCT;
   return v;
+}
+
+qbRef qb_var_at(qbVar v, const char* key) {
+  qbStruct_* s = (qbStruct_*)v.p;
+
+  if (!key) {
+    return{ QB_TAG_PTR, (void*)&s->data };
+  }
+
+  for (const auto& f : s->internals.schema->fields) {
+    if (f.key == key) {
+      qbRef r;
+      r.tag = f.tag;
+      if (r.tag == QB_TAG_INT) {
+        r.i = (int64_t*)(&s->data + f.offset);
+      } else if (r.tag == QB_TAG_DOUBLE) {
+        r.d = (double*)(&s->data + f.offset);
+      } else {
+        memcpy(&r.bytes, &s->data + f.offset, f.size);
+      }
+      return r;
+    }
+  }
+
+  return{ QB_TAG_NIL, 0 };
 }
 
 qbResult qb_scene_create(qbScene* scene, const char* name) {
@@ -693,4 +775,37 @@ qbResult qb_scene_ondeactivate(qbScene scene, void(*fn)(qbScene scene,
                                                         const char* keys[],
                                                         void* values[])) {
   return AS_PRIVATE(scene_ondeactivate(scene, fn));
+}
+
+qbSchema qb_schema_find(const char* name) {
+  return AS_PRIVATE(schema_find(name));
+}
+
+size_t qb_schema_size(qbSchema schema) {
+  return schema->size;
+}
+
+size_t qb_struct_size(qbSchema schema) {
+  return sizeof(qbStructInternals_) + schema->size;
+}
+
+size_t qb_schema_fields(qbSchema schema, qbSchemaField* fields) {
+  *fields = schema->fields.data();
+  return schema->fields.size();
+}
+
+const char* qb_schemafield_name(qbSchemaField field) {
+  return field->key.c_str();
+}
+
+qbTag qb_schemafield_tag(qbSchemaField field) {
+  return field->tag;
+}
+
+size_t qb_schemafield_offset(qbSchemaField field) {
+  return field->offset;
+}
+
+size_t qb_schemafield_size(qbSchemaField field) {
+  return field->size;
 }

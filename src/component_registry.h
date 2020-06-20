@@ -35,6 +35,11 @@ public:
 
   qbResult Create(qbComponent* component, qbComponentAttr attr);
   Component* Create(qbComponent component) const;
+  void RegisterSchema(qbComponent component, qbSchema schema);
+
+  qbComponent Find(const std::string& name) const;
+  qbSchema FindSchema(const std::string& name) const;
+  qbSchema FindSchema(qbComponent component) const;
 
   qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component);
   qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component);
@@ -43,6 +48,9 @@ public:
   qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state) const;
 private:
   SparseMap<qbComponentAttr_, TypedBlockVector<qbComponentAttr_>> components_defs_;
+  SparseMap<qbSchema_, TypedBlockVector<qbSchema_>> components_schemas_;
+  std::unordered_map<std::string, qbComponent> components_;
+  std::unordered_map<std::string, qbSchema> schemas_;
   std::vector<qbEvent> instance_create_events_;
   std::vector<qbEvent> instance_destroy_events_;
   std::atomic_long id_;

@@ -24,6 +24,7 @@
 #include "component_registry.h"
 #include "entity_registry.h"
 #include "program_registry.h"
+#include "lua_bindings.h"
 
 #include <mutex>
 
@@ -108,7 +109,6 @@ class PrivateUniverse {
   qbResult enable_system(qbSystem system);
   qbResult disable_system(qbSystem system);
 
-
   // Events.
   qbResult event_create(qbEvent* event, qbEventAttr attr);
   qbResult event_destroy(qbEvent* event);
@@ -145,6 +145,11 @@ class PrivateUniverse {
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);
   size_t component_getcount(qbComponent component);
+  qbComponent component_find(const char* name);
+  qbSchema component_schema(qbComponent component);
+
+  // Schema manipulation.
+  qbSchema schema_find(const char* name);
 
   // Synchronization methods.
   qbBarrier barrier_create();

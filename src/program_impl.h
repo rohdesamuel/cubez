@@ -23,6 +23,7 @@
 #include "component_registry.h"
 #include "event_registry.h"
 #include "game_state.h"
+#include "lua_bindings.h"
 
 class ProgramImpl {
  public:
@@ -48,7 +49,7 @@ class ProgramImpl {
   void UnsubscribeFrom(qbEvent event, qbSystem system);
 
   void Ready();
-  void Run(GameState* state);
+  void Run(GameState* state, lua_State* lua_state);
   void Done();
 
   qbId Id() const;

@@ -37,6 +37,9 @@
     <Filter Include="Source Files\cglm">
       <UniqueIdentifier>{c6cac696-7183-438c-af09-3696673f7c90}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Docs">
+      <UniqueIdentifier>{592bd418-0f5d-4495-8923-03201c0c28ed}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -189,9 +192,6 @@
     <ClInclude Include="..\..\..\include\cubez\render.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\stb_image.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\audio.h">
       <Filter>Header Files\audio</Filter>
     </ClInclude>
@@ -215,6 +215,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\socket.h">
       <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_bindings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\stb_image.h">
+      <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -389,5 +395,13 @@
     <ClCompile Include="..\..\..\src\socket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_bindings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lua.md">
+      <Filter>Docs</Filter>
+    </None>
   </ItemGroup>
 </Project>

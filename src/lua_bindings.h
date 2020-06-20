@@ -16,34 +16,16 @@
 * limitations under the License.
 */
 
-#ifndef PROGRAM_THREAD__H
-#define PROGRAM_THREAD__H
+#ifndef CUBEZ_LUA_BINDINGS__H
+#define CUBEZ_LUA_BINDINGS__H
 
-#include "defs.h"
+struct lua_State;
 
-#include <atomic>
-#include <memory>
-#include <thread>
+void lua_bindings_initialize(struct qbScriptAttr_* attr);
 
-#include "game_state.h"
-#include "lua_bindings.h"
+lua_State* lua_thread_initialize();
 
-class ProgramThread {
- public:
-  ProgramThread(qbProgram* program, lua_State* lua_state);
+void lua_start(lua_State* L);
+void lua_update(lua_State* L);
 
-  ~ProgramThread();
-
-  void Run(const std::function<GameState*()>& game_state_fn);
-  
-  std::pair<qbProgram*, lua_State*> Release();
-
- private:
-  qbProgram* program_;
-  lua_State* lua_state_;
-  std::unique_ptr<std::thread> thread_;
-  std::atomic_bool is_running_;
-};
-
-#endif  // PROGRAM_THREAD__H
-
+#endif  // CUBEZ_LUA_BINDINGS__H

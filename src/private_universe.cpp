@@ -112,7 +112,7 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
   return QB_ERROR_BAD_RUN_STATE;
 }
 
-PrivateUniverse::PrivateUniverse() {  
+PrivateUniverse::PrivateUniverse() {
   programs_ = std::make_unique<ProgramRegistry>();
   components_ = std::make_unique<ComponentRegistry>();
 
@@ -130,6 +130,7 @@ qbResult PrivateUniverse::init() {
 }
 
 qbResult PrivateUniverse::start() {
+  lua_start(programs_->main_lua_state());
   return runner_.transition(RunState::INITIALIZED, RunState::STARTED);
 }
 
@@ -289,6 +290,18 @@ size_t PrivateUniverse::component_getcount(qbComponent component) {
   return WorkingScene()->ComponentGetCount(component);
 }
 
+qbComponent PrivateUniverse::component_find(const char* name) {
+  return components_->Find(name);
+}
+
+qbSchema PrivateUniverse::component_schema(qbComponent component) {
+  return components_->FindSchema(component);
+}
+
+qbSchema PrivateUniverse::schema_find(const char* name) {
+  return components_->FindSchema(name);
+}
+
 qbResult PrivateUniverse::instance_oncreate(qbComponent component,
                                             qbInstanceOnCreate on_create) {
   qbSystemAttr attr;
@@ -338,14 +351,22 @@ qbResult PrivateUniverse::instance_getconst(qbInstance instance, void* pbuffer) 
   if (instance->is_mutable) {
     *(void**)pbuffer = nullptr;
   } else {
-    *(void**)pbuffer = instance->data;
+    if (instance->has_schema) {
+      *(void**)pbuffer = &((qbStruct_*)instance->data)->data;
+    } else {
+      *(void**)pbuffer = instance->data;
+    }
   }
   return QB_OK;
 }
 
 qbResult PrivateUniverse::instance_getmutable(qbInstance instance, void* pbuffer) {
   if (instance->is_mutable) {
-    *(void**)pbuffer = instance->data;
+    if (instance->has_schema) {
+      *(void**)pbuffer = &((qbStruct_*)instance->data)->data;
+    } else {
+      *(void**)pbuffer = instance->data;
+    }
   } else {
     *(void**)pbuffer = nullptr;
   }

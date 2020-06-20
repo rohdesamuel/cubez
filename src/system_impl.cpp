@@ -38,6 +38,12 @@ SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<q
       *(bool*)&instance.is_mutable = true;
     }
 
+    if (qb_component_schema(component)) {
+      *(bool*)&instance.has_schema = true;
+    } else {
+      *(bool*)&instance.has_schema = false;
+    }
+
     instances_.push_back(instance);
   }
 

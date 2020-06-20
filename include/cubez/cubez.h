@@ -26,36 +26,86 @@
 #include "common.h"
 
 typedef enum {
-  QB_TAG_VOID,
-  QB_TAG_UINT,
+  QB_TAG_NIL,
+  QB_TAG_PTR,
   QB_TAG_INT,
   QB_TAG_DOUBLE,
-  QB_TAG_FLOAT,
-  QB_TAG_CHAR,
-  QB_TAG_UNSET,
+  QB_TAG_STRING,
+  QB_TAG_STRUCT,
+  QB_TAG_BYTES,
 } qbTag;
 
 typedef struct {
   qbTag tag;
   union {
     void* p;
-    uint64_t u;
+    char* s;
     int64_t i;
     double d;
-    float f;
-    char c;
 
     char bytes[8];
   };
 } qbVar;
 
+typedef struct {
+  qbTag tag;
+  union {
+    void* p;
+    char* s;
+    int64_t* i;
+    double* d;
+
+    char bytes[8];
+  };
+} qbRef;
+
+typedef struct qbSchema_* qbSchema;
+typedef struct qbSchemaField_* qbSchemaField;
+
 // Convenience functions for creating a qbVar. 
-QB_API qbVar       qbVoid(void* p);
-QB_API qbVar       qbUint(uint64_t u);
+QB_API qbVar       qbPtr(void* p);
 QB_API qbVar       qbInt(int64_t i);
-QB_API qbVar       qbFloat(float f);
 QB_API qbVar       qbDouble(double d);
-QB_API qbVar       qbChar(char c);
+QB_API qbVar       qbStruct(qbSchema schema, void* buf);
+
+// Returns the data referenced by key with v. Assumes that v has a schema.
+QB_API qbRef       qb_var_at(qbVar v, const char* key);
+
+// Unimplemented.
+QB_API qbResult    qb_schema_create(qbSchema* schema,
+                                    const char* name,
+                                    const char* schema_string);
+
+// Finds a schema by name.
+QB_API qbSchema    qb_schema_find(const char* name);
+
+// Returns the size of the schema in bytes. This can be used to allocate a new
+// instance of the schema.
+QB_API size_t      qb_schema_size(qbSchema schema);
+
+// Returns the size of a dynamically created struct from a qbSchema in bytes.
+// Can be used like:
+// size_t size = qb_struct_size(schema);
+// void* s = malloc(size);
+// qbVar v = qbStruct(schema, s);
+// qbVar a = qb_var_at(v, "a");
+QB_API size_t      qb_struct_size(qbSchema schema);
+
+// Returns the field definitions of the schema.
+QB_API size_t      qb_schema_fields(qbSchema schema, qbSchemaField* fields);
+
+// Returns the name of the field.
+QB_API const char* qb_schemafield_name(qbSchemaField field);
+
+// Returns the tag type of the field.
+QB_API qbTag       qb_schemafield_tag(qbSchemaField field);
+
+// Returns the offset of the field in bytes.
+QB_API size_t      qb_schemafield_offset(qbSchemaField field);
+
+// Returns the size of the field in bytes.
+QB_API size_t      qb_schemafield_size(qbSchemaField field);
+
 
 // Represents a value without a value.
 QB_API extern const qbVar qbNone;
@@ -85,6 +135,11 @@ typedef struct {
   uint64_t frame;
 } qbUniverse;
 
+typedef struct qbScriptAttr_ {
+  char** directory;
+  const char* entrypoint;
+} qbScriptAttr_;
+
 typedef struct {
   const char* title;
   uint32_t width;
@@ -97,6 +152,7 @@ typedef struct {
 
   struct qbRendererAttr_* renderer_args;
   struct qbAudioAttr_* audio_args;
+  struct qbScriptAttr_* script_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
@@ -208,9 +264,14 @@ QB_API qbResult      qb_componentattr_setdatasize(qbComponentAttr attr,
 QB_API qbResult      qb_componentattr_settype(qbComponentAttr attr,
                                               qbComponentType type);
 
+// Sets the schema of the component. This is used to dynamically create
+// components with custom fields. This is used by the Lua system to create
+// components from a user-supplied script.
+QB_API qbResult      qb_componentattr_setschema(qbComponentAttr attr,
+                                                qbSchema schema);
+
 // Sets the component to be shared across programs with a reader/writer lock.
 QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr);
-
 
 // Unimplemented.
 QB_API qbResult      qb_componentattr_onserialize(qbComponentAttr attr,
@@ -226,15 +287,23 @@ QB_API qbResult      qb_componentattr_ondeserialize(qbComponentAttr attr,
     qb_componentattr_setdatasize(attr, sizeof(type))
 
 // ======== qbComponent ========
+
 // Creates a new qbComponent with the specified attributes.
 QB_API qbResult      qb_component_create(qbComponent* component,
+                                         const char* name,
                                          qbComponentAttr attr);
 
 // Destroys the specified qbComponent.
 QB_API qbResult      qb_component_destroy(qbComponent* component);
 
 // Returns the number of specified components.
-QB_API size_t        qb_component_getcount(qbComponent component);
+QB_API size_t        qb_component_count(qbComponent component);
+
+// Returns the component from the given name or -1 if not found.
+QB_API qbComponent   qb_component_find(const char* name, qbSchema* schema);
+
+// Returns the schema of the component.
+QB_API qbSchema      qb_component_schema(qbComponent component);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Instances  //////////////////////
@@ -261,20 +330,22 @@ QB_API qbResult      qb_instance_find(qbComponent component,
                                       void* pbuffer);
 
 // Returns the entity that contains this component instance.
-QB_API qbEntity      qb_instance_getentity(qbInstance instance);
+QB_API qbEntity      qb_instance_entity(qbInstance instance);
 
 // Fills pbuffer with component instance data. If the parent component is
-// shared, this locks the reader lock.
-QB_API qbResult      qb_instance_getconst(qbInstance instance,
+// shared, this locks the reader lock. If the instance's component has a
+// schema, then the pointer to the schema's data is returned.
+QB_API qbResult      qb_instance_const(qbInstance instance,
                                           void* pbuffer);
 
 // Fills pbuffer with component instance data. If the parent component is
-// shared, this locks the writer lock.
-QB_API qbResult     qb_instance_getmutable(qbInstance instance,
+// shared, this locks the writer lock. If the instance's component has a
+// schema, then the pointer to the schema's data is returned.
+QB_API qbResult     qb_instance_mutable(qbInstance instance,
                                            void* pbuffer);
 
 // Fills pbuffer with component instance data. The memory is mutable.
-QB_API qbResult     qb_instance_getcomponent(qbInstance instance,
+QB_API qbResult     qb_instance_component(qbInstance instance,
                                              qbComponent component,
                                              void* pbuffer);
 
@@ -282,6 +353,10 @@ QB_API qbResult     qb_instance_getcomponent(qbInstance instance,
 // component.
 QB_API bool        qb_instance_hascomponent(qbInstance instance,
                                             qbComponent component);
+
+// Returns a qbRef to the memory pointed at by key in the struct. Assumes that
+// the instance has an instgance.
+QB_API qbRef       qb_instance_at(qbInstance instance, const char* key);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Entities  ///////////////////////
@@ -302,9 +377,10 @@ QB_API qbResult      qb_entityattr_addcomponent(qbEntityAttr attr,
 // ======== qbEntity ========
 // A qbEntity is an identifier to a game object. qbComponents can be added to
 // the entity.
+
 // Creates a new qbEntity with the specified attributes.
 QB_API qbResult      qb_entity_create(qbEntity* entity,
-                                   qbEntityAttr attr);
+                                      qbEntityAttr attr);
 
 // Destroys the specified entity.
 QB_API qbResult      qb_entity_destroy(qbEntity entity);
@@ -313,24 +389,18 @@ QB_API qbResult      qb_entity_destroy(qbEntity entity);
 // This allocates a new instance copies the instance_data to the newly
 // allocated memory. This calls the instance's OnCreate function immediately.
 QB_API qbResult      qb_entity_addcomponent(qbEntity entity,
-                                         qbComponent component,
-                                         void* instance_data);
+                                            qbComponent component,
+                                            void* instance_data);
 
 // Removes the specified component from the entity. Does not remove the
 // component until after the current frame has completed. This calls the
 // instance's OnDestroy function after the current frame has completed.
 QB_API qbResult      qb_entity_removecomponent(qbEntity entity,
-                                            qbComponent component);
-
-// Fills instance with a reference to the component instance data for the
-// specified entity and component.
-QB_API qbResult      qb_entity_getinstance(qbEntity entity,
-                                        qbComponent component,
-                                        qbInstance* instance);
+                                               qbComponent component);
 
 // Returns true if the specified entity contains an instance for the component.
 QB_API bool          qb_entity_hascomponent(qbEntity entity,
-                                         qbComponent component);
+                                            qbComponent component);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -383,12 +453,12 @@ typedef enum {
 
 // Instructs the execution of the system to join together multiple components.
 QB_API qbResult      qb_systemattr_setjoin(qbSystemAttr attr,
-                                        qbComponentJoin join);
+                                           qbComponentJoin join);
 
 // Sets the program where the system will be run. By default, the system is run
 // on the same thread as "qb_loop()".
 QB_API qbResult      qb_systemattr_setprogram(qbSystemAttr attr,
-                                           qbId program);
+                                              qbId program);
 
 // Sets the transform to run during execution. The specified transform will be
 // run on every component instance that was added with "addconst" and
@@ -417,7 +487,7 @@ typedef enum {
 // main execution loop with "qb_loop()". To detach a system to only be run
 // for an event, use the QB_TRIGGER_EVENT value.
 QB_API qbResult      qb_systemattr_settrigger(qbSystemAttr attr,
-                                           qbTrigger trigger);
+                                              qbTrigger trigger);
 
 // ======== Priorities ========
 const int16_t QB_MAX_PRIORITY = (int16_t)0x7FFF;
@@ -425,15 +495,15 @@ const int16_t QB_MIN_PRIORITY = (int16_t)0x8001;
 // Sets the priority for the system. Systems with higher priority values will
 // be run before systems with lower priorities.
 QB_API qbResult      qb_systemattr_setpriority(qbSystemAttr attr,
-                                            int16_t priority);
+                                               int16_t priority);
 
 // Adds a barrier to the system to enforce ordering across programs.
 QB_API qbResult      qb_systemattr_addbarrier(qbSystemAttr attr,
-                                           qbBarrier barrier);
+                                              qbBarrier barrier);
 
 // Sets a pointer to be passed in with every execution of the system.
 QB_API qbResult      qb_systemattr_setuserstate(qbSystemAttr attr,
-                                             void* state);
+                                                void* state);
 
 // ======== qbSystem ========
 // A qbSystem is the atomic unit of synchronous execution. Systems are run when
@@ -443,7 +513,7 @@ QB_API qbResult      qb_systemattr_setuserstate(qbSystemAttr attr,
 // instance.
 // Creates a new qbSystem with the specified attributes.
 QB_API qbResult      qb_system_create(qbSystem* system,
-                                   qbSystemAttr attr);
+                                      qbSystemAttr attr);
 
 // Destroys the specified system.
 QB_API qbResult      qb_system_destroy(qbSystem* system);
@@ -496,7 +566,7 @@ QB_API qbResult      qb_event_flushall(qbProgram program);
 // time the event is triggered. The system must have a trigger of
 // QB_TRIGGER_EVENT.
 QB_API qbResult      qb_event_subscribe(qbEvent event,
-                                     qbSystem system);
+                                        qbSystem system);
 
 // Unsubscribes the specified system from the event.
 QB_API qbResult      qb_event_unsubscribe(qbEvent event,
@@ -520,16 +590,16 @@ QB_API qbResult      qb_event_sendsync(qbEvent event,
 // Creates a scene with the given name. The scene is created in an "unset"
 // state. To start working on a scene, use the qb_scene_set method.
 QB_API qbResult      qb_scene_create(qbScene* scene,
-                                  const char* name);
+                                     const char* name);
 
 // Unimplemented.
 QB_API qbResult      qb_scene_save(qbScene* scene,
-                                const char* file);
+                                   const char* file);
 
 // Unimplemented.
 QB_API qbResult      qb_scene_load(qbScene* scene,
-                                const char* name,
-                                const char* file);
+                                   const char* name,
+                                   const char* file);
 
 // Destroys the given scene. Order of operations:
 // 1. Calls the ondestroy event on the given scene

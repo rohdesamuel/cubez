@@ -65,6 +65,7 @@ struct qbInstanceOnDestroyEvent_ {
 
 struct qbComponentAttr_ {
   const char* name;
+  qbSchema schema;
   size_t data_size;
   bool is_shared;
   qbComponentType type;
@@ -133,7 +134,10 @@ struct qbEntityAttr_ {
 };
 
 struct qbInstance_ {
-  qbInstance_(bool is_mutable = false) : is_mutable(is_mutable) {};
+  qbInstance_(bool is_mutable = false,
+              bool has_schema = false) :
+    is_mutable(is_mutable),
+    has_schema(has_schema) {};
 
   qbSystem system;
   Component* component;
@@ -142,6 +146,7 @@ struct qbInstance_ {
   class GameState* state;
 
   const bool is_mutable;
+  const bool has_schema;
 };
 
 struct qbEventAttr_ {
@@ -153,6 +158,29 @@ struct qbEvent_ {
   qbId id;
   qbId program;
   void* event;
+};
+
+struct qbSchemaField_ {
+  std::string key;
+
+  qbTag tag;
+  size_t offset;
+  size_t size;
+};
+
+struct qbSchema_ {
+  std::vector<qbSchemaField_> fields;
+  size_t size;
+};
+
+struct qbStructInternals_ {
+  qbSchema_* schema;
+  qbComponent c;
+};
+
+struct qbStruct_ {
+  qbStructInternals_ internals;
+  char data;
 };
 
 #endif

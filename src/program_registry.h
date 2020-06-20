@@ -24,6 +24,7 @@
 #include "program_thread.h"
 #include "thread_pool.h"
 #include "task.h"
+#include "lua_bindings.h"
 
 #include <algorithm>
 #include <future>
@@ -45,16 +46,17 @@ class ProgramRegistry {
 
   qbResult RunProgram(qbId program, GameState* state);
 
- private:
-  void RunMain(GameState* state);
+  lua_State* main_lua_state();
 
+ private:
   qbProgram* AllocProgram(qbId id, const char* name);
 
   std::atomic_long id_;
   qbProgram* main_program_;
   SparseMap<qbProgram*, std::vector<qbProgram*>> programs_;
   std::unordered_map<size_t, std::unique_ptr<ProgramThread>> detached_;
-  std::unordered_map<size_t, Task*> program_threads_;
+  SparseMap<Task*, std::vector<Task*>> program_threads_;
+  SparseMap<lua_State*, std::vector<lua_State*>> program_lua_states_;
 };
 
 #endif  // PROGRAM_REGISTRY__H

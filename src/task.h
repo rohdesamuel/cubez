@@ -25,7 +25,9 @@
 #include <condition_variable>
 #include <future>
 #include <functional>
+
 #include "game_state.h"
+#include "lua_bindings.h"
 
 class Task {
 public:
@@ -34,7 +36,7 @@ public:
 
   void Ready();
 
-  void Run(GameState* game_state);
+  void Run(GameState* game_state, lua_State* lua_state);
 
   void Done();
 
@@ -57,6 +59,7 @@ private:
 
   std::thread* thread_;
   GameState* game_state_;
+  lua_State* lua_state_;
   qbProgram* task_;
 };
 

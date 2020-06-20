@@ -99,11 +99,12 @@ void ProgramImpl::Ready() {
   // Give copy of components.
 }
 
-void ProgramImpl::Run(GameState* state) {
+void ProgramImpl::Run(GameState* state, lua_State* lua_state) {
   events_.FlushAll(state);
   for(qbSystem p : loop_systems_) {
     SystemImpl::FromRaw(p)->Run(state);
   }
+  lua_update(lua_state);
 }
 
 void ProgramImpl::Done() {

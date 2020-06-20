@@ -163,7 +163,7 @@ void create_main_menu() {
     }
 
     return qbNone;
-  }, qbVoid(text_box));
+  }, qbPtr(text_box));
 
   //qb_window_movetofront(text_box);
   qb_scene_reset();
@@ -195,7 +195,7 @@ void create_game() {
     //qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
   }
 
-  qb_coro_sync(print_timing_info, qbVoid(&timing_info));
+  qb_coro_sync(print_timing_info, qbPtr(&timing_info));
   qbEntity block;
   {
     qbMaterial material;
@@ -488,6 +488,12 @@ void initialize_universe(qbUniverse* uni) {
   audio_attr.buffered_samples = 15;
   uni_attr.audio_args = &audio_attr;
 
+  qbScriptAttr_ script_attr = {};
+  char* dir[] = { ".", "scripts", 0 };
+  char* entrypoint = "main.lua";
+  script_attr.directory = dir;
+  script_attr.entrypoint = entrypoint;
+
   qb_init(uni, &uni_attr);
 }
 
@@ -499,29 +505,6 @@ int main(int, char* []) {
   create_game();
 
   qb_set_mouse_relative(1);
-
-  qbSocket server_send;
-  qbEndpoint_ e = {};
-  qb_endpoint(&e, "127.0.0.1", 12345);
-  
-  qbSocketAttr_ attr = {};
-  attr.af = QB_IPV4;
-  attr.np = QB_UDP;
-
-  qb_socket_create(&server_send, &attr);
-  qb_socket_bind(server_send, &e);
-
-  char packet[64] = { "Hello, World!\0" };
-  if (qb_socket_sendto(server_send, packet, strlen(packet), 0, &e) < 0) {
-    std::cout << "bad send " << errno << std::endl;
-  }
-
-  memset(packet, 0, sizeof(packet));
-  if (qb_socket_recv(server_send, packet, 64, 0) < 0) {
-    std::cout << "bad recv " << errno << std::endl;
-  }
-
-  std::cout << packet << std::endl;
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

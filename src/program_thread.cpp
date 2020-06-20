@@ -20,8 +20,8 @@
 
 #include "program_impl.h"
 
-ProgramThread::ProgramThread(qbProgram* program) :
-    program_(program), is_running_(false) {} 
+ProgramThread::ProgramThread(qbProgram* program, lua_State* lua_state) :
+    program_(program), is_running_(false), lua_state_(lua_state) {}
 
 ProgramThread::~ProgramThread() {
   Release();
@@ -30,17 +30,18 @@ ProgramThread::~ProgramThread() {
 void ProgramThread::Run(const std::function<GameState*()>& game_state_fn) {
   is_running_ = true;
   thread_.reset(new std::thread([this, game_state_fn]() {
+    Coro main = coro_initialize(&main);
     while(is_running_) {
-      ProgramImpl::FromRaw(program_)->Run(game_state_fn());
+      ProgramImpl::FromRaw(program_)->Run(game_state_fn(), lua_state_);
     }
   }));
 }
 
-qbProgram* ProgramThread::Release() {
+std::pair<qbProgram*, lua_State*> ProgramThread::Release() {
   if (is_running_) {
     is_running_ = false;
     thread_->join();
     thread_.reset();
   }
-  return program_;
+  return{ program_, lua_state_ };
 }

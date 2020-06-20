@@ -35,7 +35,8 @@ ComponentRegistry* ComponentRegistry::Clone() {
 qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr) {
   qbId new_id = id_++;
   components_defs_[new_id] = *attr;
-  *component = new_id;
+  components_[attr->name] = new_id;
+  *component = new_id;  
 
   {
     instance_create_events_.resize(new_id + 1);
@@ -64,6 +65,32 @@ qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr)
 Component* ComponentRegistry::Create(qbComponent component) const {
   const qbComponentAttr_& attr = components_defs_[component];
   return new Component(component, attr.data_size, attr.is_shared, attr.type);
+}
+
+void ComponentRegistry::RegisterSchema(qbComponent component, qbSchema schema) {
+  auto& attr = components_defs_[component];
+  attr.schema = schema;
+  schemas_[attr.name] = schema;
+}
+
+qbComponent ComponentRegistry::Find(const std::string& name) const {
+  auto it = components_.find(name);
+  if (it == components_.end()) {
+    return -1;
+  }
+  return it->second;
+}
+
+qbSchema ComponentRegistry::FindSchema(const std::string& name) const {
+  auto it = schemas_.find(name);
+  if (it == schemas_.end()) {
+    return nullptr;
+  }
+  return it->second;
+}
+
+qbSchema ComponentRegistry::FindSchema(qbComponent component) const {
+  return components_defs_[component].schema;
 }
 
 qbResult ComponentRegistry::SubcsribeToOnCreate(qbSystem system,

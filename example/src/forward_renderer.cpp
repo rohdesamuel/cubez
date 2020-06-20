@@ -1175,9 +1175,9 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qbRenderable* renderable;
       qbMaterial* material;
       qbTransform transform;
-      qb_instance_getconst(insts[0], &renderable);
-      qb_instance_getconst(insts[1], &material);
-      qb_instance_getmutable(insts[2], &transform);
+      qb_instance_const(insts[0], &renderable);
+      qb_instance_const(insts[1], &material);
+      qb_instance_mutable(insts[2], &transform);
 
       qb_renderable_upload(*renderable, *material);
       qbRenderGroup group = qb_renderable_rendergroup(*renderable);

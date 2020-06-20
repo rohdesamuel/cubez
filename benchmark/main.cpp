@@ -31,8 +31,8 @@ qbComponent comflabulation_component;
 void move(qbInstance* insts, qbFrame* f) {
   PositionComponent* p;
   DirectionComponent* d;
-  qb_instance_getmutable(insts[0], &p);
-  qb_instance_getconst(insts[1], &d);
+  qb_instance_mutable(insts[0], &p);
+  qb_instance_const(insts[1], &d);
 
   float dt = *(float*)(f->state);
   p->p += d->dir * dt;
@@ -40,7 +40,7 @@ void move(qbInstance* insts, qbFrame* f) {
 
 void comflab(qbInstance* insts, qbFrame*) {
   ComflabulationComponent* comflab;
-  qb_instance_getmutable(insts[0], &comflab);
+  qb_instance_mutable(insts[0], &comflab);
   comflab->thingy *= 1.000001f;
   comflab->mingy = !comflab->mingy;
   comflab->dingy++;
@@ -98,7 +98,7 @@ double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iteration
       [](qbInstance* instance, qbFrame*) {        
 
         PositionComponent p;
-        qb_instance_getconst(*instance, &p);
+        qb_instance_const(*instance, &p);
         *Count() += (uint64_t)p.p.x ^ 0x12983;
       });
 
@@ -172,6 +172,10 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
   std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / test_iterations << "s\n";
 }
 
+qbSchema pos_schema;
+qbSchema vel_schema;
+qbComponent pos_component;
+qbComponent vel_component;
 
 int main() {
   std::cout << "Number of processors: " << omp_get_max_threads() << std::endl;
@@ -181,6 +185,10 @@ int main() {
   qbUniverse uni;
   qbUniverseAttr_ attr = {};
   attr.enabled = qbFeature::QB_FEATURE_GAME_LOOP;
+  
+  qbScriptAttr_ script_attr = {};
+  attr.script_args = &script_attr;
+
   qb_init(&uni, &attr);
   qb_start();
 
@@ -188,37 +196,94 @@ int main() {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, PositionComponent);
-    qb_component_create(&position_component, attr);
+
+    qb_component_create(&position_component, "Pos", attr);
     qb_componentattr_destroy(&attr);
   }
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, DirectionComponent);
-    qb_component_create(&direction_component, attr);
+    qb_component_create(&direction_component, "Direction", attr);
     qb_componentattr_destroy(&attr);
   }
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, ComflabulationComponent);
-    qb_component_create(&comflabulation_component, attr);
+    qb_component_create(&comflabulation_component, "Comfabulation", attr);
     qb_componentattr_destroy(&attr);
   }
 
-  uint64_t count = 1'000'000;
+  pos_component = qb_component_find("Position", &pos_schema);
+  vel_component = qb_component_find("Velocity", &vel_schema);
+
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addconst(attr, pos_component);
+    qb_systemattr_addconst(attr, vel_component);
+    qb_systemattr_setfunction(attr, [](qbInstance* insts, qbFrame*) {
+      std::pair<double, double>* p;
+      qb_instance_const(insts[0], &p);
+
+      std::pair<double, double>* v;
+      qb_instance_const(insts[1], &v);
+      
+      p->first += v->first;
+      p->second += v->second;
+    });
+    qbSystem s;
+    qb_system_create(&s, attr);
+
+    qb_systemattr_destroy(&attr);
+  }
+
+
+  uint64_t count = 100000;
   uint64_t iterations = 500;
   uint64_t test_iterations = 1;
   
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+  
+  qb_loop(0, 0);
+  double elapsed = 0.0;
+  for (uint64_t i = 0; i < iterations; ++i) {
+    qb_timer_start(timer);
+    qb_loop(0, 0);
+    qb_timer_stop(timer);
+    double e = qb_timer_elapsed(timer);
+    elapsed += e;
+    std::cout << i << "] " << e / 1e9 << "s, " << elapsed / i / count << ", " << e / count << std::endl;
+  }
+  
+  std::cout << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
+  std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / iterations << "s\n";
+  std::cout << "Elapsed per object: " << ((double)elapsed / 1e9) / iterations / count << "s\n";
+  std::cout << "Elapsed per object: " << ((double)elapsed) / iterations / count << "ns\n";
+  qb_timer_destroy(&timer);
+  
   /*do_benchmark("Create entities benchmark",
                create_entities_benchmark, count, iterations, 1);*/
-  do_benchmark("Unpack one component benchmark",
-    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
+  //do_benchmark("Unpack one component benchmark",
+  //  iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
   /*do_benchmark("coroutine_overhead_benchmark",
                coroutine_overhead_benchmark, 1, 1000000, 1);*/
   qb_stop();
   while (1);
 }
+
+/*
+// Hypothesis: accessing the _fields table is slowing down due to hashmap lookup and GC.
+Total elapsed: 11.992s
+Elapsed per iteration: 1.1992s
+Elapsed per object: 1.1992e-05s
+Elapsed per object: 11992ns
+
+// 
+
+*/
 
 /*
 Before

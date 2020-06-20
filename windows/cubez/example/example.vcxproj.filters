@@ -22,6 +22,9 @@
     <Filter Include="Header Files\modules">
       <UniqueIdentifier>{ba915a3f-533f-414a-be5e-a5eb7fb3b148}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scripts">
+      <UniqueIdentifier>{4e8d358b-352e-4470-a632-396ad5b563bd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp">
@@ -128,6 +131,9 @@
     </None>
     <None Include="..\..\..\example\resources\sdf.vs">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\scripts\main.lua">
+      <Filter>Scripts</Filter>
     </None>
   </ItemGroup>
 </Project>

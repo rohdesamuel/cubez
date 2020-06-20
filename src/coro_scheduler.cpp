@@ -110,7 +110,7 @@ qbCoro CoroScheduler::schedule_async(qbVar(*entry)(qbVar), qbVar var) {
 
 qbVar CoroScheduler::await(qbCoro coro) {
   qbVar ret = qbFuture;
-  while ((ret = peek(coro)).tag == QB_TAG_UNSET) {
+  while ((ret = peek(coro)).tag == QB_TAG_NIL) {
     if (coro->is_async) {
       qb_coro_yield(qbFuture);
     } else if (!coro_done(coro->main)) {
@@ -129,5 +129,5 @@ qbVar CoroScheduler::peek(qbCoro coro) {
 }
 
 void CoroScheduler::run_sync() {
-  qb_coro_call(sync_coro_, qbVoid(coros_));
+  qb_coro_call(sync_coro_, qbPtr(coros_));
 }
