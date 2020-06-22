@@ -33,7 +33,7 @@ QB_API void qb_timer_start(qbTimer timer);
 
 QB_API void qb_timer_stop(qbTimer timer);
 
-QB_API void qb_timer_add(qbTimer timer);
+QB_API int64_t qb_timer_add(qbTimer timer);
 
 QB_API void qb_timer_reset(qbTimer timer);
 

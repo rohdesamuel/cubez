@@ -230,7 +230,7 @@ void gui_shutdown() {
 
 void gui_handle_input(qbInputEvent input_event) {
   int x, y;
-  qb_get_mouse_position(&x, &y);
+  qb_mouse_position(&x, &y);
 
   FindClosestWindow(x, y, [input_event](qbWindow closest){
     bool handled = false;

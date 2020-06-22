@@ -145,13 +145,13 @@ qbResult loop(qbLoopCallbacks callbacks,
   double frame_time = new_time - game_loop.current_time;
   frame_time = std::min(0.25, frame_time);
   game_loop.current_time = new_time;
-  
-  game_loop.accumulator += qb_timer_average(render_timer) * 1e-9 + extra_render_time;
 
-  qb_handle_input([]() {
-    qb_stop();
-    game_loop.is_running = false;
-  });
+  if (game_loop.accumulator >= game_loop.dt) {
+    qb_handle_input([]() {
+      qb_stop();
+      game_loop.is_running = false;
+    });
+  }
 
   if (callbacks && callbacks->on_fixedupdate) {
     callbacks->on_fixedupdate(universe_->frame, args->fixed_update);
@@ -192,6 +192,11 @@ qbResult loop(qbLoopCallbacks callbacks,
   }
 
   qb_timer_add(render_timer);
+  double elapsed_render = qb_timer_average(render_timer) * 1e-9 + extra_render_time;
+  if (elapsed_render < 10e-9) {
+    elapsed_render += game_loop.dt;
+  }
+  game_loop.accumulator += elapsed_render;
 
   ++universe_->frame;
   qb_timer_stop(fps_timer);

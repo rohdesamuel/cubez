@@ -615,7 +615,6 @@ QB_API qbScene       qb_scene_global();
 
 // Sets the given scene to be the "working scene". Once a scene is set, any
 // created entities will be scoped to the lifetime of the given scene.
-// the game engine is looping.
 // Usage:
 // qbScene main_menu;
 // qb_scene_create(&main_menu, "Main Menu");

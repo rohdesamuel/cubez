@@ -148,7 +148,7 @@ void qb_timer_stop(qbTimer timer) {
 #endif
 }
 
-void qb_timer_add(qbTimer timer) {
+int64_t qb_timer_add(qbTimer timer) {
   int64_t elapsed = 0;
 #ifdef __COMPILE_AS_WINDOWS__
   int64_t now = qb_timer_now();
@@ -162,6 +162,7 @@ void qb_timer_add(qbTimer timer) {
     timer->window_[timer->iterator_++] = elapsed;
     timer->iterator_ %= timer->window_size_;
   }
+  return elapsed;
 }
 
 void qb_timer_reset(qbTimer timer) {

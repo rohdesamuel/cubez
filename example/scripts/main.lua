@@ -14,6 +14,13 @@ function qb.start(width, height)
     Velocity:new{ x=1, y=0 },
   })
 
+  for i=1, 500000 do
+    qb.entity_create({
+      Position:new{ x=0, y=0 },
+      Velocity:new{ x=1, y=0 },
+    })
+  end
+
   qb.system_create({ Position, Velocity },
     function (pos, vel)
     end)

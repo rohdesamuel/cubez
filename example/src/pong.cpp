@@ -119,7 +119,7 @@ void Initialize(Settings settings) {
         bot_paddle.pos = glms_vec2_add(bot_paddle.pos, bot_paddle.vel);
 
         int mouse_x, mouse_y;
-        qb_get_mouse_position(&mouse_x, &mouse_y);
+        qb_mouse_position(&mouse_x, &mouse_y);
 
         bot_paddle.pos.x = mouse_x - paddle_size.x / 2;
         qb_coro_yield(qbNone);

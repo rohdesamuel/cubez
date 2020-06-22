@@ -184,7 +184,7 @@ int main() {
 
   qbUniverse uni;
   qbUniverseAttr_ attr = {};
-  attr.enabled = qbFeature::QB_FEATURE_GAME_LOOP;
+  attr.enabled = (qbFeature)(QB_FEATURE_GAME_LOOP | QB_FEATURE_LOGGER);
   
   qbScriptAttr_ script_attr = {};
   attr.script_args = &script_attr;

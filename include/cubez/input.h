@@ -75,7 +75,88 @@ enum qbKey {
   QB_KEY_DOWN,
   QB_KEY_LEFT,
   QB_KEY_RIGHT,
-  QB_KEY_SPACE
+  QB_KEY_SPACE,
+  QB_KEY_ESCAPE,
+  QB_KEY_F1,
+  QB_KEY_F2,
+  QB_KEY_F3,
+  QB_KEY_F4,
+  QB_KEY_F5,
+  QB_KEY_F6,
+  QB_KEY_F7,
+  QB_KEY_F8,
+  QB_KEY_F9,
+  QB_KEY_F10,
+  QB_KEY_F11,
+  QB_KEY_F12,
+};
+
+enum qbScanCode {
+  QB_SCAN_UNKNOWN,
+  QB_SCAN_0,
+  QB_SCAN_1,
+  QB_SCAN_2,
+  QB_SCAN_3,
+  QB_SCAN_4,
+  QB_SCAN_5,
+  QB_SCAN_6,
+  QB_SCAN_7,
+  QB_SCAN_8,
+  QB_SCAN_9,
+  QB_SCAN_A,
+  QB_SCAN_B,
+  QB_SCAN_C,
+  QB_SCAN_D,
+  QB_SCAN_E,
+  QB_SCAN_F,
+  QB_SCAN_G,
+  QB_SCAN_H,
+  QB_SCAN_I,
+  QB_SCAN_J,
+  QB_SCAN_K,
+  QB_SCAN_L,
+  QB_SCAN_M,
+  QB_SCAN_N,
+  QB_SCAN_O,
+  QB_SCAN_P,
+  QB_SCAN_Q,
+  QB_SCAN_R,
+  QB_SCAN_S,
+  QB_SCAN_T,
+  QB_SCAN_U,
+  QB_SCAN_V,
+  QB_SCAN_W,
+  QB_SCAN_X,
+  QB_SCAN_Y,
+  QB_SCAN_Z,
+  QB_SCAN_LBACKET,
+  QB_SCAN_LBRACE,
+  QB_SCAN_LSHIFT,
+  QB_SCAN_LALT,
+  QB_SCAN_LCTRL,
+  QB_SCAN_RBACKET,
+  QB_SCAN_RBRACE,
+  QB_SCAN_RSHIFT,
+  QB_SCAN_RALT,
+  QB_SCAN_RCTRL,
+  QB_SCAN_UP,
+  QB_SCAN_DOWN,
+  QB_SCAN_LEFT,
+  QB_SCAN_RIGHT,
+  QB_SCAN_SPACE,
+  QB_SCAN_ESCAPE,
+  QB_SCAN_F1,
+  QB_SCAN_F2,
+  QB_SCAN_F3,
+  QB_SCAN_F4,
+  QB_SCAN_F5,
+  QB_SCAN_F6,
+  QB_SCAN_F7,
+  QB_SCAN_F8,
+  QB_SCAN_F9,
+  QB_SCAN_F10,
+  QB_SCAN_F11,
+  QB_SCAN_F12,
 };
 
 enum qbButton {
@@ -98,6 +179,7 @@ typedef struct {
   bool was_pressed;
   bool is_pressed;
   qbKey key;
+  qbScanCode scane_code;
 } qbKeyEvent_, *qbKeyEvent;
 
 enum qbMouseState {
@@ -157,12 +239,16 @@ QB_API void qb_handle_input(void(*shutdown_handler)());
 QB_API qbResult qb_on_key_event(qbSystem system);
 QB_API qbResult qb_on_mouse_event(qbSystem system);
 
-QB_API bool qb_is_key_pressed(qbKey key);
-QB_API bool qb_is_mouse_pressed(qbButton mouse_button);
-QB_API void qb_get_mouse_position(int* x, int* y);
-QB_API void qb_get_mouse_relposition(int* relx, int* rely);
+QB_API bool qb_scancode_pressed(qbScanCode scan_code);
+QB_API bool qb_key_pressed(qbKey key);
+QB_API bool qb_mouse_pressed(qbButton mouse_button);
 
-QB_API int qb_set_mouse_relative(int enabled);
+QB_API void qb_mouse_position(int* x, int* y);
+QB_API void qb_mouse_relposition(int* relx, int* rely);
+QB_API void qb_mouse_wheel(int* scroll_x, int* scroll_y);
+
+QB_API int qb_mouse_setrelative(int enabled);
+QB_API int qb_mouse_relative();
 
 #endif  // INPUT__H
 

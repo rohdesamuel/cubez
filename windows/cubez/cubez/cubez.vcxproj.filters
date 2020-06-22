@@ -305,9 +305,6 @@
     <ClCompile Include="..\..\..\src\gui.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\input.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\log.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
@@ -396,6 +393,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\lua_bindings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -28,7 +28,7 @@ qbVar print_timing_info(qbVar var) {
       "Total FPS:  " + std::to_string(info->total_fps) + "\n"
       "Render FPS: " + std::to_string(info->render_fps) + "\n"
       "Update FPS: " + std::to_string(info->udpate_fps) + "\n";
-    //qb_log(QB_INFO, out.c_str());
+    qb_log(QB_INFO, out.c_str());
     qb_coro_wait(1.0);
   }
 }
@@ -59,7 +59,7 @@ void create_main_menu() {
   window_callbacks.onscroll = [](qbWindow window, qbMouseScrollEvent e) {
     std::cout << "onscroll ( " << e->xrel << ", " << e->yrel << " )\n";
 
-    if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+    if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
       vec3s delta = { (float)(e->yrel * 5), 0.0f, 0.0f };
       qb_window_moveby(window, delta);
     } else {
@@ -325,7 +325,7 @@ void create_game() {
     int frame = 0;
     qbCamera camera = qb_camera_active();
     int mouse_x, mouse_y;
-    qb_get_mouse_position(&mouse_x, &mouse_y);
+    qb_mouse_position(&mouse_x, &mouse_y);
     float cam_dir = 0.0f, cam_zdir = 0.0f;
     float cam_dis = 20.0f;
     float cam_dis_dt = 0.0f;
@@ -336,18 +336,24 @@ void create_game() {
       //t->position.y = 0.0f - 5.0f*sin((float)(frame) / 100.0f);
 
       int x, y;
-      qb_get_mouse_relposition(&x, &y);
+      qb_mouse_relposition(&x, &y);
 
       float dx, dy;
       dx = (float)x * -0.001f;
       dy = (float)y * 0.001f;
 
       float speed = 0.001f;
-      if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+      if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
         speed *= 10.0f;
       }
-      if (qb_is_key_pressed(qbKey::QB_KEY_LCTRL)) {
+      if (qb_key_pressed(qbKey::QB_KEY_LCTRL)) {
         speed *= 0.1f;
+      }
+
+      int wx, wy;
+      qb_mouse_wheel(&wx, &wy);
+      if (wx != 0 || wy != 0) {
+        std::cout << wx << ", " << wy << std::endl;
       }
 
       {
@@ -364,8 +370,8 @@ void create_game() {
       }
 
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
-        /*if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+      if (qb_key_pressed(qbKey::QB_KEY_W)) {
+        /*if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
           cam_dis_dt = -0.1f;
         } else {
           cam_dis_dt = -0.01f;
@@ -376,8 +382,8 @@ void create_game() {
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
-        /*if (qb_is_key_pressed(qbKey::QB_KEY_LSHIFT)) {
+      if (qb_key_pressed(qbKey::QB_KEY_S)) {
+        /*if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
           cam_dis_dt = 0.1f;
         } else {
           cam_dis_dt = 0.01f;
@@ -390,32 +396,32 @@ void create_game() {
           
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
+      if (qb_key_pressed(qbKey::QB_KEY_A)) {
         vec4s dir = { 0.0f, speed, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
+      if (qb_key_pressed(qbKey::QB_KEY_D)) {
         vec4s dir = { 0.0f, -speed, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_Q)) {
+      if (qb_key_pressed(qbKey::QB_KEY_Q)) {
         qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, -0.025f, vec3s{ 1, 0, 0 }));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_E)) {
+      if (qb_key_pressed(qbKey::QB_KEY_E)) {
         qb_camera_rotation(camera, glms_rotate(camera->rotation_mat,  0.025f, vec3s{ 1, 0, 0 }));
       }
 
       /*
 
       int x, y;
-      qb_get_mouse_relposition(&x, &y);
+      qb_mouse_relposition(&x, &y);
 
       float dx, dy;
       dx = (float)x * -0.001f;
@@ -431,28 +437,28 @@ void create_game() {
       }
       
       vec4s dir = {};
-      if (qb_is_key_pressed(qbKey::QB_KEY_W)) {
+      if (qb_key_pressed(qbKey::QB_KEY_W)) {
         dir = { 0.5f, 0.0f, 0.0f, 1.0f };
         vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
         d.z = 0.0f;
         qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_S)) {
+      if (qb_key_pressed(qbKey::QB_KEY_S)) {
         dir = { -0.5f, 0.0f, 0.0f, 1.0f };
         vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
         d.z = 0.0f;
         qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_A)) {
+      if (qb_key_pressed(qbKey::QB_KEY_A)) {
         dir = { 0.0f, 0.5f, 0.0f, 1.0f };
         vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
         d.z = 0.0f;
         qb_camera_origin(camera, glms_vec3_add(camera->origin, d));
       }
 
-      if (qb_is_key_pressed(qbKey::QB_KEY_D)) {
+      if (qb_key_pressed(qbKey::QB_KEY_D)) {
         dir = { 0.0f, -0.5f, 0.0f, 1.0f };
         vec3s d = glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir));
         d.z = 0.0f;
@@ -493,6 +499,7 @@ void initialize_universe(qbUniverse* uni) {
   char* entrypoint = "main.lua";
   script_attr.directory = dir;
   script_attr.entrypoint = entrypoint;
+  uni_attr.script_args = &script_attr;
 
   qb_init(uni, &uni_attr);
 }
@@ -504,7 +511,7 @@ int main(int, char* []) {
   qb_start();
   create_game();
 
-  qb_set_mouse_relative(1);
+  qb_mouse_setrelative(1);
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  
