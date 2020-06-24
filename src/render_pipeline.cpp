@@ -1926,3 +1926,8 @@ qbFrameBuffer qb_surface_target(qbSurface surface, size_t i) {
   assert(i < surface->targets.size());
   return surface->targets[i];
 }
+
+qbImage qb_surface_image(qbSurface surface, size_t i) {
+  assert(i < surface->targets.size());
+  return surface->targets[i]->render_targets[0];
+}

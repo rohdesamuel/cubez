@@ -458,5 +458,6 @@ QB_API void qb_surface_create(qbSurface* surface, qbSurfaceAttr attr);
 QB_API void qb_surface_destroy(qbSurface* surface);
 QB_API void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output);
 QB_API qbFrameBuffer qb_surface_target(qbSurface surface, size_t i);
+QB_API qbImage qb_surface_image(qbSurface surface, size_t i);
 
 #endif  // CUBEZ_RENDER_PIPELINE__H
