@@ -61,7 +61,7 @@ void SystemImpl::Run(GameState* game_state, void* event) {
   qbFrame frame;
   frame.system = system_;
   frame.event = event;
-  frame.state = system_->user_state;
+  frame.state = system_->user_state;// system_ ? system_->user_state : user_state_;
 
   if (condition_ && !condition_(&frame)) {
     return;
@@ -101,18 +101,22 @@ void SystemImpl::Run(GameState* game_state, void* event) {
   }
 }
 
-qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component, GameState* state) {
+qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component,
+                                     GameState* state) {
   qbInstance_ instance;
   instance.system = system_;
   CopyToInstance(component, entity, &instance, state);
   return instance;
 }
 
-void SystemImpl::CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state) {
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity,
+                                qbInstance instance, GameState* state) {
   CopyToInstance(component, entity, (*component)[entity], instance, state);
 }
 
-void SystemImpl::CopyToInstance(Component* component, qbEntity entity, void* instance_data, qbInstance instance, GameState* state) {
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity,
+                                void* instance_data, qbInstance instance,
+                                GameState* state) {
   instance->entity = entity;
   instance->data = instance_data;
   instance->component = component;

@@ -47,12 +47,12 @@ typedef struct qbCameraInternal_ {
   qbFrameBuffer fbo;
 } qbCameraInternal_, *qbCameraInternal;
 
-typedef struct qbRenderable_ {
+typedef struct qbModelgroup_ {
   struct qbModel_* model;
   struct qbRenderGroup_* render_group;
   
   bool is_dirty;
-} qbRenderable_, *qbRenderable;
+} qbModelgroup_, *qbModelgroup;
 
 // Channels
 qbEvent render_event;
@@ -79,11 +79,16 @@ SparseSet spot_lights;
 SparseSet enabled;
 
 qbComponent qb_renderable_ = 0;
+qbComponent qb_modelgroup_ = 0;
 qbComponent qb_material_ = 0;
 qbComponent qb_transform_ = 0;
 
 qbComponent qb_renderable() {
   return qb_renderable_;
+}
+
+qbComponent qb_modelgroup() {
+  return qb_modelgroup_;
 }
 
 qbComponent qb_material() {
@@ -180,8 +185,14 @@ void render_initialize(RenderSettings* settings) {
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setdatatype(attr, qbRenderable);
     qb_component_create(&qb_renderable_, "qbRenderable", attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, qbModelgroup);
+    qb_component_create(&qb_modelgroup_, "qbModelgroup", attr);
     qb_componentattr_destroy(&attr);
   }
   {
@@ -256,7 +267,7 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
   camera->rotation_mat= attr->rotation_mat;
   camera->origin = attr->origin;
 
-  vec3s forward = glms_mat4_mulv3(camera->rotation_mat, { 1.0f, 0.0f, 0.0f }, 1.0f);
+  vec3s forward = glms_mat4_mulv3(camera->rotation_mat, { -1.0f, 0.0f, 0.0f }, 1.0f);
   vec3s up = glms_mat4_mulv3(camera->rotation_mat, { 0.0f, 0.0f, 1.0f }, 1.0f);
   camera->view_mat = glms_look(camera->origin, forward, up);
   camera->forward = forward;
@@ -321,18 +332,18 @@ void qb_camera_rotation(qbCamera camera_ref, mat4s rotation) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->rotation_mat = rotation;
 
-  static vec4s forward = { 1.0f, 0.0f, 0.0f, 1.0f };
+  static vec4s forward = { -1.0f, 0.0f, 0.0f, 1.0f };
   static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
   camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
   camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
   camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
 }
 
-void qb_camera_origin(qbCamera camera_ref, vec3s  origin) {
+void qb_camera_origin(qbCamera camera_ref, vec3s origin) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->origin = origin;
 
-  static vec4s forward = { 1.0f, 0.0f, 0.0f, 1.0f };
+  static vec4s forward = { -1.0f, 0.0f, 0.0f, 1.0f };
   static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
   camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
   camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
@@ -342,22 +353,23 @@ void qb_camera_origin(qbCamera camera_ref, vec3s  origin) {
 vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
   // NORMALISED DEVICE SPACE
   float x = 2.0f * screen.x / (float)qb_window_width() - 1.0f;
-  float y = 2.0f * screen.y / (float)qb_window_height() - 1.0f;
-  
+  float y = -2.0f * screen.y / (float)qb_window_height() + 1.0f;
+
   // HOMOGENEOUS SPACE
-  vec4s screenPos = { x, -y, 1.0f, 1.0f };
+  vec4s near_plane = vec4s{ x, y, -1, 1.0 };
+  vec4s far_plane = vec4s{ x, y, 1, 1.0 };
 
   // Projection/Eye Space
-  mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+  mat4s view = glms_look(glms_vec3_zero(), camera->forward, camera->up);
+  mat4s project_view = glms_mat4_mul(camera->projection_mat, view);
   mat4s view_projection_inverse = glms_mat4_inv(project_view);
 
-  vec4s world_coord = glms_mat4_mulv(view_projection_inverse, screenPos);
-  world_coord.w = 1.0f / world_coord.w;
-  world_coord.x *= world_coord.w;
-  world_coord.y *= world_coord.w;
-  world_coord.z *= world_coord.w;
+  vec4s near = glms_mat4_mulv(view_projection_inverse, near_plane);
+  vec4s far = glms_mat4_mulv(view_projection_inverse, far_plane);
+  near = glms_vec4_divs(near, near.w);
+  far = glms_vec4_divs(far, far.w);
 
-  return glms_vec3(glms_vec4_normalize(world_coord));
+  return glms_vec3_normalize(glms_vec3(glms_vec4_sub(far, near)));
 }
 
 vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
@@ -389,8 +401,8 @@ qbRenderer qb_renderer() {
   return renderer_;
 }
 
-void qb_renderable_create(qbRenderable* renderable, struct qbModel_* model) {
-  qbRenderable ret = new qbRenderable_();
+void qb_modelgroup_create(qbModelgroup* modelgroup, struct qbModel_* model) {
+  qbModelgroup ret = new qbModelgroup_();
   ret->model = model;
 
   qbRenderGroup group;
@@ -410,33 +422,33 @@ void qb_renderable_create(qbRenderable* renderable, struct qbModel_* model) {
 
   ret->render_group = group;
   ret->is_dirty = true;
-  *renderable = ret;
+  *modelgroup = ret;
 }
 
-void qb_renderable_destroy(qbRenderable* renderable) {
-  renderer_->rendergroup_ondestroy(renderer_, (*renderable)->render_group);
+void qb_modelgroup_destroy(qbModelgroup* modelgroup) {
+  renderer_->rendergroup_ondestroy(renderer_, (*modelgroup)->render_group);
 
-  if ((*renderable)->model) {
-    qb_model_destroy(&(*renderable)->model);
+  if ((*modelgroup)->model) {
+    qb_model_destroy(&(*modelgroup)->model);
   }
 
-  if ((*renderable)->render_group) {
-    qbRenderGroup group = (*renderable)->render_group;
+  if ((*modelgroup)->render_group) {
+    qbRenderGroup group = (*modelgroup)->render_group;
     qbRenderer renderer = qb_renderer();
-    renderer->rendergroup_remove(renderer, (*renderable)->render_group);
+    renderer->rendergroup_remove(renderer, (*modelgroup)->render_group);
     
     qbMeshBuffer* buffers;
     size_t mesh_count = qb_rendergroup_meshes(group, &buffers);
     for (size_t i = 0; i < mesh_count; ++i) {
       qb_meshbuffer_destroy(buffers + i);
     }
-    qb_rendergroup_destroy(&(*renderable)->render_group);
+    qb_rendergroup_destroy(&(*modelgroup)->render_group);
   }
 }
 
-void qb_renderable_free(qbRenderable renderable) {
-  if (renderable->render_group) {
-    qbRenderGroup group = renderable->render_group;
+void qb_modelgroup_free(qbModelgroup modelgroup) {
+  if (modelgroup->render_group) {
+    qbRenderGroup group = modelgroup->render_group;
     qbRenderer renderer = qb_renderer();
     renderer->rendergroup_remove(renderer, group);
 
@@ -445,49 +457,49 @@ void qb_renderable_free(qbRenderable renderable) {
     for (size_t i = 0; i < mesh_count; ++i) {
       qb_meshbuffer_destroy(buffers + i);
     }
-    qb_rendergroup_destroy(&renderable->render_group);
+    qb_rendergroup_destroy(&modelgroup->render_group);
   }
 }
 
-void qb_renderable_update(qbRenderable renderable, struct qbModel_* model) {
+void qb_modelgroup_update(qbModelgroup modelgroup, struct qbModel_* model) {
   assert(false && "unimplemented");
 }
 
-void qb_renderable_upload(qbRenderable renderable, struct qbMaterial_* material) {
+void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbMaterial_* material) {
   qbRenderer renderer = qb_renderer();
 
-  if (!renderable->render_group) {
+  if (!modelgroup->render_group) {
     qbRenderGroupAttr_ attr;
-    qb_rendergroup_create(&renderable->render_group, &attr);
+    qb_rendergroup_create(&modelgroup->render_group, &attr);
 
-    for (size_t i = 0; i < renderable->model->mesh_count; ++i) {
+    for (size_t i = 0; i < modelgroup->model->mesh_count; ++i) {
       qbMeshBuffer buffer;
-      qb_mesh_tobuffer(renderable->model->meshes + i, &buffer);
-      qb_rendergroup_append(renderable->render_group, buffer);
+      qb_mesh_tobuffer(modelgroup->model->meshes + i, &buffer);
+      qb_rendergroup_append(modelgroup->render_group, buffer);
     }
     
-    renderer->rendergroup_oncreate(renderer, renderable->render_group);
-    renderer->rendergroup_add(renderer, renderable->render_group);
+    renderer->rendergroup_oncreate(renderer, modelgroup->render_group);
+    renderer->rendergroup_add(renderer, modelgroup->render_group);
   }
 
-  if (renderable->is_dirty) {
-    renderer->rendergroup_attach_material(renderer, renderable->render_group, material);
-    renderer->rendergroup_attach_textures(renderer, renderable->render_group,
+  if (modelgroup->is_dirty) {
+    renderer->rendergroup_attach_material(renderer, modelgroup->render_group, material);
+    renderer->rendergroup_attach_textures(renderer, modelgroup->render_group,
                                           material->image_count, material->image_units,
                                           material->images);
-    renderer->rendergroup_attach_uniforms(renderer, renderable->render_group,
+    renderer->rendergroup_attach_uniforms(renderer, modelgroup->render_group,
                                           material->uniform_count, material->uniform_bindings,
                                           material->uniforms);
-    renderable->is_dirty = false;
+    modelgroup->is_dirty = false;
   }
 }
 
-struct qbModel_* qb_renderable_model(qbRenderable renderable) {
-  return renderable->model;
+struct qbModel_* qb_modelgroup_model(qbModelgroup modelgroup) {
+  return modelgroup->model;
 }
 
-qbRenderGroup qb_renderable_rendergroup(qbRenderable renderable) {
-  return renderable->render_group;
+qbRenderGroup qb_modelgroup_rendergroup(qbModelgroup modelgroup) {
+  return modelgroup->render_group;
 }
 
 void qb_light_enable(qbId id, qbLightType type) {

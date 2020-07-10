@@ -129,7 +129,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -147,7 +147,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -165,7 +165,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -184,7 +184,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Full</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -207,7 +207,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
@@ -232,7 +232,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
@@ -293,11 +293,16 @@
     <ClInclude Include="..\..\..\src\instance_registry.h" />
     <ClInclude Include="..\..\..\src\log_internal.h" />
     <ClInclude Include="..\..\..\src\lua_bindings.h" />
+    <ClInclude Include="..\..\..\src\meshoptimizer\meshoptimizer.h" />
     <ClInclude Include="..\..\..\src\mesh_builder.h" />
+    <ClInclude Include="..\..\..\src\mesh_loader.h" />
+    <ClInclude Include="..\..\..\src\mesh_simplify.h" />
     <ClInclude Include="..\..\..\src\network_impl.h" />
+    <ClInclude Include="..\..\..\src\quickhull.h" />
     <ClInclude Include="..\..\..\src\render_defs.h" />
     <ClInclude Include="..\..\..\src\render_internal.h" />
     <ClInclude Include="..\..\..\src\shader.h" />
+    <ClInclude Include="..\..\..\src\simplex.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
     <ClInclude Include="..\..\..\src\sparse_set.h" />
     <ClInclude Include="..\..\..\src\memory_pool.h" />
@@ -309,6 +314,7 @@
     <ClInclude Include="..\..\..\src\system_impl.h" />
     <ClInclude Include="..\..\..\src\task.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />
+    <ClInclude Include="..\..\..\src\tiny_obj_loader.h" />
     <ClInclude Include="..\..\..\src\utils_internal.h" />
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
@@ -356,20 +362,114 @@
     <ClCompile Include="..\..\..\src\lua_bindings.cpp" />
     <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\mesh.cpp" />
+    <ClCompile Include="..\..\..\src\meshoptimizer\indexgenerator.cpp" />
+    <ClCompile Include="..\..\..\src\meshoptimizer\simplifier.cpp" />
+    <ClCompile Include="..\..\..\src\meshoptimizer\vfetchoptimizer.cpp" />
     <ClCompile Include="..\..\..\src\mesh_builder.cpp" />
+    <ClCompile Include="..\..\..\src\mesh_loader.cpp" />
     <ClCompile Include="..\..\..\src\network.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
+    <ClCompile Include="..\..\..\src\quickhull.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\body\CollisionBody.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\body\RigidBody.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\broadphase\DynamicAABBTree.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\Collider.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\CollisionCallback.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\ContactManifold.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\HalfEdgeStructure.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsCapsuleAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsCapsuleNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CollisionDispatch.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\ConvexPolyhedronVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\GJK\GJKAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\GJK\VoronoiSimplex.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\NarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\NarrowPhaseInput.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SAT\SATAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsCapsuleAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsCapsuleNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsSphereAlgorithm.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsSphereNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\OverlapCallback.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\PolygonVertexArray.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\PolyhedronMesh.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\RaycastInfo.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\AABB.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\BoxShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\CapsuleShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\CollisionShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConcaveMeshShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConcaveShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexMeshShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexPolyhedronShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\HeightFieldShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\SphereShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\TriangleShape.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\TriangleMesh.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\TriangleVertexArray.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\BallAndSocketJointComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\ColliderComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\CollisionBodyComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\Components.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\FixedJointComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\HingeJointComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\JointComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\RigidBodyComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\SliderJointComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\TransformComponents.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\BallAndSocketJoint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\ContactPoint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\FixedJoint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\HingeJoint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\Joint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\SliderJoint.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Entity.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\EntityManager.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Island.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Material.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\OverlappingPairs.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\PhysicsCommon.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\PhysicsWorld.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Timer.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\mathematics_functions.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Matrix2x2.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Matrix3x3.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Quaternion.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Transform.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Vector2.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Vector3.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\HeapAllocator.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\MemoryManager.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\PoolAllocator.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\SingleFrameAllocator.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\BroadPhaseSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\CollisionDetectionSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\ConstraintSolverSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\ContactSolverSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\DynamicsSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveBallAndSocketJointSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveFixedJointSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveHingeJointSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveSliderJointSystem.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\DebugRenderer.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\DefaultLogger.cpp" />
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\Profiler.cpp" />
     <ClCompile Include="..\..\..\src\render.cpp" />
     <ClCompile Include="..\..\..\src\render_pipeline.cpp" />
     <ClCompile Include="..\..\..\src\shader.cpp" />
+    <ClCompile Include="..\..\..\src\simplex.cpp" />
     <ClCompile Include="..\..\..\src\snapshot.cpp" />
     <ClCompile Include="..\..\..\src\socket.cpp" />
     <ClCompile Include="..\..\..\src\stb_image.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\task.cpp" />
+    <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp" />
     <ClCompile Include="..\..\..\src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>

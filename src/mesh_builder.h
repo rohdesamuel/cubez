@@ -27,11 +27,6 @@
 
 #include <cglm/types-struct.h>
 
-typedef struct {
-  vec3s orig;
-  vec3s dir;
-} qbRay_, *qbRay;
-
 class MeshBuilder {
 public:
   // Zero-based indexing of vertex attributes.
@@ -55,24 +50,13 @@ public:
               std::vector<vec2s>&& textures,
               std::vector<vec3s>&& normals);
 
-  qbCollider Collider();
+  qbCollider Collider(qbMesh mesh);
   qbModel Model(qbRenderFaceType_ render_mode);
 
   void Reset();
 
 private:
-  uint32_t FaceToTriangles(const Face& face,
-                           std::vector<vec3>* v_list,
-                           std::vector<vec3>* vn_list,
-                           std::vector<vec2>* vt_list);
-  uint32_t FaceToLines(const Face& face,
-                       std::vector<vec3>* v_list,
-                       std::vector<vec3>* vn_list,
-                       std::vector<vec2>* vt_list);
-  uint32_t FaceToPoints(const Face& face,
-                        std::vector<vec3>* v_list,
-                        std::vector<vec3>* vn_list,
-                        std::vector<vec2>* vt_list);
+  
   std::vector<vec3s> v_;
   std::vector<vec2s> vt_;
   std::vector<vec3s> vn_;

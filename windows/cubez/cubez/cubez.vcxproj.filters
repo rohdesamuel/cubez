@@ -40,6 +40,12 @@
     <Filter Include="Docs">
       <UniqueIdentifier>{592bd418-0f5d-4495-8923-03201c0c28ed}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\meshoptimizer">
+      <UniqueIdentifier>{0283de7f-1a77-43ea-9fba-bf5fda4fb58e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\reactphysics3d">
+      <UniqueIdentifier>{45af0b28-33e4-48ee-be14-318a8ac6f473}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -222,6 +228,24 @@
     <ClInclude Include="..\..\..\src\stb_image.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\mesh_simplify.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\simplex.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\quickhull.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\meshoptimizer\meshoptimizer.h">
+      <Filter>Source Files\meshoptimizer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\tiny_obj_loader.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\mesh_loader.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -397,6 +421,288 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\input.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\simplex.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\quickhull.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\meshoptimizer\simplifier.cpp">
+      <Filter>Source Files\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\meshoptimizer\indexgenerator.cpp">
+      <Filter>Source Files\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\meshoptimizer\vfetchoptimizer.cpp">
+      <Filter>Source Files\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\body\CollisionBody.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\body\RigidBody.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\broadphase\DynamicAABBTree.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\Collider.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\CollisionCallback.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\ContactManifold.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\HalfEdgeStructure.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsCapsuleAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsCapsuleNarrowPhaseInfoBatch.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CapsuleVsConvexPolyhedronAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\CollisionDispatch.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\ConvexPolyhedronVsConvexPolyhedronAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\GJK\GJKAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\GJK\VoronoiSimplex.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\NarrowPhaseInfoBatch.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\NarrowPhaseInput.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SAT\SATAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsCapsuleAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsCapsuleNarrowPhaseInfoBatch.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsConvexPolyhedronAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsSphereAlgorithm.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\narrowphase\SphereVsSphereNarrowPhaseInfoBatch.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\OverlapCallback.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\PolygonVertexArray.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\PolyhedronMesh.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\RaycastInfo.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\AABB.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\BoxShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\CapsuleShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\CollisionShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConcaveMeshShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConcaveShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexMeshShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexPolyhedronShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\ConvexShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\HeightFieldShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\SphereShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\shapes\TriangleShape.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\TriangleMesh.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\collision\TriangleVertexArray.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\BallAndSocketJointComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\ColliderComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\CollisionBodyComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\Components.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\FixedJointComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\HingeJointComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\JointComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\RigidBodyComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\SliderJointComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\components\TransformComponents.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\BallAndSocketJoint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\ContactPoint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\FixedJoint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\HingeJoint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\Joint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\constraint\SliderJoint.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Entity.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\EntityManager.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Island.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Material.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\OverlappingPairs.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\PhysicsCommon.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\PhysicsWorld.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\engine\Timer.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\mathematics_functions.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Matrix2x2.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Matrix3x3.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Quaternion.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Transform.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Vector2.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\mathematics\Vector3.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\HeapAllocator.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\MemoryManager.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\PoolAllocator.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\memory\SingleFrameAllocator.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\BroadPhaseSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\CollisionDetectionSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\ConstraintSolverSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\ContactSolverSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\DynamicsSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveBallAndSocketJointSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveFixedJointSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveHingeJointSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\systems\SolveSliderJointSystem.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\DebugRenderer.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\DefaultLogger.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\reactphysics3d\utils\Profiler.cpp">
+      <Filter>Source Files\reactphysics3d</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mesh_loader.cpp">
+      <Filter>Source Files\rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -18,6 +18,7 @@
 
 #include "mesh_builder.h"
 #include "collision_utils.h"
+#include "quickhull.h"
 
 #include <cubez/render.h>
 
@@ -30,7 +31,9 @@
 #include <string>
 #include <iostream>
 #include <cglm/struct/vec3.h>
+#include <unordered_set>
 
+#include "meshoptimizer/meshoptimizer.h"
 
 size_t hash_combine(size_t seed, size_t hash) {
   hash += 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -71,6 +74,9 @@ struct VectorCompare {
   bool operator< (const VectorCompare& other) const {
     return std::hash<vec3s>()(v) < std::hash<vec3s>()(other.v);
   }
+  bool operator== (const VectorCompare& other) const {
+    return std::hash<vec3s>()(v) == std::hash<vec3s>()(other.v);
+  }
 };
 
 struct MatrixCompare {
@@ -79,6 +85,16 @@ struct MatrixCompare {
     return std::hash<mat3s>()(mat) < std::hash<mat3s>()(other.mat);
   }
 };
+
+namespace std
+{
+template<>
+struct hash<VectorCompare> {
+  size_t operator()(const VectorCompare& v) const {
+    return std::hash<vec3s>()(v.v);
+  }
+};
+}
 
 namespace {
 bool check_for_gl_errors() {
@@ -456,34 +472,72 @@ MeshBuilder MeshBuilder::Rect(float x, float y) {
   return builder;
 }
 
-qbCollider MeshBuilder::Collider() {
+qbCollider MeshBuilder::Collider(qbMesh mesh) {
   qbCollider collider = new qbCollider_;
-  
-  std::set<vec3s, VectorCompare> verts;
-  vec3s max, min;
-  max = glms_vec3_fill(std::numeric_limits<float>::min());
-  min = glms_vec3_fill(std::numeric_limits<float>::max());
 
-  for (vec3s& v: v_) {
-    max = glms_vec3_maxv(max, v);
-    min = glms_vec3_minv(min, v);
-
-    verts.insert(v);
-   }
-
-  collider->vertices = new vec3s[verts.size()];
-  collider->count = (uint8_t)verts.size();
-  size_t i = 0;
-  for (auto v : verts) {
-    collider->vertices[i] = v;
-    ++i;
+  std::unordered_set<VectorCompare> vertex_deduper;
+  for (size_t i = 0; i < mesh->vertex_count; ++i) {
+    vertex_deduper.insert(VectorCompare{ mesh->vertices[i] });
   }
 
-  collider->max = max;
-  collider->min = min;
-  collider->r.x = std::max(std::abs(max.x), std::abs(min.x));
-  collider->r.y = std::max(std::abs(max.y), std::abs(min.y));
-  collider->r.z = std::max(std::abs(max.z), std::abs(min.z));
+  std::vector<vec3s> unique_vertices;
+  unique_vertices.reserve(vertex_deduper.size());
+  for (auto& v : vertex_deduper) {
+    unique_vertices.push_back(v.v);
+  }
+
+  {
+    std::unordered_set<VectorCompare> empty_dededuper;
+    std::swap(vertex_deduper, empty_dededuper);
+  }
+
+  qh_mesh_t c_mesh = qh_quickhull3d((qh_vertex_t*)unique_vertices.data(), unique_vertices.size());
+
+  const size_t target_vertex_count = 255;
+
+  if (c_mesh.nvertices > target_vertex_count) {
+    std::vector<uint32_t> indices(target_vertex_count);
+    size_t vertex_count = meshopt_simplifyPoints(indices.data(),
+      (float*)c_mesh.vertices, c_mesh.nvertices, sizeof(vec3s), target_vertex_count);
+
+    assert(vertex_count <= target_vertex_count && "Could not simplify mesh below 255 vertices.");
+
+    std::vector<vec3s> vertices(c_mesh.nvertices);
+    vertex_count = meshopt_optimizeVertexFetch(
+      vertices.data(), indices.data(), indices.size(),
+      (float*)c_mesh.vertices, c_mesh.nvertices, sizeof(vec3s));
+    
+    vertices.resize(vertex_count);
+
+    collider->vertex_count = (uint8_t)vertex_count;
+    collider->vertices = (vec3s*)calloc(collider->vertex_count, sizeof(vec3s));
+    memcpy(collider->vertices, vertices.data(), sizeof(vec3s) * vertex_count);    
+  } else {
+    collider->vertex_count = (uint8_t)c_mesh.nvertices;
+    collider->vertices = (vec3s*)calloc(collider->vertex_count, sizeof(vec3s));
+    memcpy(collider->vertices, c_mesh.vertices, sizeof(vec3s) * c_mesh.nvertices);
+  }
+
+  qh_free_mesh(c_mesh);
+  
+  vec3s max, min, mean;
+  max = glms_vec3_fill(std::numeric_limits<float>::lowest());
+  min = glms_vec3_fill(std::numeric_limits<float>::max());
+  mean = GLMS_VEC3_ZERO_INIT;
+
+  for (size_t i = 0; i < collider->vertex_count; ++i) {
+    vec3s* v = (vec3s*)(collider->vertices + i);
+    max = glms_vec3_maxv(max, *v);
+    min = glms_vec3_minv(min, *v);
+    mean = glms_vec3_add(mean, *v);
+  }
+  
+  float r = std::max(glms_vec3_norm(max), glms_vec3_norm(min));
+
+  collider->max = { r, r, r };
+  collider->min = { -r, -r, -r };
+  collider->center = glms_vec3_divs(mean, collider->vertex_count);
+  collider->r = r;
 
   return collider;
 }
@@ -619,34 +673,40 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
     return nullptr;
   }
 
+  assert(vertices.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max vertex count.");
+  assert(indices.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max index count.");
+  assert(normals.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max normal count.");
+  assert(uvs.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max uv count.");
+
   qbModel ret = new qbModel_{};
-  ret->colliders = nullptr;
-  ret->collider_count = 0;
   ret->mesh_count = 1;
-  ret->meshes = new qbMesh_[1];
+  ret->meshes = new qbMesh_[ret->mesh_count];
   
-  qbMesh mesh = ret->meshes;
-  mesh->vertex_count = vertices.size();
+  qbMesh mesh = ret->meshes + 0;
+  mesh->vertex_count = (uint32_t)vertices.size();
   mesh->vertices = new vec3s[mesh->vertex_count];
-  memcpy(mesh->vertices, vertices.data(), vertices.size() * sizeof(vec3));
+  memcpy(mesh->vertices, vertices.data(), mesh->vertex_count * sizeof(vec3));
 
-  mesh->index_count = indices.size();
+  mesh->index_count = (uint32_t)indices.size();
   mesh->indices = new uint32_t[mesh->index_count];
-  memcpy(mesh->indices, indices.data(), indices.size() * sizeof(uint32_t));
+  memcpy(mesh->indices, indices.data(), mesh->index_count * sizeof(uint32_t));
 
-  mesh->normal_count = normals.size();
+  mesh->normal_count = (uint32_t)normals.size();
   mesh->normals = nullptr;
   if (mesh->normal_count > 0) {    
     mesh->normals = new vec3s[mesh->normal_count];
-    memcpy(mesh->normals, normals.data(), normals.size() * sizeof(vec3));
+    memcpy(mesh->normals, normals.data(), mesh->normal_count * sizeof(vec3));
   }
 
-  mesh->uv_count = uvs.size();
+  mesh->uv_count = (uint32_t)uvs.size();
   mesh->uvs = nullptr;
   if (mesh->uv_count > 0) {
     mesh->uvs = new vec2s[mesh->uv_count];
-    memcpy(mesh->uvs, uvs.data(), uvs.size() * sizeof(vec2));
+    memcpy(mesh->uvs, uvs.data(), mesh->uv_count * sizeof(vec2));
   }
+  
+  ret->colliders = Collider(mesh);
+  ret->collider_count = 1;
 
   return ret;
 }

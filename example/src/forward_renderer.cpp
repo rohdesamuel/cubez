@@ -38,14 +38,14 @@ struct LightPoint {
   float radius;
 };
 
-typedef struct LightDirectional {
+struct LightDirectional {
   vec3s rgb;
   float brightness;
   vec3s dir;
   float _dir_pad;
 };
 
-typedef struct LightSpot {
+struct LightSpot {
   vec3s rgb;
   float brightness;
   vec3s pos;
@@ -68,12 +68,12 @@ typedef struct qbForwardRenderer_ {
   qbSystem render_system;
 
   // The first binding of user textures.
-  size_t texture_start_binding;
-  size_t texture_units_count;
+  uint32_t texture_start_binding;
+  uint32_t texture_units_count;
 
   // The first binding of user uniforms.
-  size_t uniform_start_binding;
-  size_t uniform_count;
+  uint32_t uniform_start_binding;
+  uint32_t uniform_count;
 
   uint32_t camera_uniform;
   std::string camera_uniform_name;
@@ -100,12 +100,12 @@ typedef struct qbForwardRenderer_ {
   std::array<struct LightSpot, kMaxSpotLights> spot_lights;
   std::array<bool, kMaxSpotLights> enabled_spot_lights;
 
-  size_t albedo_map_binding;
-  size_t normal_map_binding;
-  size_t metallic_map_binding;
-  size_t roughness_map_binding;
-  size_t ao_map_binding;
-  size_t emission_map_binding;
+  uint32_t albedo_map_binding;
+  uint32_t normal_map_binding;
+  uint32_t metallic_map_binding;
+  uint32_t roughness_map_binding;
+  uint32_t ao_map_binding;
+  uint32_t emission_map_binding;
 
   qbImage empty_albedo_map;
   qbImage empty_normal_map;
@@ -196,11 +196,11 @@ void rendergroup_ondestroy(struct qbRenderer_* self, qbRenderGroup group) {
   qb_rendergroup_removeuniform_bybinding(group, r->model_uniform);
 }
 
-void model_add(qbRenderer self, qbRenderGroup model) {
-  qb_renderpass_append(((qbForwardRenderer)self)->scene_3d_pass, model);
+void rendergroup_add(qbRenderer self, qbRenderGroup rendergroup) {
+  qb_renderpass_append(((qbForwardRenderer)self)->scene_3d_pass, rendergroup);
 }
 
-void model_remove(qbRenderer self, qbRenderGroup model) {
+void rendergroup_remove(qbRenderer self, qbRenderGroup model) {
   qb_renderpass_remove(((qbForwardRenderer)self)->scene_3d_pass, model);
 }
 
@@ -713,7 +713,6 @@ qbSurface create_blur_surface(qbForwardRenderer r, uint32_t width, uint32_t heig
   attr.sampler_bindings = sampler_bindings;
   attr.samplers_count = 1;
 
-  qbGpuBuffer ubo;
   {
     qbGpuBufferAttr_ attr = {};
     attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
@@ -811,7 +810,6 @@ qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t hei
   attr.sampler_bindings = sampler_bindings;
   attr.samplers_count = 2;
 
-  qbGpuBuffer ubo;
   {
     qbGpuBufferAttr_ attr = {};
     attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
@@ -841,8 +839,8 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->renderer.height = height;
   ret->renderer.rendergroup_oncreate = rendergroup_oncreate;
   ret->renderer.rendergroup_ondestroy = rendergroup_ondestroy;
-  ret->renderer.rendergroup_add = model_add;
-  ret->renderer.rendergroup_remove = model_remove;
+  ret->renderer.rendergroup_add = rendergroup_add;
+  ret->renderer.rendergroup_remove = rendergroup_remove;
   ret->renderer.rendergroup_attach_textures = rendergroup_attach_textures;
   ret->renderer.rendergroup_attach_uniforms = rendergroup_attach_uniforms;
   ret->renderer.meshbuffer_create = meshbuffer_create;
@@ -871,13 +869,13 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     // If there is a sampler defined, there needs to be a corresponding image,
     // otherwise there is undetermined behavior. In the case that there isn't a
     // image given, an empty image is placed in its stead.
-    char pixel_0[4] = {};
+    uint8_t pixel_0[4] = {};
     qbPixelMap map_0 = qb_pixelmap_create(1, 1, 0, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_0);
 
-    char pixel_1[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+    uint8_t pixel_1[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
     qbPixelMap map_1 = qb_pixelmap_create(1, 1, 0, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_1);
 
-    char pixel_n[4] = { 0x80, 0x80, 0xFF, 0xFF };
+    uint8_t pixel_n[4] = { 0x80, 0x80, 0xFF, 0xFF };
     qbPixelMap map_n = qb_pixelmap_create(1, 1, 0, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8, pixel_n);
 
     qbImageAttr_ attr = {};
@@ -909,14 +907,14 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   std::vector<uint32_t> sampler_bindings;
   std::vector<std::pair<qbShaderResourceInfo_, qbImageSampler>> resource_samplers;
 
-  size_t native_uniform_count;
-  size_t native_sampler_count;
+  uint32_t native_uniform_count;
+  uint32_t native_sampler_count;
   
-  size_t uniform_start_binding;
-  size_t user_uniform_count = args->uniform_count;
+  uint32_t uniform_start_binding;
+  uint32_t user_uniform_count = args->uniform_count;
 
-  size_t sampler_start_binding;
-  size_t user_sampler_count = args->image_sampler_count;
+  uint32_t sampler_start_binding;
+  uint32_t user_sampler_count = args->image_sampler_count;
 
   ret->camera_uniform_name = "qb_camera";
   ret->model_uniform_name = "qb_model";
@@ -1026,8 +1024,8 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     resource_samplers.push_back({ info, sampler });
   }
 
-  native_uniform_count = resource_uniforms.size();
-  native_sampler_count = resource_samplers.size();
+  native_uniform_count = (uint32_t)resource_uniforms.size();
+  native_sampler_count = (uint32_t)resource_samplers.size();
   {
     std::vector<std::pair<qbShaderResourceInfo_, qbGpuBuffer>> user_uniforms;
     user_uniforms.resize(args->shader_resource_count);
@@ -1164,7 +1162,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, render_callback);
-    qb_systemattr_addconst(attr, qb_renderable());
+    qb_systemattr_addconst(attr, qb_modelgroup());
     qb_systemattr_addconst(attr, qb_material());
     qb_systemattr_addmutable(attr, qb_transform());
     qb_systemattr_setjoin(attr, qbComponentJoin::QB_JOIN_LEFT);
@@ -1172,15 +1170,15 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qbRenderEvent event = (qbRenderEvent)f->event;
       qbForwardRenderer renderer = (qbForwardRenderer)event->renderer;
 
-      qbRenderable* renderable;
+      qbModelgroup* modelgroup;
       qbMaterial* material;
       qbTransform transform;
-      qb_instance_const(insts[0], &renderable);
+      qb_instance_const(insts[0], &modelgroup);
       qb_instance_const(insts[1], &material);
       qb_instance_mutable(insts[2], &transform);
 
-      qb_renderable_upload(*renderable, *material);
-      qbRenderGroup group = qb_renderable_rendergroup(*renderable);
+      qb_modelgroup_upload(*modelgroup, *material);
+      qbRenderGroup group = qb_modelgroup_rendergroup(*modelgroup);
       qbGpuBuffer model_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->model_uniform);
       qbGpuBuffer material_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->material_uniform);
 

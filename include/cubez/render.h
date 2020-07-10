@@ -24,7 +24,7 @@
 #include <cglm/cglm.h>
 #include <cglm/types-struct.h>
 
-typedef struct qbRenderable_* qbRenderable;
+typedef struct qbModelgroup_* qbModelgroup;
 
 typedef struct qbRenderer_ {
   void(*render)(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event);
@@ -93,20 +93,20 @@ typedef struct qbRendererAttr_ {
   // start at 0. These should not include any texture sampler uniforms. For
   // those, use the image_samplers value.
   qbShaderResourceInfo shader_resources;
-  size_t shader_resource_count;
+  uint32_t shader_resource_count;
 
   // The bindings should start at 0. These should not include any texture
   // sampler uniforms. For those, use the image_samplers value.
   // Unimplemented.
   qbGpuBuffer* uniforms;
   uint32_t* uniform_bindings;
-  size_t uniform_count;
+  uint32_t uniform_count;
 
   // A list of any new texture samplers to be used in the shader. This will
   // automatically create all necessary qbShaderResourceInfos. Do not create
   // individual qbShaderResourceInfos for the given samplers.
   qbImageSampler* image_samplers;
-  size_t image_sampler_count;
+  uint32_t image_sampler_count;
 
   // An optional renderpass to draw the gui.
   qbRenderPass opt_gui_renderpass;
@@ -178,8 +178,8 @@ QB_API void qb_camera_rotation(qbCamera camera, mat4s rotation);
 QB_API void qb_camera_origin(qbCamera camera, vec3s origin);
 QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera);
 
-QB_API void qb_camera_screentoworld(qbCamera camera, vec2s screen, vec3s out);
-QB_API void qb_camera_worldtoscreen(qbCamera camera, vec3s world, vec2s out);
+QB_API vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen);
+QB_API vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world);
 
 QB_API void qb_light_enable(qbId id, qbLightType light_type);
 QB_API void qb_light_disable(qbId id, qbLightType light_type);
@@ -204,22 +204,23 @@ typedef struct qbTransform_ {
   mat4s orientation;
 } qbTransform_, *qbTransform;
 
-QB_API void qb_renderable_create(qbRenderable* renderable, struct qbModel_* model);
-QB_API void qb_renderable_destroy(qbRenderable* renderable);
+QB_API void qb_modelgroup_create(qbModelgroup* modelgroup, struct qbModel_* model);
+QB_API void qb_modelgroup_destroy(qbModelgroup* modelgroup);
 
 // Frees from GPU.
-QB_API void qb_renderable_free(qbRenderable renderable);
+QB_API void qb_modelgroup_free(qbModelgroup modelgroup);
 
 // Updates model in RAM.
-QB_API void qb_renderable_update(qbRenderable renderable, struct qbModel_* model);
+QB_API void qb_modelgroup_update(qbModelgroup modelgroup, struct qbModel_* model);
 
 // Uploads model and material to GPU.
-QB_API void qb_renderable_upload(qbRenderable renderable, struct qbMaterial_* material);
+QB_API void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbMaterial_* material);
 
-QB_API struct qbModel_* qb_renderable_model(qbRenderable renderable);
-QB_API qbRenderGroup qb_renderable_rendergroup(qbRenderable renderable);
+QB_API struct qbModel_* qb_modelgroup_model(qbModelgroup modelgroup);
+QB_API qbRenderGroup qb_modelgroup_rendergroup(qbModelgroup modelgroup);
 
 QB_API qbComponent qb_renderable();
+QB_API qbComponent qb_modelgroup();
 QB_API qbComponent qb_material();
 QB_API qbComponent qb_transform();
 

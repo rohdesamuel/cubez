@@ -53,7 +53,7 @@ void create_main_menu() {
     return true;
   };
   window_callbacks.onclick = [](qbWindow, qbMouseButtonEvent e) {
-    std::cout << "onclick ( " << e->button << ", " << (bool)e->state << " )\n";
+    std::cout << "onclick ( " << e->button << ", " << e->state << " )\n";
     return true;
   };
   window_callbacks.onscroll = [](qbWindow window, qbMouseScrollEvent e) {
@@ -189,8 +189,8 @@ void create_game() {
   create_main_menu();
 
   {
-    qb_light_directional(0, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, -1.0f }, 0.05f);
-    qb_light_directional(1, { 0.9f, 0.9f, 1.0f }, { 0.0f, 0.0f, 1.0f }, 0.1f);
+    qb_light_directional(0, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, -1.0f }, 0.05f);
+    qb_light_directional(1, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f }, 0.1f);
     qb_light_enable(0, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
     //qb_light_enable(1, qbLightType::QB_LIGHT_TYPE_DIRECTIONAL);
   }
@@ -226,11 +226,11 @@ void create_game() {
       GLMS_MAT4_IDENTITY_INIT
     };
     
-    qbRenderable r = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
+    qbModelgroup r = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
-    qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+    qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
     qb_entityattr_addcomponent(attr, qb_material(), &material);
     qb_entityattr_addcomponent(attr, qb_transform(), &t);
     qb_entity_create(&block, attr);
@@ -246,10 +246,10 @@ void create_game() {
     };
     std::vector<vec3s> colors = {
       { 1.0, 1.0, 1.0 },
-      { 1.0, 0.0, 0.0 },
-      { 0.0, 1.0, 0.0 },
-      { 0.0, 0.0, 1.0 },
-      { 1.0, 0.0, 1.0 },
+      { 1.0, 1.0, 1.0 },
+      { 1.0, 1.0, 1.0 },
+      { 1.0, 1.0, 1.0 },
+      { 1.0, 1.0, 1.0 },
     };
 
     for (size_t i = 0; i < positions.size(); ++i) {
@@ -273,12 +273,12 @@ void create_game() {
         GLMS_MAT4_IDENTITY_INIT
       };
 
-      qbRenderable r = qb_draw_cube(1, 1, 1);
+      qbModelgroup r = qb_draw_cube(1, 1, 1);
 
       qbEntity unused;
       qbEntityAttr attr;
       qb_entityattr_create(&attr);
-      qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+      qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
       qb_entityattr_addcomponent(attr, qb_material(), &material);
       qb_entityattr_addcomponent(attr, qb_transform(), &t);
       qb_entity_create(&unused, attr);
@@ -303,12 +303,12 @@ void create_game() {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbRenderable r = qb_draw_cube(-100, -100, -100);
+    qbModelgroup r = qb_draw_cube(-100, -100, -100);
 
     qbEntity unused;
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
-    qb_entityattr_addcomponent(attr, qb_renderable(), &r);
+    qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
     qb_entityattr_addcomponent(attr, qb_material(), &material);
     qb_entityattr_addcomponent(attr, qb_transform(), &t);
     qb_entity_create(&unused, attr);
@@ -342,7 +342,7 @@ void create_game() {
       dx = (float)x * -0.001f;
       dy = (float)y * 0.001f;
 
-      float speed = 0.001f;
+      float speed = 0.5f;
       if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
         speed *= 10.0f;
       }
@@ -359,7 +359,7 @@ void create_game() {
       {
         mat4s m = camera->rotation_mat;
         m = glms_rotate(m, dx, vec3s{ 0, 0, 1 });
-        m = glms_rotate(m, dy, vec3s{ 0, 1, 0 });
+        m = glms_rotate(m, -dy, vec3s{ 0, 1, 0 });
         qb_camera_rotation(camera, m);
 
         /*cam_dis += cam_dis_dt;
@@ -376,7 +376,7 @@ void create_game() {
         } else {
           cam_dis_dt = -0.01f;
         }*/
-        vec4s dir = { speed, 0.0f, 0.0f, 1.0f };
+        vec4s dir = { -speed, 0.0f, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
@@ -389,7 +389,7 @@ void create_game() {
           cam_dis_dt = 0.01f;
         }*/
         
-        vec4s dir = { -speed, 0.0f, 0.0f, 1.0f };
+        vec4s dir = { speed, 0.0f, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
@@ -397,25 +397,25 @@ void create_game() {
       }
 
       if (qb_key_pressed(qbKey::QB_KEY_A)) {
-        vec4s dir = { 0.0f, speed, 0.0f, 1.0f };
-        qb_camera_origin(
-          camera,
-          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
-      }
-
-      if (qb_key_pressed(qbKey::QB_KEY_D)) {
         vec4s dir = { 0.0f, -speed, 0.0f, 1.0f };
         qb_camera_origin(
           camera,
           glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
       }
 
+      if (qb_key_pressed(qbKey::QB_KEY_D)) {
+        vec4s dir = { 0.0f, speed, 0.0f, 1.0f };
+        qb_camera_origin(
+          camera,
+          glms_vec3_add(camera->origin, glms_vec3(glms_mat4_mulv(camera->rotation_mat, dir))));
+      }
+
       if (qb_key_pressed(qbKey::QB_KEY_Q)) {
-        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, -0.025f, vec3s{ 1, 0, 0 }));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat, 0.025f, vec3s{ 1, 0, 0 }));
       }
 
       if (qb_key_pressed(qbKey::QB_KEY_E)) {
-        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat,  0.025f, vec3s{ 1, 0, 0 }));
+        qb_camera_rotation(camera, glms_rotate(camera->rotation_mat,  -0.025f, vec3s{ 1, 0, 0 }));
       }
 
       /*
@@ -504,6 +504,141 @@ void initialize_universe(qbUniverse* uni) {
   qb_init(uni, &uni_attr);
 }
 
+qbVar test_collision(qbVar v) {
+  qbMaterial red;
+  {
+    qbMaterialAttr_ attr = {};
+    attr.albedo = { 1.f, 0.f, 0.f };
+    qb_material_create(&red, &attr, "ball");
+  }
+
+  qbMaterial green;
+  {
+    qbMaterialAttr_ attr = {};
+    attr.albedo = { 0.f, 1.f, 0.f };
+    qb_material_create(&green, &attr, "ball");
+  }
+
+  qbCollider a, b, c;
+  qbEntity a_block, b_block, c_block;
+  {
+    qbTransform_ t = {
+      vec3s{ 0.f, 0.f, 0.f },
+      vec3s{ 2.5f, 0.f, 0.f },
+      GLMS_MAT4_IDENTITY_INIT
+    };
+
+    qbModelgroup r = qb_draw_cube(2, 2, 2);
+    a = qb_modelgroup_model(r)->colliders;
+
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &red);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&a_block, attr);
+    qb_entityattr_destroy(&attr);
+  }
+
+  {
+    qbTransform_ t = {
+      vec3s{ 0.f, 0.f, 0.f },
+      vec3s{ 0.f, 0.f, 0.f },
+      glms_euler_xyz(vec3s{ 0.f, 0.f, glm_rad(45.f) })
+    };
+
+    qbModelgroup r = qb_draw_cube(2, 2, 2);
+    b = qb_modelgroup_model(r)->colliders;
+
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &green);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&b_block, attr);
+    qb_entityattr_destroy(&attr);
+  }
+
+  {
+    qbTransform_ t = {
+      vec3s{ 0.f, 0.f, 0.f },
+      vec3s{ 0.f, 0.f, 0.f },
+      GLMS_MAT4_IDENTITY_INIT
+    };
+
+    qbModelgroup r = qb_draw_sphere(2, 50, 50);
+    c = qb_modelgroup_model(r)->colliders;
+
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
+    qb_entityattr_addcomponent(attr, qb_material(), &green);
+    qb_entityattr_addcomponent(attr, qb_transform(), &t);
+    qb_entity_create(&c_block, attr);
+    qb_entityattr_destroy(&attr);
+  }
+
+  float rot = 0.f;
+  float dis = 10.f;
+  while (true) {
+    qbTransform a_t, b_t, c_t;
+    qb_instance_find(qb_transform(), a_block, &a_t);
+    qb_instance_find(qb_transform(), b_block, &b_t);
+    qb_instance_find(qb_transform(), c_block, &c_t);
+
+    a_t->orientation = glms_euler_xyz(vec3s{ 0.f, glm_rad(rot), 0.f });
+    b_t->orientation = glms_euler_xyz(vec3s{ 0.f, 0.f, glm_rad(1.5f * rot) });
+
+    qbMaterial* material;
+    qb_instance_find(qb_material(), a_block, &material);
+    if (qb_collider_check(a, b, a_t, b_t)) {
+      (*material)->albedo = { 1.f, 0.0f, 0.f };
+    } else {
+      (*material)->albedo = { 0.f, 1.f, 0.f };
+    }
+
+    int mouse_x, mouse_y;
+    qb_mouse_position(&mouse_x, &mouse_y);
+    vec3s mouse_dir = qb_camera_screentoworld(qb_camera_active(), { (float)mouse_x, (float)mouse_y });
+    qbRay_ mouse_ray{ qb_camera_active()->origin, mouse_dir };
+
+    c_t->position = glms_vec3_add(qb_camera_active()->origin, glms_vec3_scale(mouse_dir, dis));
+
+    int scroll_x, scroll_y;
+    qb_mouse_wheel(&scroll_x, &scroll_y);
+    dis += (float)scroll_y;
+
+    if (qb_collider_checkray(a, a_t, &mouse_ray)) {
+      (*material)->albedo = { 1.f, 0.0f, 0.f };
+    } else {
+      (*material)->albedo = { 0.f, 1.f, 0.f };
+    }
+
+    rot += 0.1f;
+    
+    if (1)
+    {
+      qbComponent components[] = {
+        qb_transform(),
+        qb_material()
+      };
+
+      qb_system_foreach(components, 2, qbNone, [](qbInstance* insts, qbVar) {
+        qbTransform transform;
+        qbMaterial material;
+
+        qb_instance_mutable(insts[0], &transform);
+        qb_instance_mutable(insts[1], &material);
+
+        transform->position.x += 0.01f;
+      });
+    }
+
+    //qb_coro_waitframes(1);
+    qb_coro_wait(0.01);
+  }
+}
+
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni = {};
@@ -512,6 +647,8 @@ int main(int, char* []) {
   create_game();
 
   qb_mouse_setrelative(1);
+
+  qb_coro_sync(test_collision, qbNone);
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

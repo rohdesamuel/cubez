@@ -18,54 +18,16 @@
 
 #include "collision_utils.h"
 #include "gjk.h"
+#include "simplex.h"
 
 #include <algorithm>
 #include <iostream>
 #include <cglm/struct/vec3.h>
 #include <assert.h>
 
-class Simplex {
-public:
-  Simplex() {}
-  size_t Size() const;
-  void Add(vec3s p);
-  void Remove(vec3s p);
+#include <reactphysics3d/reactphysics3d.h>
 
-  vec3s Last() {
-    return points_.front();
-  };
-
-  vec3s& operator[](size_t i);
-  const vec3s& operator[](size_t i) const;
-
-private:
-  std::vector<vec3s> points_;
-};
-
-size_t Simplex::Size() const {
-  return points_.size();
-}
-
-void Simplex::Add(vec3s p) {
-  points_.push_back(std::move(p));
-  std::swap(points_.front(), points_.back());
-}
-
-void Simplex::Remove(vec3s p) {
-  auto it = std::find_if(points_.begin(), points_.end(),
-                         [&p](const vec3s& point) { return glms_vec3_eqv(p, point); });
-  std::swap(*it, points_.back());
-  points_.pop_back();
-}
-
-vec3s& Simplex::operator[](size_t i) {
-  return points_[i];
-}
-
-const vec3s& Simplex::operator[](size_t i) const {
-  return points_[i];
-}
-
+#if 0
 namespace {
 
 vec3s Support(const vec3s& a_origin, const vec3s& b_origin,
@@ -73,12 +35,12 @@ vec3s Support(const vec3s& a_origin, const vec3s& b_origin,
   // d is a vector direction (doesn't have to be normalized)
   // get points on the edge of the shapes in opposite directions
   vec3s p1 = {};
-  qb_collider_farthest(shape1, d);
+  qb_collider_support(shape1, d);
   p1 = glms_vec3_add(a_origin, p1);
 
   vec3s p2 = {};
   vec3s neg_d = glms_vec3_negate(d);
-  qb_collider_farthest(shape2, neg_d);
+  qb_collider_support(shape2, neg_d);
   p2 = glms_vec3_add(b_origin, p2);
 
   // perform the Minkowski Difference
@@ -110,18 +72,18 @@ bool ContainsOrigin(Simplex* s, vec3s* dir) {
     // is the origin in R4
     if (glms_vec3_dot(cbPerp, ao) > 0) {
       // remove point d
-      s->Remove(d);
+      s->Remove(std::move(d));
       // set the new direction to abPerp
       *dir = cbPerp;
     } else if (glms_vec3_dot(dcPerp, ao) > 0) {
       // remove point b
-      s->Remove(b);
+      s->Remove(std::move(b));
       // set the new direction to abPerp
       *dir = dcPerp;
     } else if (glms_vec3_dot(bdPerp, ao) > 0) {
       // is the origin in R3
       // remove point c
-      s->Remove(c);
+      s->Remove(std::move(c));
       // set the new direction to acPerp
       *dir = bdPerp;
     } else {
@@ -166,6 +128,8 @@ bool CollidesWith(const vec3s& a_origin, const qbCollider_* a,
   return false;
 }
 
+// https://stackoverflow.com/questions/6554313/algorithm-for-determining-whether-a-point-is-inside-a-3d-mesh
+// https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
 bool CollidesWith(const vec3s& a_origin, const qbCollider_* a,
                   const qbRay_* r) {
   // https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
@@ -261,3 +225,4 @@ bool CheckGjk(const vec3s& a_origin, const vec3s& b_origin,
 }
 
 }
+#endif

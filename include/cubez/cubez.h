@@ -528,6 +528,9 @@ QB_API qbResult      qb_system_disable(qbSystem system);
 // Unimplemented.
 QB_API qbResult      qb_system_run(qbSystem system);
 
+QB_API qbResult      qb_system_foreach(qbComponent* components, size_t component_count,
+                                       qbVar state, void(*fn)(qbInstance*, qbVar));
+
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
 ///////////////////////////////////////////////////////////

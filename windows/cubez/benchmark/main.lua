@@ -10,7 +10,7 @@ function qb.start(width, height)
     { y = 'number' },
   })
 
-  for i=1, 100000 do
+  for i=1, 1 do
     qb.entity_create({
       Position:new{ x=0, y=0, t={a=100} },
       Velocity:new{ x=1, y=0 },

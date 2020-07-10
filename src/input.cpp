@@ -36,6 +36,9 @@ std::unordered_map<int, bool> mouse_states;
 int mouse_x;
 int mouse_y;
 
+int mouse_dx;
+int mouse_dy;
+
 int wheel_x;
 int wheel_y;
 
@@ -219,6 +222,8 @@ void save_key_state(qbKey key, qbScanCode scan_code, bool state) {
 void qb_handle_input(void(*shutdown_handler)()) {
   SDL_Event e;
 
+  SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
+
   // Reset the scroll wheel when it stops moving.
   bool wheel_updated = false;
   while (SDL_PollEvent(&e)) {
@@ -328,7 +333,8 @@ void qb_mouse_position(int* x, int* y) {
 }
 
 void qb_mouse_relposition(int* relx, int* rely) {
-  SDL_GetRelativeMouseState(relx, rely);
+  *relx = mouse_dx;
+  *rely = mouse_dy;  
 }
 
 int qb_mouse_setrelative(int enabled) {

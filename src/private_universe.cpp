@@ -209,6 +209,39 @@ qbResult PrivateUniverse::disable_system(qbSystem system) {
   return ProgramImpl::FromRaw(p)->DisableSystem(system);
 }
 
+qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t component_count,
+                                         qbVar var, void(*fn)(qbInstance*, qbVar)) {
+  qbSystemAttr_ attr = {};
+
+  qb_systemattr_setjoin(&attr, QB_JOIN_LEFT);
+
+  std::vector<qbComponent> components_v;
+  components_v.reserve(component_count);
+
+  for (size_t i = 0; i < component_count; ++i) {
+    qb_systemattr_addmutable(&attr, components[i]);
+    components_v.push_back(components[i]);
+  }
+
+  struct ForEachState {
+    void(*fn)(qbInstance*, qbVar);
+    qbVar var;
+  };
+
+  ForEachState state{ fn, var };
+
+  qb_systemattr_setuserstate(&attr, &state);
+  qb_systemattr_setfunction(&attr, [](qbInstance* insts, qbFrame* frame) {
+    ForEachState* state = (ForEachState*)frame->state;
+    state->fn(insts, state->var);
+  });
+
+  SystemImpl s(attr, nullptr, components_v);
+  s.Run(active_->state);
+
+  return QB_OK;
+}
+
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
   qbProgram* p = programs_->GetProgram(attr->program);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);

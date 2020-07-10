@@ -117,7 +117,7 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_
     }
 
     float verts[] = {
-      // Positions        // Colors          // UVs
+      // Positions  // Colors          // UVs
       l, t, 0.0f,   1.0f, 0.0f, 0.0f,  txl, txt,
       r, t, 0.0f,   0.0f, 1.0f, 0.0f,  txr, txt,
       r, b, 0.0f,   0.0f, 0.0f, 1.0f,  txr, txb,

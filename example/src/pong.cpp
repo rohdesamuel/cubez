@@ -153,7 +153,7 @@ void Initialize(Settings settings) {
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
-    //qb_entityattr_addcomponent(attr, qb_renderable(), qb_draw_rect(128, 16));
+    //qb_entityattr_addcomponent(attr, qb_modelgroup(), qb_draw_rect(128, 16));
     //qb_entityattr_addcomponent(attr, qb_material(), &material);
     //qb_entityattr_addcomponent(attr, qb_transform(), &t);
     qb_entity_create(&top_paddle, attr);
@@ -170,7 +170,7 @@ void Initialize(Settings settings) {
 
     qbEntityAttr attr;
     attr.components = {
-      { qb_renderable, qb_draw_rect(128, 16) },
+      { qb_modelgroup, qb_draw_rect(128, 16) },
       { qb_material, material },
       { qb_transform, nullptr }
     };

@@ -32,7 +32,7 @@ class SystemImpl {
 
   static SystemImpl* FromRaw(qbSystem system);
 
-  void Run(GameState* game_state, void* event = nullptr);
+  void Run(GameState* game_state, void* event=nullptr);
 
   qbInstance_ FindInstance(qbEntity entity, Component* component, GameState* state);
 

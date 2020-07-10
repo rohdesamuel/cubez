@@ -78,7 +78,7 @@ std::pair<qbTag, size_t> parse_type_string(const std::string& s) {
   if (s == "number") {
     return { QB_TAG_DOUBLE, sizeof(double) };
   } else if (s == "boolean") {
-    return{ (qbTag)QB_TAG_LUA_BOOLEAN, sizeof(bool) };
+    return{ (qbTag)QB_TAG_LUA_BOOLEAN, sizeof(int) };
   } else if (s.rfind("string", 0) == 0) {
     return{ QB_TAG_STRING, sizeof(char*) };
   } else if (s.rfind("bytes", 0) == 0) {
@@ -264,7 +264,7 @@ static int entity_create(lua_State* L) {
       size_t size = 0;
 
       if (lua_isnumber(L, -2)) {
-        int key = lua_tointeger(L, -2);
+        int64_t key = lua_tointeger(L, -2);
         type = schema->fields[key - 1].tag;
         offset = schema->fields[key - 1].offset;
         size = schema->fields[key - 1].size;
@@ -286,7 +286,7 @@ static int entity_create(lua_State* L) {
 
         case QB_TAG_LUA_BOOLEAN:
         {
-          bool b = (bool)lua_toboolean(L, -1);
+          int b = lua_toboolean(L, -1);
           memcpy(entity_buf + offset, &b, size);
           break;
         }
@@ -340,7 +340,7 @@ static int entity_create(lua_State* L) {
     return false;
   });
 
-  lua_pushnumber(L, entity);
+  lua_pushinteger(L, entity);
   return 1;
 }
 
@@ -363,7 +363,7 @@ static int system_create(lua_State* L) {
 
     fn->components.push_back(component);
 
-    lua_createtable(L, schema->fields.size(), schema->fields.size());
+    lua_createtable(L, (int)schema->fields.size(), (int)schema->fields.size());
     for (const auto& f : schema->fields) {
       lua_pushnil(L);
       lua_setfield(L, -2, f.key.c_str());
@@ -396,7 +396,7 @@ static int system_create(lua_State* L) {
           switch (field.tag) {
             case QB_TAG_LUA_BOOLEAN:
             {
-              int b = *(bool*)(buf + field.offset);
+              int b = *(int*)(buf + field.offset);
               lua_pushboolean(f->l, b);
               break;
             }
@@ -453,7 +453,7 @@ static int system_create(lua_State* L) {
             case QB_TAG_LUA_BOOLEAN:
             {
               int b = lua_toboolean(f->l, -1);
-              *(bool*)(buf + field.offset) = (bool)b;
+              *(int*)(buf + field.offset) = b;
               break;
             }
 

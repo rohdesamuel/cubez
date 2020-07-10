@@ -35,6 +35,7 @@
 #include "network_impl.h"
 #include "lua_bindings.h"
 
+
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
 const qbVar qbNone = { QB_TAG_PTR, 0 };
@@ -477,6 +478,11 @@ qbResult qb_system_create(qbSystem* system, qbSystemAttr attr) {
 
 qbResult qb_system_destroy(qbSystem*) {
 	return qbResult::QB_OK;
+}
+
+qbResult qb_system_foreach(qbComponent* components, size_t component_count,
+                           qbVar state, void(*fn)(qbInstance*, qbVar)) {
+  return AS_PRIVATE(foreach_system(components, component_count, state, fn));
 }
 
 qbResult qb_eventattr_create(qbEventAttr* attr) {
