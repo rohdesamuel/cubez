@@ -1154,6 +1154,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     attr.shader = shader_module;
     attr.viewport_scale = 1.0f;
     attr.clear = clear;
+    attr.cull = QB_CULL_BACK;
 
     qb_renderpass_create(&ret->scene_3d_pass, &attr);
   }
@@ -1177,7 +1178,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qb_instance_const(insts[1], &material);
       qb_instance_mutable(insts[2], &transform);
 
-      qb_modelgroup_upload(*modelgroup, *material);
+      qb_modelgroup_upload(*modelgroup, nullptr, *material);
       qbRenderGroup group = qb_modelgroup_rendergroup(*modelgroup);
       qbGpuBuffer model_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->model_uniform);
       qbGpuBuffer material_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->material_uniform);

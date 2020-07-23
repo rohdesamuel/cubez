@@ -204,7 +204,7 @@ typedef struct qbTransform_ {
   mat4s orientation;
 } qbTransform_, *qbTransform;
 
-QB_API void qb_modelgroup_create(qbModelgroup* modelgroup, struct qbModel_* model);
+QB_API void qb_modelgroup_create(qbModelgroup* modelgroup);
 QB_API void qb_modelgroup_destroy(qbModelgroup* modelgroup);
 
 // Frees from GPU.
@@ -214,9 +214,9 @@ QB_API void qb_modelgroup_free(qbModelgroup modelgroup);
 QB_API void qb_modelgroup_update(qbModelgroup modelgroup, struct qbModel_* model);
 
 // Uploads model and material to GPU.
-QB_API void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbMaterial_* material);
+QB_API void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbModel_* model,
+                                 struct qbMaterial_* material);
 
-QB_API struct qbModel_* qb_modelgroup_model(qbModelgroup modelgroup);
 QB_API qbRenderGroup qb_modelgroup_rendergroup(qbModelgroup modelgroup);
 
 QB_API qbComponent qb_renderable();

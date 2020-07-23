@@ -41,8 +41,9 @@ typedef struct qbSurface_* qbSurface;
 // defining a struct with the qbRenderExt_ as the first member. A pointer to
 // the new struct is compatible with the qbRenderExt type.
 typedef struct qbRenderExt_ {
-  qbRenderExt_* next;
+  struct qbRenderExt_* next;
   const char* name;
+  void* ext;
 } qbRenderExt_, *qbRenderExt;
 
 typedef enum {
@@ -122,7 +123,6 @@ typedef struct {
 
 // name = "qbPixelAlignmentOglExt_"
 typedef struct qbPixelAlignmentOglExt_ {
-  qbRenderExt_ ext;
   char alignment;
 } qbPixelAlignmentOglExt_;
 
@@ -343,7 +343,7 @@ typedef struct qbRenderGroupAttr_ {
 QB_API void qb_shadermodule_create(qbShaderModule* shader, qbShaderModuleAttr attr);
 QB_API void qb_shadermodule_destroy(qbShaderModule* shader);
 QB_API void qb_shadermodule_attachuniforms(qbShaderModule module, size_t count,
-                                    uint32_t bindings[], qbGpuBuffer uniforms[]);
+                                           uint32_t bindings[], qbGpuBuffer uniforms[]);
 
 // Attaches the samplers to the given module to inform the graphics driver how
 // to sample a given texture. The given samplers must have a corresponding
@@ -381,6 +381,7 @@ QB_API uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer);
 QB_API void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr);
 QB_API void qb_renderpass_destroy(qbRenderPass* render_pass);
 QB_API void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
+QB_API void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, size_t count, qbRenderGroup* groups);
 QB_API const char* qb_renderpass_name(qbRenderPass render_pass);
 QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
 
@@ -453,6 +454,11 @@ QB_API size_t qb_rendergroup_images(qbRenderGroup buffer, qbImage** images);
 QB_API size_t qb_rendergroup_uniforms(qbRenderGroup buffer, qbGpuBuffer** uniforms);
 
 QB_API qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name);
+QB_API void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void* data);
+
+// Frees the extensions linked list without freeing the underlying user data.
+// It is assumed that the extension data is statically defined.
+QB_API void qb_renderext_destroy(qbRenderExt* extensions);
 
 QB_API void qb_surface_create(qbSurface* surface, qbSurfaceAttr attr);
 QB_API void qb_surface_destroy(qbSurface* surface);

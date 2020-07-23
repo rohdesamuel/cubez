@@ -46,17 +46,35 @@
 #define CHECK_GL()
 #endif
 
-struct qbModelgroup_* qb_model_load(const char* model_name, const char* filename) {
+qbModel qb_model_load(const char* model_name, const char* filename) {
   MeshBuilder builder = MeshBuilder::FromFile(filename);
-  qbModelgroup_* ret;
-  qb_modelgroup_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  return builder.Model(qbRenderFaceType_::QB_TRIANGLES);
+}
+
+struct qbModelgroup_* qb_model_upload(qbModel model) {
+  qbModelgroup ret;
+  qb_modelgroup_create(&ret);
+  qb_modelgroup_upload(ret, model, nullptr);
   return ret;
+}
+
+void qb_model_create(qbModel* model_ref) {
+  qbModel model = *model_ref = new qbModel_;
+  model->colliders = nullptr;
+  model->collider_count = 0;
+  model->meshes = nullptr;
+  model->mesh_count = 0;
+  model->name = "";
 }
 
 void qb_model_destroy(qbModel* model) {
   qbModel m = *model;
-  delete[] m->meshes;
-  delete[] m->colliders;
+  if (m->meshes) {
+    delete[] m->meshes;
+  }
+  if (m->colliders) {
+    delete[] m->colliders;
+  }
   delete *model;
   *model = nullptr;
 }
@@ -72,8 +90,21 @@ qbResult qb_mesh_tobuffer(qbMesh mesh, qbMeshBuffer* buffer) {
   return QB_OK;
 }
 
-qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_namem) {
+qbResult qb_mesh_destroy(qbMesh* mesh) {
+  delete[](*mesh)->vertices;
+  delete[](*mesh)->indices;
+  delete[](*mesh)->normals;
+  delete[](*mesh)->uvs;
+  delete *mesh;
+  *mesh = nullptr;
+  return QB_OK;
+}
+
+qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_name) {
   qbMaterial m = *material = new qbMaterial_;
+  m->name = STRDUP(material_name);
+  m->ext = attr->ext;
+
   m->albedo_map = attr->albedo_map;
   m->normal_map = attr->normal_map;
   m->metallic_map = attr->metallic_map;
@@ -103,6 +134,8 @@ qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const cha
 
 qbResult qb_material_destroy(qbMaterial* material) {
   qbMaterial m = *material;
+  qb_renderext_destroy(&(*material)->ext);
+
   delete[] m->images;
   delete[] m->image_units;
   delete[] m->uniforms;
@@ -166,8 +199,8 @@ bool qb_collider_checkaabb(const qbCollider_* a, const qbCollider_* b,
     a_t->position.z + a->max.z >= b_t->position.z + b->min.z;
 }
 
-bool ray_intersects_triangle(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
-                             vec3s* intersection_point) {
+bool qb_ray_checktri(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
+                     vec3s* intersection_point, float* dis) {
   const float EPSILON = 0.0000001f;
 
   vec3s edge1, edge2, h, s, q;
@@ -191,6 +224,7 @@ bool ray_intersects_triangle(const qbRay_* ray, const vec3s* v0, const vec3s* v1
   float t = f * glms_vec3_dot(edge2, q);
   if (t > EPSILON) { // ray intersection
     *intersection_point = glms_vec3_add(ray->orig, glms_vec3_scale(ray->dir, t));
+    *dis = t;
     return true;
   } else {
     // This means that there is a line intersection but not a ray intersection.
@@ -380,23 +414,44 @@ bool qb_collider_checkray(const qbCollider_* c, const qbTransform_* t, const qbR
   return ray_intersects_aabb(c, t, r);
 }
 
-struct qbModelgroup_* qb_draw_cube(float size_x, float size_y, float size_z) {
+struct qbModelgroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Box(size_x, size_y, size_z);
   qbModelgroup_* ret;
-  qb_modelgroup_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  qb_modelgroup_create(&ret);
+  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
+  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+
+  if (collider) {
+    *collider = builder.Collider(&model->meshes[0]);
+  }
+  qb_model_destroy(&model);
   return ret;
 }
 
-struct qbModelgroup_* qb_draw_rect(float w, float h) {
+struct qbModelgroup_* qb_draw_rect(float w, float h, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Rect(w, h);
   qbModelgroup_* ret;
-  qb_modelgroup_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  qb_modelgroup_create(&ret);
+  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
+  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+
+  if (collider) {
+    *collider = builder.Collider(&model->meshes[0]);
+  }
+  qb_model_destroy(&model);
   return ret;
 }
 
-struct qbModelgroup_* qb_draw_sphere(float radius, int slices, int zslices) {
+struct qbModelgroup_* qb_draw_sphere(float radius, int slices, int zslices, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Sphere(radius, slices, zslices);
   qbModelgroup_* ret;
-  qb_modelgroup_create(&ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES));
+  qb_modelgroup_create(&ret);
+  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
+  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+
+  if (collider) {
+    *collider = builder.Collider(&model->meshes[0]);
+  }
+  qb_model_destroy(&model);
   return ret;
 }

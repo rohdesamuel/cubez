@@ -49,6 +49,8 @@
 typedef struct qbRenderPipeline_ {
   std::vector<qbRenderPass> render_passes;
   qbRenderPass present_pass;
+
+  qbRenderExt ext;
 } qbRenderPipeline_;
 
 typedef struct qbFrameBuffer_ {
@@ -156,7 +158,7 @@ typedef struct qbRenderPass_ {
   float viewport_scale;
 
   qbClearValue_ clear;
-
+  qbCullFace cull;
 } qbRenderPass_;
 
 typedef struct qbRenderGroup_ {
@@ -392,7 +394,8 @@ qbPixelFormat qb_pixelmap_format(qbPixelMap pixels) {
 
 void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr pipeline_attr) {
   *pipeline = new qbRenderPipeline_;
-  
+  (*pipeline)->ext = pipeline_attr->ext;
+
   // Create the presentation pass.
   {
     qbVertexAttribute_ attributes[2] = {};
@@ -470,6 +473,7 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       clear.attachments = QB_COLOR_ATTACHMENT;
 
       attr.clear = clear;
+      attr.cull = QB_CULL_BACK;
 
       qb_renderpass_create(&(*pipeline)->present_pass, &attr);
     }
@@ -533,6 +537,7 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
 }
 
 void qb_renderpipeline_destroy(qbRenderPipeline* pipeline) {
+  qb_renderext_destroy(&(*pipeline)->ext);
   delete *pipeline;
   *pipeline = nullptr;
 }
@@ -673,6 +678,7 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
 
 void qb_gpubuffer_destroy(qbGpuBuffer* buffer) {
   free((void*)(*buffer)->name);
+  qb_renderext_destroy(&(*buffer)->ext);
   glDeleteBuffers(1, &(*buffer)->id);
   delete[] (*buffer)->data;
   delete *buffer;
@@ -740,6 +746,7 @@ void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
 
 void qb_meshbuffer_destroy(qbMeshBuffer* buffer_ref) {
   free((void*)(*buffer_ref)->name);
+  qb_renderext_destroy(&(*buffer_ref)->ext);
   glDeleteVertexArrays(1, &(*buffer_ref)->id);
 
   delete[](*buffer_ref)->descriptor.bindings;
@@ -897,6 +904,7 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   render_pass->viewport_scale = attr->viewport_scale;
   render_pass->shader_program = attr->shader;
   render_pass->clear = attr->clear;
+  render_pass->cull = attr->cull;
   render_pass->name = STRDUP(attr->name);
   render_pass->ext = attr->ext;
   render_pass->viewport = attr->viewport;
@@ -915,6 +923,7 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
 
 void qb_renderpass_destroy(qbRenderPass* render_pass) {
   free((void*)(*render_pass)->name);
+  qb_renderext_destroy(&(*render_pass)->ext);
   delete[](*render_pass)->supported_geometry.attributes;
   delete[](*render_pass)->supported_geometry.bindings;
 
@@ -989,11 +998,36 @@ void qb_renderpass_update(qbRenderPass render_pass, size_t count, qbRenderGroup*
 }
 
 void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer) {
+  qb_renderpass_drawto(render_pass, frame_buffer, render_pass->groups.size(), render_pass->groups.data());
+}
+
+void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, size_t count, qbRenderGroup* groups) {
   if (frame_buffer) {
     glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
-    glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
-    glEnable(GL_CULL_FACE);
+
+    switch (render_pass->cull) {
+      case QB_CULL_NONE:
+        glDisable(GL_CULL_FACE);
+        break;
+
+      case QB_CULL_BACK:
+        glCullFace(GL_BACK);
+        break;
+
+      case QB_CULL_FRONT:
+        glCullFace(GL_BACK);
+        break;
+
+      case QB_CULL_FRONT_BACK:
+        glCullFace(GL_FRONT_AND_BACK);
+        break;
+    }
+
+    if (render_pass->cull) {
+      glEnable(GL_CULL_FACE);
+    }
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
@@ -1042,31 +1076,33 @@ void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer) {
     CHECK_GL();
   }
 
-  for (auto group : render_pass->groups) {
+  for (size_t i = 0; i < count; ++i) {
+    qbRenderGroup group = groups[i];
+
     // Bind textures.
-    for (size_t i = 0; i < group->images.size(); ++i) {
+    for (size_t j = 0; j < group->images.size(); ++j) {
       uint32_t image_id = 0;
       uint32_t offset = 0;
-      uint32_t buffer_binding = group->sampler_bindings[i];
+      uint32_t buffer_binding = group->sampler_bindings[j];
       qbImageType type = qbImageType::QB_IMAGE_TYPE_1D;
-      for (size_t j = 0; j < render_pass->shader_program->samplers_count; ++j) {
-        uint32_t module_binding = render_pass->shader_program->sampler_bindings[j];
+      for (size_t k = 0; k < render_pass->shader_program->samplers_count; ++k) {
+        uint32_t module_binding = render_pass->shader_program->sampler_bindings[k];
         if (module_binding == buffer_binding) {
-          image_id = group->images[i]->id;
-          type = group->images[i]->type;
-          offset = (uint32_t)j;
+          image_id = group->images[j]->id;
+          type = group->images[j]->type;
+          offset = (uint32_t)k;
           break;
         }
       }
-      
+
       glActiveTexture((GLenum)(GL_TEXTURE0 + offset));
       glBindTexture(TranslateQbImageTypeToOpenGl(type), (GLuint)image_id);
     }
 
     // Bind uniform blocks for this group.
-    for (size_t i = 0; i < group->uniforms.size(); ++i) {
-      qbGpuBuffer uniform = group->uniforms[i];
-      uint32_t binding = group->uniform_bindings[i];
+    for (size_t j = 0; j < group->uniforms.size(); ++j) {
+      qbGpuBuffer uniform = group->uniforms[j];
+      uint32_t binding = group->uniform_bindings[j];
       glBindBufferBase(GL_UNIFORM_BUFFER, binding, uniform->id);
     }
     for (auto mesh : group->meshes) {
@@ -1127,9 +1163,9 @@ void qb_image_create(qbImage* image_ref, qbImageAttr attr, qbPixelMap pixel_map)
   int stored_alignment;
   glGetIntegerv(GL_UNPACK_ALIGNMENT, &stored_alignment);
 
-  qbRenderExt ext = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
-  if (ext) {
-    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)ext;
+  qbRenderExt found = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
+  if (found) {
+    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)found->ext;
     glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
   }
 
@@ -1171,9 +1207,9 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
   int stored_alignment;
   glGetIntegerv(GL_UNPACK_ALIGNMENT, &stored_alignment);
 
-  qbRenderExt ext = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
-  if (ext) {
-    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)ext;
+  qbRenderExt found = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
+  if (found) {
+    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)found->ext;
     glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
   }
 
@@ -1198,6 +1234,7 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
 
 void qb_image_destroy(qbImage* image) {
   free((void*)(*image)->name);
+  qb_renderext_destroy(&(*image)->ext);
   delete *image;
   *image = nullptr;
 }
@@ -1260,9 +1297,9 @@ void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data) {
 
   int stored_alignment;
   glGetIntegerv(GL_UNPACK_ALIGNMENT, &stored_alignment);
-  qbRenderExt ext = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
-  if (ext) {
-    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)ext;
+  qbRenderExt found = qb_renderext_find(image->ext, "qbPixelAlignmentOglExt_");
+  if (found) {
+    qbPixelAlignmentOglExt_* u_ext = (qbPixelAlignmentOglExt_*)found->ext;
     glPixelStorei(GL_UNPACK_ALIGNMENT, u_ext->alignment);
   }
 
@@ -1330,9 +1367,12 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   glGenFramebuffers(1, &frame_buffer_id);
   frame_buffer->id = frame_buffer_id;
   frame_buffer->attr = *attr;
-  frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
-  memcpy(frame_buffer->attr.color_binding, attr->color_binding,
-         frame_buffer->attr.attachments_count * sizeof(uint32_t));
+  
+  if (attr->color_binding) {
+    frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
+    memcpy(frame_buffer->attr.color_binding, attr->color_binding,
+           frame_buffer->attr.attachments_count * sizeof(uint32_t));
+  }
 
   frame_buffer->attr.attachments = new qbFrameBufferAttachment[frame_buffer->attr.attachments_count];
   memcpy(frame_buffer->attr.attachments, attr->attachments,
@@ -1343,7 +1383,6 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   CHECK_GL();
 
   std::vector<qbImage> draw_buffers;
-  std::vector<qbImage> buffers;
 
   uint32_t color_binding_idx = 0;
   for (size_t i = 0; i < attr->attachments_count; ++i) {
@@ -1355,17 +1394,16 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
 
     qbImage maybe_buffer = qb_framebuffer_createbuffer(attachment, attr->width, attr->height);
     if (maybe_buffer) {
-      if (attachment & QB_DEPTH_STENCIL_ATTACHMENT) {
+      if (attachment & QB_DEPTH_STENCIL_ATTACHMENT && !frame_buffer->depthstencil_target) {
         frame_buffer->depthstencil_target = maybe_buffer;
       } else {
-        if (attachment & QB_DEPTH_ATTACHMENT) {
+        if (attachment & QB_DEPTH_ATTACHMENT && !frame_buffer->depth_target) {
           frame_buffer->depth_target = maybe_buffer;
         }
-        if (attachment & QB_STENCIL_ATTACHMENT) {
+        if (attachment & QB_STENCIL_ATTACHMENT && !frame_buffer->stencil_target) {
           frame_buffer->stencil_target = maybe_buffer;
         }
       }
-      buffers.push_back(maybe_buffer);
     }
   }
 
@@ -1376,6 +1414,9 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
     }
     glDrawBuffers((GLsizei)attr->attachments_count, draw_buffers_bindings);
     CHECK_GL();
+  } else {
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
   }
 
   frame_buffer->render_targets = std::move(draw_buffers);
@@ -1386,6 +1427,7 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
     FATAL("Error creating FBO: " << result);
   }
   CHECK_GL();
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void qb_framebuffer_clear(qbFrameBuffer frame_buffer) {
@@ -1403,7 +1445,7 @@ void qb_framebuffer_clear(qbFrameBuffer frame_buffer) {
 }
 
 void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) {
-  *frame_buffer = new qbFrameBuffer_;
+  *frame_buffer = new qbFrameBuffer_{};
   qb_framebuffer_init(*frame_buffer, attr);
 }
 
@@ -1505,6 +1547,28 @@ qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name) {
     extensions = extensions->next;
   }
   return extensions;
+}
+
+void qb_renderext_destroy(qbRenderExt* extensions) {
+  if (!extensions) {
+    return;
+  }
+
+  qbRenderExt next = *extensions;
+  while (next) {
+    qbRenderExt to_delete = next;
+    next = (*extensions)->next;
+    delete to_delete;
+  }
+}
+
+void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void* data) {
+  qbRenderExt new_ext = new qbRenderExt_;
+  new_ext->next = *extensions;
+  new_ext->name = ext_name;
+  new_ext->ext = data;
+
+  *extensions = new_ext;
 }
 
 void qb_rendergroup_create(qbRenderGroup* group, qbRenderGroupAttr attr) {
@@ -1821,6 +1885,7 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
       attr.shader = shader_module;
       attr.viewport = { 0.0f, 0.0f, (float)surface_attr->width, (float)surface_attr->height };
       attr.viewport_scale = 1.0f;
+      attr.cull = QB_CULL_BACK;
 
       qbClearValue_ clear;
       clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT);
