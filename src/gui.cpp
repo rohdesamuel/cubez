@@ -385,6 +385,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.shader = shader_module;
     attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
+    attr.cull = QB_CULL_BACK;
 
     qbClearValue_ clear;
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
