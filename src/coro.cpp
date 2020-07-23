@@ -60,7 +60,7 @@
 * overhead per call, 256 calls = 1024. If stack allocation is performed,
 * this will need to be increased.
 */
-#define STACK_TGROW (1 << 10)
+#define STACK_TGROW (1 << 12)
 #define STACK_DEFAULT sizeof(intptr_t) * STACK_TGROW
 #define STACK_TSHRINK 2 * STACK_DEFAULT
 #define STACK_ADJ STACK_DEFAULT
