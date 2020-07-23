@@ -29,8 +29,6 @@ FontRegistry::FontRegistry() {
     FATAL("Could not initialize FreeType");
   }
 
-  alignment_ext.ext = {};
-  alignment_ext.ext.name = "qbPixelAlignmentOglExt_";
   alignment_ext.alignment = 1;
 }
 
@@ -93,7 +91,8 @@ Font::Font(FT_Face face, const char* font_name): font_name_(font_name) {
   qbImageAttr_ atlas = {};
   atlas.name = font_name;
   atlas.type = QB_IMAGE_TYPE_2D;
-  atlas.ext = (qbRenderExt)&alignment_ext;
+  qb_renderext_add(&atlas.ext, "qbPixelAlignmentOglExt_", &alignment_ext);
+
   qb_image_raw(&font_atlas_, &atlas, QB_PIXEL_FORMAT_R8, w, h, nullptr);
 
   int x = 0;
