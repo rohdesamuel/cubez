@@ -226,7 +226,8 @@ void create_game() {
       GLMS_MAT4_IDENTITY_INIT
     };
     
-    qbModelgroup r = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
+    qbModel model = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
+    qbModelgroup r = qb_model_upload(model);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -273,7 +274,7 @@ void create_game() {
         GLMS_MAT4_IDENTITY_INIT
       };
 
-      qbModelgroup r = qb_draw_cube(1, 1, 1);
+      qbModelgroup r = qb_draw_cube(1, 1, 1, nullptr);
 
       qbEntity unused;
       qbEntityAttr attr;
@@ -303,7 +304,7 @@ void create_game() {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_cube(-100, -100, -100);
+    qbModelgroup r = qb_draw_cube(-100, -100, -100, nullptr);
 
     qbEntity unused;
     qbEntityAttr attr;
@@ -528,8 +529,7 @@ qbVar test_collision(qbVar v) {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_cube(2, 2, 2);
-    a = qb_modelgroup_model(r)->colliders;
+    qbModelgroup r = qb_draw_cube(2, 2, 2, &a);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -547,8 +547,7 @@ qbVar test_collision(qbVar v) {
       glms_euler_xyz(vec3s{ 0.f, 0.f, glm_rad(45.f) })
     };
 
-    qbModelgroup r = qb_draw_cube(2, 2, 2);
-    b = qb_modelgroup_model(r)->colliders;
+    qbModelgroup r = qb_draw_cube(2, 2, 2, &b);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -566,8 +565,7 @@ qbVar test_collision(qbVar v) {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_sphere(2, 50, 50);
-    c = qb_modelgroup_model(r)->colliders;
+    qbModelgroup r = qb_draw_sphere(2, 50, 50, &c);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
