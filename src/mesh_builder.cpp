@@ -188,6 +188,10 @@ qbResult process_line(MeshBuilder* builder, const std::string& line) {
 
 }
 
+struct qbMeshBuilder_ {
+  MeshBuilder builder;
+};
+
 MeshBuilder MeshBuilder::FromFile(const std::string& filename) {
   std::ifstream file;
   file.open(filename, std::ios::in);
@@ -246,6 +250,26 @@ int MeshBuilder::AddFace(std::vector<vec3s>&& vertices,
   for (size_t i = 0; i < normals.size(); ++i) {
     f.vn[i] = AddNormal(std::move(normals[i]));
   }
+  f_.push_back(std::move(f));
+  return (int)f_.size() - 1;
+}
+
+int MeshBuilder::AddFace(int vertices[], int normals[], int uvs[]) {
+  Face f = {};
+  memcpy(f.v, vertices, sizeof(int) * 3);
+
+  if (normals) {
+    memcpy(f.vn, normals, sizeof(int) * 3);
+  } else {
+    f.vn[0] = f.vn[1] = f.vn[2] = -1;
+  }
+
+  if (uvs) {
+    memcpy(f.vt, uvs, sizeof(int) * 3);
+  } else {
+    f.vt[0] = f.vt[1] = f.vt[2] = -1;
+  }
+
   f_.push_back(std::move(f));
   return (int)f_.size() - 1;
 }
@@ -491,7 +515,7 @@ qbCollider MeshBuilder::Collider(qbMesh mesh) {
     std::swap(vertex_deduper, empty_dededuper);
   }
 
-  qh_mesh_t c_mesh = qh_quickhull3d((qh_vertex_t*)unique_vertices.data(), unique_vertices.size());
+  qh_mesh_t c_mesh = qh_quickhull3d((qh_vertex_t*)unique_vertices.data(), (unsigned int)unique_vertices.size());
 
   const size_t target_vertex_count = 255;
 
@@ -543,6 +567,22 @@ qbCollider MeshBuilder::Collider(qbMesh mesh) {
 }
 
 qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
+  qbMesh mesh = Mesh(render_mode);
+
+  if (!mesh) {
+    return nullptr;
+  }
+
+  qbModel ret = new qbModel_{};
+  ret->mesh_count = 1;
+  ret->meshes = mesh;
+  ret->colliders = Collider(mesh);
+  ret->collider_count = 1;
+
+  return ret;
+}
+
+qbMesh MeshBuilder::Mesh(qbRenderFaceType_ render_mode) {
   std::vector<vec3s> vertices;
   std::vector<vec3s> normals;
   std::vector<vec2s> uvs;
@@ -678,11 +718,7 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
   assert(normals.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max normal count.");
   assert(uvs.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max uv count.");
 
-  qbModel ret = new qbModel_{};
-  ret->mesh_count = 1;
-  ret->meshes = new qbMesh_[ret->mesh_count];
-  
-  qbMesh mesh = ret->meshes + 0;
+  qbMesh mesh = new qbMesh_;
   mesh->vertex_count = (uint32_t)vertices.size();
   mesh->vertices = new vec3s[mesh->vertex_count];
   memcpy(mesh->vertices, vertices.data(), mesh->vertex_count * sizeof(vec3));
@@ -704,11 +740,8 @@ qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
     mesh->uvs = new vec2s[mesh->uv_count];
     memcpy(mesh->uvs, uvs.data(), mesh->uv_count * sizeof(vec2));
   }
-  
-  ret->colliders = Collider(mesh);
-  ret->collider_count = 1;
 
-  return ret;
+  return mesh;
 }
 
 void MeshBuilder::Reset() {
@@ -721,4 +754,45 @@ void MeshBuilder::Reset() {
   std::swap(vt_, empty_vt);
   std::swap(vn_, empty_vn);
   std::swap(f_, empty_f);
+}
+
+qbResult qb_meshbuilder_create(qbMeshBuilder* builder) {
+  *builder = new qbMeshBuilder_{};
+  return QB_OK;
+}
+
+qbResult qb_meshbuilder_destroy(qbMeshBuilder* builder) {
+  delete *builder;
+  return QB_OK;
+}
+
+qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbMesh* mesh, qbCollider* collider) {
+  if (mesh) {
+    *mesh = builder->builder.Mesh(qbRenderFaceType_::QB_TRIANGLES);
+  }
+
+  if (collider) {
+    *collider = builder->builder.Collider(*mesh);
+  }
+  return QB_OK;
+}
+
+int qb_meshbuilder_addv(qbMeshBuilder builder, vec3s v) {
+  return builder->builder.AddVertex(v);
+}
+
+int qb_meshbuilder_addvo(qbMeshBuilder builder, vec3s v, vec3s o) {
+  return builder->builder.AddVertexWithOffset(v, o);
+}
+
+int qb_meshbuilder_addvt(qbMeshBuilder builder, vec2s vt) {
+  return builder->builder.AddTexture(vt);
+}
+
+int qb_meshbuilder_addvn(qbMeshBuilder builder, vec3s vn) {
+  return builder->builder.AddNormal(vn);
+}
+
+int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]) {
+  return builder->builder.AddFace(vertices, normals, uvs);
 }

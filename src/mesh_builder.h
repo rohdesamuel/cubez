@@ -49,9 +49,11 @@ public:
   int AddFace(std::vector<vec3s>&& vertices,
               std::vector<vec2s>&& textures,
               std::vector<vec3s>&& normals);
+  int AddFace(int vertices[], int normals[], int uvs[]);
 
   qbCollider Collider(qbMesh mesh);
   qbModel Model(qbRenderFaceType_ render_mode);
+  qbMesh Mesh(qbRenderFaceType_ render_mode);
 
   void Reset();
 

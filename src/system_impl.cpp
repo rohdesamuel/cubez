@@ -61,7 +61,7 @@ void SystemImpl::Run(GameState* game_state, void* event) {
   qbFrame frame;
   frame.system = system_;
   frame.event = event;
-  frame.state = system_->user_state;// system_ ? system_->user_state : user_state_;
+  frame.state = system_ ? system_->user_state : user_state_;
 
   if (condition_ && !condition_(&frame)) {
     return;

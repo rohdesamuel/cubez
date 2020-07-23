@@ -57,9 +57,13 @@ typedef struct qbMaterialAttr_ {
   qbGpuBuffer* uniforms;
   uint32_t* uniform_bindings;
   uint32_t uniform_count;
+
+  qbRenderExt ext;
 } qbMaterialAttr_, *qbMaterialAttr;
 
 typedef struct qbMaterial_ {
+  const char* name;
+
   qbImage albedo_map;
   qbImage normal_map;
   qbImage metallic_map;
@@ -79,6 +83,8 @@ typedef struct qbMaterial_ {
   qbGpuBuffer* uniforms;
   uint32_t* uniform_bindings;
   uint32_t uniform_count;
+
+  qbRenderExt ext;
 } qbMaterial_, *qbMaterial;
 
 typedef struct qbCollider_ {
@@ -121,17 +127,31 @@ typedef struct qbModel_ {
   uint32_t collider_count;
 } qbModel_, *qbModel;
 
-QB_API struct qbModelgroup_* qb_model_load(const char* model_name, const char* filename);
+typedef struct qbMeshBuilder_* qbMeshBuilder;
+QB_API qbResult qb_meshbuilder_create(qbMeshBuilder* builder);
+QB_API qbResult qb_meshbuilder_destroy(qbMeshBuilder* builder);
+QB_API qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbMesh* mesh, qbCollider* collider);
+QB_API int qb_meshbuilder_addv(qbMeshBuilder builder, vec3s v);
+QB_API int qb_meshbuilder_addvo(qbMeshBuilder builder, vec3s v, vec3s o);
+QB_API int qb_meshbuilder_addvt(qbMeshBuilder builder, vec2s vt);
+QB_API int qb_meshbuilder_addvn(qbMeshBuilder builder, vec3s vn);
+QB_API int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]);
+
+QB_API qbModel qb_model_load(const char* model_name, const char* filename);
+QB_API struct qbModelgroup_* qb_model_upload(qbModel model);
+
+QB_API void qb_model_create(qbModel* model);
 QB_API void qb_model_destroy(qbModel* model);
 
 QB_API qbResult qb_mesh_tobuffer(qbMesh mesh, qbMeshBuffer* buffer);
+QB_API qbResult qb_mesh_destroy(qbMesh* mesh);
 
 QB_API qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_name);
 QB_API qbResult qb_material_destroy(qbMaterial* material);
 
-QB_API struct qbModelgroup_* qb_draw_cube(float size_x, float size_y, float size_z);
-QB_API struct qbModelgroup_* qb_draw_rect(float w, float h);
-QB_API struct qbModelgroup_* qb_draw_sphere(float radius, int slices, int zslices);
+QB_API struct qbModelgroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbCollider* collider);
+QB_API struct qbModelgroup_* qb_draw_rect(float w, float h, qbCollider* collider);
+QB_API struct qbModelgroup_* qb_draw_sphere(float radius, int slices, int zslices, qbCollider* collider);
 
 QB_API bool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
                               const qbTransform_* a_t, const qbTransform_* b_t);
@@ -145,5 +165,8 @@ QB_API bool qb_collider_checkmesh(const qbCollider_* a, const qbCollider_* b,
 QB_API bool qb_collider_checkray(const qbCollider_* collider, const qbTransform_* transform, const qbRay_* r);
 
 QB_API vec3s qb_collider_support(const qbCollider_* collider, const qbTransform_* transform, vec3s dir);
+
+QB_API bool qb_ray_checktri(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
+                            vec3s* intersection_point, float* dis);
 
 #endif   // MESH__H
