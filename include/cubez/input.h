@@ -242,6 +242,7 @@ QB_API qbResult qb_on_mouse_event(qbSystem system);
 QB_API bool qb_scancode_pressed(qbScanCode scan_code);
 QB_API bool qb_key_pressed(qbKey key);
 QB_API bool qb_mouse_pressed(qbButton mouse_button);
+QB_API bool qb_mouse_waspressed(qbButton mouse_button);
 
 QB_API void qb_mouse_position(int* x, int* y);
 QB_API void qb_mouse_relposition(int* relx, int* rely);

@@ -130,8 +130,9 @@ qbResult qb_start() {
 
 qbResult qb_stop() {
   network_shutdown();
-  render_shutdown();
   audio_shutdown();
+  render_shutdown();
+  
   qbResult ret = AS_PRIVATE(stop());
   universe_ = nullptr;
   return ret;
@@ -152,6 +153,10 @@ qbResult loop(qbLoopCallbacks callbacks,
       qb_stop();
       game_loop.is_running = false;
     });
+
+    if (!game_loop.is_running) {
+      return QB_OK;
+    }
   }
 
   if (callbacks && callbacks->on_fixedupdate) {
@@ -183,7 +188,7 @@ qbResult loop(qbLoopCallbacks callbacks,
     callbacks->on_prerender(&e, args->prerender);
   }
 
-  gui_window_updateuniforms();
+  gui_block_updateuniforms();
   if (e.camera) {
     qb_render(&e);
   }

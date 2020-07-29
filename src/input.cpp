@@ -248,15 +248,15 @@ void qb_handle_input(void(*shutdown_handler)()) {
       input_event.mouse_event.button.state = e.button.state ? QB_MOUSE_DOWN : QB_MOUSE_UP;
       qb_send_mouse_click_event(&input_event.mouse_event.button);
     } else if (e.type == SDL_MOUSEMOTION) {
-      if (SDL_GetRelativeMouseMode()) {
-        input_event.type = QB_INPUT_EVENT_MOUSE;
-        input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
-        input_event.mouse_event.motion.x = e.motion.x;
-        input_event.mouse_event.motion.y = e.motion.y;
-        input_event.mouse_event.motion.xrel = e.motion.xrel;
-        input_event.mouse_event.motion.yrel = e.motion.yrel;
-        qb_send_mouse_move_event(&input_event.mouse_event.motion);
-      }
+      input_event.type = QB_INPUT_EVENT_MOUSE;
+      input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
+      input_event.mouse_event.motion.x = e.motion.x;
+      input_event.mouse_event.motion.y = e.motion.y;
+      input_event.mouse_event.motion.xrel = e.motion.xrel;
+      input_event.mouse_event.motion.yrel = e.motion.yrel;
+      mouse_dx = e.motion.xrel;
+      mouse_dy = e.motion.yrel;
+      qb_send_mouse_move_event(&input_event.mouse_event.motion);
     } else if (e.type == SDL_MOUSEWHEEL) {
       wheel_updated = true;
       
@@ -270,8 +270,15 @@ void qb_handle_input(void(*shutdown_handler)()) {
       input_event.mouse_event.scroll.xrel = e.wheel.x;
       input_event.mouse_event.scroll.yrel = e.wheel.y;
       qb_send_mouse_scroll_event(&input_event.mouse_event.scroll);
+    } else if (e.type == SDL_WINDOWEVENT) {
+      if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+        qb_window_resize(e.window.data1, e.window.data2);        
+      } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+        qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
+      }
     } else if (e.type == SDL_QUIT) {
       shutdown_handler();
+      return;
     }
 
     gui_handle_input(&input_event);

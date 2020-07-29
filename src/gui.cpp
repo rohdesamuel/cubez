@@ -23,6 +23,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
+#include <algorithm>
 #include <memory>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -32,6 +33,7 @@
 #include <iostream>
 #include <set>
 #include <list>
+#include <unordered_map>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -49,6 +51,11 @@ struct GuiUniformCamera {
   }
 };
 
+struct qbConstraint_ {
+  qbConstraint c;
+  float v;
+};
+
 enum GuiRenderMode {
   GUI_RENDER_MODE_SOLID,
   GUI_RENDER_MODE_IMAGE,
@@ -58,19 +65,22 @@ enum GuiRenderMode {
 // std140 layout
 struct GuiUniformModel {
   mat4s modelview;
-  vec4s color;
+  vec4s color;  
   GuiRenderMode render_mode;
+  float radius;
+  vec2s size;
 
   static uint32_t Binding() {
     return 1;
   }
 };
 
-struct qbWindow_ {
+struct qbGuiBlock_ {
+  std::string name;
   uint32_t id;
-  qbWindow parent;
+  qbGuiBlock parent;
 
-  // X, Y are window coordinates.
+  // X, Y are block coordinates.
   // Z is depth
 
   // pos = parent->pos + rel_pos
@@ -87,6 +97,9 @@ struct qbWindow_ {
 
   GuiRenderMode render_mode;
 
+  char16_t* text;
+  size_t text_count;
+
   // True if there is a need to update the buffers.
   bool dirty;
 
@@ -96,78 +109,77 @@ struct qbWindow_ {
   uint32_t font_size;
   qbTextAlign align;
   qbImage background;
-  qbWindowCallbacks_ callbacks;
-};
+  float radius;
 
-struct TextBox {
-  qbWindow_ window;
+  qbConstraint_ x_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO  + 1];
+  qbConstraint_ y_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
+  qbConstraint_ width_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
+  qbConstraint_ height_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
 
-  const char16_t* text;
-  vec4s color;
-  vec2s scale;
+  qbGuiBlockCallbacks_ callbacks;
 };
 
 qbRenderPass gui_render_pass;
 qbRenderGroup gui_render_group;
-qbGpuBuffer window_vbo;
-qbGpuBuffer window_ebo;
+qbGpuBuffer block_vbo;
+qbGpuBuffer block_ebo;
+qbGpuBuffer camera_ubo;
 
-std::atomic_uint window_id;
-std::list<qbWindow> windows;
-qbWindow focused;
+std::atomic_uint block_id;
+std::list<qbGuiBlock> blocks;
+qbGuiBlock focused;
 
 FontRegistry* font_registry;
 const char* kDefaultFont = "opensans";
 
-typename decltype(windows) closed_windows;
+typename decltype(blocks) closed_blocks;
 
-void qb_window_updateuniform(qbWindow window);
+void qb_guiblock_updateuniform(qbGuiBlock block);
 
 namespace
 {
 
-qbWindow FindClosestWindow() {
-  if (windows.empty()) {
+qbGuiBlock FindClosestBlock() {
+  if (blocks.empty()) {
     return nullptr;
   }
-  return windows.front();
+  return blocks.front();
 }
 
-qbWindow FindFarthestWindow() {
-  if (windows.empty()) {
+qbGuiBlock FindFarthestBlock() {
+  if (blocks.empty()) {
     return nullptr;
   }
-  return windows.back();
+  return blocks.back();
 }
 
-qbWindow FindClosestWindow(int x, int y) {
-  if (windows.empty()) {
+qbGuiBlock FindClosestBlock(int x, int y) {
+  if (blocks.empty()) {
     return nullptr;
   }
-  for (qbWindow window : windows) {
-    if (x >= window->pos.x &&
-        x < window->pos.x + window->size.x &&
-        y >= window->pos.y &&
-        y < window->pos.y + window->size.y) {
-      return window;
+  for (qbGuiBlock block : blocks) {
+    if (x >= block->pos.x &&
+        x < block->pos.x + block->size.x &&
+        y >= block->pos.y &&
+        y < block->pos.y + block->size.y) {
+      return block;
     }
   }
   return nullptr;
 }
 
-qbWindow FindClosestWindow(int x, int y, std::function<bool(qbWindow)> handler) {
-  if (windows.empty()) {
+qbGuiBlock FindClosestBlock(int x, int y, std::function<bool(qbGuiBlock)> handler) {
+  if (blocks.empty()) {
     return nullptr;
   }
-  qbWindow closest = nullptr;
-  for (qbWindow window : windows) {
-    if (x >= window->pos.x &&
-        x < window->pos.x + window->size.x &&
-        y >= window->pos.y &&
-        y < window->pos.y + window->size.y) {
-      closest = window;
-      bool handled = handler(closest);
-      if (handled) {
+  qbGuiBlock closest = nullptr;
+  for (qbGuiBlock block : blocks) {
+    if (x >= block->pos.x &&
+        x < block->pos.x + block->size.x &&
+        y >= block->pos.y &&
+        y < block->pos.y + block->size.y) {
+      closest = block;
+      if (handler(closest)) {
         break;
       }
     }
@@ -175,46 +187,205 @@ qbWindow FindClosestWindow(int x, int y, std::function<bool(qbWindow)> handler) 
   return closest;
 }
 
-qbWindow FindFarthestWindow(int x, int y) {
-  if (windows.empty()) {
+qbGuiBlock FindFarthestBlock(int x, int y) {
+  if (blocks.empty()) {
     return nullptr;
   }
-  qbWindow farthest = nullptr;
-  for (qbWindow window : windows) {
-    if (x >= window->pos.x &&
-        x < window->pos.x + window->size.x &&
-        y >= window->pos.y &&
-        y < window->pos.y + window->size.y) {
-      farthest = window;
+  qbGuiBlock farthest = nullptr;
+  for (qbGuiBlock block : blocks) {
+    if (x >= block->pos.x &&
+        x < block->pos.x + block->size.x &&
+        y >= block->pos.y &&
+        y < block->pos.y + block->size.y) {
+      farthest = block;
     }
   }
   return farthest;
 }
 
-void InsertWindow(qbWindow window) {
-  windows.insert(windows.begin(), window);
+struct GuiNode {
+  GuiNode(qbGuiBlock block) : block(block) {}
+
+  qbGuiBlock block;
+  std::unordered_map<std::string, std::unique_ptr<struct GuiNode>> children;
+};
+
+class GuiTree {
+public:  
+  GuiTree() : scene_(nullptr) {}
+  void Insert(qbGuiBlock block) {
+    GuiNode* parent_node = Insert(block->parent, block);
+
+    if (parent_node->children.find(block->name) == parent_node->children.end()) {
+      parent_node->children[block->name] = std::make_unique<GuiNode>(block);
+    }
+  }
+
+  void Erase(qbGuiBlock block) {
+    GuiNode* parent_node = Erase(block->parent, block);
+
+    if (parent_node->children.find(block->name) != parent_node->children.end()) {
+      parent_node->children.erase(block->name);
+    }
+  }
+
+  void Move(qbGuiBlock block, qbGuiBlock new_parent) {
+    auto old_parent_node = Find(block);
+    auto found = Find(new_parent);
+    auto new_parent_node = found->children[new_parent->name].get();
+
+    if (old_parent_node == new_parent_node) {
+      return;
+    }
+
+    auto& node = old_parent_node->children.find(block->name);
+    new_parent_node->children[node->first] = std::move(node->second);
+
+    old_parent_node->children.erase(block->name);
+  }
+
+  GuiNode* Find(qbGuiBlock block) {
+    return Find(block->parent, block);
+  }
+
+  GuiNode* Find(const char* path[]) {
+    if (!path) {
+      return{};
+    }
+
+    GuiNode* cur = &scene_;
+    GuiNode* end_of_path = nullptr;
+    for (size_t i = 0;; ++i) {
+      if (!path[i]) {
+        if (i > 0) {
+          end_of_path = cur;
+        }
+        break;
+      }
+
+      auto found = cur->children.find(std::string(path[i]));
+      if (found == cur->children.end()) {
+        break;
+      }
+
+      cur = found->second.get();
+    }
+
+    return end_of_path;
+  }
+
+  std::vector<GuiNode*> FindAll(const char* path[]) {
+    GuiNode* end_of_path = Find(path);
+
+    if (!end_of_path) {
+      return {};
+    }
+
+    std::vector<GuiNode*> ret{};
+    for (auto& c : end_of_path->children) {
+      FindAll(&ret, c.second.get());
+    }
+    return ret;
+  }
+
+private:
+  void FindAll(std::vector<GuiNode*>* ret, GuiNode* node) {
+    ret->push_back(node);
+    for (auto& c : node->children) {
+      FindAll(ret, c.second.get());
+    }
+  }
+
+  GuiNode* Find(qbGuiBlock parent, qbGuiBlock block) {
+    // At the root.
+    if (!parent) {
+      return &scene_;
+    }
+
+    GuiNode* parent_node = Find(parent->parent, block);
+    auto found_parent = parent_node->children.find(parent->name);
+    if (found_parent != parent_node->children.end()) {
+      return found_parent->second.get();
+    }
+
+    return parent_node;
+  }
+
+  GuiNode* Insert(qbGuiBlock parent, qbGuiBlock block) {
+    // At the root.
+    if (!parent) {
+      return &scene_;
+    }
+
+    GuiNode* parent_node = Insert(parent->parent, block);
+    auto found_parent = parent_node->children.find(parent->name);
+    if (found_parent != parent_node->children.end()) {
+      return found_parent->second.get();
+    }
+
+    parent_node->children[parent->name] = std::make_unique<GuiNode>(parent);
+    return parent_node->children[parent->name].get();
+  }
+
+  GuiNode* Erase(qbGuiBlock parent, qbGuiBlock block) {
+    // At the root.
+    if (!parent) {
+      return &scene_;
+    }
+
+    GuiNode* parent_node = Erase(parent->parent, block);
+    auto found_parent = parent_node->children.find(parent->name);
+    if (found_parent != parent_node->children.end()) {
+      return found_parent->second.get();
+    } else {
+      parent_node->children[parent->name] = std::make_unique<GuiNode>(parent);
+      return parent_node->children[parent->name].get();
+    }
+
+    if (parent_node->children.find(block->name) != parent_node->children.end()) {
+      parent_node->children.erase(block->name);
+    }
+  }
+
+  GuiNode scene_;
+};
+std::unique_ptr<GuiTree> root;
+
+void InsertBlock(qbGuiBlock block) {
+  blocks.insert(blocks.begin(), block);  
+  qb_rendergroup_append(gui_render_group, block->dbo);
 }
 
-void EraseWindow(qbWindow window) {
-  auto& it = std::find(windows.begin(), windows.end(), window);
-  if (it != windows.end()) {
-    windows.erase(it);
+void EraseBlock(qbGuiBlock block) {
+  auto& it = std::find(blocks.begin(), blocks.end(), block);
+  if (it != blocks.end()) {
+    blocks.erase(it);
+  }
+
+  qbMeshBuffer* buffers;
+  size_t count = qb_rendergroup_meshes(gui_render_group, &buffers);
+  for (size_t i = 0; i < count; ++i) {
+    if (block->dbo == buffers[i]) {
+      buffers[i] = buffers[count - 1];
+      qb_rendergroup_update(gui_render_group, count - 1, buffers);
+      break;
+    }
   }
 }
 
-void MoveToFront(qbWindow window) {
-  if (windows.size() > 1) {
-    auto& it = std::find(windows.begin(), windows.end(), window);
-    windows.erase(it);
-    windows.push_front(window);
+void MoveToFront(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    blocks.erase(it);
+    blocks.push_front(block);
   }
 }
 
-void MoveToBack(qbWindow window) {
-  if (windows.size() > 1) {
-    auto& it = std::find(windows.begin(), windows.end(), window);
-    windows.erase(it);
-    windows.push_back(window);
+void MoveToBack(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    blocks.erase(it);
+    blocks.push_back(block);
   }
 }
 
@@ -223,6 +394,7 @@ void MoveToBack(qbWindow window) {
 void gui_initialize() {
   font_registry = new FontRegistry();
   font_registry->Load("resources/fonts/OpenSans-Bold.ttf", "opensans");
+  root = std::make_unique<GuiTree>();
 }
 
 void gui_shutdown() {
@@ -232,7 +404,7 @@ void gui_handle_input(qbInputEvent input_event) {
   int x, y;
   qb_mouse_position(&x, &y);
 
-  FindClosestWindow(x, y, [input_event](qbWindow closest){
+  qbGuiBlock closest = FindClosestBlock(x, y, [input_event](qbGuiBlock closest){
     bool handled = false;
     if (input_event->type == QB_INPUT_EVENT_KEY) {
       return true;
@@ -242,10 +414,10 @@ void gui_handle_input(qbInputEvent input_event) {
     if (e->type == QB_MOUSE_EVENT_BUTTON) {
       if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_DOWN) {
         if (closest) {
-          //qb_window_movetofront(max_depth);
+          //qb_guiblock_movetofront(max_depth);
           // Only send OnFocus when we change.
           if (focused != closest && closest->callbacks.onfocus) {
-            closest->callbacks.onfocus(closest);
+            handled = closest->callbacks.onfocus(closest);
           }
           focused = closest;
           if (focused->callbacks.onclick) {
@@ -260,6 +432,32 @@ void gui_handle_input(qbInputEvent input_event) {
     }
     return handled;
   });
+  
+  if (!closest && input_event->type == QB_MOUSE_EVENT_BUTTON) {
+    qbMouseEvent e = &input_event->mouse_event;
+    if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_UP) {
+      focused = nullptr;
+    }
+  }
+
+  if (focused && focused->callbacks.onmove) {
+    static int start_x = 0, start_y = 0;
+    
+    qbMouseEvent e = &input_event->mouse_event;
+    if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_DOWN) {
+      qb_mouse_position(&start_x, &start_y);
+    }
+
+    if (qb_mouse_pressed(QB_BUTTON_LEFT)) {
+      qbMouseMotionEvent_ e = {};
+
+      qb_mouse_position(&e.x, &e.y);
+      qb_mouse_relposition(&e.xrel, &e.yrel);
+      if (e.xrel != 0 || e.yrel != 0) {
+        focused->callbacks.onmove(focused, &e, start_x, start_y);
+      }
+    }
+  }
 }
 
 qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
@@ -337,8 +535,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
     qb_shadermodule_create(&shader_module, &attr);
   }
-  {
-    qbGpuBuffer camera_ubo;
+  {    
     {
       qbGpuBufferAttr_ attr = {};
       attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
@@ -411,7 +608,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.size = sizeof(vertices);
     attr.elem_size = sizeof(vertices[0]);
 
-    qb_gpubuffer_create(&window_vbo, &attr);
+    qb_gpubuffer_create(&block_vbo, &attr);
   }
   {
     int indices[] = {
@@ -424,7 +621,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.data = indices;
     attr.size = sizeof(indices);
     attr.elem_size = sizeof(indices[0]);
-    qb_gpubuffer_create(&window_ebo, &attr);
+    qb_gpubuffer_create(&block_ebo, &attr);
   }
   {
     qbRenderGroupAttr_ attr = {};
@@ -435,37 +632,50 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
   return gui_render_pass;
 }
 
-void qb_window_create_(qbWindow* window_ref, vec3s pos, vec2s size, bool open,
-                       qbWindowCallbacks callbacks, qbWindow parent, qbImage background,
-                       vec4s color, qbGpuBuffer ubo, qbMeshBuffer dbo, GuiRenderMode render_mode) {
-  qbWindow window = *window_ref = new qbWindow_;
-  window->id = window_id++;
-  window->parent = parent;
-  window->rel_pos = pos;// glm::vec3{ pos.x, pos.y, 0.0f };
-  window->pos = window->parent
-    ? glms_vec3_add(window->parent->pos, window->rel_pos)
-    : window->rel_pos;
-  window->size = size;
-  window->dirty = true;
-  window->background = background;
-  window->color = color;
-  window->render_mode = render_mode;
-  if (callbacks) {
-    window->callbacks = *callbacks;
-  } else {
-    window->callbacks = {};
-  }
-  window->ubo = ubo;
-  window->dbo = dbo;
-
-  closed_windows.push_back(window);
-
-  if (open) {
-    qb_window_open(window);
+void qb_gui_resize(uint32_t width, uint32_t height) {
+  qb_renderpass_resize(gui_render_pass, { 0, 0, (float)width, (float)height });
+  {
+    GuiUniformCamera camera;
+    camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
+    qb_gpubuffer_update(camera_ubo, 0, sizeof(GuiUniformCamera), &camera.projection);
   }
 }
 
-void qb_window_create(qbWindow* window, qbWindowAttr attr, vec2s pos, vec2s size, qbWindow parent, bool open) {
+void qb_guiblock_create_(qbGuiBlock* block_ref, vec3s pos, vec2s size, bool open,
+                       qbGuiBlockCallbacks callbacks, qbGuiBlock parent, qbImage background,
+                       vec4s color, qbGpuBuffer ubo, qbMeshBuffer dbo, GuiRenderMode render_mode,
+                         const char* name) {
+  qbGuiBlock block = *block_ref = new qbGuiBlock_{};
+  block->id = block_id++;
+  block->parent = parent;
+  block->rel_pos = pos;// glm::vec3{ pos.x, pos.y, 0.0f };
+  block->pos = block->parent
+    ? glms_vec3_add(block->parent->pos, block->rel_pos)
+    : block->rel_pos;
+  block->size = size;
+  block->dirty = true;
+  block->background = background;
+  block->color = color;
+  block->render_mode = render_mode;
+  if (callbacks) {
+    block->callbacks = *callbacks;
+  } else {
+    block->callbacks = {};
+  }
+  block->ubo = ubo;
+  block->dbo = dbo;
+  block->name = std::string(name);
+  
+  closed_blocks.push_back(block);
+
+  root->Insert(block);
+
+  if (open) {
+    qb_guiblock_open(block);
+  }
+}
+
+void qb_guiblock_create(qbGuiBlock* block, qbGuiBlockAttr attr, const char* name) {
   qbGpuBuffer ubo;
   qbMeshBuffer dbo;
   {
@@ -479,11 +689,10 @@ void qb_window_create(qbWindow* window, qbWindowAttr attr, vec2s pos, vec2s size
     buffer_attr.descriptor = *qb_renderpass_supportedgeometry(gui_render_pass);
 
     qb_meshbuffer_create(&dbo, &buffer_attr);
-    qb_rendergroup_append(gui_render_group, dbo);
 
-    qbGpuBuffer vertex_buffers[] = { window_vbo };
+    qbGpuBuffer vertex_buffers[] = { block_vbo };
     qb_meshbuffer_attachvertices(dbo, vertex_buffers);
-    qb_meshbuffer_attachindices(dbo, window_ebo);
+    qb_meshbuffer_attachindices(dbo, block_ebo);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { ubo };
@@ -495,12 +704,53 @@ void qb_window_create(qbWindow* window, qbWindowAttr attr, vec2s pos, vec2s size
       qb_meshbuffer_attachimages(dbo, 1, image_bindings, images);
     }
   }
-
+  
   GuiRenderMode render_mode = attr->background
     ? GUI_RENDER_MODE_IMAGE
     : GUI_RENDER_MODE_SOLID;
-  qb_window_create_(window, vec3s{ pos.x, pos.y, 0.0f }, size, open, attr->callbacks, parent, attr->background, attr->background_color, ubo, dbo, render_mode);
-  (*window)->scale = { 1.0, 1.0 };
+  qb_guiblock_create_(block, vec3s{}, vec2s{}, true, attr->callbacks, nullptr, attr->background, attr->background_color, ubo, dbo, render_mode, name);
+  (*block)->scale = { 1.0, 1.0 };
+  (*block)->radius = attr->radius;  
+}
+
+void qb_guiconstraint_x(qbGuiBlock block, qbConstraint constraint, float val) {
+  block->x_constraints[constraint] = { constraint, val };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_y(qbGuiBlock block, qbConstraint constraint, float val) {
+  block->y_constraints[constraint] = { constraint, val };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_width(qbGuiBlock block, qbConstraint constraint, float val) {
+  block->width_constraints[constraint] = { constraint, val };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_height(qbGuiBlock block, qbConstraint constraint, float val) {
+  block->height_constraints[constraint] = { constraint, val };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_clearx(qbGuiBlock block, qbConstraint constraint) {
+  block->x_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f};
+  block->dirty = true;
+}
+
+void qb_guiconstraint_cleary(qbGuiBlock block, qbConstraint constraint) {
+  block->y_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_clearwidth(qbGuiBlock block, qbConstraint constraint) {
+  block->width_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->dirty = true;
+}
+
+void qb_guiconstraint_clearheight(qbGuiBlock block, qbConstraint constraint) {
+  block->height_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->dirty = true;
 }
 
 void qb_textbox_createtext(qbTextAlign align, size_t font_size, vec2s size, vec2s scale, const char16_t* text, std::vector<float>* vertices, std::vector<int>* indices, qbImage* atlas) {
@@ -510,12 +760,31 @@ void qb_textbox_createtext(qbTextAlign align, size_t font_size, vec2s size, vec2
   *atlas = font->Atlas();
 }
 
+void qb_guiblock_link(qbGuiBlock parent, qbGuiBlock child) {
+  root->Move(child, parent);
+  child->parent = parent;  
+}
+
+void qb_guiblock_unlink(qbGuiBlock child) {
+  root->Move(child, nullptr);
+  child->parent = nullptr;  
+}
+
+int strlen16(const char16_t* strarg) {
+  if (!strarg)
+    return -1; //strarg is NULL pointer
+  const char16_t* str = strarg;
+  for (; *str; ++str)
+    ; // empty body
+  return str - strarg;
+}
 
 // Todo: improve with decomposed signed distance fields: 
 // https://gamedev.stackexchange.com/questions/150704/freetype-create-signed-distance-field-based-font
-void qb_textbox_create(qbWindow* window,
+void qb_textbox_create(qbGuiBlock* block,
                        qbTextboxAttr textbox_attr,
-                       vec2s pos, vec2s size, qbWindow parent, bool open,
+                       const char* name,
+                       vec2s size,
                        uint32_t font_size,
                        const char16_t* text) {
 
@@ -556,7 +825,6 @@ void qb_textbox_create(qbWindow* window,
     attr.descriptor = *qb_renderpass_supportedgeometry(gui_render_pass);
 
     qb_meshbuffer_create(&dbo, &attr);
-    qb_rendergroup_append(gui_render_group, dbo);
 
     qbGpuBuffer vertex_buffers[] = { vbo };
     qb_meshbuffer_attachvertices(dbo, vertex_buffers);
@@ -571,22 +839,35 @@ void qb_textbox_create(qbWindow* window,
     qb_meshbuffer_attachimages(dbo, 1, image_bindings, images);
   }
 
-  qb_window_create_(window, vec3s{ pos.x, pos.y, 0.0f }, size,
-                    open, nullptr,
-                    parent, nullptr, textbox_attr->text_color,
-                    ubo, dbo, GUI_RENDER_MODE_STRING);
-  (*window)->scale = { 1.0f, 1.0f };
-  (*window)->text_color = textbox_attr->text_color;
-  (*window)->align = textbox_attr->align;
-  (*window)->font_size = font_size;
+  qb_guiblock_create_(block, vec3s{}, size,
+                      true, nullptr,
+                      nullptr, nullptr, textbox_attr->text_color,
+                      ubo, dbo, GUI_RENDER_MODE_STRING, name);
+  (*block)->scale = { 1.0f, 1.0f };
+  (*block)->text_color = textbox_attr->text_color;
+  (*block)->align = textbox_attr->align;
+  (*block)->font_size = font_size;
+  (*block)->text_count = text ? strlen16(text) : 0;
+  (*block)->text = new char16_t[(*block)->text_count];
+  memcpy((*block)->text, text, sizeof(char16_t) * (*block)->text_count);
 }
 
-void qb_textbox_text(qbWindow window, const char16_t* text) {
+void qb_textbox_text(qbGuiBlock block, const char16_t* text) {
   std::vector<float> vertices;
   std::vector<int> indices;
   qbImage font_atlas;
-  qb_textbox_createtext(window->align, window->font_size, window->size, window->scale,
+  qb_textbox_createtext(block->align, block->font_size, block->size, block->scale,
                         text, &vertices, &indices, &font_atlas);
+  
+  if (text != block->text) {
+    if (block->text) {
+      delete[] block->text;
+      block->text_count = 0;
+    }
+    block->text_count = text ? strlen16(text) : 0;
+    block->text = new char16_t[block->text_count];
+    memcpy(block->text, text, sizeof(char16_t) * block->text_count);
+  }
 
   qbGpuBuffer vbo, ebo;
   {
@@ -609,134 +890,304 @@ void qb_textbox_text(qbWindow window, const char16_t* text) {
   }
 
   qbGpuBuffer* dst_vbos;
-  qb_meshbuffer_vertices(window->dbo, &dst_vbos);
+  qb_meshbuffer_vertices(block->dbo, &dst_vbos);
   qbGpuBuffer old = dst_vbos[0];
   dst_vbos[0] = vbo;
-  qb_meshbuffer_attachvertices(window->dbo, dst_vbos);
+  qb_meshbuffer_attachvertices(block->dbo, dst_vbos);
   qb_gpubuffer_destroy(&old);
   
   qbGpuBuffer dst_ebo;
-  qb_meshbuffer_indices(window->dbo, &dst_ebo);
-  qb_meshbuffer_attachindices(window->dbo, ebo);
+  qb_meshbuffer_indices(block->dbo, &dst_ebo);
+  qb_meshbuffer_attachindices(block->dbo, ebo);
   qb_gpubuffer_destroy(&dst_ebo);
 }
 
-void qb_textbox_color(qbWindow window, vec4s text_color) {
-  window->text_color = text_color;
+void qb_textbox_color(qbGuiBlock block, vec4s text_color) {
+  block->text_color = text_color;
 }
 
-void qb_textbox_scale(qbWindow window, vec2s scale) {
-  window->scale = scale;
+void qb_textbox_scale(qbGuiBlock block, vec2s scale) {
+  block->scale = scale;
 }
 
-void qb_textbox_fontsize(qbWindow window, uint32_t font_size) {
-  window->font_size = font_size;
+void qb_textbox_fontsize(qbGuiBlock block, uint32_t font_size) {
+  block->font_size = font_size;
 }
 
-void qb_window_open(qbWindow window) {
-  auto found = std::find(closed_windows.begin(), closed_windows.end(), window);
-  if (found != closed_windows.end()) {
-    std::vector<qbWindow> children;
-    for (qbWindow w : closed_windows) {
-      if (w->parent == window) {
+qbGuiBlock qb_guiblock_find(const char* path[]) {
+  GuiNode* found = root->Find(path);
+  if (found) {
+    return found->block;
+  }
+  return nullptr;
+}
+
+void qb_guiblock_open(qbGuiBlock block) {
+  auto found = std::find(closed_blocks.begin(), closed_blocks.end(), block);
+  if (found != closed_blocks.end()) {
+    std::vector<qbGuiBlock> children;
+    for (qbGuiBlock w : closed_blocks) {
+      if (w->parent == block) {
         children.push_back(w);
       }
     }
 
-    InsertWindow(window);
-    closed_windows.erase(found);
+    InsertBlock(block);
+    closed_blocks.erase(found);
 
-    for (qbWindow child : children) {
-      qb_window_open(child);
+    for (qbGuiBlock child : children) {
+      qb_guiblock_open(child);
     }
   }
 }
 
-void qb_window_close(qbWindow window) {
-  auto found = std::find(windows.begin(), windows.end(), window);
-  if (found != windows.end()) {
-    std::vector<qbWindow> children;
-    for (qbWindow w : windows) {
-      if (w->parent == window) {
+void qb_guiblock_openquery(const char* path[]) {
+  auto found = root->FindAll(path);
+  for (auto node : found) {
+    qb_guiblock_open(node->block);
+  }
+}
+
+void qb_guiblock_openchildren(qbGuiBlock block) {
+  auto found = std::find(closed_blocks.begin(), closed_blocks.end(), block);
+  std::vector<qbGuiBlock> children;
+  for (qbGuiBlock w : closed_blocks) {
+    if (w->parent == block) {
+      children.push_back(w);
+    }
+  }
+
+  if (found != closed_blocks.end()) {
+    InsertBlock(block);
+    closed_blocks.erase(found);
+  }
+
+  for (qbGuiBlock child : children) {
+    qb_guiblock_open(child);
+  }
+}
+
+void qb_guiblock_close(qbGuiBlock block) {
+  auto found = std::find(blocks.begin(), blocks.end(), block);
+  if (found != blocks.end()) {
+    std::vector<qbGuiBlock> children;
+    for (qbGuiBlock w : blocks) {
+      if (w->parent == block) {
         children.push_back(w);
       }
     }
 
-    for (qbWindow child : children) {
-      qb_window_close(child);
+    for (qbGuiBlock child : children) {
+      qb_guiblock_close(child);
     }
 
-    EraseWindow(window);
-    closed_windows.push_back(window);
-    if (window == focused) {
+    EraseBlock(block);
+    closed_blocks.push_back(block);
+    if (block == focused) {
       focused = nullptr;
     }
   }
 }
 
-void qb_window_updateuniform(qbWindow window) {
-  mat4s model = GLMS_MAT4_IDENTITY_INIT;
-
-  model = glms_translate(model, window->pos);
-
-  if (window->render_mode == GUI_RENDER_MODE_STRING) {
-    model = glms_scale(model, vec3s{ window->scale.x, window->scale.y, 1.0f });
-  } else {
-    model = glms_scale(model, vec3s{ window->size.x, window->size.y, 1.0f });
+void qb_guiblock_closequery(const char* path[]) {
+  auto found = root->FindAll(path);
+  for (auto node : found) {
+    qb_guiblock_close(node->block);
   }
-
-  window->uniform.modelview = model;
-  window->uniform.color = window->color;
-  window->uniform.render_mode = window->render_mode;
-  qb_gpubuffer_update(window->ubo, 0, sizeof(GuiUniformModel), &window->uniform);
 }
 
-void gui_window_updateuniforms() {
-  float depth = 1.0f;
-  for (auto& window : windows) {
-    if (window->dirty || (window->parent && window->parent->dirty)) {
-      // If the parent is dirty, then this will update the position properly.
-      window->pos = window->rel_pos;
-      if (window->parent) {
-        window->pos = glms_vec3_add(window->parent->pos, window->rel_pos);
+void qb_guiblock_closechildren(qbGuiBlock block) {
+  auto found = std::find(blocks.begin(), blocks.end(), block);
+  if (found != blocks.end()) {
+    std::vector<qbGuiBlock> children;
+    for (qbGuiBlock w : blocks) {
+      if (w->parent == block) {
+        children.push_back(w);
       }
     }
-    window->rel_pos.z = 0;
-    window->pos.z = depth;
+
+    for (qbGuiBlock child : children) {
+      qb_guiblock_close(child);
+    }
+  }
+}
+
+void qb_guiblock_updateuniform(qbGuiBlock block) {
+  mat4s model = GLMS_MAT4_IDENTITY_INIT;
+
+  model = glms_translate(model, block->pos);
+
+  if (block->render_mode == GUI_RENDER_MODE_STRING) {
+    model = glms_scale(model, vec3s{ block->scale.x, block->scale.y, 1.0f });
+  } else {
+    model = glms_scale(model, vec3s{ block->size.x, block->size.y, 1.0f });
+  }
+
+  block->uniform.modelview = model;
+  block->uniform.color = block->color;
+  block->uniform.render_mode = block->render_mode;
+  block->uniform.size = block->size;
+  block->uniform.radius = block->radius;
+  qb_gpubuffer_update(block->ubo, 0, sizeof(GuiUniformModel), &block->uniform);
+}
+
+void guiblock_solve_constraints(qbGuiBlock parent, qbGuiBlock block) {
+  if (block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].c ||
+      block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+
+    if (block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+      block->size.x =
+          block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].v * block->size.y;
+    }
+
+    if (block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+      block->size.y =
+          block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].v * block->size.x;
+    }
+  } else {
+    if (block->width_constraints[QB_CONSTRAINT_PIXEL].c) {
+      block->size.x = block->width_constraints[QB_CONSTRAINT_PIXEL].v;
+    } else if (block->width_constraints[QB_CONSTRAINT_PERCENT].c) {
+      if (parent) {
+        block->size.x = block->width_constraints[QB_CONSTRAINT_PERCENT].v * parent->size.x;
+      } else {
+        block->size.x = block->width_constraints[QB_CONSTRAINT_PERCENT].v * (float)qb_window_width();
+      }
+    } else if (block->width_constraints[QB_CONSTRAINT_RELATIVE].c) {
+      if (parent) {
+        block->size.x = block->width_constraints[QB_CONSTRAINT_RELATIVE].v + parent->size.x;
+      } else {
+        block->size.x = block->width_constraints[QB_CONSTRAINT_RELATIVE].v + (float)qb_window_width();
+      }
+    }
+
+    if (block->height_constraints[QB_CONSTRAINT_PIXEL].c) {
+      block->size.y = block->height_constraints[QB_CONSTRAINT_PIXEL].v;
+    } else if (block->height_constraints[QB_CONSTRAINT_PERCENT].c) {
+      if (parent) {
+        block->size.y = block->height_constraints[QB_CONSTRAINT_PERCENT].v * parent->size.y;
+      } else {
+        block->size.y = block->height_constraints[QB_CONSTRAINT_PERCENT].v * (float)qb_window_height();
+      }
+    } else if (block->height_constraints[QB_CONSTRAINT_RELATIVE].c) {
+      if (parent) {
+        block->size.y = block->height_constraints[QB_CONSTRAINT_RELATIVE].v + parent->size.y;
+      } else {
+        block->size.y = block->height_constraints[QB_CONSTRAINT_RELATIVE].v + (float)qb_window_height();
+      }
+    }
+  }
+
+  if (block->width_constraints[QB_CONSTRAINT_MIN].c) {
+    block->size.x = std::max(block->size.x, block->width_constraints[QB_CONSTRAINT_MIN].v);
+  }
+  if (block->width_constraints[QB_CONSTRAINT_MAX].c) {
+    block->size.x = std::min(block->size.x, block->width_constraints[QB_CONSTRAINT_MAX].v);
+  }
+
+  if (block->height_constraints[QB_CONSTRAINT_MIN].c) {
+    block->size.y = std::max(block->size.y, block->height_constraints[QB_CONSTRAINT_MIN].v);
+  }
+  if (block->height_constraints[QB_CONSTRAINT_MAX].c) {
+    block->size.y = std::min(block->size.y, block->height_constraints[QB_CONSTRAINT_MAX].v);
+  }
+
+  if (block->x_constraints[QB_CONSTRAINT_PIXEL].c) {
+    block->pos.x = block->x_constraints[QB_CONSTRAINT_PIXEL].v;
+  } else if (block->x_constraints[QB_CONSTRAINT_PERCENT].c) {
+    if (parent) {
+      block->pos.x = block->x_constraints[QB_CONSTRAINT_PERCENT].v * parent->pos.x;
+    } else {
+      block->pos.x = block->x_constraints[QB_CONSTRAINT_PERCENT].v;
+    }
+  } else if (block->x_constraints[QB_CONSTRAINT_RELATIVE].c) {
+    if (parent) {
+      block->pos.x = block->x_constraints[QB_CONSTRAINT_RELATIVE].v + parent->pos.x;
+    } else {
+      block->pos.x = block->x_constraints[QB_CONSTRAINT_RELATIVE].v;
+    }
+  }
+
+  if (block->y_constraints[QB_CONSTRAINT_PIXEL].c) {
+    block->pos.y = block->y_constraints[QB_CONSTRAINT_PIXEL].v;
+  } else if (block->y_constraints[QB_CONSTRAINT_PERCENT].c) {
+    if (parent) {
+      block->pos.y = block->y_constraints[QB_CONSTRAINT_PERCENT].v * parent->pos.y;
+    } else {
+      block->pos.y = block->y_constraints[QB_CONSTRAINT_PERCENT].v;
+    }
+  } else if (block->y_constraints[QB_CONSTRAINT_RELATIVE].c) {
+    if (parent) {
+      block->pos.y = block->y_constraints[QB_CONSTRAINT_RELATIVE].v + parent->pos.y;
+    } else {
+      block->pos.y = block->y_constraints[QB_CONSTRAINT_RELATIVE].v;
+    }
+  }
+
+  if (block->x_constraints[QB_CONSTRAINT_MIN].c) {
+    block->pos.x = std::max(block->pos.x, block->x_constraints[QB_CONSTRAINT_MIN].v);
+  }
+  if (block->x_constraints[QB_CONSTRAINT_MAX].c) {
+    block->pos.x = std::min(block->pos.x, block->x_constraints[QB_CONSTRAINT_MAX].v);
+  }
+
+  if (block->y_constraints[QB_CONSTRAINT_MIN].c) {
+    block->pos.y = std::max(block->pos.y, block->y_constraints[QB_CONSTRAINT_MIN].v);
+  }
+  if (block->y_constraints[QB_CONSTRAINT_MAX].c) {
+    block->pos.y = std::min(block->pos.y, block->y_constraints[QB_CONSTRAINT_MAX].v);
+  }
+}
+
+void gui_block_updateuniforms() {
+  float depth = 1.0f;
+
+  for (auto& block : blocks) {
+    vec2s old_size = block->size;
+    guiblock_solve_constraints(block->parent, block);
+    vec2s new_size = block->size;
+
+    if (!glms_vec2_eqv(old_size, new_size) && block->text) {
+      qb_textbox_text(block, block->text);
+    }
+
+    block->rel_pos.z = 0;
+    block->pos.z = depth;
     depth -= 0.0001f;
-    qb_window_updateuniform(window);
+    qb_guiblock_updateuniform(block);
   }
-  for (auto& window : windows) {
-    window->dirty = false;
+
+  for (auto& block : blocks) {
+    block->dirty = false;
   }
 }
 
-void qb_window_movetofront(qbWindow window) {
-  MoveToFront(window);
+void qb_guiblock_movetofront(qbGuiBlock block) {
+  MoveToFront(block);
   std::vector<qbMeshBuffer> buffers;
-  buffers.reserve(windows.size());
-  for (qbWindow window : windows) {
-    buffers.push_back(window->dbo);
+  buffers.reserve(blocks.size());
+  for (qbGuiBlock block : blocks) {
+    buffers.push_back(block->dbo);
   }
   std::reverse(buffers.begin(), buffers.end());
   qb_rendergroup_update(gui_render_group, buffers.size(), buffers.data());
 }
 
-void qb_window_movetoback(qbWindow window) {
-  MoveToBack(window);
+void qb_guiblock_movetoback(qbGuiBlock block) {
+  MoveToBack(block);
   std::vector<qbMeshBuffer> buffers;
-  buffers.reserve(windows.size());
-  for (qbWindow window : windows) {
-    buffers.push_back(window->dbo);
+  buffers.reserve(blocks.size());
+  for (qbGuiBlock block : blocks) {
+    buffers.push_back(block->dbo);
   }
   std::reverse(buffers.begin(), buffers.end());
   qb_rendergroup_update(gui_render_group, buffers.size(), buffers.data());
 }
 
-void qb_window_moveforward(qbWindow window) {
-  if (windows.size() > 1) {
-    auto& it = std::find(windows.begin(), windows.end(), window);
-    if (it == windows.begin()) {
+void qb_guiblock_moveforward(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    if (it == blocks.begin()) {
       return;
     }
     auto& prev = --it;
@@ -745,14 +1196,14 @@ void qb_window_moveforward(qbWindow window) {
   }
 }
 
-void qb_window_movebackward(qbWindow window) {
-  if (windows.size() > 1) {
-    auto& it = std::find(windows.begin(), windows.end(), window);
-    if (it == windows.end()) {
+void qb_guiblock_movebackward(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    if (it == blocks.end()) {
       return;
     }
     auto& next = ++it;
-    if (next == windows.end()) {
+    if (next == blocks.end()) {
       return;
     }
 
@@ -760,54 +1211,54 @@ void qb_window_movebackward(qbWindow window) {
   }
 }
 
-void qb_window_moveto(qbWindow window, vec3s pos) {
-  window->pos = pos;
-  window->pos.z = glm_clamp(window->pos.z, -0.9999f, 0.9999f);
-  window->rel_pos = window->parent
-    ? glms_vec3_sub(window->parent->pos, window->rel_pos)
-    : window->rel_pos;
-  window->dirty = true;
+void qb_guiblock_moveto(qbGuiBlock block, vec3s pos) {
+  block->pos = pos;
+  block->pos.z = glm_clamp(block->pos.z, -0.9999f, 0.9999f);
+  block->rel_pos = block->parent
+    ? glms_vec3_sub(block->parent->pos, block->rel_pos)
+    : block->rel_pos;
+  block->dirty = true;
 }
 
-void qb_window_resizeto(qbWindow window, vec2s size) {
-  window->size = size;
-  window->dirty = true;
+void qb_guiblock_resizeto(qbGuiBlock block, vec2s size) {
+  block->size = size;
+  block->dirty = true;
 }
 
-void qb_window_moveby(qbWindow window, vec3s pos_delta) {
-  window->rel_pos = glms_vec3_add(window->rel_pos, pos_delta);
-  window->rel_pos.z = glm_clamp(window->rel_pos.z, -0.9999f, 0.9999f);
-  window->pos = window->parent
-    ? glms_vec3_add(window->parent->pos, window->rel_pos)
-    : window->rel_pos;
-  window->dirty = true;
+void qb_guiblock_moveby(qbGuiBlock block, vec3s pos_delta) {
+  block->rel_pos = glms_vec3_add(block->rel_pos, pos_delta);
+  block->rel_pos.z = glm_clamp(block->rel_pos.z, -0.9999f, 0.9999f);
+  block->pos = block->parent
+    ? glms_vec3_add(block->parent->pos, block->rel_pos)
+    : block->rel_pos;
+  block->dirty = true;
 }
 
-void qb_window_resizeby(qbWindow window, vec2s size_delta) {
-  window->size = glms_vec2_add(window->size, size_delta);
-  window->dirty = true;
+void qb_guiblock_resizeby(qbGuiBlock block, vec2s size_delta) {
+  block->size = glms_vec2_add(block->size, size_delta);
+  block->dirty = true;
 }
 
-qbWindow qb_window_focus() {
+qbGuiBlock qb_guiblock_focus() {
   return focused;
 }
 
-qbWindow qb_window_focusat(int x, int y) {
-  return FindClosestWindow(x, y);
+qbGuiBlock qb_guiblock_focusat(int x, int y) {
+  return FindClosestBlock(x, y);
 }
 
-vec2s qb_window_size(qbWindow window) {
-  return window->size;
+vec2s qb_guiblock_size(qbGuiBlock block) {
+  return block->size;
 }
 
-vec2s qb_window_pos(qbWindow window) {
-  return { window->pos.x, window->pos.y };
+vec2s qb_guiblock_pos(qbGuiBlock block) {
+  return { block->pos.x, block->pos.y };
 }
 
-vec2s qb_window_relpos(qbWindow window) {
-  return { window->rel_pos.x, window->rel_pos.y };
+vec2s qb_guiblock_relpos(qbGuiBlock block) {
+  return { block->rel_pos.x, block->rel_pos.y };
 }
 
-qbWindow qb_window_parent(qbWindow window) {
-  return window->parent;
+qbGuiBlock qb_guiblock_parent(qbGuiBlock block) {
+  return block->parent;
 }

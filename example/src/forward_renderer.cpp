@@ -58,7 +58,6 @@ typedef struct qbForwardRenderer_ {
   qbRenderer_ renderer;
 
   qbRenderPass scene_3d_pass;
-  qbRenderPass scene_2d_pass;
   qbRenderPass gui_pass;
 
   qbFrameBuffer frame_buffer;
@@ -294,6 +293,15 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   qb_renderpass_draw(r->gui_pass, final);
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
+}
+
+void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
+  qbForwardRenderer r = (qbForwardRenderer)self;
+  qb_renderpipeline_resize(self->render_pipeline, { 0, 0, (float)width, (float)height });
+  
+  qb_surface_resize(r->blur_surface, width, height);
+  qb_surface_resize(r->merge_surface, width, height);
+  qb_renderpass_resize(r->scene_3d_pass, { 0, 0, (float)width, (float)height });
 }
 
 void render_callback(qbFrame* f) {
@@ -835,8 +843,6 @@ qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t hei
 struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbForwardRenderer ret = new qbForwardRenderer_;
 
-  ret->renderer.width = width;
-  ret->renderer.height = height;
   ret->renderer.rendergroup_oncreate = rendergroup_oncreate;
   ret->renderer.rendergroup_ondestroy = rendergroup_ondestroy;
   ret->renderer.rendergroup_add = rendergroup_add;
@@ -858,6 +864,8 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->renderer.camera_framebuffer_create = camera_framebuffer_create;
 
   ret->renderer.render = render;
+  ret->renderer.resize = resize;
+
   ret->directional_lights = {};
   ret->enabled_directional_lights = {};
   ret->point_lights = {};
@@ -1221,4 +1229,3 @@ void qb_forwardrenderer_destroy(qbRenderer renderer) {
   qb_event_unsubscribe(qb_render_event(), r->render_system);
   qb_system_destroy(&r->render_system);
 }
-

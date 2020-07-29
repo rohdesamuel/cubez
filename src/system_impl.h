@@ -37,8 +37,11 @@ class SystemImpl {
   qbInstance_ FindInstance(qbEntity entity, Component* component, GameState* state);
 
  private:
-  void CopyToInstance(Component* component, qbEntity entity, qbInstance instance, GameState* state);
-  void CopyToInstance(Component* component, qbEntity entity, void* instance_data, qbInstance instance, GameState* state);
+  void CopyToInstance(Component* component, qbEntity entity,
+                      qbInstance instance, GameState* state);
+  void CopyToInstance(Component* component, qbEntity entity,
+                      void* instance_data, qbInstance instance,
+                      GameState* state);
 
   void Run_0(qbFrame* f);
   void Run_1(Component* component, qbFrame* f, GameState* state);

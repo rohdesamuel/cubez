@@ -21,6 +21,7 @@
 #include "shader.h"
 #include "render_internal.h"
 #include "gui_internal.h"
+#include <cubez/gui.h>
 
 #include <atomic>
 
@@ -241,6 +242,46 @@ uint32_t qb_window_height() {
 void qb_window_resize(uint32_t width, uint32_t height) {
   window_width = width;
   window_height = height;
+
+  for (auto c : cameras) {
+    qb_camera_resize((qbCamera)c, width, height);
+  }
+
+  renderer_->resize(renderer_, width, height);
+  qb_gui_resize(width, height);
+}
+
+void qb_window_setfullscreen(qbFullscreenType type) {
+  uint32_t flags = 0;
+  if (type == QB_WINDOW_FULLSCREEN) {
+    flags = SDL_WINDOW_FULLSCREEN;
+  } else if (type == QB_WINDOW_FULLSCREEN_DESKTOP) {
+    flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
+  }
+
+  SDL_SetWindowFullscreen(win, flags);
+}
+
+qbFullscreenType qb_window_fullscreen() {
+  uint32_t flags = SDL_GetWindowFlags(win);
+
+  if (flags & SDL_WINDOW_FULLSCREEN) {
+    return QB_WINDOW_FULLSCREEN;
+  }
+
+  if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+    return QB_WINDOW_FULLSCREEN_DESKTOP;
+  }
+
+  return QB_WINDOWED;
+}
+
+void qb_window_setbordered(int bordered) {
+  SDL_SetWindowBordered(win, (SDL_bool)bordered);
+}
+
+int qb_window_bordered() {
+  return SDL_GetWindowFlags(win) & SDL_WINDOW_BORDERLESS ? 0 : 1;
 }
 
 void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {

@@ -28,7 +28,7 @@ qbVar print_timing_info(qbVar var) {
       "Total FPS:  " + std::to_string(info->total_fps) + "\n"
       "Render FPS: " + std::to_string(info->render_fps) + "\n"
       "Update FPS: " + std::to_string(info->udpate_fps) + "\n";
-    qb_log(QB_INFO, out.c_str());
+    //qb_log(QB_INFO, out.c_str());
     qb_coro_wait(1.0);
   }
 }
@@ -47,24 +47,24 @@ void create_main_menu() {
   qb_scene_create(&main_menu_scene, "Main Menu");
   qb_scene_set(main_menu_scene);
 
-  qbWindowCallbacks_ window_callbacks = {};
-  window_callbacks.onfocus = [](qbWindow) {
+  qbGuiBlockCallbacks_ window_callbacks = {};
+  window_callbacks.onfocus = [](qbGuiBlock) {
     std::cout << "onfocus\n";
     return true;
   };
-  window_callbacks.onclick = [](qbWindow, qbMouseButtonEvent e) {
+  window_callbacks.onclick = [](qbGuiBlock, qbMouseButtonEvent e) {
     std::cout << "onclick ( " << e->button << ", " << e->state << " )\n";
     return true;
   };
-  window_callbacks.onscroll = [](qbWindow window, qbMouseScrollEvent e) {
+  window_callbacks.onscroll = [](qbGuiBlock block, qbMouseScrollEvent e) {
     std::cout << "onscroll ( " << e->xrel << ", " << e->yrel << " )\n";
 
     if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
       vec3s delta = { (float)(e->yrel * 5), 0.0f, 0.0f };
-      qb_window_moveby(window, delta);
+      qb_guiblock_moveby(block, delta);
     } else {
       vec3s delta = { (float)e->xrel, (float)(e->yrel * 5), 0.0f };
-      qb_window_moveby(window, delta);
+      qb_guiblock_moveby(block, delta);
     }
     return true;
   };
@@ -76,79 +76,219 @@ void create_main_menu() {
     qb_image_load(&ball_image, &attr, "resources/soccer_ball.bmp");
   }
 
-  std::vector<qbWindow> windows;
-  qbWindow parent;
+  std::vector<qbGuiBlock> windows;
+  qbGuiBlock parent;
 
   {
-    qbWindowAttr_ attr = {};
+    qbGuiBlockAttr_ attr = {};
     attr.background_color = { 0.0f, 0.0f, 0.0f, 0.95f };
     attr.callbacks = &window_callbacks;
-    qb_window_create(&parent, &attr, { 0.0f, 0.0f }, { 512.0f, 64.0f }, nullptr, true);
+    qb_guiblock_create(&parent, &attr, "fps_parent");
+
+    qb_guiconstraint_width(parent, QB_CONSTRAINT_PIXEL, 512.f);
+    qb_guiconstraint_height(parent, QB_CONSTRAINT_PIXEL, 64.f);
   }
 
-  qbWindow text_box;
+  qbGuiBlock text_box;
   {
     qbTextboxAttr_ textbox_attr = {};
     textbox_attr.align = QB_TEXT_ALIGN_LEFT;
     textbox_attr.text_color = { 1.0f, 0.0f, 0.0f, 1.0f };
-    qb_textbox_create(&text_box, &textbox_attr, { 16.0f, 0.0f }, { 512.0f, 64.0f }, parent, true, 48, u"");
+    qb_textbox_create(&text_box, &textbox_attr, "text_box", { 512.f, 64.f }, 48, u"");
+
+    qb_guiblock_link(parent, text_box);
+    qb_guiconstraint_x(text_box, QB_CONSTRAINT_PIXEL, 16.f);
+    qb_guiconstraint_y(text_box, QB_CONSTRAINT_PIXEL, 0.0f);
+    qb_guiconstraint_width(text_box, QB_CONSTRAINT_PIXEL, 512.0f);
+    qb_guiconstraint_height(text_box, QB_CONSTRAINT_PIXEL, 64.0f);
   }
-  qb_window_movetoback(parent);
-  qb_window_movetofront(text_box);
+  qb_guiblock_movetoback(parent);
+  qb_guiblock_movetofront(text_box);
 
-  qbWindow main_menu;
+  qbGuiBlock main_menu;
   {
-    qbWindowAttr_ attr = {};
-    attr.background_color = { 0.0f, 0.0f, 0.0f, 0.95f };
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.2f, 0.2f, 0.2f, 0.99f };
+    attr.radius = 10.f;
 
-    qb_window_create(&main_menu, &attr, { (1200.0f * 0.5f) - 256.0f, 100.0f }, { 512.0f, 600.0f }, nullptr, true);
+    qbGuiBlockCallbacks_ callbacks = {};
+    callbacks.onfocus = [](qbGuiBlock b) {
+      std::cout << "ONFOCUS MAIN_MENU\n";
+      return true;
+    };
+    callbacks.onmove = [](qbGuiBlock b, qbMouseMotionEvent e, int sx, int sy) {
+      qb_guiblock_resizeby(b, { (float)e->xrel, (float)e->yrel });
+      return true;
+    };
+
+    attr.callbacks = &callbacks;
+
+    qb_guiblock_create(&main_menu, &attr, "main_menu");
+    qb_guiblock_resizeto(main_menu, { 250.f, 0.f });
+
+    qb_guiconstraint_x(main_menu, QB_CONSTRAINT_PIXEL, 50.f);
+    qb_guiconstraint_y(main_menu, QB_CONSTRAINT_PIXEL, 100.f);
+    qb_guiconstraint_width(main_menu, QB_CONSTRAINT_MIN, 50.f);
+    qb_guiconstraint_height(main_menu, QB_CONSTRAINT_MIN, 50.f);
+    qb_guiconstraint_height(main_menu, QB_CONSTRAINT_RELATIVE, -150.f);
+    
     windows.push_back(main_menu);
   }
 
-  qbWindow main_menu_border;
-  {
-    qbWindowAttr_ attr = {};
-    attr.background_color = { 1.0f, 1.0f, 1.0f, 0.9f };
+  qbGuiBlock toolbar;
+  {    
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.f, 0.f, 0.f, 0.f };
 
-    qb_window_create(&main_menu_border, &attr, { -4.0f, -4.0f }, { 520.0f, 608.0f }, main_menu, true);
-    qb_window_movetoback(main_menu_border);
-    windows.push_back(main_menu_border);
+    qb_guiblock_create(&toolbar, &attr, "toolbar");
+    qb_guiblock_link(main_menu, toolbar);
+    qb_guiconstraint_x(toolbar, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_y(toolbar, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_width(toolbar, QB_CONSTRAINT_PERCENT, 1.f);
+    qb_guiconstraint_height(toolbar, QB_CONSTRAINT_PIXEL, 30.f);
+
+    windows.push_back(toolbar);
   }
 
-  qbWindow new_game;
+  qbGuiBlock body;
+  {    
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.f, 0.f, 0.f, 0.f };
+
+    qb_guiblock_create(&body, &attr, "body");
+    qb_guiblock_link(main_menu, body);
+    qb_guiconstraint_x(body, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_y(body, QB_CONSTRAINT_RELATIVE, 30.f);
+    qb_guiconstraint_width(body, QB_CONSTRAINT_PERCENT, 1.f);
+    qb_guiconstraint_height(body, QB_CONSTRAINT_RELATIVE, -30.f);
+
+    windows.push_back(body);
+  }
+
+  qbGuiBlock red_button;
   {
-    qbWindowCallbacks_ callbacks = {};
-    callbacks.onclick = [](qbWindow w, qbMouseButtonEvent e) {
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 1.0f, 0.35f, 0.35f, 1.f };
+    attr.radius = 2.f;
+
+    qb_guiblock_create(&red_button, &attr, "close");
+    qb_guiblock_link(toolbar, red_button);
+    qb_guiconstraint_x(red_button, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_y(red_button, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_width(red_button, QB_CONSTRAINT_PIXEL, 10.f);
+    qb_guiconstraint_height(red_button, QB_CONSTRAINT_PIXEL, 10.f);
+
+    windows.push_back(red_button);
+  }
+
+  qbGuiBlock yellow_button;
+  {
+    qbGuiBlockCallbacks_ callbacks = {};
+    callbacks.onclick = [](qbGuiBlock w, qbMouseButtonEvent e) {
+      const char* path[] = {"main_menu", "body", 0};
+      qb_guiblock_closequery(path);
+
+      const char* main_menu_path[] = { "main_menu", 0 };
+      qbGuiBlock main_menu = qb_guiblock_find(main_menu_path);
+
+      qb_guiconstraint_height(main_menu, QB_CONSTRAINT_MAX, 30.f);
       return true;
     };
-    callbacks.onscroll = [](qbWindow w, qbMouseScrollEvent e) {
-      qb_window_resizeby(w, { (float)e->yrel, 0.0f });
-      return true;
-    };
-    qbWindowAttr_ attr = {};
-    attr.background_color = { 1.0f, 1.0f, 1.0f, 0.15f };
+
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 1.0f, 1.0f, 0.35f, 1.f };
+    attr.radius = 2.f;
     attr.callbacks = &callbacks;
 
-    qb_window_create(&new_game, &attr, { 0.0f, 100.0f }, { 512.0f, 64.0f }, main_menu, true);
-    windows.push_back(new_game);
+    qb_guiblock_create(&yellow_button, &attr, "minimize");
+    qb_guiblock_link(toolbar, yellow_button);
+    qb_guiconstraint_x(yellow_button, QB_CONSTRAINT_RELATIVE, 25.f);
+    qb_guiconstraint_y(yellow_button, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_width(yellow_button, QB_CONSTRAINT_PIXEL, 10.f);
+    qb_guiconstraint_height(yellow_button, QB_CONSTRAINT_PIXEL, 10.f);
+
+    windows.push_back(yellow_button);
   }
 
+  qbGuiBlock green_button;
+  {
+    qbGuiBlockCallbacks_ callbacks = {};
+    callbacks.onclick = [](qbGuiBlock w, qbMouseButtonEvent e) {
+      const char* path[] = { "main_menu", "body", 0 };
+      qb_guiblock_openquery(path);
+
+      const char* main_menu_path[] = { "main_menu", 0 };
+      qbGuiBlock main_menu = qb_guiblock_find(main_menu_path);
+
+      qb_guiconstraint_clearheight(main_menu, QB_CONSTRAINT_MAX);
+      return true;
+    };
+
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.35f, 1.0f, 0.35f, 1.f };
+    attr.radius = 2.f;
+    attr.callbacks = &callbacks;
+
+    qb_guiblock_create(&green_button, &attr, "maximize");
+    qb_guiblock_link(toolbar, green_button);
+    qb_guiconstraint_x(green_button, QB_CONSTRAINT_RELATIVE, 40.f);
+    qb_guiconstraint_y(green_button, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_width(green_button, QB_CONSTRAINT_PIXEL, 10.f);
+    qb_guiconstraint_height(green_button, QB_CONSTRAINT_PIXEL, 10.f);
+
+    windows.push_back(green_button);
+  }
+
+  qbGuiBlock display;
+  {
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.35f, 0.35f, 0.35f, 1.f };
+    attr.radius = 2.f;
+
+    qb_guiblock_create(&display, &attr, "display");
+    qb_guiblock_link(body, display);
+    qb_guiconstraint_x(display, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_y(display, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_width(display, QB_CONSTRAINT_RELATIVE, -20.f);
+    qb_guiconstraint_height(display, QB_CONSTRAINT_RELATIVE, -20.f);
+
+    windows.push_back(display);
+  }
+
+  if (1)
   {
     qbTextboxAttr_ attr = {};
-    attr.align = QB_TEXT_ALIGN_CENTER;
+    attr.align = QB_TEXT_ALIGN_LEFT;
     attr.text_color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    qbWindow new_game_text;
-    qb_textbox_create(&new_game_text, &attr, { 0.0f, 0.0f }, { 512.0f, 64.0f }, new_game, true, 48, u"New Game");
+    char16_t* lorem_ipsum = uR"(Lorem ipsum dolor sit amet, eos duis illud ullamcorper ea.Est cu tritani inermis.Pro dicta paulo consequat cu, ei integre suavitate vituperatoribus sed, vel ne enim agam disputationi.Ut ius noster blandit referrentur, nusquam cotidieque vim ut.At usu tritani consetetur.Movet populo praesent at sed, no eos appellantur deterruisset.
+
+Vis an quem clita, his id facete malorum persius.Solum populo elaboraret ei mei.Wisi diceret fabulas mel in, graeci vidisse noluisse quo ex.Vis dolorum evertitur at.
+
+Pro elitr malorum voluptaria ex, ius elitr praesent accommodare ei.An quem noster reprimique mei.Tempor docendi duo ad, cu movet quando suscipit sed.Eos legere facilisi ut, eu sit ancillae constituam.Cum movet nobis ei, cu sea dolor copiosae suscipiantur.Commune eligendi moderatius ne nec, mea eu aperiri deserunt qualisque, ferri dicant albucius te qui.
+
+Pri affert decore eu, ad movet vidisse has.Qui errem melius iudicabit et.Ea sanctus oporteat usu, ad velit lobortis splendide vis, justo solet principes pro eu.Ei mei sanctus consectetuer.Debet vocent qui ut.Mel tota inermis reprimique te, sea oblique consequat in.
+
+Dicit nihil oportere vix id, pri te tempor alterum.Ea vel etiam inciderint.Qualisque definitionem ea eam, quo accusamus vituperata ut.Eos at posse populo numquam, graeco adipisci mediocrem vim te.His ne erat molestiae.
+      )";
+
+    qbGuiBlock new_game_text;
+    qb_textbox_create(&new_game_text, &attr, "lorem_ipsum", { 800.0f, 64.0f }, 8, lorem_ipsum);
+
+    qb_guiblock_link(display, new_game_text);
+    qb_guiconstraint_x(new_game_text, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_y(new_game_text, QB_CONSTRAINT_RELATIVE, 10.f);
+    qb_guiconstraint_width(new_game_text, QB_CONSTRAINT_RELATIVE, -20.f);
+
     windows.push_back(new_game_text);
   }
   
-  qb_window_close(main_menu);
-  //qb_window_open(main_menu);
+  qb_guiblock_close(main_menu);
+  qb_guiblock_open(main_menu);
 
-  qb_scene_attach(main_menu_scene, "main_menu", new std::vector<qbWindow>(std::move(windows)));
+  qb_scene_attach(main_menu_scene, "main_menu", new std::vector<qbGuiBlock>(std::move(windows)));
   qb_coro_sync([](qbVar text) {
-    qbWindow text_box = (qbWindow)text.p;
+    qbGuiBlock text_box = (qbGuiBlock)text.p;
     while (true) {
       int fps = (int)timing_info.total_fps;
       {
@@ -165,7 +305,7 @@ void create_main_menu() {
     return qbNone;
   }, qbPtr(text_box));
 
-  //qb_window_movetofront(text_box);
+  //qb_guiblock_movetofront(text_box);
   qb_scene_reset();
 }
 
@@ -340,8 +480,8 @@ void create_game() {
       qb_mouse_relposition(&x, &y);
 
       float dx, dy;
-      dx = (float)x * -0.001f;
-      dy = (float)y * 0.001f;
+      dx = (float)x * -0.01f;
+      dy = (float)y * 0.01f;
 
       float speed = 0.5f;
       if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
@@ -357,7 +497,7 @@ void create_game() {
         std::cout << wx << ", " << wy << std::endl;
       }
 
-      {
+      if (qb_mouse_relative()) {
         mat4s m = camera->rotation_mat;
         m = glms_rotate(m, dx, vec3s{ 0, 0, 1 });
         m = glms_rotate(m, -dy, vec3s{ 0, 1, 0 });
@@ -370,6 +510,17 @@ void create_game() {
         cam_dis_dt *= 0.9f;*/
       }
 
+      static uint32_t was_pressed = 0;
+      if (qb_key_pressed(QB_KEY_F11) && !was_pressed) {
+        was_pressed = 1;
+        if (qb_window_fullscreen() == QB_WINDOWED) {
+          qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
+        } else {
+          qb_window_setfullscreen(QB_WINDOWED);
+        }
+      } else if (!qb_key_pressed(QB_KEY_F11)) {
+        was_pressed = 0;
+      }
 
       if (qb_key_pressed(qbKey::QB_KEY_W)) {
         /*if (qb_key_pressed(qbKey::QB_KEY_LSHIFT)) {
@@ -548,7 +699,7 @@ qbVar test_collision(qbVar v) {
     };
 
     qbModelgroup r = qb_draw_cube(2, 2, 2, &b);
-
+    
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
     qb_entityattr_addcomponent(attr, qb_modelgroup(), &r);
@@ -614,24 +765,6 @@ qbVar test_collision(qbVar v) {
 
     rot += 0.1f;
     
-    if (1)
-    {
-      qbComponent components[] = {
-        qb_transform(),
-        qb_material()
-      };
-
-      qb_system_foreach(components, 2, qbNone, [](qbInstance* insts, qbVar) {
-        qbTransform transform;
-        qbMaterial material;
-
-        qb_instance_mutable(insts[0], &transform);
-        qb_instance_mutable(insts[1], &material);
-
-        transform->position.x += 0.01f;
-      });
-    }
-
     //qb_coro_waitframes(1);
     qb_coro_wait(0.01);
   }
@@ -644,7 +777,7 @@ int main(int, char* []) {
   qb_start();
   create_game();
 
-  qb_mouse_setrelative(1);
+  qb_mouse_setrelative(0);
 
   qb_coro_sync(test_collision, qbNone);
 

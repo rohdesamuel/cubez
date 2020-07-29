@@ -360,6 +360,7 @@ QB_API void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelin
 QB_API void qb_renderpipeline_destroy(qbRenderPipeline* pipeline);
 QB_API void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
                                       qbRenderEvent event);
+QB_API void qb_renderpipeline_resize(qbRenderPipeline render_pipeline, vec4s viewport);
 QB_API void qb_renderpipeline_append(qbRenderPipeline pipeline, qbRenderPass pass);
 QB_API void qb_renderpipeline_prepend(qbRenderPipeline pipeline, qbRenderPass pass);
 QB_API size_t qb_renderpipeline_passes(qbRenderPipeline pipeline, qbRenderPass** passes);
@@ -382,6 +383,7 @@ QB_API void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr att
 QB_API void qb_renderpass_destroy(qbRenderPass* render_pass);
 QB_API void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 QB_API void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, size_t count, qbRenderGroup* groups);
+QB_API void qb_renderpass_resize(qbRenderPass render_pass, vec4s viewport);
 QB_API const char* qb_renderpass_name(qbRenderPass render_pass);
 QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
 
@@ -462,6 +464,7 @@ QB_API void qb_renderext_destroy(qbRenderExt* extensions);
 
 QB_API void qb_surface_create(qbSurface* surface, qbSurfaceAttr attr);
 QB_API void qb_surface_destroy(qbSurface* surface);
+QB_API void qb_surface_resize(qbSurface surface, uint32_t width, uint32_t height);
 QB_API void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output);
 QB_API qbFrameBuffer qb_surface_target(qbSurface surface, size_t i);
 QB_API qbImage qb_surface_image(qbSurface surface, size_t i);

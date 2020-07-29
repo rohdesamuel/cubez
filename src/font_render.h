@@ -30,6 +30,23 @@ public:
               std::vector<float>* vertices, std::vector<int>* indices);
 
 private:
+  enum Format {
+    CHAR,
+    NEWLINE,
+    SPACE,
+    STOP
+  };
+
+  struct FormatChar {
+    char16_t c;
+    Character info;
+    Format f;
+  };
+
+  std::vector<FormatChar> ParseToFormatString(
+    const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale);
+
+
   Font* font_;
 };
 

@@ -28,6 +28,7 @@ typedef struct qbModelgroup_* qbModelgroup;
 
 typedef struct qbRenderer_ {
   void(*render)(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event);
+  void(*resize)(struct qbRenderer_* self, uint32_t width, uint32_t height);
   
   void(*rendergroup_oncreate)(struct qbRenderer_* self, qbRenderGroup);
   void(*rendergroup_ondestroy)(struct qbRenderer_* self, qbRenderGroup);
@@ -81,8 +82,6 @@ typedef struct qbRenderer_ {
   qbFrameBuffer(*camera_framebuffer_create)(struct qbRenderer_* self, uint32_t width, uint32_t height);
 
   const char* title;
-  int width;
-  int height;
   qbRenderPipeline render_pipeline;
 
   void* state;
@@ -161,9 +160,20 @@ enum qbLightType {
   QB_LIGHT_TYPE_POINT,
 };
 
+enum qbFullscreenType {
+  QB_WINDOWED,
+  QB_WINDOW_FULLSCREEN,
+  QB_WINDOW_FULLSCREEN_DESKTOP
+};
+
+
 QB_API uint32_t qb_window_width();
 QB_API uint32_t qb_window_height();
 QB_API void qb_window_resize(uint32_t width, uint32_t height);
+QB_API void qb_window_setfullscreen(qbFullscreenType type);
+QB_API qbFullscreenType  qb_window_fullscreen();
+QB_API void qb_window_setbordered(int bordered);
+QB_API int qb_window_bordered();
 
 QB_API void qb_camera_create(qbCamera* camera, qbCameraAttr attr);
 QB_API void qb_camera_destroy(qbCamera* camera);

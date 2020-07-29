@@ -18,7 +18,88 @@
 
 #include "font_render.h"
 
-FontRender::FontRender(Font* font): font_(font) { }
+FontRender::FontRender(Font* font) : font_(font) {}
+
+
+std::vector<FontRender::FormatChar> FontRender::ParseToFormatString(
+    const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale) {
+
+  std::vector<FontRender::FormatChar> ret;
+
+  if (!text) {
+    return ret;
+  }
+
+  size_t len = 0;
+  for (size_t i = 0; i < 1 << 10; ++i) {
+    if (text[i] == 0) {
+      break;
+    }
+    ++len;
+  }
+
+  ret.reserve(len);
+
+  float line_bitmapwidth = 0.f;
+  float break_bitmapwidth = 0.f;
+  int64_t previous_breakpoint = -1;
+  bool replace_breakpoint = true;
+  for (size_t i = 0; i < len; ++i) {
+    FormatChar c = { text[i], (*font_)[text[i]], Format::CHAR };    
+    float advance = c.info.ax * font_scale.x;
+    if (text[i] == u'\n') {
+      line_bitmapwidth = 0.f;
+      break_bitmapwidth = 0.f;
+      c.f = Format::NEWLINE;
+    } else if (text[i] == u' ') {
+      line_bitmapwidth += advance;
+      break_bitmapwidth = 0.f;
+      previous_breakpoint = ret.size();
+      c.f = Format::SPACE;
+    } else if (text[i] == u'.') {
+      line_bitmapwidth += advance;
+      break_bitmapwidth = 0.f;
+      previous_breakpoint = ret.size();
+      c.f = Format::STOP;
+    } else {
+      line_bitmapwidth += advance;
+      break_bitmapwidth += advance;
+    }
+
+    // If the character is past the bounding size, then we can try to draw it again at the next line.
+    if (line_bitmapwidth > bounding_size.x && previous_breakpoint >= 0) {
+      FormatChar newline = {};
+      newline.c = u'\n';
+      newline.info = (*font_)[u'\n'];
+      newline.f = NEWLINE;
+
+      if (c.f == Format::CHAR) {
+        ret.push_back(c);
+        ret.insert(ret.begin() + previous_breakpoint + 1, newline);
+      } else if (c.f == Format::STOP) {
+        break_bitmapwidth = 0.f;
+        for (int64_t i = (int64_t)ret.size() - 1; i >= 0; --i) {
+          break_bitmapwidth += ret[i].info.ax * font_scale.x;
+          if (ret[i].f == Format::SPACE) {            
+            ret[i] = newline;
+            break;
+          }
+        }
+        ret.push_back(c);
+      } else {
+        ret.push_back(c);
+        ret.push_back(newline);
+      }
+
+      // Reset the state to the next line.
+      line_bitmapwidth = break_bitmapwidth;
+    } else {
+      ret.push_back(c);
+    }
+  }
+
+  return ret;
+}
 
 // Todo: improve with decomposed signed distance fields: 
 // https://gamedev.stackexchange.com/questions/150704/freetype-create-signed-distance-field-based-font
@@ -27,6 +108,8 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_
   if (!text) {
     return;
   }
+
+  auto format_string = ParseToFormatString(text, align, bounding_size, font_scale);
 
   size_t len = 0;
   for (size_t i = 0; i < 1 << 10; ++i) {
@@ -44,9 +127,9 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_
   float line_bitmapwidth = 0.0f;
   float line_final_char_width = 0.0f;
   Character prev_char = {};
-  for (size_t i = 0; i < len; ++i) {
-    Character& c = (*font_)[text[i]];
-    if (text[i] == '\n') {
+  
+  for (auto& c : format_string) {
+    if (c.f == Format::NEWLINE) {
       float offset = 0.0f;
       if (align == QB_TEXT_ALIGN_CENTER) {
         offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw) * 0.5f;
@@ -64,53 +147,31 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_
       line_width = 0.0f;
       line_bitmapwidth = 0.0f;
       line_start = vertices->size();
-      prev_char = c;
-      continue;
-    }
-    if (text[i] == ' ') {
-      x += c.ax * font_scale.x;
-      line_width += c.ax * font_scale.x;
-      line_bitmapwidth += c.ax * font_scale.x;
-      prev_char = c;
+      prev_char = c.info;
       continue;
     }
 
-    float l = x + c.bl * font_scale.x;
-    float t = -y - c.bt * font_scale.y + font_->AtlasHeight();
-    float w = c.bw * font_scale.x;
-    float h = c.bh * font_scale.y;
+    if (c.f == Format::SPACE) {
+      x += c.info.ax * font_scale.x;
+      line_width += c.info.ax * font_scale.x;
+      line_bitmapwidth += c.info.ax * font_scale.x;
+      prev_char = c.info;
+      continue;
+    }
+
+    float l = x + c.info.bl * font_scale.x;
+    float t = -y - c.info.bt * font_scale.y + font_->AtlasHeight();
+    float w = c.info.bw * font_scale.x;
+    float h = c.info.bh * font_scale.y;
     float r = l + w;
     float b = t + h;
-    float txl = c.tx;
-    float txr = c.tx + c.bw / font_->AtlasWidth();
+    float txl = c.info.tx;
+    float txr = c.info.tx + c.info.bw / font_->AtlasWidth();
     float txt = 0.0f;
-    float txb = c.bh / font_->AtlasHeight();
+    float txb = c.info.bh / font_->AtlasHeight();
 
-    line_width += (c.bw + c.bx) * font_scale.x;
-    line_bitmapwidth += c.ax * font_scale.x;
-    if (line_bitmapwidth > bounding_size.x) {
-      float offset = 0.0f;
-      if (align == QB_TEXT_ALIGN_CENTER) {
-        offset = bounding_size.x * 0.5f - line_bitmapwidth * 0.5f + (prev_char.ax - prev_char.bx - prev_char.bw)*0.5f + c.ax *0.5f;
-      } else if (align == QB_TEXT_ALIGN_RIGHT) {
-        //offset = size.x - line_width - line_final_char_width + c.ax * scale.x;
-        offset = bounding_size.x - line_bitmapwidth + (prev_char.ax - prev_char.bx - prev_char.bw) + c.ax;
-      }
-      for (size_t j = line_start; j < vertices->size(); j += 8) {
-        (*vertices)[j] += offset;
-        (*vertices)[j] = std::round((*vertices)[j]);
-      }
-
-      x = 0;
-      y -= font_->FontHeight();
-      line_final_char_width = (c.bw + c.bx) * font_scale.x;
-      line_width = 0.0f;
-      line_bitmapwidth = 0.0f;
-      line_start = vertices->size();
-      i -= 1;
-      prev_char = c;
-      continue;
-    }
+    line_width += (c.info.bw + c.info.bx) * font_scale.x;
+    line_bitmapwidth += c.info.ax * font_scale.x;
 
     if (!w || !h) {
       continue;
@@ -133,10 +194,10 @@ void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_
     index += 4;
 
     /* Advance the cursor to the start of the next character */
-    x += c.ax * font_scale.x;
-    line_final_char_width = (c.bw + c.bx) * font_scale.x;
-    y += c.ay * font_scale.y;
-    prev_char = c;
+    x += c.info.ax * font_scale.x;
+    line_final_char_width = (c.info.bw + c.info.bx) * font_scale.x;
+    y += c.info.ay * font_scale.y;
+    prev_char = c.info;
   }
   float offset = 0.0f;
   if (align == QB_TEXT_ALIGN_CENTER) {

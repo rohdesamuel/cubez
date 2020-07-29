@@ -536,6 +536,10 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
   }
 }
 
+void qb_renderpipeline_resize(qbRenderPipeline render_pipeline, vec4s viewport) {
+  qb_renderpass_resize(render_pipeline->present_pass, viewport);
+}
+
 void qb_renderpipeline_destroy(qbRenderPipeline* pipeline) {
   qb_renderext_destroy(&(*pipeline)->ext);
   delete *pipeline;
@@ -919,6 +923,10 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   descriptor->bindings = new qbBufferBinding_[descriptor->bindings_count];
   memcpy(descriptor->bindings, attr->supported_geometry.bindings,
          descriptor->bindings_count * sizeof(qbBufferBinding_));
+}
+
+void qb_renderpass_resize(qbRenderPass render_pass, vec4s viewport) {
+  render_pass->viewport = viewport;
 }
 
 void qb_renderpass_destroy(qbRenderPass* render_pass) {
@@ -1366,17 +1374,19 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   uint32_t frame_buffer_id = 0;
   glGenFramebuffers(1, &frame_buffer_id);
   frame_buffer->id = frame_buffer_id;
-  frame_buffer->attr = *attr;
-  
-  if (attr->color_binding) {
-    frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
-    memcpy(frame_buffer->attr.color_binding, attr->color_binding,
-           frame_buffer->attr.attachments_count * sizeof(uint32_t));
-  }
 
-  frame_buffer->attr.attachments = new qbFrameBufferAttachment[frame_buffer->attr.attachments_count];
-  memcpy(frame_buffer->attr.attachments, attr->attachments,
-         frame_buffer->attr.attachments_count * sizeof(qbFrameBufferAttachment));
+  if (attr != &frame_buffer->attr) {
+    frame_buffer->attr = *attr;
+    if (attr->color_binding) {
+      frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
+      memcpy(frame_buffer->attr.color_binding, attr->color_binding,
+             frame_buffer->attr.attachments_count * sizeof(uint32_t));
+    }
+
+    frame_buffer->attr.attachments = new qbFrameBufferAttachment[frame_buffer->attr.attachments_count];
+    memcpy(frame_buffer->attr.attachments, attr->attachments,
+           frame_buffer->attr.attachments_count * sizeof(qbFrameBufferAttachment));
+  }
 
   CHECK_GL();
   glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_id);
@@ -1520,9 +1530,21 @@ void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, uint32_t 
   for (qbImage& img : frame_buffer->render_targets) {
     qb_image_destroy(&img);
   }
-  qb_image_destroy(&frame_buffer->depth_target);
-  qb_image_destroy(&frame_buffer->stencil_target);
-  qb_image_destroy(&frame_buffer->depthstencil_target);
+  if (frame_buffer->depth_target) {
+    qb_image_destroy(&frame_buffer->depth_target);
+  }
+
+  if (frame_buffer->stencil_target) {
+    qb_image_destroy(&frame_buffer->stencil_target);
+  }
+
+  if (frame_buffer->depthstencil_target) {
+    qb_image_destroy(&frame_buffer->depthstencil_target);
+  }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
+  glDeleteFramebuffers(1, &frame_buffer->id);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   frame_buffer->render_targets = {};
   frame_buffer->depth_target = nullptr;
@@ -1978,6 +2000,13 @@ void qb_surface_destroy(qbSurface* surface_ref) {
     qb_framebuffer_destroy(&fbo);
   }
   qb_renderpass_destroy(&surface->pass);
+}
+
+void qb_surface_resize(qbSurface surface, uint32_t width, uint32_t height) {
+  qb_renderpass_resize(surface->pass, { 0, 0, (float)width, (float)height });
+  for (qbFrameBuffer& fbo : surface->targets) {
+    qb_framebuffer_resize(fbo, width, height);
+  }
 }
 
 void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output) {

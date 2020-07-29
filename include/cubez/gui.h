@@ -27,33 +27,48 @@
 #undef max
 #undef min
 
-typedef struct qbWindow_* qbWindow;
-typedef struct qbRenderTargetAttr_* qbRenderTargetAttr;
-typedef struct qbWindow_* qbWindow;
+typedef struct qbGuiBlock_* qbGuiBlock;
+typedef struct qbGuiConstraint_* qbGuiConstraint;
 
 typedef struct {
-  bool(*onfocus)(qbWindow window);
-  bool(*onclick)(qbWindow window, qbMouseButtonEvent e);
-  bool(*onscroll)(qbWindow window, qbMouseScrollEvent e);
-  bool(*onkey)(qbWindow window, qbKeyEvent e);
+  bool(*onfocus)(qbGuiBlock block);
+  bool(*onclick)(qbGuiBlock block, qbMouseButtonEvent e);
+  bool(*onscroll)(qbGuiBlock block, qbMouseScrollEvent e);
+  bool(*onmove)(qbGuiBlock block, qbMouseMotionEvent e, int start_x, int start_y);
+  bool(*onkey)(qbGuiBlock block, qbKeyEvent e);
 
-  void(*onrender)(qbWindow window);
-  void(*onopen)(qbWindow window);
-  void(*onclose)(qbWindow window);
-  void(*ondestroy)(qbWindow window);
-} qbWindowCallbacks_, *qbWindowCallbacks;
+  void(*onrender)(qbGuiBlock block);
+  void(*onopen)(qbGuiBlock block);
+  void(*onclose)(qbGuiBlock block);
+  void(*ondestroy)(qbGuiBlock block);
+
+  void(*setvalue)(qbGuiBlock block, qbVar* var);
+  qbVar(*getvalue)(qbGuiBlock block, qbVar var);
+} qbGuiBlockCallbacks_, *qbGuiBlockCallbacks;
 
 typedef struct {
   vec4s background_color;
   qbImage background;
-  qbWindowCallbacks callbacks;
-} qbWindowAttr_, *qbWindowAttr;
+  float radius;
 
-typedef enum {
+  qbGuiBlockCallbacks callbacks;
+} qbGuiBlockAttr_, *qbGuiBlockAttr;
+
+typedef enum qbTextAlign {
   QB_TEXT_ALIGN_LEFT,
   QB_TEXT_ALIGN_CENTER,
   QB_TEXT_ALIGN_RIGHT,
 } qbTextAlign;
+
+typedef enum qbConstraint {
+  QB_CONSTRAINT_NONE,  
+  QB_CONSTRAINT_PIXEL,
+  QB_CONSTRAINT_PERCENT,
+  QB_CONSTRAINT_RELATIVE,
+  QB_CONSTRAINT_MIN,
+  QB_CONSTRAINT_MAX,
+  QB_CONSTRAINT_ASPECT_RATIO
+} qbConstraint;
 
 typedef struct {
   vec4s text_color;
@@ -61,40 +76,65 @@ typedef struct {
   const char* font_name;
 } qbTextboxAttr_, *qbTextboxAttr;
 
-QB_API void qb_window_create(qbWindow* window, qbWindowAttr attr, vec2s pos,
-                             vec2s size, qbWindow parent, bool open);
+QB_API void qb_guiconstraint_x(qbGuiBlock block, qbConstraint constraint, float val);
+QB_API void qb_guiconstraint_y(qbGuiBlock block, qbConstraint constraint, float val);
+QB_API void qb_guiconstraint_width(qbGuiBlock block, qbConstraint constraint, float val);
+QB_API void qb_guiconstraint_height(qbGuiBlock block, qbConstraint constraint, float val);
 
-QB_API void qb_textbox_create(qbWindow* window,
-                       qbTextboxAttr textbox_attr,
-                       vec2s pos, vec2s size, qbWindow parent, bool open,
-                       uint32_t font_size,
-                       const char16_t* text);
-QB_API void qb_textbox_text(qbWindow window, const char16_t* text);
-QB_API void qb_textbox_color(qbWindow window, vec4s text_color);
-QB_API void qb_textbox_scale(qbWindow window, vec2s scale);
-QB_API void qb_textbox_fontsize(qbWindow window, uint32_t font_size);
+QB_API void qb_guiconstraint_clearx(qbGuiBlock block, qbConstraint constraint);
+QB_API void qb_guiconstraint_cleary(qbGuiBlock block, qbConstraint constraint);
+QB_API void qb_guiconstraint_clearwidth(qbGuiBlock block, qbConstraint constraint);
+QB_API void qb_guiconstraint_clearheight(qbGuiBlock block, qbConstraint constraint);
 
-QB_API void qb_window_open(qbWindow window);
-QB_API void qb_window_close(qbWindow window);
+QB_API void qb_guiblock_create(qbGuiBlock* window, qbGuiBlockAttr attr, const char* name);
 
-QB_API void qb_window_movetofront(qbWindow window);
-QB_API void qb_window_movetoback(qbWindow window);
+QB_API void qb_guiblock_open(qbGuiBlock block);
+QB_API qbGuiBlock qb_guiblock_find(const char* path[]);
+QB_API void qb_guiblock_openquery(const char* path[]);
+QB_API void qb_guiblock_openchildren(qbGuiBlock block);
+QB_API void qb_guiblock_close(qbGuiBlock block);
+QB_API void qb_guiblock_closequery(const char* path[]);
+QB_API void qb_guiblock_closechildren(qbGuiBlock block);
 
-QB_API void qb_window_moveforward(qbWindow window);
-QB_API void qb_window_movebackward(qbWindow window);
+QB_API void qb_guiblock_link(qbGuiBlock parent, qbGuiBlock child);
+QB_API void qb_guiblock_unlink(qbGuiBlock child);
+QB_API qbGuiBlock qb_guiblock_parent(qbGuiBlock block);
 
-QB_API void qb_window_moveto(qbWindow window, vec3s pos);
-QB_API void qb_window_resizeto(qbWindow window, vec2s size);
+QB_API void qb_guiblock_movetofront(qbGuiBlock block);
+QB_API void qb_guiblock_movetoback(qbGuiBlock block);
 
-QB_API void qb_window_moveby(qbWindow window, vec3s pos_delta);
-QB_API void qb_window_resizeby(qbWindow window, vec2s size_delta);
+QB_API void qb_guiblock_moveforward(qbGuiBlock block);
+QB_API void qb_guiblock_movebackward(qbGuiBlock block);
 
-QB_API vec2s qb_window_size(qbWindow window);
-QB_API vec2s qb_window_pos(qbWindow window);
-QB_API vec2s qb_window_relpos(qbWindow window);
-QB_API qbWindow qb_window_parent(qbWindow window);
+QB_API void qb_guiblock_moveto(qbGuiBlock block, vec3s pos);
+QB_API void qb_guiblock_resizeto(qbGuiBlock block, vec2s size);
 
-QB_API qbWindow qb_window_focus();
-QB_API qbWindow qb_window_focusat(int x, int y);
+QB_API void qb_guiblock_moveby(qbGuiBlock block, vec3s pos_delta);
+QB_API void qb_guiblock_resizeby(qbGuiBlock block, vec2s size_delta);
+
+QB_API vec2s qb_guiblock_size(qbGuiBlock block);
+QB_API vec2s qb_guiblock_pos(qbGuiBlock block);
+QB_API vec2s qb_guiblock_relpos(qbGuiBlock block);
+
+QB_API void qb_guiblock_setvalue(qbGuiBlock block, qbVar var);
+QB_API qbVar qb_guiblock_value(qbGuiBlock block);
+
+QB_API void qb_guiblock_text(qbGuiBlock block, const char16_t* text);
+
+QB_API qbGuiBlock qb_guiblock_focus();
+QB_API qbGuiBlock qb_guiblock_focusat(int x, int y);
+
+QB_API void qb_textbox_create(qbGuiBlock* window,
+                              qbTextboxAttr textbox_attr,
+                              const char* name,
+                              vec2s size,
+                              uint32_t font_size,
+                              const char16_t* text);
+QB_API void qb_textbox_text(qbGuiBlock block, const char16_t* text);
+QB_API void qb_textbox_color(qbGuiBlock block, vec4s text_color);
+QB_API void qb_textbox_scale(qbGuiBlock block, vec2s scale);
+QB_API void qb_textbox_fontsize(qbGuiBlock block, uint32_t font_size);
+
+QB_API void qb_gui_resize(uint32_t width, uint32_t height);
 
 #endif  // CUBEZ_GUI__H
