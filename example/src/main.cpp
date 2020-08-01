@@ -40,6 +40,70 @@ void main_menu_activate(qbScene scene, size_t count, const char* keys[], void* v
   }
 }
 
+qbGuiBlock qb_guislider_create(vec2s pos, float width, const char* name) {
+  qbGuiBlock container;
+  {
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { .1f, .1f, .1f, 1.f };
+
+    qb_guiblock_create(&container, &attr, "container");
+    qb_guiconstraint_x(container, QB_CONSTRAINT_RELATIVE, pos.x + 15.f);
+    qb_guiconstraint_y(container, QB_CONSTRAINT_RELATIVE, pos.y);
+  }
+
+  qbGuiBlock line;
+  {
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { .7f, .7f, .7f, 1.f };
+    attr.radius = 1.f;
+
+    qb_guiblock_create(&line, &attr, "line");
+    qb_guiconstraint_x(line, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_y(line, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_width(line, QB_CONSTRAINT_PIXEL, width);
+    qb_guiconstraint_height(line, QB_CONSTRAINT_PIXEL, 2.f);
+  }
+
+  qbGuiBlock slider;
+  {
+    qbGuiBlockCallbacks_ callbacks = {};
+    callbacks.onfocus = [](qbGuiBlock) { return true; };
+    callbacks.getvalue = [](qbGuiBlock b, qbVar) {
+      double l = qb_guiconstraint_get(b, QB_CONSTRAINT_MIN, QB_GUI_X);
+      double r = qb_guiconstraint_get(b, QB_CONSTRAINT_MAX, QB_GUI_X);
+      double p = qb_guiconstraint_get(b, QB_CONSTRAINT_RELATIVE, QB_GUI_X);
+      double v = std::max(l, std::min(p, r));
+      return qbDouble(v);
+    };
+    callbacks.onmove = [](qbGuiBlock b, qbMouseMotionEvent e, int sx, int sy) {
+      float x = qb_guiconstraint_get(b, QB_CONSTRAINT_RELATIVE, QB_GUI_X);
+      qb_guiconstraint_x(b, QB_CONSTRAINT_RELATIVE, x + (float)e->xrel);
+
+      std::cout << qb_guiblock_value(b).d << std::endl;
+      return true;
+    };
+
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 1.f, 1.f, 1.f, 1.f };
+    attr.radius = 2.f;
+    attr.callbacks = &callbacks;
+    attr.offset = { -5.f, -5.f };
+
+    qb_guiblock_create(&slider, &attr, name);
+    qb_guiconstraint_x(slider, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_x(slider, QB_CONSTRAINT_MIN, pos.x);
+    qb_guiconstraint_x(slider, QB_CONSTRAINT_MAX, width);
+    qb_guiconstraint_y(slider, QB_CONSTRAINT_RELATIVE, 0.f);
+    qb_guiconstraint_width(slider, QB_CONSTRAINT_PIXEL, 10.f);
+    qb_guiconstraint_height(slider, QB_CONSTRAINT_PIXEL, 10.f);
+  }
+  qb_guiblock_movetofront(slider);
+  qb_guiblock_link(container, line);
+  qb_guiblock_link(container, slider);
+
+  return container;
+}
+
 qbTiming_ timing_info;
 qbScene main_menu_scene;
 qbScene game_scene;
@@ -117,7 +181,7 @@ void create_main_menu() {
       return true;
     };
     callbacks.onmove = [](qbGuiBlock b, qbMouseMotionEvent e, int sx, int sy) {
-      qb_guiblock_resizeby(b, { (float)e->xrel, (float)e->yrel });
+      qb_guiblock_moveby(b, { (float)e->xrel, (float)e->yrel });
       return true;
     };
 
@@ -126,8 +190,8 @@ void create_main_menu() {
     qb_guiblock_create(&main_menu, &attr, "main_menu");
     qb_guiblock_resizeto(main_menu, { 250.f, 0.f });
 
-    qb_guiconstraint_x(main_menu, QB_CONSTRAINT_PIXEL, 50.f);
-    qb_guiconstraint_y(main_menu, QB_CONSTRAINT_PIXEL, 100.f);
+    qb_guiconstraint_x(main_menu, QB_CONSTRAINT_MIN, 0.f);
+    qb_guiconstraint_y(main_menu, QB_CONSTRAINT_MIN, 0.f);
     qb_guiconstraint_width(main_menu, QB_CONSTRAINT_MIN, 50.f);
     qb_guiconstraint_height(main_menu, QB_CONSTRAINT_MIN, 50.f);
     qb_guiconstraint_height(main_menu, QB_CONSTRAINT_RELATIVE, -150.f);
@@ -254,6 +318,9 @@ void create_main_menu() {
 
     windows.push_back(display);
   }
+
+  qb_guiblock_link(display, qb_guislider_create({ 0.f, 500.f }, 200.f, "slider1"));
+  //qb_guiblock_link(display, qb_guislider_create({ 0.f, 300.f }, 200.f, "slider2"));
 
   if (1)
   {

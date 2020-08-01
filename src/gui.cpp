@@ -110,12 +110,10 @@ struct qbGuiBlock_ {
   qbTextAlign align;
   qbImage background;
   float radius;
+  vec2s offset;
 
-  qbConstraint_ x_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO  + 1];
-  qbConstraint_ y_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
-  qbConstraint_ width_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
-  qbConstraint_ height_constraints[(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
-
+  qbConstraint_ constraints_[(int)QB_GUI_HEIGHT + 1][(int)QB_CONSTRAINT_ASPECT_RATIO + 1];
+  qbVar value;
   qbGuiBlockCallbacks_ callbacks;
 };
 
@@ -158,10 +156,10 @@ qbGuiBlock FindClosestBlock(int x, int y) {
     return nullptr;
   }
   for (qbGuiBlock block : blocks) {
-    if (x >= block->pos.x &&
-        x < block->pos.x + block->size.x &&
-        y >= block->pos.y &&
-        y < block->pos.y + block->size.y) {
+    if (x >= block->pos.x + block->offset.x &&
+        x < block->pos.x + block->offset.x + block->size.x &&
+        y >= block->pos.y + block->offset.y  &&
+        y < block->pos.y + block->offset.y + block->size.y) {
       return block;
     }
   }
@@ -174,10 +172,10 @@ qbGuiBlock FindClosestBlock(int x, int y, std::function<bool(qbGuiBlock)> handle
   }
   qbGuiBlock closest = nullptr;
   for (qbGuiBlock block : blocks) {
-    if (x >= block->pos.x &&
-        x < block->pos.x + block->size.x &&
-        y >= block->pos.y &&
-        y < block->pos.y + block->size.y) {
+    if (x >= block->pos.x + block->offset.x &&
+        x < block->pos.x + block->offset.x + block->size.x &&
+        y >= block->pos.y + block->offset.y  &&
+        y < block->pos.y + block->offset.y + block->size.y) {
       closest = block;
       if (handler(closest)) {
         break;
@@ -193,25 +191,66 @@ qbGuiBlock FindFarthestBlock(int x, int y) {
   }
   qbGuiBlock farthest = nullptr;
   for (qbGuiBlock block : blocks) {
-    if (x >= block->pos.x &&
-        x < block->pos.x + block->size.x &&
-        y >= block->pos.y &&
-        y < block->pos.y + block->size.y) {
+    if (x >= block->pos.x + block->offset.x &&
+        x < block->pos.x + block->offset.x + block->size.x &&
+        y >= block->pos.y + block->offset.y  &&
+        y < block->pos.y + block->offset.y + block->size.y) {
       farthest = block;
     }
   }
   return farthest;
 }
 
+void InsertBlock(qbGuiBlock block) {
+  blocks.insert(blocks.begin(), block);  
+  qb_rendergroup_append(gui_render_group, block->dbo);
+}
+
+void EraseBlock(qbGuiBlock block) {
+  auto& it = std::find(blocks.begin(), blocks.end(), block);
+  if (it != blocks.end()) {
+    blocks.erase(it);
+  }
+
+  qbMeshBuffer* buffers;
+  size_t count = qb_rendergroup_meshes(gui_render_group, &buffers);
+  for (size_t i = 0; i < count; ++i) {
+    if (block->dbo == buffers[i]) {
+      buffers[i] = buffers[count - 1];
+      qb_rendergroup_update(gui_render_group, count - 1, buffers);
+      break;
+    }
+  }
+}
+
+void MoveToFront(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    blocks.erase(it);
+    blocks.push_front(block);
+  }
+}
+
+void MoveToBack(qbGuiBlock block) {
+  if (blocks.size() > 1) {
+    auto& it = std::find(blocks.begin(), blocks.end(), block);
+    blocks.erase(it);
+    blocks.push_back(block);
+  }
+}
+
+}
+
 struct GuiNode {
   GuiNode(qbGuiBlock block) : block(block) {}
 
   qbGuiBlock block;
+  std::vector<std::pair<qbGuiBlockCallbacks_, qbVar>> callbacks;
   std::unordered_map<std::string, std::unique_ptr<struct GuiNode>> children;
 };
 
 class GuiTree {
-public:  
+public:
   GuiTree() : scene_(nullptr) {}
   void Insert(qbGuiBlock block) {
     GuiNode* parent_node = Insert(block->parent, block);
@@ -278,7 +317,7 @@ public:
     GuiNode* end_of_path = Find(path);
 
     if (!end_of_path) {
-      return {};
+      return{};
     }
 
     std::vector<GuiNode*> ret{};
@@ -288,7 +327,23 @@ public:
     return ret;
   }
 
+  template<class F>
+  void ForEach(const F& f) {
+    ForEach(f, &scene_);
+  }
+
 private:
+  template<class F>
+  void ForEach(const F& f, GuiNode* node) {
+    if (node->block) {
+      f(node->block);
+    }
+
+    for (auto& n : node->children) {
+      ForEach(f, n.second.get());
+    }
+  }
+
   void FindAll(std::vector<GuiNode*>* ret, GuiNode* node) {
     ret->push_back(node);
     for (auto& c : node->children) {
@@ -351,46 +406,6 @@ private:
 };
 std::unique_ptr<GuiTree> root;
 
-void InsertBlock(qbGuiBlock block) {
-  blocks.insert(blocks.begin(), block);  
-  qb_rendergroup_append(gui_render_group, block->dbo);
-}
-
-void EraseBlock(qbGuiBlock block) {
-  auto& it = std::find(blocks.begin(), blocks.end(), block);
-  if (it != blocks.end()) {
-    blocks.erase(it);
-  }
-
-  qbMeshBuffer* buffers;
-  size_t count = qb_rendergroup_meshes(gui_render_group, &buffers);
-  for (size_t i = 0; i < count; ++i) {
-    if (block->dbo == buffers[i]) {
-      buffers[i] = buffers[count - 1];
-      qb_rendergroup_update(gui_render_group, count - 1, buffers);
-      break;
-    }
-  }
-}
-
-void MoveToFront(qbGuiBlock block) {
-  if (blocks.size() > 1) {
-    auto& it = std::find(blocks.begin(), blocks.end(), block);
-    blocks.erase(it);
-    blocks.push_front(block);
-  }
-}
-
-void MoveToBack(qbGuiBlock block) {
-  if (blocks.size() > 1) {
-    auto& it = std::find(blocks.begin(), blocks.end(), block);
-    blocks.erase(it);
-    blocks.push_back(block);
-  }
-}
-
-}
-
 void gui_initialize() {
   font_registry = new FontRegistry();
   font_registry->Load("resources/fonts/OpenSans-Bold.ttf", "opensans");
@@ -404,7 +419,8 @@ void gui_handle_input(qbInputEvent input_event) {
   int x, y;
   qb_mouse_position(&x, &y);
 
-  qbGuiBlock closest = FindClosestBlock(x, y, [input_event](qbGuiBlock closest){
+  qbGuiBlock old_focused = focused;
+  qbGuiBlock closest = FindClosestBlock(x, y, [input_event](qbGuiBlock closest) {
     bool handled = false;
     if (input_event->type == QB_INPUT_EVENT_KEY) {
       return true;
@@ -433,9 +449,37 @@ void gui_handle_input(qbInputEvent input_event) {
     return handled;
   });
   
-  if (!closest && input_event->type == QB_MOUSE_EVENT_BUTTON) {
+  if (old_focused != focused) {
+    if (focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].c) {
+      if (focused->constraints_[QB_GUI_X][QB_CONSTRAINT_MIN].c) {
+        focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v = std::max(
+          focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v,
+          focused->constraints_[QB_GUI_X][QB_CONSTRAINT_MIN].v);
+      }
+      if (focused->constraints_[QB_GUI_X][QB_CONSTRAINT_MAX].c) {
+        focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v = std::min(
+          focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v,
+          focused->constraints_[QB_GUI_X][QB_CONSTRAINT_MAX].v);
+      }
+    }
+
+    if (focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].c) {
+      if (focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_MIN].c) {
+        focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v = std::max(
+          focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v,
+          focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_MIN].v);
+      }
+      if (focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_MAX].c) {
+        focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v = std::min(
+          focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v,
+          focused->constraints_[QB_GUI_Y][QB_CONSTRAINT_MAX].v);
+      }
+    }
+  }
+
+  if (input_event->type == QB_MOUSE_EVENT_BUTTON) {
     qbMouseEvent e = &input_event->mouse_event;
-    if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_UP) {
+    if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_UP) {      
       focused = nullptr;
     }
   }
@@ -710,46 +754,59 @@ void qb_guiblock_create(qbGuiBlock* block, qbGuiBlockAttr attr, const char* name
     : GUI_RENDER_MODE_SOLID;
   qb_guiblock_create_(block, vec3s{}, vec2s{}, true, attr->callbacks, nullptr, attr->background, attr->background_color, ubo, dbo, render_mode, name);
   (*block)->scale = { 1.0, 1.0 };
-  (*block)->radius = attr->radius;  
+  (*block)->radius = attr->radius;
+  (*block)->offset = attr->offset;
+}
+
+void qb_guiconstraint(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property, float val) {
+  block->constraints_[property][constraint] = { constraint, val };
+}
+
+float qb_guiconstraint_get(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property) {
+  return block->constraints_[property][constraint].v;
 }
 
 void qb_guiconstraint_x(qbGuiBlock block, qbConstraint constraint, float val) {
-  block->x_constraints[constraint] = { constraint, val };
+  block->constraints_[QB_GUI_X][constraint] = { constraint, val };
   block->dirty = true;
 }
 
 void qb_guiconstraint_y(qbGuiBlock block, qbConstraint constraint, float val) {
-  block->y_constraints[constraint] = { constraint, val };
+  block->constraints_[QB_GUI_Y][constraint] = { constraint, val };
   block->dirty = true;
 }
 
 void qb_guiconstraint_width(qbGuiBlock block, qbConstraint constraint, float val) {
-  block->width_constraints[constraint] = { constraint, val };
+  block->constraints_[QB_GUI_WIDTH][constraint] = { constraint, val };
   block->dirty = true;
 }
 
 void qb_guiconstraint_height(qbGuiBlock block, qbConstraint constraint, float val) {
-  block->height_constraints[constraint] = { constraint, val };
+  block->constraints_[QB_GUI_HEIGHT][constraint] = { constraint, val };
   block->dirty = true;
 }
 
+void qb_guiconstraint_clear(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property) {
+  block->constraints_[property][constraint] = { QB_CONSTRAINT_NONE, 0.f };
+}
+
 void qb_guiconstraint_clearx(qbGuiBlock block, qbConstraint constraint) {
-  block->x_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f};
+  block->constraints_[QB_GUI_X][constraint] = { QB_CONSTRAINT_NONE, 0.f};
   block->dirty = true;
 }
 
 void qb_guiconstraint_cleary(qbGuiBlock block, qbConstraint constraint) {
-  block->y_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->constraints_[QB_GUI_Y][constraint] = { QB_CONSTRAINT_NONE, 0.f };
   block->dirty = true;
 }
 
 void qb_guiconstraint_clearwidth(qbGuiBlock block, qbConstraint constraint) {
-  block->width_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->constraints_[QB_GUI_WIDTH][constraint] = { QB_CONSTRAINT_NONE, 0.f };
   block->dirty = true;
 }
 
 void qb_guiconstraint_clearheight(qbGuiBlock block, qbConstraint constraint) {
-  block->height_constraints[constraint] = { QB_CONSTRAINT_NONE, 0.f };
+  block->constraints_[QB_GUI_HEIGHT][constraint] = { QB_CONSTRAINT_NONE, 0.f };
   block->dirty = true;
 }
 
@@ -1014,8 +1071,7 @@ void qb_guiblock_closechildren(qbGuiBlock block) {
 
 void qb_guiblock_updateuniform(qbGuiBlock block) {
   mat4s model = GLMS_MAT4_IDENTITY_INIT;
-
-  model = glms_translate(model, block->pos);
+  model = glms_translate(model, glms_vec3_add(block->pos, { block->offset.x, block->offset.y, 0.f }));
 
   if (block->render_mode == GUI_RENDER_MODE_STRING) {
     model = glms_scale(model, vec3s{ block->scale.x, block->scale.y, 1.0f });
@@ -1032,117 +1088,133 @@ void qb_guiblock_updateuniform(qbGuiBlock block) {
 }
 
 void guiblock_solve_constraints(qbGuiBlock parent, qbGuiBlock block) {
-  if (block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].c ||
-      block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+  if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_ASPECT_RATIO].c ||
+      block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_ASPECT_RATIO].c) {
 
-    if (block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+    if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_ASPECT_RATIO].c) {
       block->size.x =
-          block->width_constraints[QB_CONSTRAINT_ASPECT_RATIO].v * block->size.y;
+          block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_ASPECT_RATIO].v * block->size.y;
     }
 
-    if (block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].c) {
+    if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_ASPECT_RATIO].c) {
       block->size.y =
-          block->height_constraints[QB_CONSTRAINT_ASPECT_RATIO].v * block->size.x;
+          block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_ASPECT_RATIO].v * block->size.x;
     }
   } else {
-    if (block->width_constraints[QB_CONSTRAINT_PIXEL].c) {
-      block->size.x = block->width_constraints[QB_CONSTRAINT_PIXEL].v;
-    } else if (block->width_constraints[QB_CONSTRAINT_PERCENT].c) {
+    if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_PIXEL].c) {
+      block->size.x = block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_PIXEL].v;
+    } else if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_PERCENT].c) {
       if (parent) {
-        block->size.x = block->width_constraints[QB_CONSTRAINT_PERCENT].v * parent->size.x;
+        block->size.x = block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_PERCENT].v * parent->size.x;
       } else {
-        block->size.x = block->width_constraints[QB_CONSTRAINT_PERCENT].v * (float)qb_window_width();
+        block->size.x = block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_PERCENT].v * (float)qb_window_width();
       }
-    } else if (block->width_constraints[QB_CONSTRAINT_RELATIVE].c) {
+    } else if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_RELATIVE].c) {
       if (parent) {
-        block->size.x = block->width_constraints[QB_CONSTRAINT_RELATIVE].v + parent->size.x;
+        block->size.x = block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_RELATIVE].v + parent->size.x;
       } else {
-        block->size.x = block->width_constraints[QB_CONSTRAINT_RELATIVE].v + (float)qb_window_width();
-      }
-    }
-
-    if (block->height_constraints[QB_CONSTRAINT_PIXEL].c) {
-      block->size.y = block->height_constraints[QB_CONSTRAINT_PIXEL].v;
-    } else if (block->height_constraints[QB_CONSTRAINT_PERCENT].c) {
-      if (parent) {
-        block->size.y = block->height_constraints[QB_CONSTRAINT_PERCENT].v * parent->size.y;
-      } else {
-        block->size.y = block->height_constraints[QB_CONSTRAINT_PERCENT].v * (float)qb_window_height();
-      }
-    } else if (block->height_constraints[QB_CONSTRAINT_RELATIVE].c) {
-      if (parent) {
-        block->size.y = block->height_constraints[QB_CONSTRAINT_RELATIVE].v + parent->size.y;
-      } else {
-        block->size.y = block->height_constraints[QB_CONSTRAINT_RELATIVE].v + (float)qb_window_height();
+        block->size.x = block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_RELATIVE].v + (float)qb_window_width();
       }
     }
-  }
 
-  if (block->width_constraints[QB_CONSTRAINT_MIN].c) {
-    block->size.x = std::max(block->size.x, block->width_constraints[QB_CONSTRAINT_MIN].v);
-  }
-  if (block->width_constraints[QB_CONSTRAINT_MAX].c) {
-    block->size.x = std::min(block->size.x, block->width_constraints[QB_CONSTRAINT_MAX].v);
-  }
-
-  if (block->height_constraints[QB_CONSTRAINT_MIN].c) {
-    block->size.y = std::max(block->size.y, block->height_constraints[QB_CONSTRAINT_MIN].v);
-  }
-  if (block->height_constraints[QB_CONSTRAINT_MAX].c) {
-    block->size.y = std::min(block->size.y, block->height_constraints[QB_CONSTRAINT_MAX].v);
-  }
-
-  if (block->x_constraints[QB_CONSTRAINT_PIXEL].c) {
-    block->pos.x = block->x_constraints[QB_CONSTRAINT_PIXEL].v;
-  } else if (block->x_constraints[QB_CONSTRAINT_PERCENT].c) {
-    if (parent) {
-      block->pos.x = block->x_constraints[QB_CONSTRAINT_PERCENT].v * parent->pos.x;
-    } else {
-      block->pos.x = block->x_constraints[QB_CONSTRAINT_PERCENT].v;
-    }
-  } else if (block->x_constraints[QB_CONSTRAINT_RELATIVE].c) {
-    if (parent) {
-      block->pos.x = block->x_constraints[QB_CONSTRAINT_RELATIVE].v + parent->pos.x;
-    } else {
-      block->pos.x = block->x_constraints[QB_CONSTRAINT_RELATIVE].v;
+    if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_PIXEL].c) {
+      block->size.y = block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_PIXEL].v;
+    } else if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_PERCENT].c) {
+      if (parent) {
+        block->size.y = block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_PERCENT].v * parent->size.y;
+      } else {
+        block->size.y = block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_PERCENT].v * (float)qb_window_height();
+      }
+    } else if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_RELATIVE].c) {
+      if (parent) {
+        block->size.y = block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_RELATIVE].v + parent->size.y;
+      } else {
+        block->size.y = block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_RELATIVE].v + (float)qb_window_height();
+      }
     }
   }
 
-  if (block->y_constraints[QB_CONSTRAINT_PIXEL].c) {
-    block->pos.y = block->y_constraints[QB_CONSTRAINT_PIXEL].v;
-  } else if (block->y_constraints[QB_CONSTRAINT_PERCENT].c) {
+  if (block->constraints_[QB_GUI_X][QB_CONSTRAINT_PIXEL].c) {
+    block->pos.x = block->constraints_[QB_GUI_X][QB_CONSTRAINT_PIXEL].v;
+  } else if (block->constraints_[QB_GUI_X][QB_CONSTRAINT_PERCENT].c) {
     if (parent) {
-      block->pos.y = block->y_constraints[QB_CONSTRAINT_PERCENT].v * parent->pos.y;
+      block->pos.x = block->constraints_[QB_GUI_X][QB_CONSTRAINT_PERCENT].v * parent->pos.x;
     } else {
-      block->pos.y = block->y_constraints[QB_CONSTRAINT_PERCENT].v;
+      block->pos.x = block->constraints_[QB_GUI_X][QB_CONSTRAINT_PERCENT].v;
     }
-  } else if (block->y_constraints[QB_CONSTRAINT_RELATIVE].c) {
+  } else if (block->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].c) {
     if (parent) {
-      block->pos.y = block->y_constraints[QB_CONSTRAINT_RELATIVE].v + parent->pos.y;
+      block->pos.x = block->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v + parent->pos.x;
     } else {
-      block->pos.y = block->y_constraints[QB_CONSTRAINT_RELATIVE].v;
+      block->pos.x = block->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].v;
     }
   }
 
-  if (block->x_constraints[QB_CONSTRAINT_MIN].c) {
-    block->pos.x = std::max(block->pos.x, block->x_constraints[QB_CONSTRAINT_MIN].v);
-  }
-  if (block->x_constraints[QB_CONSTRAINT_MAX].c) {
-    block->pos.x = std::min(block->pos.x, block->x_constraints[QB_CONSTRAINT_MAX].v);
+  if (block->constraints_[QB_GUI_Y][QB_CONSTRAINT_PIXEL].c) {
+    block->pos.y = block->constraints_[QB_GUI_Y][QB_CONSTRAINT_PIXEL].v;
+  } else if (block->constraints_[QB_GUI_Y][QB_CONSTRAINT_PERCENT].c) {
+    if (parent) {
+      block->pos.y = block->constraints_[QB_GUI_Y][QB_CONSTRAINT_PERCENT].v * parent->pos.y;
+    } else {
+      block->pos.y = block->constraints_[QB_GUI_Y][QB_CONSTRAINT_PERCENT].v;
+    }
+  } else if (block->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].c) {
+    if (parent) {
+      block->pos.y = block->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v + parent->pos.y;
+    } else {
+      block->pos.y = block->constraints_[QB_GUI_Y][QB_CONSTRAINT_RELATIVE].v;
+    }
   }
 
-  if (block->y_constraints[QB_CONSTRAINT_MIN].c) {
-    block->pos.y = std::max(block->pos.y, block->y_constraints[QB_CONSTRAINT_MIN].v);
+  if (block->constraints_[QB_GUI_X][QB_CONSTRAINT_MIN].c) {
+    if (parent) {
+      block->pos.x = std::max(block->pos.x, parent->pos.x + block->constraints_[QB_GUI_X][QB_CONSTRAINT_MIN].v);
+    } else {
+      block->pos.x = std::max(block->pos.x, block->constraints_[QB_GUI_X][QB_CONSTRAINT_MIN].v);
+    }
   }
-  if (block->y_constraints[QB_CONSTRAINT_MAX].c) {
-    block->pos.y = std::min(block->pos.y, block->y_constraints[QB_CONSTRAINT_MAX].v);
+  if (block->constraints_[QB_GUI_X][QB_CONSTRAINT_MAX].c) {
+    if (parent) {
+      block->pos.x = std::min(block->pos.x, parent->pos.x + block->constraints_[QB_GUI_X][QB_CONSTRAINT_MAX].v);
+    } else {
+      block->pos.x = std::min(block->pos.x, block->constraints_[QB_GUI_X][QB_CONSTRAINT_MAX].v);
+    }
+  }
+
+  if (block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MIN].c) {
+    if (parent) {
+      block->pos.y = std::max(block->pos.y, parent->pos.y + block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MIN].v);
+    } else {
+      block->pos.y = std::max(block->pos.y, block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MIN].v);
+    }
+  }
+  if (block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MAX].c) {
+    if (parent) {
+      block->pos.y = std::min(block->pos.y, parent->pos.y + block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MAX].v);
+    } else {
+      block->pos.y = std::min(block->pos.y, block->constraints_[QB_GUI_Y][QB_CONSTRAINT_MAX].v);
+    }
+  }
+
+  if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_MIN].c) {
+    block->size.x = std::max(block->size.x, block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_MIN].v);
+  }
+  if (block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_MAX].c) {
+    block->size.x = std::min(block->size.x, block->constraints_[QB_GUI_WIDTH][QB_CONSTRAINT_MAX].v);
+  }
+
+  if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_MIN].c) {
+    block->size.y = std::max(block->size.y, block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_MIN].v);
+  }
+  if (block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_MAX].c) {
+    block->size.y = std::min(block->size.y, block->constraints_[QB_GUI_HEIGHT][QB_CONSTRAINT_MAX].v);
   }
 }
 
 void gui_block_updateuniforms() {
   float depth = 1.0f;
 
-  for (auto& block : blocks) {
+  root->ForEach([&depth](qbGuiBlock block) {
     vec2s old_size = block->size;
     guiblock_solve_constraints(block->parent, block);
     vec2s new_size = block->size;
@@ -1155,7 +1227,7 @@ void gui_block_updateuniforms() {
     block->pos.z = depth;
     depth -= 0.0001f;
     qb_guiblock_updateuniform(block);
-  }
+  });
 
   for (auto& block : blocks) {
     block->dirty = false;
@@ -1213,10 +1285,6 @@ void qb_guiblock_movebackward(qbGuiBlock block) {
 
 void qb_guiblock_moveto(qbGuiBlock block, vec3s pos) {
   block->pos = pos;
-  block->pos.z = glm_clamp(block->pos.z, -0.9999f, 0.9999f);
-  block->rel_pos = block->parent
-    ? glms_vec3_sub(block->parent->pos, block->rel_pos)
-    : block->rel_pos;
   block->dirty = true;
 }
 
@@ -1226,17 +1294,30 @@ void qb_guiblock_resizeto(qbGuiBlock block, vec2s size) {
 }
 
 void qb_guiblock_moveby(qbGuiBlock block, vec3s pos_delta) {
-  block->rel_pos = glms_vec3_add(block->rel_pos, pos_delta);
-  block->rel_pos.z = glm_clamp(block->rel_pos.z, -0.9999f, 0.9999f);
-  block->pos = block->parent
-    ? glms_vec3_add(block->parent->pos, block->rel_pos)
-    : block->rel_pos;
+  block->pos = glms_vec3_add(block->pos, pos_delta);
   block->dirty = true;
 }
 
 void qb_guiblock_resizeby(qbGuiBlock block, vec2s size_delta) {
   block->size = glms_vec2_add(block->size, size_delta);
   block->dirty = true;
+}
+
+void qb_guiblock_setvalue(qbGuiBlock block, qbVar val) {
+  if (block->callbacks.setvalue) {
+    qbVar new_value = block->callbacks.setvalue(block, block->value, val);
+    if (block->callbacks.onvaluechange) {
+      block->callbacks.onvaluechange(block, block->value, new_value);      
+    }
+    block->value = new_value;
+  }
+}
+
+qbVar qb_guiblock_value(qbGuiBlock block) {
+  if (block->callbacks.getvalue) {
+    return block->callbacks.getvalue(block, block->value);
+  }
+  return block->value;
 }
 
 qbGuiBlock qb_guiblock_focus() {
@@ -1261,4 +1342,13 @@ vec2s qb_guiblock_relpos(qbGuiBlock block) {
 
 qbGuiBlock qb_guiblock_parent(qbGuiBlock block) {
   return block->parent;
+}
+
+void qb_gui_subscribe(const char* path[], qbGuiBlockCallbacks callbacks, qbVar user_state) {
+  GuiNode* node = root->Find(path);
+  if (!node) {
+    return;
+  }
+
+  node->callbacks.push_back({ *callbacks, user_state });
 }
