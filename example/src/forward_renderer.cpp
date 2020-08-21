@@ -54,15 +54,23 @@ struct LightSpot {
   float angle_deg;
 };
 
+typedef struct qbModelGroup_ {
+  struct qbRenderGroup_* render_group;
+
+  bool is_dirty;
+} qbModelgroup_, *qbModelGroup;
+
 typedef struct qbForwardRenderer_ {
   qbRenderer_ renderer;
 
+  qbRenderPass scene_3d_pass_wireframe;
   qbRenderPass scene_3d_pass;
   qbRenderPass gui_pass;
 
   qbFrameBuffer frame_buffer;
 
-  qbGeometryDescriptor supported_geometry = nullptr;  
+  qbGeometryDescriptor supported_geometry = nullptr;
+  qbGeometryDescriptor wireframe_geometry = nullptr;
 
   qbSystem render_system;
 
@@ -162,45 +170,105 @@ struct LightUniform {
   float _view_pos_pad;
 };
 
-void rendergroup_oncreate(struct qbRenderer_* self, qbRenderGroup group) {
+void modelgroup_create(struct qbRenderer_* self, qbModelGroup* modelgroup) {
+  qbModelGroup ret = new qbModelGroup_();
+
+  ret->render_group = nullptr;
+  ret->is_dirty = true;
+  *modelgroup = ret;
+}
+
+void modelgroup_destroy(struct qbRenderer_* self, qbModelGroup* modelgroup) {
   qbForwardRenderer r = (qbForwardRenderer)self;
-  
-  qbGpuBuffer model;
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.size = sizeof(ModelUniform);
-    attr.name = r->model_uniform_name.data();
-    qb_gpubuffer_create(&model, &attr);
-  }
-  
-  qbGpuBuffer material;
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
-    attr.size = sizeof(ModelUniform);
-    attr.name = r->material_uniform_name.data();
-    qb_gpubuffer_create(&material, &attr);
-  }
 
-  uint32_t bindings[] = { ((qbForwardRenderer)self)->model_uniform,
-                          ((qbForwardRenderer)self)->material_uniform };
-  qbGpuBuffer uniforms[] = { model, material };
-  qb_rendergroup_attachuniforms(group, sizeof(uniforms) / sizeof(qbGpuBuffer),
-                                bindings, uniforms);
+  qb_rendergroup_removeuniform_bybinding((*modelgroup)->render_group, r->model_uniform);
+  qb_rendergroup_removeuniform_bybinding((*modelgroup)->render_group, r->material_uniform);
+
+  if ((*modelgroup)->render_group) {
+    qbRenderGroup group = (*modelgroup)->render_group;
+    if (qb_rendergroup_drawmode(group) == QB_DRAW_MODE_TRIANGLES) {
+      qb_renderpass_remove(((qbForwardRenderer)self)->scene_3d_pass, (*modelgroup)->render_group);
+    } else {
+      qb_renderpass_remove(((qbForwardRenderer)self)->scene_3d_pass_wireframe, (*modelgroup)->render_group);
+    }
+
+    qbMeshBuffer* buffers;
+    size_t mesh_count = qb_rendergroup_meshes(group, &buffers);
+    for (size_t i = 0; i < mesh_count; ++i) {
+      qb_meshbuffer_destroy(buffers + i);
+    }
+    qb_rendergroup_destroy(&(*modelgroup)->render_group);
+  }
 }
 
-void rendergroup_ondestroy(struct qbRenderer_* self, qbRenderGroup group) {
+void modelgroup_upload(struct qbRenderer_* self, qbModelGroup modelgroup,
+                       struct qbModel_* model, struct qbMaterial_* material) {
   qbForwardRenderer r = (qbForwardRenderer)self;
-  qb_rendergroup_removeuniform_bybinding(group, r->model_uniform);
+
+  if (model) {
+    if (modelgroup->render_group) {
+      qbMeshBuffer* buffers;
+      size_t buffer_count = qb_rendergroup_meshes(modelgroup->render_group, &buffers);
+      for (size_t i = 0; i < buffer_count; ++i) {
+        qb_meshbuffer_destroy(buffers + i);
+      }
+      qb_rendergroup_update(modelgroup->render_group, 0, nullptr);
+    } else {
+      qbRenderGroupAttr_ attr = {};
+      qb_rendergroup_create(&modelgroup->render_group, &attr);
+      if (model->mode == QB_DRAW_MODE_TRIANGLES) {
+        qb_renderpass_append(r->scene_3d_pass, modelgroup->render_group);
+        qb_renderpass_append(r->scene_3d_pass_wireframe, modelgroup->render_group);
+      } else {
+        qb_renderpass_append(r->scene_3d_pass_wireframe, modelgroup->render_group);
+      }
+      
+      qbGpuBuffer model_uniform;
+      {
+        qbGpuBufferAttr_ attr = {};
+        attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
+        attr.size = sizeof(ModelUniform);
+        attr.name = r->model_uniform_name.data();
+        qb_gpubuffer_create(&model_uniform, &attr);
+      }
+
+      qbGpuBuffer material_uniform;
+      {
+        qbGpuBufferAttr_ attr = {};
+        attr.buffer_type = qbGpuBufferType::QB_GPU_BUFFER_TYPE_UNIFORM;
+        attr.size = sizeof(ModelUniform);
+        attr.name = r->material_uniform_name.data();
+        qb_gpubuffer_create(&material_uniform, &attr);
+      }
+
+      uint32_t bindings[] = { ((qbForwardRenderer)self)->model_uniform,
+        ((qbForwardRenderer)self)->material_uniform };
+      qbGpuBuffer uniforms[] = { model_uniform, material_uniform };
+      qb_rendergroup_attachuniforms(modelgroup->render_group, sizeof(uniforms) / sizeof(qbGpuBuffer),
+                                    bindings, uniforms);
+    }
+
+    for (size_t i = 0; i < model->mesh_count; ++i) {
+      qbMeshBuffer buffer;
+      qb_mesh_tobuffer(model->meshes[i], &buffer);
+      qb_rendergroup_append(modelgroup->render_group, buffer);
+    }
+  }
+
+  if (modelgroup->is_dirty && material) {
+    self->rendergroup_attach_material(self, modelgroup->render_group, material);
+    self->rendergroup_attach_textures(self, modelgroup->render_group,
+                                          material->image_count, material->image_units,
+                                          material->images);
+    self->rendergroup_attach_uniforms(self, modelgroup->render_group,
+                                          material->uniform_count, material->uniform_bindings,
+                                          material->uniforms);
+    modelgroup->is_dirty = false;
+  }
 }
 
-void rendergroup_add(qbRenderer self, qbRenderGroup rendergroup) {
-  qb_renderpass_append(((qbForwardRenderer)self)->scene_3d_pass, rendergroup);
-}
-
-void rendergroup_remove(qbRenderer self, qbRenderGroup model) {
-  qb_renderpass_remove(((qbForwardRenderer)self)->scene_3d_pass, model);
+qbRenderGroup modelgroup_rendergroup(struct qbRenderer_* self, qbModelGroup modelgroup) {
+  return modelgroup->render_group;
 }
 
 void update_camera_ubo(qbForwardRenderer r, const struct qbCamera_* camera) {
@@ -248,6 +316,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
     qb_framebuffer_clear(camera_fbo, &clear);
   }
   qb_renderpass_draw(r->scene_3d_pass, camera_fbo);
+  qb_renderpass_draw(r->scene_3d_pass_wireframe, camera_fbo);
 
   if (1)
   {
@@ -271,6 +340,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
       qb_surface_draw(r->blur_surface, read, write);
     }
   }
+
   if (1)
   {
     qbFrameBuffer blur_frame = qb_surface_target(r->blur_surface, 0);
@@ -302,6 +372,7 @@ void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
   qb_surface_resize(r->blur_surface, width, height);
   qb_surface_resize(r->merge_surface, width, height);
   qb_renderpass_resize(r->scene_3d_pass, { 0, 0, (float)width, (float)height });
+  qb_renderpass_resize(r->scene_3d_pass_wireframe, { 0, 0, (float)width, (float)height });
 }
 
 void render_callback(qbFrame* f) {
@@ -622,7 +693,7 @@ void init_supported_geometry(qbForwardRenderer forward_renderer) {
     binding->input_rate = QB_VERTEX_INPUT_RATE_INSTANCE;
   }*/
 
-  qbVertexAttribute attributes = new qbVertexAttribute_[4];
+  qbVertexAttribute attributes = new qbVertexAttribute_[3];
   {
     qbVertexAttribute_* attr = attributes;
     *attr = {};
@@ -672,12 +743,21 @@ void init_supported_geometry(qbForwardRenderer forward_renderer) {
     attr->offset = (void*)0;
   }*/
 
-  forward_renderer->supported_geometry = new qbGeometryDescriptor_;
+  forward_renderer->supported_geometry = new qbGeometryDescriptor_{};
   qbGeometryDescriptor supported_geometry = forward_renderer->supported_geometry;
   supported_geometry->attributes = attributes;
   supported_geometry->attributes_count = 3;
   supported_geometry->bindings = attribute_bindings;
   supported_geometry->bindings_count = 3;
+  supported_geometry->mode = QB_DRAW_MODE_TRIANGLES;
+
+  forward_renderer->wireframe_geometry = new qbGeometryDescriptor_{};
+  qbGeometryDescriptor wireframe_geometry = forward_renderer->wireframe_geometry;
+  wireframe_geometry->attributes = attributes;
+  wireframe_geometry->attributes_count = 3;
+  wireframe_geometry->bindings = attribute_bindings;
+  wireframe_geometry->bindings_count = 3;
+  wireframe_geometry->mode = QB_DRAW_MODE_LINES;
 }
 
 qbSurface create_blur_surface(qbForwardRenderer r, uint32_t width, uint32_t height) {
@@ -843,10 +923,10 @@ qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t hei
 struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbForwardRenderer ret = new qbForwardRenderer_;
 
-  ret->renderer.rendergroup_oncreate = rendergroup_oncreate;
-  ret->renderer.rendergroup_ondestroy = rendergroup_ondestroy;
-  ret->renderer.rendergroup_add = rendergroup_add;
-  ret->renderer.rendergroup_remove = rendergroup_remove;
+  ret->renderer.modelgroup_create = modelgroup_create;
+  ret->renderer.modelgroup_destroy = modelgroup_destroy;
+  ret->renderer.modelgroup_upload = modelgroup_upload;
+  ret->renderer.modelgroup_rendergroup = modelgroup_rendergroup;
   ret->renderer.rendergroup_attach_textures = rendergroup_attach_textures;
   ret->renderer.rendergroup_attach_uniforms = rendergroup_attach_uniforms;
   ret->renderer.meshbuffer_create = meshbuffer_create;
@@ -1168,6 +1248,25 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   }
 
   {
+    qbClearValue_ clear = {};
+    clear.attachments = (qbFrameBufferAttachment)(qbFrameBufferAttachment::QB_COLOR_ATTACHMENT |
+                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);
+    clear.depth = 0.0;
+    clear.color = { 1.0, 1.0, 0.0, 1.0 };
+
+    qbRenderPassAttr_ attr = {};
+    attr.viewport = { 0.0, 0.0, (float)width, (float)height };
+    attr.supported_geometry = *ret->wireframe_geometry;
+    attr.shader = shader_module;
+    attr.viewport_scale = 1.0f;
+    attr.clear = clear;
+    attr.cull = QB_CULL_BACK;
+    attr.line_width = 2.f;
+
+    qb_renderpass_create(&ret->scene_3d_pass_wireframe, &attr);
+  }
+
+  {
     qbSystemAttr attr;
     qb_systemattr_create(&attr);
     qb_systemattr_setcallback(attr, render_callback);
@@ -1179,7 +1278,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qbRenderEvent event = (qbRenderEvent)f->event;
       qbForwardRenderer renderer = (qbForwardRenderer)event->renderer;
 
-      qbModelgroup* modelgroup;
+      qbModelGroup* modelgroup;
       qbMaterial* material;
       qbTransform transform;
       qb_instance_const(insts[0], &modelgroup);

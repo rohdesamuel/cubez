@@ -48,12 +48,6 @@ typedef struct qbCameraInternal_ {
   qbFrameBuffer fbo;
 } qbCameraInternal_, *qbCameraInternal;
 
-typedef struct qbModelgroup_ {
-  struct qbRenderGroup_* render_group;
-  
-  bool is_dirty;
-} qbModelgroup_, *qbModelgroup;
-
 // Channels
 qbEvent render_event;
 
@@ -82,6 +76,7 @@ qbComponent qb_renderable_ = 0;
 qbComponent qb_modelgroup_ = 0;
 qbComponent qb_material_ = 0;
 qbComponent qb_transform_ = 0;
+qbComponent qb_collider_ = 0;
 
 qbComponent qb_renderable() {
   return qb_renderable_;
@@ -97,6 +92,10 @@ qbComponent qb_material() {
 
 qbComponent qb_transform() {
   return qb_transform_;
+}
+
+qbComponent qb_collider() {
+  return qb_collider_;
 }
 
 bool check_for_gl_errors() {
@@ -191,7 +190,7 @@ void render_initialize(RenderSettings* settings) {
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setdatatype(attr, qbModelgroup);
+    qb_componentattr_setdatatype(attr, qbModelGroup);
     qb_component_create(&qb_modelgroup_, "qbModelgroup", attr);
     qb_componentattr_destroy(&attr);
   }
@@ -207,6 +206,13 @@ void render_initialize(RenderSettings* settings) {
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, qbMaterial);
     qb_component_create(&qb_material_, "qbMaterial", attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, qbCollider_);
+    qb_component_create(&qb_collider_, "qbCollider", attr);
     qb_componentattr_destroy(&attr);
   }
   {
@@ -441,89 +447,26 @@ qbRenderer qb_renderer() {
   return renderer_;
 }
 
-void qb_modelgroup_create(qbModelgroup* modelgroup) {
-  qbModelgroup ret = new qbModelgroup_();
-
-  ret->render_group = nullptr;
-  ret->is_dirty = true;
-  *modelgroup = ret;
+void qb_modelgroup_create(qbModelGroup* modelgroup) {
+  qbRenderer r = qb_renderer();
+  r->modelgroup_create(r, modelgroup);
 }
 
-void qb_modelgroup_destroy(qbModelgroup* modelgroup) {
-  renderer_->rendergroup_ondestroy(renderer_, (*modelgroup)->render_group);
-
-  if ((*modelgroup)->render_group) {
-    qbRenderGroup group = (*modelgroup)->render_group;
-    qbRenderer renderer = qb_renderer();
-    renderer->rendergroup_remove(renderer, (*modelgroup)->render_group);
-    
-    qbMeshBuffer* buffers;
-    size_t mesh_count = qb_rendergroup_meshes(group, &buffers);
-    for (size_t i = 0; i < mesh_count; ++i) {
-      qb_meshbuffer_destroy(buffers + i);
-    }
-    qb_rendergroup_destroy(&(*modelgroup)->render_group);
-  }
+void qb_modelgroup_destroy(qbModelGroup* modelgroup) {
+  qbRenderer r = qb_renderer();
+  r->modelgroup_destroy(r, modelgroup);
 }
 
-void qb_modelgroup_free(qbModelgroup modelgroup) {
-  if (modelgroup->render_group) {
-    qbRenderGroup group = modelgroup->render_group;
-    qbRenderer renderer = qb_renderer();
-    renderer->rendergroup_remove(renderer, group);
-
-    qbMeshBuffer* buffers;
-    size_t mesh_count = qb_rendergroup_meshes(group, &buffers);
-    for (size_t i = 0; i < mesh_count; ++i) {
-      qb_meshbuffer_destroy(buffers + i);
-    }
-    qb_rendergroup_destroy(&modelgroup->render_group);
-  }
+void qb_modelgroup_upload(qbModelGroup modelgroup,
+                          struct qbModel_* model,
+                          struct qbMaterial_* material) {
+  qbRenderer r = qb_renderer();
+  r->modelgroup_upload(r, modelgroup, model, material);
 }
 
-void qb_modelgroup_update(qbModelgroup modelgroup, struct qbModel_* model) {
-  assert(false && "unimplemented");
-}
-
-void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbModel_* model, struct qbMaterial_* material) {
-  qbRenderer renderer = qb_renderer();
-
-  if (model) {
-    if (modelgroup->render_group) {
-      qbMeshBuffer* buffers;
-      size_t buffer_count = qb_rendergroup_meshes(modelgroup->render_group, &buffers);
-      for (size_t i = 0; i < buffer_count; ++i) {
-        qb_meshbuffer_destroy(buffers + i);
-      }
-      qb_rendergroup_update(modelgroup->render_group, 0, nullptr);
-    } else {
-      qbRenderGroupAttr_ attr = {};
-      qb_rendergroup_create(&modelgroup->render_group, &attr);
-      renderer->rendergroup_oncreate(renderer, modelgroup->render_group);
-      renderer->rendergroup_add(renderer, modelgroup->render_group);
-    }
-
-    for (size_t i = 0; i < model->mesh_count; ++i) {
-      qbMeshBuffer buffer;
-      qb_mesh_tobuffer(model->meshes + i, &buffer);
-      qb_rendergroup_append(modelgroup->render_group, buffer);
-    }
-  }
-
-  if (modelgroup->is_dirty && material) {
-    renderer->rendergroup_attach_material(renderer, modelgroup->render_group, material);
-    renderer->rendergroup_attach_textures(renderer, modelgroup->render_group,
-                                          material->image_count, material->image_units,
-                                          material->images);
-    renderer->rendergroup_attach_uniforms(renderer, modelgroup->render_group,
-                                          material->uniform_count, material->uniform_bindings,
-                                          material->uniforms);
-    modelgroup->is_dirty = false;
-  }
-}
-
-qbRenderGroup qb_modelgroup_rendergroup(qbModelgroup modelgroup) {
-  return modelgroup->render_group;
+qbRenderGroup qb_modelgroup_rendergroup(qbModelGroup modelgroup) {
+  qbRenderer r = qb_renderer();
+  return r->modelgroup_rendergroup(r, modelgroup);
 }
 
 void qb_light_enable(qbId id, qbLightType type) {

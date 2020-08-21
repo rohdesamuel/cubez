@@ -24,22 +24,17 @@
 #include <cglm/cglm.h>
 #include <cglm/types-struct.h>
 
-typedef struct qbModelgroup_* qbModelgroup;
+typedef struct qbModelGroup_* qbModelGroup;
 
 typedef struct qbRenderer_ {
   void(*render)(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event);
   void(*resize)(struct qbRenderer_* self, uint32_t width, uint32_t height);
   
-  void(*rendergroup_oncreate)(struct qbRenderer_* self, qbRenderGroup);
-  void(*rendergroup_ondestroy)(struct qbRenderer_* self, qbRenderGroup);
-
-  // Thread-safe
-  // Adds the given model to the background qbRenderPipeline.
-  void(*rendergroup_add)(struct qbRenderer_* self, qbRenderGroup model);
-
-  // Thread-safe
-  // Removes the given model from the background qbRenderPipeline.
-  void(*rendergroup_remove)(struct qbRenderer_* self, qbRenderGroup model);
+  void(*modelgroup_create)(struct qbRenderer_* self, qbModelGroup* modelgroup);
+  void(*modelgroup_destroy)(struct qbRenderer_* self, qbModelGroup* modelgroup);
+  void(*modelgroup_upload)(struct qbRenderer_* self, qbModelGroup modelgroup,
+                           struct qbModel_* model, struct qbMaterial_* material);
+  qbRenderGroup(*modelgroup_rendergroup)(struct qbRenderer_* self, qbModelGroup modelgroup);
 
   size_t(*max_texture_units)(struct qbRenderer_* self);
   size_t(*max_uniform_units)(struct qbRenderer_* self);
@@ -214,24 +209,28 @@ typedef struct qbTransform_ {
   mat4s orientation;
 } qbTransform_, *qbTransform;
 
-QB_API void qb_modelgroup_create(qbModelgroup* modelgroup);
-QB_API void qb_modelgroup_destroy(qbModelgroup* modelgroup);
-
-// Frees from GPU.
-QB_API void qb_modelgroup_free(qbModelgroup modelgroup);
-
-// Updates model in RAM.
-QB_API void qb_modelgroup_update(qbModelgroup modelgroup, struct qbModel_* model);
+QB_API void qb_modelgroup_create(qbModelGroup* modelgroup);
+QB_API void qb_modelgroup_destroy(qbModelGroup* modelgroup);
 
 // Uploads model and material to GPU.
-QB_API void qb_modelgroup_upload(qbModelgroup modelgroup, struct qbModel_* model,
+QB_API void qb_modelgroup_upload(qbModelGroup modelgroup, struct qbModel_* model,
                                  struct qbMaterial_* material);
 
-QB_API qbRenderGroup qb_modelgroup_rendergroup(qbModelgroup modelgroup);
+QB_API qbRenderGroup qb_modelgroup_rendergroup(qbModelGroup modelgroup);
 
+// Component type: tag
 QB_API qbComponent qb_renderable();
+
+// Component type: qbModelGroup
 QB_API qbComponent qb_modelgroup();
+
+// Component type: qbMaterial
 QB_API qbComponent qb_material();
+
+// Component type: qbTransform_
 QB_API qbComponent qb_transform();
+
+// Component type: qbCollider_
+QB_API qbComponent qb_collider();
 
 #endif  // CUBEZ_RENDER__H

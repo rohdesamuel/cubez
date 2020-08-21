@@ -88,7 +88,7 @@ QB_API size_t      qb_schema_size(qbSchema schema);
 // size_t size = qb_struct_size(schema);
 // void* s = malloc(size);
 // qbVar v = qbStruct(schema, s);
-// qbVar a = qb_var_at(v, "a");
+// qbRef a = qb_var_at(v, "a");
 QB_API size_t      qb_struct_size(qbSchema schema);
 
 // Returns the field definitions of the schema.

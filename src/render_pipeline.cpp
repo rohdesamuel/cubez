@@ -159,6 +159,7 @@ typedef struct qbRenderPass_ {
 
   qbClearValue_ clear;
   qbCullFace cull;
+  float line_width;
 } qbRenderPass_;
 
 typedef struct qbRenderGroup_ {
@@ -170,6 +171,7 @@ typedef struct qbRenderGroup_ {
   std::vector<uint32_t> sampler_bindings;
   std::vector<qbImage> images;
 
+  qbDrawMode mode;
 } qbRenderGroup_, *qbRenderGroup;
 
 typedef struct qbSurface_ {
@@ -325,6 +327,15 @@ size_t TranslateQbPixelFormatToPixelSize(qbPixelFormat format) {
   return 0;
 }
 
+GLenum TranslateQbDrawModeToOpenGlMode(qbDrawMode mode) {
+  switch (mode) {
+    case QB_DRAW_MODE_POINTS: return GL_POINTS;
+    case QB_DRAW_MODE_LINES: return GL_LINES;
+    case QB_DRAW_MODE_TRIANGLES: return GL_TRIANGLES;
+  }
+  return 0;
+}
+
 }
 
 void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
@@ -459,9 +470,9 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       qbRenderPassAttr_ attr = {};
       attr.supported_geometry.bindings = &binding;
       attr.supported_geometry.bindings_count = 1;
-
       attr.supported_geometry.attributes = attributes;
       attr.supported_geometry.attributes_count = 2;
+      attr.supported_geometry.mode = QB_DRAW_MODE_TRIANGLES;
 
       attr.shader = shader_module;
 
@@ -530,6 +541,7 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       qbMeshBuffer meshes[] = { draw_buff };
       attr.mesh_count = 1;
       attr.meshes = meshes;
+      attr.mode = QB_DRAW_MODE_TRIANGLES;
       qb_rendergroup_create(&group, &attr);
     }
     qb_renderpass_append((*pipeline)->present_pass, group);
@@ -842,7 +854,7 @@ void qb_meshbuffer_attachindices(qbMeshBuffer buffer, qbGpuBuffer indices) {
   CHECK_GL();
 }
 
-void qb_meshbuffer_render(qbMeshBuffer buffer, uint32_t bindings[]) {
+void qb_meshbuffer_render(qbMeshBuffer buffer, qbDrawMode mode, uint32_t bindings[]) {
   // Bind textures.
   for (size_t i = 0; i < buffer->images_count; ++i) {
     glActiveTexture((GLenum)(GL_TEXTURE0 + i));
@@ -874,10 +886,11 @@ void qb_meshbuffer_render(qbMeshBuffer buffer, uint32_t bindings[]) {
   glBindVertexArray((GLuint)buffer->id);
   qbGpuBuffer indices = buffer->indices;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices->id);
+  GLenum gl_mode = TranslateQbDrawModeToOpenGlMode(mode);
   if (buffer->instance_count == 0) {
-    glDrawElements(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr);
+    glDrawElements(gl_mode, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr);
   } else {
-    glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr, (GLsizei)buffer->instance_count);
+    glDrawElementsInstanced(gl_mode, (GLsizei)(indices->size / indices->elem_size), GL_UNSIGNED_INT, nullptr, (GLsizei)buffer->instance_count);
   }
   CHECK_GL();
 }
@@ -912,6 +925,7 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   render_pass->name = STRDUP(attr->name);
   render_pass->ext = attr->ext;
   render_pass->viewport = attr->viewport;
+  render_pass->line_width = attr->line_width == 0.f ? 1.f : attr->line_width;
 
   qbGeometryDescriptor descriptor = &render_pass->supported_geometry;
   descriptor->attributes_count = attr->supported_geometry.attributes_count;
@@ -923,6 +937,7 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   descriptor->bindings = new qbBufferBinding_[descriptor->bindings_count];
   memcpy(descriptor->bindings, attr->supported_geometry.bindings,
          descriptor->bindings_count * sizeof(qbBufferBinding_));
+  descriptor->mode = attr->supported_geometry.mode;
 }
 
 void qb_renderpass_resize(qbRenderPass render_pass, vec4s viewport) {
@@ -939,7 +954,7 @@ void qb_renderpass_destroy(qbRenderPass* render_pass) {
   *render_pass = nullptr;
 }
 
-qbGeometryDescriptor qb_renderpass_supportedgeometry(qbRenderPass render_pass) {
+qbGeometryDescriptor qb_renderpass_geometry(qbRenderPass render_pass) {
   return &render_pass->supported_geometry;
 }
 
@@ -1041,6 +1056,8 @@ void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, 
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glLineWidth(render_pass->line_width);
   } else {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -1114,7 +1131,8 @@ void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, 
       glBindBufferBase(GL_UNIFORM_BUFFER, binding, uniform->id);
     }
     for (auto mesh : group->meshes) {
-      qb_meshbuffer_render(mesh, render_pass->shader_program->sampler_bindings);
+      qb_meshbuffer_render(mesh, render_pass->supported_geometry.mode,
+                           render_pass->shader_program->sampler_bindings);
     }
   }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1595,11 +1613,12 @@ void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void* data)
 
 void qb_rendergroup_create(qbRenderGroup* group, qbRenderGroupAttr attr) {
   *group = new qbRenderGroup_{};
-
+  (*group)->mode = attr->mode;
   for (size_t i = 0; i < attr->mesh_count; ++i) {
     (*group)->meshes.push_back(attr->meshes[i]);
   }
 }
+
 void qb_rendergroup_destroy(qbRenderGroup* group) {
   delete *group;
   *group = nullptr;
@@ -1850,10 +1869,14 @@ size_t qb_rendergroup_removeuniform_bybinding(qbRenderGroup buffer, uint32_t bin
   return 0;
 }
 
+qbDrawMode qb_rendergroup_drawmode(qbRenderGroup group) {
+  return group->mode;
+}
+
 void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
   qbSurface surface = *surface_ref = new qbSurface_;
 
-  qbGeometryDescriptor_ descriptor;
+  qbGeometryDescriptor_ descriptor = {};
   {
     qbVertexAttribute_ attributes[2] = {};
     {
@@ -1903,6 +1926,8 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
       descriptor.bindings_count = 1;
       descriptor.attributes = attributes;
       descriptor.attributes_count = 2;
+      descriptor.mode = QB_DRAW_MODE_TRIANGLES;
+
       attr.supported_geometry = descriptor;
       attr.shader = shader_module;
       attr.viewport = { 0.0f, 0.0f, (float)surface_attr->width, (float)surface_attr->height };
@@ -1969,6 +1994,7 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
       qbMeshBuffer meshes[] = { surface->dbo };
       attr.mesh_count = 1;
       attr.meshes = meshes;
+      attr.mode = QB_DRAW_MODE_TRIANGLES;
       qb_rendergroup_create(&group, &attr);
     }
     qb_renderpass_append(surface->pass, group);

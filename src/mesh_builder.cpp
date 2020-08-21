@@ -250,6 +250,8 @@ int MeshBuilder::AddFace(std::vector<vec3s>&& vertices,
   for (size_t i = 0; i < normals.size(); ++i) {
     f.vn[i] = AddNormal(std::move(normals[i]));
   }
+
+  f.count = vertices.size();
   f_.push_back(std::move(f));
   return (int)f_.size() - 1;
 }
@@ -270,6 +272,28 @@ int MeshBuilder::AddFace(int vertices[], int normals[], int uvs[]) {
     f.vt[0] = f.vt[1] = f.vt[2] = -1;
   }
 
+  f.count = 3;
+  f_.push_back(std::move(f));
+  return (int)f_.size() - 1;
+}
+
+int MeshBuilder::AddLine(int vertices[], int normals[], int uvs[]) {
+  Face f = {};
+  memcpy(f.v, vertices, sizeof(int) * 2);
+
+  if (normals) {
+    memcpy(f.vn, normals, sizeof(int) * 2);
+  } else {
+    f.vn[0] = f.vn[1] = f.vn[2] = -1;
+  }
+
+  if (uvs) {
+    memcpy(f.vt, uvs, sizeof(int) * 2);
+  } else {
+    f.vt[0] = f.vt[1] = f.vt[2] = -1;
+  }
+
+  f.count = 2;
   f_.push_back(std::move(f));
   return (int)f_.size() - 1;
 }
@@ -566,29 +590,35 @@ qbCollider MeshBuilder::Collider(qbMesh mesh) {
   return collider;
 }
 
-qbModel MeshBuilder::Model(qbRenderFaceType_ render_mode) {
+qbModel MeshBuilder::Model(qbDrawMode render_mode) {
   qbMesh mesh = Mesh(render_mode);
 
   if (!mesh) {
     return nullptr;
   }
 
-  qbModel ret = new qbModel_{};
-  ret->mesh_count = 1;
-  ret->meshes = mesh;
-  ret->colliders = Collider(mesh);
-  ret->collider_count = 1;
+  qbModelAttr_ attr = {};
+  qbMesh meshes[] = { mesh };
+  attr.meshes = meshes;
+  attr.mesh_count = 1;
+
+  qbCollider colliders[] = { Collider(mesh) };
+  attr.colliders = colliders;
+  attr.collider_count = 1;
+
+  qbModel ret;
+  qb_model_create(&ret, &attr);
 
   return ret;
 }
 
-qbMesh MeshBuilder::Mesh(qbRenderFaceType_ render_mode) {
+qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   std::vector<vec3s> vertices;
   std::vector<vec3s> normals;
   std::vector<vec2s> uvs;
   std::vector<uint32_t> indices;
 
-  if (render_mode == qbRenderFaceType_::QB_TRIANGLES) {
+  if (render_mode == QB_DRAW_MODE_TRIANGLES) {
     std::map<MatrixCompare, uint32_t> mapped_indices;
     for (const Face& face : f_) {
       for (int i = 0; i < 3; ++i) {
@@ -628,7 +658,7 @@ qbMesh MeshBuilder::Mesh(qbRenderFaceType_ render_mode) {
         }
       }
     }
-  } else if (render_mode == qbRenderFaceType_::QB_LINES) {
+  } else if (render_mode == QB_DRAW_MODE_LINES) {
     std::map<VectorCompare, uint32_t> mapped_indices;
     if (f_.empty()) {
       for (size_t i = 0; i < v_.size(); ++i) {
@@ -648,28 +678,26 @@ qbMesh MeshBuilder::Mesh(qbRenderFaceType_ render_mode) {
       }
     } else {
       for (const Face& face : f_) {
-        for (int i = 0; i < 3; ++i) {
-          for (int j = 0; j < 2; ++j) {
-            int index = (i + j) % 3;
-            VectorCompare vc{ v_[face.v[index]] };
+        for (int i = 0; i < 2; ++i) {
+          int index = i;
+          VectorCompare vc{ v_[face.v[index]] };
 
-            auto it = mapped_indices.find(vc);
-            if (it == mapped_indices.end()) {
-              vertices.push_back(v_[face.v[index]]);
-              normals.push_back(vn_[face.vn[index]]);
-              uvs.push_back(vt_[face.vt[index]]);
+          auto it = mapped_indices.find(vc);
+          if (it == mapped_indices.end()) {
+            vertices.push_back(v_[face.v[index]]);
+            normals.push_back(vn_[face.vn[index]]);
+            uvs.push_back(vt_[face.vt[index]]);
 
-              uint32_t new_index = (uint32_t)vertices.size() - 1;
-              indices.push_back(new_index);
-              mapped_indices[vc] = new_index;
-            } else {
-              indices.push_back(it->second);
-            }
+            uint32_t new_index = (uint32_t)vertices.size() - 1;
+            indices.push_back(new_index);
+            mapped_indices[vc] = new_index;
+          } else {
+            indices.push_back(it->second);
           }
         }
       }
     }
-  } else if (render_mode == qbRenderFaceType_::QB_POINTS) {
+  } else if (render_mode == QB_DRAW_MODE_POINTS) {
     std::map<VectorCompare, uint32_t> mapped_indices;
     if (f_.empty()) {
       for (size_t i = 0; i < v_.size(); ++i) {
@@ -740,6 +768,7 @@ qbMesh MeshBuilder::Mesh(qbRenderFaceType_ render_mode) {
     mesh->uvs = new vec2s[mesh->uv_count];
     memcpy(mesh->uvs, uvs.data(), mesh->uv_count * sizeof(vec2));
   }
+  mesh->mode = render_mode;
 
   return mesh;
 }
@@ -766,9 +795,10 @@ qbResult qb_meshbuilder_destroy(qbMeshBuilder* builder) {
   return QB_OK;
 }
 
-qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbMesh* mesh, qbCollider* collider) {
+qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbDrawMode mode,
+                              qbMesh* mesh, qbCollider* collider) {
   if (mesh) {
-    *mesh = builder->builder.Mesh(qbRenderFaceType_::QB_TRIANGLES);
+    *mesh = builder->builder.Mesh(mode);
   }
 
   if (collider) {
@@ -791,6 +821,10 @@ int qb_meshbuilder_addvt(qbMeshBuilder builder, vec2s vt) {
 
 int qb_meshbuilder_addvn(qbMeshBuilder builder, vec3s vn) {
   return builder->builder.AddNormal(vn);
+}
+
+int qb_meshbuilder_addline(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]) {
+  return builder->builder.AddLine(vertices, normals, uvs);
 }
 
 int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]) {

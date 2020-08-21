@@ -48,35 +48,53 @@
 
 qbModel qb_model_load(const char* model_name, const char* filename) {
   MeshBuilder builder = MeshBuilder::FromFile(filename);
-  return builder.Model(qbRenderFaceType_::QB_TRIANGLES);
+  return builder.Model(QB_DRAW_MODE_TRIANGLES);
 }
 
-struct qbModelgroup_* qb_model_upload(qbModel model) {
-  qbModelgroup ret;
+struct qbModelGroup_* qb_model_upload(qbModel model) {
+  qbModelGroup ret;
   qb_modelgroup_create(&ret);
   qb_modelgroup_upload(ret, model, nullptr);
   return ret;
 }
 
-void qb_model_create(qbModel* model_ref) {
-  qbModel model = *model_ref = new qbModel_;
-  model->colliders = nullptr;
-  model->collider_count = 0;
-  model->meshes = nullptr;
-  model->mesh_count = 0;
-  model->name = "";
+void qb_model_create(qbModel* model_ref, qbModelAttr attr) {
+  qbModel model = *model_ref = new qbModel_{};
+  model->name = STRDUP(attr->name);
+
+  model->collider_count = attr->collider_count;
+  model->colliders = new qbCollider[model->collider_count];
+  memcpy(model->colliders, attr->colliders, (model->collider_count) * sizeof(qbCollider));
+  
+  model->mesh_count = attr->mesh_count;
+  model->meshes = new qbMesh[model->mesh_count];
+  memcpy(model->meshes, attr->meshes, (model->mesh_count) * sizeof(qbMesh));
+  (*model_ref)->mode = attr->meshes[0]->mode;
 }
 
 void qb_model_destroy(qbModel* model) {
   qbModel m = *model;
   if (m->meshes) {
+    for (uint32_t i = 0; i < (*model)->mesh_count; ++i) {
+      qb_mesh_destroy(&m->meshes[i]);
+    }
     delete[] m->meshes;
   }
+
   if (m->colliders) {
+    for (uint32_t i = 0; i < (*model)->collider_count; ++i) {
+      qb_collider_destroy(&m->colliders[i]);
+    }
     delete[] m->colliders;
   }
   delete *model;
   *model = nullptr;
+}
+
+qbResult qb_collider_destroy(qbCollider* collider) {
+  free((*collider)->vertices);
+  delete *(collider);
+  return QB_OK;
 }
 
 bool qb_model_collides(vec3 a_origin, vec3 b_origin, qbModel a, qbModel b) {
@@ -414,43 +432,43 @@ bool qb_collider_checkray(const qbCollider_* c, const qbTransform_* t, const qbR
   return ray_intersects_aabb(c, t, r);
 }
 
-struct qbModelgroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbCollider* collider) {
+struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Box(size_x, size_y, size_z);
-  qbModelgroup_* ret;
+  qbModelGroup_* ret;
   qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
-  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+  qbModel model = builder.Model(mode);
+  qb_modelgroup_upload(ret, model, nullptr);
 
   if (collider) {
-    *collider = builder.Collider(&model->meshes[0]);
+    *collider = builder.Collider(model->meshes[0]);
   }
   qb_model_destroy(&model);
   return ret;
 }
 
-struct qbModelgroup_* qb_draw_rect(float w, float h, qbCollider* collider) {
+struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Rect(w, h);
-  qbModelgroup_* ret;
+  qbModelGroup_* ret;
   qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
-  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+  qbModel model = builder.Model(mode);
+  qb_modelgroup_upload(ret, model, nullptr);
 
   if (collider) {
-    *collider = builder.Collider(&model->meshes[0]);
+    *collider = builder.Collider(model->meshes[0]);
   }
   qb_model_destroy(&model);
   return ret;
 }
 
-struct qbModelgroup_* qb_draw_sphere(float radius, int slices, int zslices, qbCollider* collider) {
+struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider) {
   MeshBuilder builder = MeshBuilder::Sphere(radius, slices, zslices);
-  qbModelgroup_* ret;
+  qbModelGroup_* ret;
   qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(qbRenderFaceType_::QB_TRIANGLES);
-  qb_modelgroup_upload(ret, builder.Model(qbRenderFaceType_::QB_TRIANGLES), nullptr);
+  qbModel model = builder.Model(mode);
+  qb_modelgroup_upload(ret, model, nullptr);
 
   if (collider) {
-    *collider = builder.Collider(&model->meshes[0]);
+    *collider = builder.Collider(model->meshes[0]);
   }
   qb_model_destroy(&model);
   return ret;

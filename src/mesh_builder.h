@@ -31,9 +31,11 @@ class MeshBuilder {
 public:
   // Zero-based indexing of vertex attributes.
   struct Face {
-    int v[3];
-    int vn[3];
-    int vt[3];
+    int v[4];
+    int vn[4];
+    int vt[4];
+
+    size_t count;
   };
 
   static MeshBuilder FromFile(const std::string& filename);
@@ -50,10 +52,11 @@ public:
               std::vector<vec2s>&& textures,
               std::vector<vec3s>&& normals);
   int AddFace(int vertices[], int normals[], int uvs[]);
+  int AddLine(int vertices[], int normals[], int uvs[]);
 
   qbCollider Collider(qbMesh mesh);
-  qbModel Model(qbRenderFaceType_ render_mode);
-  qbMesh Mesh(qbRenderFaceType_ render_mode);
+  qbModel Model(qbDrawMode render_mode);
+  qbMesh Mesh(qbDrawMode render_mode);
 
   void Reset();
 

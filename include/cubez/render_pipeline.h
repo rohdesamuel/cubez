@@ -167,9 +167,17 @@ typedef struct {
   qbRenderExt ext;
 } qbGpuBufferAttr_, *qbGpuBufferAttr;
 
+// A buffer binding is used to bind a qbGpuBuffer to a qbVertexAttribute.
 typedef struct {
+  // User given unique id for this given buffer. Unique within a given
+  // qbGeometryDescripter_.
   uint32_t binding;
+
+  // The distance in bytes between two consecutive elements within the buffer.
   uint32_t stride;
+
+  // Specifying whether the vertex attribute is a function of the vertex index
+  // or the instance vertex.
   qbVertexInputRate input_rate;
 } qbBufferBinding_, *qbBufferBinding;
 
@@ -197,9 +205,14 @@ typedef enum {
 } qbVertexAttribName;
 
 typedef struct qbVertexAttribute_ {
+  // The matching binding id of the qbBufferBinding_ that holds the data for
+  // this attribute.
   uint32_t binding;
+
+  // The shader binding location fir this attribute.
   uint32_t location;
 
+  // The number of components in this attribute.
   size_t count;
   qbVertexAttribType type;
   qbVertexAttribName name;
@@ -226,12 +239,20 @@ typedef struct {
   qbShaderStage stages;
 } qbShaderResourceInfo_, *qbShaderResourceInfo;
 
+typedef enum {
+  QB_DRAW_MODE_POINTS,
+  QB_DRAW_MODE_LINES,
+  QB_DRAW_MODE_TRIANGLES,
+} qbDrawMode;
+
 typedef struct {
   qbBufferBinding bindings;
   size_t bindings_count;
 
   qbVertexAttribute attributes;
   size_t attributes_count;
+
+  qbDrawMode mode;
 } qbGeometryDescriptor_, *qbGeometryDescriptor;
 
 typedef struct {
@@ -284,6 +305,7 @@ typedef struct {
 
   qbClearValue_ clear;
   qbCullFace cull;
+  float line_width;
 
   vec4s viewport;
   float viewport_scale;
@@ -338,6 +360,7 @@ typedef struct qbSurfaceAttr_ {
 typedef struct qbRenderGroupAttr_ {
   qbMeshBuffer* meshes;
   size_t mesh_count;
+  qbDrawMode mode;
 } qbRenderGroupAttr_, *qbRenderGroupAttr;
 
 QB_API void qb_shadermodule_create(qbShaderModule* shader, qbShaderModuleAttr attr);
@@ -387,7 +410,7 @@ QB_API void qb_renderpass_resize(qbRenderPass render_pass, vec4s viewport);
 QB_API const char* qb_renderpass_name(qbRenderPass render_pass);
 QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
 
-QB_API qbGeometryDescriptor qb_renderpass_supportedgeometry(qbRenderPass render_pass);
+QB_API qbGeometryDescriptor qb_renderpass_geometry(qbRenderPass render_pass);
 QB_API size_t qb_renderpass_bindings(qbRenderPass render_pass, qbBufferBinding* bindings);
 QB_API size_t qb_renderpass_groups(qbRenderPass render_pass, qbRenderGroup** groups);
 QB_API size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceInfo* resources);
@@ -452,8 +475,9 @@ QB_API void qb_rendergroup_append(qbRenderGroup group, qbMeshBuffer buffer);
 QB_API void qb_rendergroup_prepend(qbRenderGroup group, qbMeshBuffer buffer);
 QB_API size_t qb_rendergroup_remove(qbRenderGroup group, qbMeshBuffer buffer);
 QB_API void qb_rendergroup_update(qbRenderGroup group, size_t count, qbMeshBuffer* buffers);
-QB_API size_t qb_rendergroup_images(qbRenderGroup buffer, qbImage** images);
-QB_API size_t qb_rendergroup_uniforms(qbRenderGroup buffer, qbGpuBuffer** uniforms);
+QB_API size_t qb_rendergroup_images(qbRenderGroup group, qbImage** images);
+QB_API size_t qb_rendergroup_uniforms(qbRenderGroup group, qbGpuBuffer** uniforms);
+QB_API qbDrawMode qb_rendergroup_drawmode(qbRenderGroup group);
 
 QB_API qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name);
 QB_API void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void* data);
