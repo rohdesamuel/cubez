@@ -96,8 +96,7 @@ qbGuiBlock qb_guislider_create(vec2s pos, float width, const char* name) {
     qb_guiconstraint_y(slider, QB_CONSTRAINT_RELATIVE, 0.f);
     qb_guiconstraint_width(slider, QB_CONSTRAINT_PIXEL, 10.f);
     qb_guiconstraint_height(slider, QB_CONSTRAINT_PIXEL, 10.f);
-  }
-  qb_guiblock_movetofront(slider);
+  }  
   qb_guiblock_link(container, line);
   qb_guiblock_link(container, slider);
 
@@ -319,7 +318,8 @@ void create_main_menu() {
     windows.push_back(display);
   }
 
-  qb_guiblock_link(display, qb_guislider_create({ 0.f, 500.f }, 200.f, "slider1"));
+  qbGuiBlock slider = qb_guislider_create({ 0.f, 500.f }, 200.f, "slider1");
+  qb_guiblock_link(display, slider);  
   //qb_guiblock_link(display, qb_guislider_create({ 0.f, 300.f }, 200.f, "slider2"));
 
   if (1)
@@ -357,7 +357,7 @@ Dicit nihil oportere vix id, pri te tempor alterum.Ea vel etiam inciderint.Quali
   qb_coro_sync([](qbVar text) {
     qbGuiBlock text_box = (qbGuiBlock)text.p;
     while (true) {
-      int fps = (int)timing_info.total_fps;
+      int fps = (int)timing_info.render_fps;
       {
         std::wstring text_fps = std::to_wstring(fps);
         while (text_fps.length() < 4) {
@@ -372,7 +372,44 @@ Dicit nihil oportere vix id, pri te tempor alterum.Ea vel etiam inciderint.Quali
     return qbNone;
   }, qbPtr(text_box));
 
-  //qb_guiblock_movetofront(text_box);
+  {
+    const int count = 9;
+    const float size = 64.f;
+
+    qbGuiBlock actionbar_container;
+    {
+      qbGuiBlockAttr_ attr = {};
+      attr.background_color = { 0.f, 0.f, 0.f, 1.f };
+
+      qb_guiblock_create(&actionbar_container, &attr, "actionbar_container");
+
+      qb_guiconstraint(actionbar_container, QB_CONSTRAINT_PERCENT, QB_GUI_X, 0.5f);
+      qb_guiconstraint(actionbar_container, QB_CONSTRAINT_RELATIVE, QB_GUI_X, 0.5f);
+      qb_guiconstraint(actionbar_container, QB_CONSTRAINT_PERCENT, QB_GUI_Y, 0.f);
+
+      qb_guiconstraint(actionbar_container, QB_CONSTRAINT_PERCENT, QB_GUI_WIDTH, 1.f);
+      qb_guiconstraint(actionbar_container, QB_CONSTRAINT_PIXEL, QB_GUI_HEIGHT, size);
+    }
+
+    qbGuiBlock action_bar[count];
+    qbGuiBlockAttr_ attr = {};
+    attr.background_color = { 0.9f, 0.9f, 0.9f, 0.9f };
+    attr.radius = 2.0f;
+    attr.offset = { -size * 0.5f, -size * 0.5f };
+
+    for (int i = 0; i < count; ++i) {
+      qb_guiblock_create(&action_bar[i], &attr, (std::string("actionbar") + std::to_string(i)).data());
+
+      qbGuiBlock b = action_bar[i];
+      qb_guiconstraint(b, QB_CONSTRAINT_PIXEL, QB_GUI_X, size * i + 32.f);
+      qb_guiconstraint(b, QB_CONSTRAINT_PIXEL, QB_GUI_Y, 500.f);
+
+      qb_guiconstraint(b, QB_CONSTRAINT_PIXEL, QB_GUI_WIDTH, size);
+      qb_guiconstraint(b, QB_CONSTRAINT_PIXEL, QB_GUI_HEIGHT, size);
+    }
+  }
+
+  qb_guiblock_movetofront(slider);
   qb_scene_reset();
 }
 
@@ -434,7 +471,7 @@ void create_game() {
     };
     
     qbModel model = qb_model_load("", "resources/models/destroyer_textured.obj"); // qb_draw_sphere(2, 50, 50);
-    qbModelgroup r = qb_model_upload(model);
+    qbModelGroup r = qb_model_upload(model);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -481,7 +518,7 @@ void create_game() {
         GLMS_MAT4_IDENTITY_INIT
       };
 
-      qbModelgroup r = qb_draw_cube(1, 1, 1, nullptr);
+      qbModelGroup r = qb_draw_cube(1, 1, 1, QB_DRAW_MODE_TRIANGLES, nullptr);
 
       qbEntity unused;
       qbEntityAttr attr;
@@ -511,7 +548,7 @@ void create_game() {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_cube(-100, -100, -100, nullptr);
+    qbModelGroup r = qb_draw_cube(-100, -100, -100, QB_DRAW_MODE_TRIANGLES, nullptr);
 
     qbEntity unused;
     qbEntityAttr attr;
@@ -747,7 +784,7 @@ qbVar test_collision(qbVar v) {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_cube(2, 2, 2, &a);
+    qbModelGroup r = qb_draw_cube(2, 2, 2, QB_DRAW_MODE_TRIANGLES, &a);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -765,7 +802,7 @@ qbVar test_collision(qbVar v) {
       glms_euler_xyz(vec3s{ 0.f, 0.f, glm_rad(45.f) })
     };
 
-    qbModelgroup r = qb_draw_cube(2, 2, 2, &b);
+    qbModelGroup r = qb_draw_cube(2, 2, 2, QB_DRAW_MODE_TRIANGLES, &b);
     
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
@@ -783,7 +820,7 @@ qbVar test_collision(qbVar v) {
       GLMS_MAT4_IDENTITY_INIT
     };
 
-    qbModelgroup r = qb_draw_sphere(2, 50, 50, &c);
+    qbModelGroup r = qb_draw_sphere(2, 50, 50, QB_DRAW_MODE_TRIANGLES, &c);
 
     qbEntityAttr attr;
     qb_entityattr_create(&attr);
