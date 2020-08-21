@@ -42,6 +42,8 @@ int mouse_dy;
 int wheel_x;
 int wheel_y;
 
+volatile qbInputFocus input_focus = QB_FOCUS_APP;
+
 namespace
 {
 uint32_t button_to_sdl(qbButton button) {
@@ -69,6 +71,16 @@ qbButton button_from_sdl(uint32_t sdl_key) {
 
 qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
   switch (sdl_key) {
+    case SDLK_0: return QB_KEY_0;
+    case SDLK_1: return QB_KEY_1;
+    case SDLK_2: return QB_KEY_2;
+    case SDLK_3: return QB_KEY_3;
+    case SDLK_4: return QB_KEY_4;
+    case SDLK_5: return QB_KEY_5;
+    case SDLK_6: return QB_KEY_6;
+    case SDLK_7: return QB_KEY_7;
+    case SDLK_8: return QB_KEY_8;
+    case SDLK_9: return QB_KEY_9;
     case SDLK_SPACE: return QB_KEY_SPACE;
     case SDLK_a: return QB_KEY_A;
     case SDLK_b: return QB_KEY_B;
@@ -129,6 +141,16 @@ qbKey keycode_from_sdl(SDL_Keycode sdl_key) {
 
 qbScanCode scancode_from_sdl(SDL_Keycode sdl_key) {
   switch (sdl_key) {
+    case SDL_SCANCODE_0: return QB_SCAN_0;
+    case SDL_SCANCODE_1: return QB_SCAN_1;
+    case SDL_SCANCODE_2: return QB_SCAN_2;
+    case SDL_SCANCODE_3: return QB_SCAN_3;
+    case SDL_SCANCODE_4: return QB_SCAN_4;
+    case SDL_SCANCODE_5: return QB_SCAN_5;
+    case SDL_SCANCODE_6: return QB_SCAN_6;
+    case SDL_SCANCODE_7: return QB_SCAN_7;
+    case SDL_SCANCODE_8: return QB_SCAN_8;
+    case SDL_SCANCODE_9: return QB_SCAN_9;
     case SDL_SCANCODE_SPACE: return QB_SCAN_SPACE;
     case SDL_SCANCODE_A: return QB_SCAN_A;
     case SDL_SCANCODE_B: return QB_SCAN_B;
@@ -246,7 +268,6 @@ void qb_handle_input(void(*shutdown_handler)()) {
       input_event.mouse_event.type = QB_MOUSE_EVENT_BUTTON;
       input_event.mouse_event.button.button = button_from_sdl(e.button.button);
       input_event.mouse_event.button.state = e.button.state ? QB_MOUSE_DOWN : QB_MOUSE_UP;
-      qb_send_mouse_click_event(&input_event.mouse_event.button);
     } else if (e.type == SDL_MOUSEMOTION) {
       input_event.type = QB_INPUT_EVENT_MOUSE;
       input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
@@ -256,7 +277,6 @@ void qb_handle_input(void(*shutdown_handler)()) {
       input_event.mouse_event.motion.yrel = e.motion.yrel;
       mouse_dx = e.motion.xrel;
       mouse_dy = e.motion.yrel;
-      qb_send_mouse_move_event(&input_event.mouse_event.motion);
     } else if (e.type == SDL_MOUSEWHEEL) {
       wheel_updated = true;
       
@@ -269,7 +289,6 @@ void qb_handle_input(void(*shutdown_handler)()) {
 
       input_event.mouse_event.scroll.xrel = e.wheel.x;
       input_event.mouse_event.scroll.yrel = e.wheel.y;
-      qb_send_mouse_scroll_event(&input_event.mouse_event.scroll);
     } else if (e.type == SDL_WINDOWEVENT) {
       if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
         qb_window_resize(e.window.data1, e.window.data2);        
@@ -281,7 +300,24 @@ void qb_handle_input(void(*shutdown_handler)()) {
       return;
     }
 
-    gui_handle_input(&input_event);
+    bool handled_by_gui = gui_handle_input(&input_event);
+    if (handled_by_gui) {
+      input_focus = QB_FOCUS_GUI;
+    } else {
+      input_focus = QB_FOCUS_APP;
+    }
+
+    if (qb_input_focus() == QB_FOCUS_APP) {
+      if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
+        qb_send_key_event(&input_event.key_event);
+      } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+        qb_send_mouse_click_event(&input_event.mouse_event.button);
+      } else if (e.type == SDL_MOUSEMOTION) {
+        qb_send_mouse_move_event(&input_event.mouse_event.motion);
+      } else if (e.type == SDL_MOUSEWHEEL) {
+        qb_send_mouse_scroll_event(&input_event.mouse_event.scroll);
+      }
+    }
   }
 
   if (!wheel_updated) {
@@ -355,4 +391,9 @@ int qb_mouse_relative() {
 void qb_mouse_wheel(int* scroll_x, int* scroll_y) {
   *scroll_x = wheel_x;
   *scroll_y = wheel_y;
+}
+ 
+
+qbInputFocus qb_input_focus() {
+  return input_focus;
 }
