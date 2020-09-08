@@ -98,12 +98,12 @@ QB_API void qb_guiconstraint_cleary(qbGuiBlock block, qbConstraint constraint);
 QB_API void qb_guiconstraint_clearwidth(qbGuiBlock block, qbConstraint constraint);
 QB_API void qb_guiconstraint_clearheight(qbGuiBlock block, qbConstraint constraint);
 
-QB_API void qb_guiblock_create(qbGuiBlock* window, qbGuiBlockAttr attr, const char* name);
+QB_API void qb_guiblock_create(qbGuiBlock* block, qbGuiBlockAttr attr, const char* name);
+QB_API void qb_guiblock_destroy(qbGuiBlock* block);
 
 QB_API void qb_guiblock_open(qbGuiBlock block);
 QB_API qbGuiBlock qb_guiblock_find(const char* path[]);
 QB_API void qb_guiblock_openquery(const char* path[]);
-QB_API void qb_guiblock_openchildren(qbGuiBlock block);
 QB_API void qb_guiblock_close(qbGuiBlock block);
 QB_API void qb_guiblock_closequery(const char* path[]);
 QB_API void qb_guiblock_closechildren(qbGuiBlock block);
