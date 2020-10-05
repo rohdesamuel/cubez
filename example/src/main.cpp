@@ -373,7 +373,7 @@ Dicit nihil oportere vix id, pri te tempor alterum.Ea vel etiam inciderint.Quali
       qb_coro_waitframes(10);
     }
 
-    return qbNone;
+    return qbNil;
   }, qbPtr(text_box));
 
   {
@@ -731,7 +731,7 @@ void create_game() {
       ++frame;
       qb_coro_wait(0.01);
     }
-    return qbNone;
+    return qbNil;
   }, qbInt(ship_entity));
 
   qb_scene_reset();
@@ -900,7 +900,7 @@ int main(int, char* []) {
 
   qb_mouse_setrelative(0);
 
-  qb_coro_sync(test_collision, qbNone);
+  qb_coro_sync(test_collision, qbNil);
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

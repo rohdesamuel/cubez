@@ -58,10 +58,10 @@ CoroScheduler::CoroScheduler(size_t num_threads) {
         }
         coro_state->new_coros.resize(0);
       }
-      qb_coro_yield(qbNone);
+      qb_coro_yield(qbNil);
     }
 
-    return qbNone;
+    return qbNil;
   });
 }
 

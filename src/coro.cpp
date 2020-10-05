@@ -255,7 +255,7 @@ qbVar coro_yield(qbVar var) {
   if (_cur->parent) {
     return _coro_fastcall(_cur->parent, var);
   }
-  return qbNone;
+  return qbNil;
 }
 
 void coro_free(Coro c) {

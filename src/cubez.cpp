@@ -38,8 +38,8 @@
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
-const qbVar qbNone = { QB_TAG_PTR, 0, 0 };
-const qbVar qbFuture = { QB_TAG_NIL, 0, 0 };
+const qbVar qbNil = { QB_TAG_NIL, 0, 0 };
+const qbVar qbFuture = { QB_TAG_FUTURE, 0, 0 };
 const qbEntity qbInvalidEntity = -1;
 
 static qbUniverse* universe_ = nullptr;
@@ -665,10 +665,6 @@ void qb_coro_waitframes(uint32_t frames) {
 
 bool qb_coro_done(qbCoro coro) {
   return qb_coro_peek(coro).tag != QB_TAG_NIL;
-}
-
-qbVar qbNil() {
-  return{ QB_TAG_NIL, 0 };
 }
 
 qbVar qbPtr(void* p) {

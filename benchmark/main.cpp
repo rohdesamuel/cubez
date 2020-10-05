@@ -128,10 +128,10 @@ double coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
     qb_coro_sync([](qbVar) {
       for (;;) {
         *Count() += 1;
-        qb_coro_yield(qbNone);
+        qb_coro_yield(qbNil);
       }
-      return qbNone;
-    }, qbNone);
+      return qbNil;
+    }, qbNil);
   }
 
   qb_timer_start(timer);

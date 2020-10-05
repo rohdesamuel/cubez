@@ -27,6 +27,7 @@
 
 typedef enum {
   QB_TAG_NIL,
+  QB_TAG_FUTURE,
   QB_TAG_PTR,
   QB_TAG_INT,
   QB_TAG_UINT,
@@ -73,7 +74,6 @@ typedef struct qbSchema_* qbSchema;
 typedef struct qbSchemaField_* qbSchemaField;
 
 // Convenience functions for creating a qbVar. 
-QB_API qbVar       qbNil();
 QB_API qbVar       qbPtr(void* p);
 QB_API qbVar       qbInt(int64_t i);
 QB_API qbVar       qbUint(uint64_t u);
@@ -125,7 +125,7 @@ QB_API size_t      qb_schemafield_size(qbSchemaField field);
 
 
 // Represents a value without a value.
-QB_API extern const qbVar qbNone;
+QB_API extern const qbVar qbNil;
 
 // Represents a qbVar that is not yet set. Used to represent a value that will
 // be set in the future.
@@ -743,7 +743,7 @@ QB_API qbVar       qb_coro_call(qbCoro coro, qbVar var);
 // Creates a coroutine and schedules the given function to be run on the main
 // thread. All coroutines are then run serially after event dispatch and
 // systems are run. All coroutines are run as cooperative threads. In order to
-// run the next coroutine, the given entry must call qb_coro_yield().
+// run the next coroutine, the given entry function must call qb_coro_yield().
 // WARNING: A coroutine has its own stack, do not pass in pointers to stack
 // variables. They will be invalid pointers.
 QB_API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
@@ -770,15 +770,9 @@ QB_API qbVar       qb_coro_await(qbCoro coro);
 
 // Peeks at the return value of the scheduled coro. Returns "qbFuture" if the
 // scheduled coro is running.
-QB_API qbVar
-qb_coro_peek(
-  qbCoro coro
-);
+QB_API qbVar      qb_coro_peek(qbCoro coro);
 
 // Returns true if Coroutine is finished running.
-QB_API bool
-qb_coro_done(
-  qbCoro coro
-);
+QB_API bool       qb_coro_done(qbCoro coro);
 
 #endif  // #ifndef CUBEZ__H

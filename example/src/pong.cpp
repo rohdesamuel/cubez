@@ -122,10 +122,10 @@ void Initialize(Settings settings) {
         qb_mouse_getposition(&mouse_x, &mouse_y);
 
         bot_paddle.pos.x = mouse_x - paddle_size.x / 2;
-        qb_coro_yield(qbNone);
+        qb_coro_yield(qbNil);
       }
-      return qbNone;
-    }, qbNone);
+      return qbNil;
+    }, qbNil);
 
     qb_coro_sync([](qbVar) {
       while (true) {
@@ -136,8 +136,8 @@ void Initialize(Settings settings) {
         }
         qb_coro_waitframes(5);
       }
-      return qbNone;
-    }, qbNone);
+      return qbNil;
+    }, qbNil);
   }
 
   qbEntity top_paddle;
