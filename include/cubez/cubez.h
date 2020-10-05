@@ -29,6 +29,7 @@ typedef enum {
   QB_TAG_NIL,
   QB_TAG_PTR,
   QB_TAG_INT,
+  QB_TAG_UINT,
   QB_TAG_DOUBLE,
   QB_TAG_STRING,
   QB_TAG_STRUCT,
@@ -36,11 +37,18 @@ typedef enum {
 } qbTag;
 
 typedef struct {
-  qbTag tag;
+  size_t len;
+  utf8_t bytes[];
+} qbStr;
+
+typedef struct {
+  qbTag tag : 8;
+  size_t size;
   union {
     void* p;
-    char* s;
+    qbStr* s;
     int64_t i;
+    uint64_t u;
     double d;
 
     char bytes[8];
@@ -48,11 +56,13 @@ typedef struct {
 } qbVar;
 
 typedef struct {
-  qbTag tag;
+  qbTag tag : 8;
+  size_t size;
   union {
     void* p;
-    char* s;
+    qbStr** s;
     int64_t* i;
+    uint64_t* u;
     double* d;
 
     char bytes[8];
@@ -63,13 +73,20 @@ typedef struct qbSchema_* qbSchema;
 typedef struct qbSchemaField_* qbSchemaField;
 
 // Convenience functions for creating a qbVar. 
+QB_API qbVar       qbNil();
 QB_API qbVar       qbPtr(void* p);
 QB_API qbVar       qbInt(int64_t i);
+QB_API qbVar       qbUint(uint64_t u);
 QB_API qbVar       qbDouble(double d);
 QB_API qbVar       qbStruct(qbSchema schema, void* buf);
+QB_API qbVar       qbString(const char* s);
+QB_API qbVar       qbBytes(const char* bytes, size_t size);
 
-// Returns the data referenced by key with v. Assumes that v has a schema.
-QB_API qbRef       qb_var_at(qbVar v, const char* key);
+QB_API qbRef       qb_ref_at(qbVar v, const char* key);
+QB_API qbVar       qb_var_at(qbVar v, const char* key);
+
+// Frees the var if a string or bytes.
+QB_API void        qb_var_destroy(qbVar v);
 
 // Unimplemented.
 QB_API qbResult    qb_schema_create(qbSchema* schema,
@@ -201,17 +218,30 @@ typedef struct {
 } qbProgram;
 
 // Creates a program with the specified name. Copies the name into new memory.
-QB_API qbId qb_create_program(const char* name);
+// This new program is run on a separate thread.
+//
+// Before each loop the following occurs:
+// 1) onready is called on the main program
+// 2) onready is called on all other non-detached programs in a
+//    non-deterministic order
+// 3) all non-detached programs run
+// 4) the main program runs and blocks until completion
+// 5) all non-detached programs are joined and block execution until completion
+QB_API qbId qb_program_create(const char* name);
+
+// Sets the onready function in the program.
+QB_API void qb_program_onready(qbId program,
+                               void(*onready)(qbProgram* program, qbVar), qbVar state);
 
 // Runs a particular program flushing its events then running all of its systems.
-QB_API qbResult qb_run_program(qbId program);
+QB_API qbResult qb_program_run(qbId program);
 
 // Detaches a program from the main game loop. This starts an asynchronous
 // thread.
-QB_API qbResult qb_detach_program(qbId program);
+QB_API qbResult qb_program_detach(qbId program);
 
 // Joins a program with the main game loop.
-QB_API qbResult qb_join_program(qbId program);
+QB_API qbResult qb_program_join(qbId program);
 
 typedef qbId qbEntity;
 typedef struct qbEntityAttr_* qbEntityAttr;
@@ -260,7 +290,7 @@ QB_API qbResult      qb_componentattr_destroy(qbComponentAttr* attr);
 QB_API qbResult      qb_componentattr_setdatasize(qbComponentAttr attr,
                                                   size_t size);
 
-// Sets the component type which tells the engine how to destroy the component.
+// Sets the component type which tells the engine how to handle the component.
 QB_API qbResult      qb_componentattr_settype(qbComponentAttr attr,
                                               qbComponentType type);
 
@@ -271,7 +301,8 @@ QB_API qbResult      qb_componentattr_setschema(qbComponentAttr attr,
                                                 qbSchema schema);
 
 // Sets the component to be shared across programs with a reader/writer lock.
-QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr);
+// By default a component is "shared", i.e. is_shared=true.
+QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr, bool is_shared);
 
 // Unimplemented.
 QB_API qbResult      qb_componentattr_onserialize(qbComponentAttr attr,
@@ -317,12 +348,14 @@ QB_API qbSchema      qb_component_schema(qbComponent component);
 // when an entity is created, then it is triggered after all components have
 // been instantiated.
 QB_API qbResult      qb_instance_oncreate(qbComponent component,
-                                          void(*fn)(qbInstance instance));
+                                          void(*fn)(qbInstance instance, qbVar state),
+                                          qbVar state);
 
 // Triggers fn when a instance of the given component is destroyed. Is
 // triggered before before memory is freed.
 QB_API qbResult      qb_instance_ondestroy(qbComponent component,
-                                           void(*fn)(qbInstance instance));
+                                           void(*fn)(qbInstance instance, qbVar state),
+                                           qbVar state);
 
 // Gets a read-only view of a component instance for the given entity.
 QB_API qbResult      qb_instance_find(qbComponent component,
@@ -355,7 +388,7 @@ QB_API bool        qb_instance_hascomponent(qbInstance instance,
                                             qbComponent component);
 
 // Returns a qbRef to the memory pointed at by key in the struct. Assumes that
-// the instance has an instgance.
+// the instance has an schema.
 QB_API qbRef       qb_instance_at(qbInstance instance, const char* key);
 
 ///////////////////////////////////////////////////////////
@@ -378,16 +411,26 @@ QB_API qbResult      qb_entityattr_addcomponent(qbEntityAttr attr,
 // A qbEntity is an identifier to a game object. qbComponents can be added to
 // the entity.
 
+QB_API extern const qbEntity qbInvalidEntity;
+
 // Creates a new qbEntity with the specified attributes.
+// This is only thread-safe if all of the attached components are "shared"
+// components, created with the `qb_componentattr_setshared` method.
 QB_API qbResult      qb_entity_create(qbEntity* entity,
                                       qbEntityAttr attr);
 
-// Destroys the specified entity.
+// Destroys the specified entity and all of its components. This destroys the
+// entity at the end of the frame ensuring that references to entities are
+// always valid during a frame.
+// This is only thread-safe if all of the attached components are "shared"
+// components, created with the `qb_componentattr_setshared` method.
 QB_API qbResult      qb_entity_destroy(qbEntity entity);
 
 // Adds a component with instance data to copied to the entity.
 // This allocates a new instance copies the instance_data to the newly
 // allocated memory. This calls the instance's OnCreate function immediately.
+// This is only thread-safe if the component is a "shared" component, created
+// with the `qb_componentattr_setshared` method.
 QB_API qbResult      qb_entity_addcomponent(qbEntity entity,
                                             qbComponent component,
                                             void* instance_data);
@@ -395,10 +438,14 @@ QB_API qbResult      qb_entity_addcomponent(qbEntity entity,
 // Removes the specified component from the entity. Does not remove the
 // component until after the current frame has completed. This calls the
 // instance's OnDestroy function after the current frame has completed.
+// This is only thread-safe if the component is a "shared" component, created
+// with the `qb_componentattr_setshared` method.
 QB_API qbResult      qb_entity_removecomponent(qbEntity entity,
                                                qbComponent component);
 
 // Returns true if the specified entity contains an instance for the component.
+// This is only thread-safe if the component is a "shared" component, created
+// with the `qb_componentattr_setshared` method.
 QB_API bool          qb_entity_hascomponent(qbEntity entity,
                                             qbComponent component);
 

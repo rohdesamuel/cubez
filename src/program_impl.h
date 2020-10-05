@@ -48,6 +48,8 @@ class ProgramImpl {
 
   void UnsubscribeFrom(qbEvent event, qbSystem system);
 
+  void SubscribeToOnReady(void(*onready)(qbProgram* program, qbVar), qbVar state);
+
   void Ready();
   void Run(GameState* state, lua_State* lua_state);
   void Done();
@@ -65,6 +67,8 @@ class ProgramImpl {
   std::vector<qbSystem> systems_;
   std::vector<qbSystem> loop_systems_;
   std::set<qbSystem> event_systems_;
+
+  std::vector<std::pair<void(*)(qbProgram* program, qbVar), qbVar>> onready_fns_;
 };
 
 #endif  // PROGRAM_IMPL__H

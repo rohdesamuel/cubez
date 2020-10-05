@@ -134,7 +134,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -152,7 +152,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -171,7 +171,7 @@
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -190,7 +190,7 @@
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
@@ -212,7 +212,7 @@
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -238,7 +238,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <OmitFramePointers>false</OmitFramePointers>
-      <DisableSpecificWarnings>4530;4577;4102;</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
@@ -292,7 +292,13 @@
     <ClInclude Include="..\..\..\src\input_internal.h" />
     <ClInclude Include="..\..\..\src\instance_registry.h" />
     <ClInclude Include="..\..\..\src\log_internal.h" />
+    <ClInclude Include="..\..\..\src\lua_audio_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_bindings.h" />
+    <ClInclude Include="..\..\..\src\lua_common.h" />
+    <ClInclude Include="..\..\..\src\lua_cubez_bindings.h" />
+    <ClInclude Include="..\..\..\src\lua_draw_bindings.h" />
+    <ClInclude Include="..\..\..\src\lua_gui_bindings.h" />
+    <ClInclude Include="..\..\..\src\lua_input_bindings.h" />
     <ClInclude Include="..\..\..\src\meshoptimizer\meshoptimizer.h" />
     <ClInclude Include="..\..\..\src\mesh_builder.h" />
     <ClInclude Include="..\..\..\src\mesh_loader.h" />
@@ -315,6 +321,7 @@
     <ClInclude Include="..\..\..\src\task.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />
     <ClInclude Include="..\..\..\src\tiny_obj_loader.h" />
+    <ClInclude Include="..\..\..\src\utf8.h" />
     <ClInclude Include="..\..\..\src\utils_internal.h" />
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
@@ -360,6 +367,10 @@
     <ClCompile Include="..\..\..\src\instance_registry.cpp" />
     <ClCompile Include="..\..\..\src\log.cpp" />
     <ClCompile Include="..\..\..\src\lua_bindings.cpp" />
+    <ClCompile Include="..\..\..\src\lua_common.cpp" />
+    <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp" />
+    <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp" />
+    <ClCompile Include="..\..\..\src\lua_input_bindings.cpp" />
     <ClCompile Include="..\..\..\src\memory_pool.cpp" />
     <ClCompile Include="..\..\..\src\mesh.cpp" />
     <ClCompile Include="..\..\..\src\meshoptimizer\indexgenerator.cpp" />
@@ -470,6 +481,7 @@
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
     <ClCompile Include="..\..\..\src\task.cpp" />
     <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp" />
+    <ClCompile Include="..\..\..\src\utf8.cpp" />
     <ClCompile Include="..\..\..\src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -176,11 +176,13 @@ QB_API bool qb_collider_checkaabb(const qbCollider_* a, const qbCollider_* b,
 QB_API bool qb_collider_checkmesh(const qbCollider_* a, const qbCollider_* b,
                                   const qbTransform_* a_t, const qbTransform_* b_t);
 
-QB_API bool qb_collider_checkray(const qbCollider_* collider, const qbTransform_* transform, const qbRay_* r);
+QB_API bool qb_collider_checkray(const qbCollider_* collider, const qbTransform_* transform, const qbRay_* r, float* t);
 
 QB_API vec3s qb_collider_support(const qbCollider_* collider, const qbTransform_* transform, vec3s dir);
 
 QB_API bool qb_ray_checktri(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
                             vec3s* intersection_point, float* dis);
+
+QB_API bool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t);
 
 #endif   // MESH__H

@@ -25,7 +25,7 @@
 class FontRender {
 public:
   FontRender(Font* font);
-  void Render(const char16_t* text, qbTextAlign align,
+  void Render(const utf8_t* text, qbTextAlign align,
               vec2s bounding_size, vec2s font_scale,
               std::vector<float>* vertices, std::vector<int>* indices);
 
@@ -38,14 +38,13 @@ private:
   };
 
   struct FormatChar {
-    char16_t c;
+    uint32_t c;
     Character info;
     Format f;
   };
 
   std::vector<FormatChar> ParseToFormatString(
-    const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale);
-
+    const utf8_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale);
 
   Font* font_;
 };

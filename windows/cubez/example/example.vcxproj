@@ -161,6 +161,7 @@
       <DisableSpecificWarnings>4530;4577;</DisableSpecificWarnings>
       <CallingConvention>StdCall</CallingConvention>
       <ExceptionHandling>Async</ExceptionHandling>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -179,6 +180,7 @@
       <CallingConvention>StdCall</CallingConvention>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>Async</ExceptionHandling>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Optimized Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -233,6 +235,7 @@
       <CallingConvention>StdCall</CallingConvention>
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <ExceptionHandling>Async</ExceptionHandling>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

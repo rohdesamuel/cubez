@@ -428,8 +428,108 @@ bool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
   return false;
 }
 
-bool qb_collider_checkray(const qbCollider_* c, const qbTransform_* t, const qbRay_* r) {
-  return ray_intersects_aabb(c, t, r);
+bool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t) {
+  // assuming vectors are all normalized
+  float denom = glms_vec3_dot(plane->dir, ray->dir);
+  if (denom > 1e-6) {
+    vec3s p0l0 = glms_vec3_sub(plane->orig, ray->orig);
+    *t = glms_vec3_dot(p0l0, plane->dir) / denom;
+    return (t >= 0);
+  }
+
+  return false;
+}
+
+bool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform, const qbRay_* r, float* t) {
+  // http://www.m-hikari.com/ams/ams-2013/ams-101-104-2013/koptelovAMS101-104-2013.pdf
+  if (ray_intersects_aabb(c, transform, r)) {
+    const static float kDistanceEpsilon = 0.0001f;
+    const static float kAngleEpsilon = 0.0001f;
+
+    vec3s from = glms_vec3_normalize(r->dir);
+    vec3s to = vec3s{ 0.f, 0.f, 1.f };
+    float rotation_angle = (float)std::acos(glms_vec3_dot(from, to));
+
+    mat4s rotation_mat = GLMS_MAT4_IDENTITY_INIT;
+    if (std::abs(rotation_angle) >= kAngleEpsilon) {
+      vec3s rotation_axis = glms_vec3_normalize(glms_vec3_cross(from, to));
+      rotation_mat = glms_rotate_make(rotation_angle, rotation_axis);
+    }
+    vec3s translation_vec = glms_vec3_negate(r->orig);
+
+    std::vector<vec3s> p_neg_v;
+    std::vector<vec3s> p_pos_v;
+    p_neg_v.reserve(c->vertex_count);
+    p_pos_v.reserve(c->vertex_count);
+    for (int i = 0; i < c->vertex_count; ++i) {
+      vec3s p = glms_vec3_add(glms_mat4_mulv3(transform->orientation, c->vertices[i], 1.f), transform->position);
+      p = glms_mat4_mulv3(rotation_mat, glms_vec3_add(translation_vec, p), 1.f);
+      if (p.y >= 0) {
+        p_pos_v.push_back(p);
+      } else {
+        p_neg_v.push_back(p);
+      }
+    }
+
+    if (p_neg_v.empty() || p_pos_v.empty()) {
+      return false;
+    }
+
+    std::vector<vec3s> p_zero_v;
+    p_zero_v.reserve(p_neg_v.size() * p_pos_v.size());
+    for (size_t i = 0; i < p_neg_v.size(); ++i) {
+      const auto& p_neg = p_neg_v[i];
+      for (size_t j = i; j < p_pos_v.size(); ++j) {
+        const auto& p_pos = p_pos_v[j];
+
+        qbRay_ r{ p_neg, glms_vec3_normalize(glms_vec3_sub(p_pos, p_neg)) };
+        qbRay_ plane{ vec3s{}, vec3s{0.f, 1.f, 0.f} };
+        float t = 0.f;
+        qb_ray_checkplane(&r, &plane, &t);
+        p_zero_v.push_back(glms_vec3_add(r.orig, glms_vec3_scale(r.dir, t)));
+      }
+    }
+
+    p_neg_v.clear();
+    p_pos_v.clear();
+    p_neg_v.reserve(p_zero_v.size());
+    p_pos_v.reserve(p_zero_v.size());
+    for (int i = 0; i < p_zero_v.size(); ++i) {
+      vec3s p = p_zero_v[i];
+      if (p.x >= 0) {
+        p_pos_v.push_back(p);
+      } else {
+        p_neg_v.push_back(p);
+      }
+    }
+
+    if (p_neg_v.empty() || p_pos_v.empty()) {
+      return false;
+    }
+
+    p_zero_v.clear();
+    p_zero_v.reserve(p_neg_v.size() * p_pos_v.size());
+    for (size_t i = 0; i < p_neg_v.size(); ++i) {
+      const auto& p_neg = p_neg_v[i];
+      for (size_t j = i; j < p_pos_v.size(); ++j) {
+        const auto& p_pos = p_pos_v[j];
+
+        qbRay_ r{ p_neg, glms_vec3_normalize(glms_vec3_sub(p_pos, p_neg)) };
+        qbRay_ plane{ vec3s{}, vec3s{ 1.f, 0.f, 0.f } };
+        float t = 0.f;
+        qb_ray_checkplane(&r, &plane, &t);
+        p_zero_v.push_back(glms_vec3_add(r.orig, glms_vec3_scale(r.dir, t)));
+      }
+    }
+
+    std::sort(p_zero_v.begin(), p_zero_v.end(), [](const vec3s& a, const vec3s& b) {
+      return a.z < b.z;
+    });
+
+    *t = p_zero_v.front().z;
+    return true;
+  }
+  return false;
 }
 
 struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider) {

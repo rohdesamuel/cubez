@@ -34,15 +34,6 @@ public:
 
   InstanceRegistry* Clone();
 
-  Component& operator[](qbId component) {
-    Create(component);
-    return *(Component*)components_[component];
-  }
-
-  const Component& operator[](qbId component) const {
-    return *(Component*)components_[component];
-  }
-
   qbResult CreateInstancesFor(
     qbEntity entity, const std::vector<qbComponentInstance_>& instances,
     GameState* state);
@@ -57,7 +48,24 @@ public:
   qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state) const;
   qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state) const;
 
+  bool InstanceHas(qbEntity entity, qbComponent component);
+  void* InstanceData(qbEntity entity, qbComponent component);
+  size_t InstanceCount(qbComponent component);
+
+  void Lock(qbComponent, bool is_mutable);
+  void Unlock(qbComponent, bool is_mutable);
+
+  Component& operator[](qbId component) {
+    Create(component);
+    return *(Component*)components_[component];
+  }
+
+  const Component& operator[](qbId component) const {
+    return *(Component*)components_[component];
+  }
+
 private:
+
   void Create(qbComponent component);
 
   const ComponentRegistry& component_registry_;

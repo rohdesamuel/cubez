@@ -440,6 +440,7 @@ QB_API qbRenderExt qb_gpubuffer_ext(qbGpuBuffer buffer);
 QB_API void qb_gpubuffer_update(qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 QB_API void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src, intptr_t dst_offset, intptr_t src_offset, size_t size);
 QB_API void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b);
+QB_API size_t qb_gpubuffer_size(qbGpuBuffer buffer);
 
 QB_API void qb_meshbuffer_create(qbMeshBuffer* buffer, qbMeshBufferAttr attr);
 QB_API void qb_meshbuffer_destroy(qbMeshBuffer* buffer);

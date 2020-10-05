@@ -16,16 +16,9 @@
 * limitations under the License.
 */
 
-#ifndef GUI_INTERNAL__H
-#define GUI_INTERNAL__H
+#ifndef CUBEZ_LUA_AUDIO_BINDINGS__H
+#define CUBEZ_LUA_AUDIO_BINDINGS__H
 
-#include <cubez/input.h>
+struct lua_State;
 
-void gui_initialize();
-void gui_shutdown();
-
-bool gui_handle_input(qbInputEvent input);
-qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height);
-void gui_element_updateuniforms();
-
-#endif  // GUI_INTERNAL__H
+#endif  // CUBEZ_LUA_AUDIO_BINDINGS__H

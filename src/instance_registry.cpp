@@ -110,3 +110,23 @@ qbResult InstanceRegistry::SendInstanceCreateNotification(qbEntity entity, Compo
 qbResult InstanceRegistry::SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state) const {
   return component_registry_.SendInstanceDestroyNotification(entity, component, state);
 }
+
+bool InstanceRegistry::InstanceHas(qbEntity entity, qbComponent component) {
+  return (*this)[component].Has(entity);
+}
+
+void* InstanceRegistry::InstanceData(qbEntity entity, qbComponent component) {
+  return (*this)[component][entity];
+}
+
+size_t InstanceRegistry::InstanceCount(qbComponent component) {
+  return (*this)[component].Size();
+}
+
+void InstanceRegistry::Lock(qbComponent component, bool is_mutable) {
+  (*this)[component].Lock(is_mutable);
+}
+
+void InstanceRegistry::Unlock(qbComponent component, bool is_mutable) {
+  (*this)[component].Unlock(is_mutable);
+}

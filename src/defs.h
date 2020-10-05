@@ -28,8 +28,8 @@
 #include <functional>
 #include <mutex>
 
-typedef void(*qbInstanceOnCreate)(qbInstance instance);
-typedef void(*qbInstanceOnDestroy)(qbInstance instance);
+typedef void(*qbInstanceOnCreate)(qbInstance instance, qbVar state);
+typedef void(*qbInstanceOnDestroy)(qbInstance instance, qbVar state);
 
 struct qbScene_ {
   const char* name;
@@ -175,7 +175,6 @@ struct qbSchema_ {
 
 struct qbStructInternals_ {
   qbSchema_* schema;
-  qbComponent c;
 };
 
 struct qbStruct_ {

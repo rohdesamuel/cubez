@@ -79,7 +79,7 @@ qbResult GameState::EntityFind(qbEntity* entity, qbId entity_id) {
 }
 
 bool GameState::EntityHasComponent(qbEntity entity, qbComponent component) {
-  return (*instances_)[component].Has(entity);
+  return instances_->InstanceHas(entity, component);  
 }
 
 qbResult GameState::EntityAddComponent(qbEntity entity, qbComponent component,
@@ -111,10 +111,18 @@ Component* GameState::ComponentGet(qbComponent component) {
   return &(*instances_)[component];
 }
 
+void GameState::ComponentLock(qbComponent component, bool is_mutable) {
+  instances_->Lock(component, is_mutable);
+}
+
+void GameState::ComponentUnlock(qbComponent component, bool is_mutable) {
+  instances_->Unlock(component, is_mutable);
+}
+
 void* GameState::ComponentGetEntityData(qbComponent component, qbEntity entity) {
-  return (*instances_)[component][entity];
+  return instances_->InstanceData(entity, component);
 }
 
 size_t GameState::ComponentGetCount(qbComponent component) {
-  return (*instances_)[component].Size();
+  return instances_->InstanceCount(component);
 }

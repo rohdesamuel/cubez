@@ -337,7 +337,7 @@ void qb_camera_deactivate(qbCamera camera) {
   active_camera = nullptr;
 }
 
-qbCamera qb_camera_active() {
+qbCamera qb_camera_getactive() {
   return (qbCamera)active_camera;
 }
 
@@ -357,13 +357,13 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
   qb_framebuffer_resize(internal->fbo, width, height);
 }
 
-void qb_camera_fov(qbCamera camera_ref, float fov) {
+void qb_camera_setfov(qbCamera camera_ref, float fov) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->fov = fov;
   camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
 }
 
-void qb_camera_clip(qbCamera camera_ref, float znear, float zfar) {
+void qb_camera_setclip(qbCamera camera_ref, float znear, float zfar) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   if (camera->znear == znear && camera->zfar == zfar) {
     return;
@@ -374,7 +374,7 @@ void qb_camera_clip(qbCamera camera_ref, float znear, float zfar) {
   camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
 }
 
-void qb_camera_rotation(qbCamera camera_ref, mat4s rotation) {
+void qb_camera_setrotation(qbCamera camera_ref, mat4s rotation) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->rotation_mat = rotation;
 
@@ -385,7 +385,7 @@ void qb_camera_rotation(qbCamera camera_ref, mat4s rotation) {
   camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
 }
 
-void qb_camera_origin(qbCamera camera_ref, vec3s origin) {
+void qb_camera_setorigin(qbCamera camera_ref, vec3s origin) {
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->origin = origin;
 
@@ -423,7 +423,7 @@ vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
   return glms_vec2(glms_mat4_mulv3(project_view, world, 1.0f));
 }
 
-QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera) {
+QB_API qbFrameBuffer qb_camera_getfbo(qbCamera camera) {
   return ((qbCameraInternal)camera)->fbo;
 }
 
@@ -499,7 +499,7 @@ void qb_light_spotlight(qbId id, vec3s  rgb, vec3s  pos, vec3s  dir, float brigh
   r->light_spot(r, id, rgb, pos, dir, brightness, range, angle_deg);
 }
 
-size_t qb_light_max(qbLightType light_type) {
+size_t qb_light_getmax(qbLightType light_type) {
   auto r = qb_renderer();
   return r->light_max(r, light_type);
 }

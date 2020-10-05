@@ -27,34 +27,25 @@
 #undef max
 #undef min
 
-typedef struct qbGuiBlock_* qbGuiBlock;
+typedef struct qbGuiElement_* qbGuiElement;
 typedef struct qbGuiConstraint_* qbGuiConstraint;
 
 typedef struct {
-  bool(*onfocus)(qbGuiBlock block);
-  bool(*onclick)(qbGuiBlock block, qbMouseButtonEvent e);
-  bool(*onscroll)(qbGuiBlock block, qbMouseScrollEvent e);
-  bool(*onmove)(qbGuiBlock block, qbMouseMotionEvent e, int start_x, int start_y);
-  bool(*onkey)(qbGuiBlock block, qbKeyEvent e);
+  bool(*onfocus)(qbGuiElement el);
+  bool(*onclick)(qbGuiElement el, qbMouseButtonEvent e);
+  bool(*onscroll)(qbGuiElement el, qbMouseScrollEvent e);
+  bool(*onmove)(qbGuiElement el, qbMouseMotionEvent e, int start_x, int start_y);
+  bool(*onkey)(qbGuiElement el, qbKeyEvent e);
 
-  void(*onrender)(qbGuiBlock block);
-  void(*onopen)(qbGuiBlock block);
-  void(*onclose)(qbGuiBlock block);
-  void(*ondestroy)(qbGuiBlock block);
+  void(*onrender)(qbGuiElement el);
+  void(*onopen)(qbGuiElement el);
+  void(*onclose)(qbGuiElement el);
+  void(*ondestroy)(qbGuiElement el);
 
-  qbVar(*setvalue)(qbGuiBlock block, qbVar cur_val, qbVar new_val);
-  qbVar(*getvalue)(qbGuiBlock block, qbVar val);
-  void(*onvaluechange)(qbGuiBlock block, qbVar old_val, qbVar new_val);
-} qbGuiBlockCallbacks_, *qbGuiBlockCallbacks;
-
-typedef struct {
-  vec4s background_color;
-  qbImage background;
-  float radius;
-  vec2s offset;
-
-  qbGuiBlockCallbacks callbacks;
-} qbGuiBlockAttr_, *qbGuiBlockAttr;
+  void(*onvaluechange)(qbGuiElement el, qbVar old_val, qbVar new_val);
+  qbVar(*onsetvalue)(qbGuiElement el, qbVar cur_val, qbVar new_val);
+  qbVar(*ongetvalue)(qbGuiElement el, qbVar val);  
+} qbGuiElementCallbacks_, *qbGuiElementCallbacks;
 
 typedef enum qbTextAlign {
   QB_TEXT_ALIGN_LEFT,
@@ -80,74 +71,68 @@ typedef enum qbConstraint {
 } qbConstraint;
 
 typedef struct {
+  vec4s background_color;
+  qbImage background;
+  float radius;
+  vec2s offset;
+
   vec4s text_color;
-  qbTextAlign align;
+  qbTextAlign text_align;
+  int text_size;
   const char* font_name;
-} qbTextboxAttr_, *qbTextboxAttr;
 
-QB_API void qb_guiconstraint(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property, float val);
-QB_API float qb_guiconstraint_get(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property);
-QB_API void qb_guiconstraint_x(qbGuiBlock block, qbConstraint constraint, float val);
-QB_API void qb_guiconstraint_y(qbGuiBlock block, qbConstraint constraint, float val);
-QB_API void qb_guiconstraint_width(qbGuiBlock block, qbConstraint constraint, float val);
-QB_API void qb_guiconstraint_height(qbGuiBlock block, qbConstraint constraint, float val);
+  qbGuiElementCallbacks callbacks;
+  qbVar state;
+} qbGuiElementAttr_, *qbGuiElementAttr;
 
-QB_API void qb_guiconstraint_clear(qbGuiBlock block, qbConstraint constraint, qbGuiProperty property);
-QB_API void qb_guiconstraint_clearx(qbGuiBlock block, qbConstraint constraint);
-QB_API void qb_guiconstraint_cleary(qbGuiBlock block, qbConstraint constraint);
-QB_API void qb_guiconstraint_clearwidth(qbGuiBlock block, qbConstraint constraint);
-QB_API void qb_guiconstraint_clearheight(qbGuiBlock block, qbConstraint constraint);
+QB_API void qb_guielement_setconstraint(qbGuiElement el, qbGuiProperty property, qbConstraint constraint, float val);
+QB_API float qb_guielement_getconstraint(qbGuiElement el, qbGuiProperty property, qbConstraint constraint);
+QB_API void qb_guielement_clearconstraint(qbGuiElement el, qbGuiProperty property, qbConstraint constraint);
 
-QB_API void qb_guiblock_create(qbGuiBlock* block, qbGuiBlockAttr attr, const char* name);
-QB_API void qb_guiblock_destroy(qbGuiBlock* block);
+QB_API void qb_guielement_create(qbGuiElement* el, const char* id,
+                                 qbGuiElementAttr attr);
+QB_API void qb_guielement_destroy(qbGuiElement* el);
 
-QB_API void qb_guiblock_open(qbGuiBlock block);
-QB_API qbGuiBlock qb_guiblock_find(const char* path[]);
-QB_API void qb_guiblock_openquery(const char* path[]);
-QB_API void qb_guiblock_close(qbGuiBlock block);
-QB_API void qb_guiblock_closequery(const char* path[]);
-QB_API void qb_guiblock_closechildren(qbGuiBlock block);
+QB_API void qb_guielement_open(qbGuiElement el);
+QB_API qbGuiElement qb_guielement_find(const char* id);
+QB_API void qb_guielement_close(qbGuiElement el);
+QB_API void qb_guielement_closechildren(qbGuiElement el);
 
-QB_API void qb_guiblock_link(qbGuiBlock parent, qbGuiBlock child);
-QB_API void qb_guiblock_unlink(qbGuiBlock child);
-QB_API qbGuiBlock qb_guiblock_parent(qbGuiBlock block);
+QB_API void qb_guielement_link(qbGuiElement parent, qbGuiElement child);
+QB_API void qb_guielement_unlink(qbGuiElement child);
+QB_API qbGuiElement qb_guielement_parent(qbGuiElement el);
 
-QB_API void qb_guiblock_movetofront(qbGuiBlock block);
-QB_API void qb_guiblock_movetoback(qbGuiBlock block);
+QB_API void qb_guielement_movetofront(qbGuiElement el);
+QB_API void qb_guielement_movetoback(qbGuiElement el);
 
-QB_API void qb_guiblock_moveforward(qbGuiBlock block);
-QB_API void qb_guiblock_movebackward(qbGuiBlock block);
+QB_API void qb_guielement_moveforward(qbGuiElement el);
+QB_API void qb_guielement_movebackward(qbGuiElement el);
 
-QB_API void qb_guiblock_moveto(qbGuiBlock block, vec3s pos);
-QB_API void qb_guiblock_resizeto(qbGuiBlock block, vec2s size);
+QB_API void qb_guielement_moveto(qbGuiElement el, vec2s pos);
+QB_API void qb_guielement_resizeto(qbGuiElement el, vec2s size);
 
-QB_API void qb_guiblock_moveby(qbGuiBlock block, vec3s pos_delta);
-QB_API void qb_guiblock_resizeby(qbGuiBlock block, vec2s size_delta);
+QB_API void qb_guielement_moveby(qbGuiElement el, vec2s pos_delta);
+QB_API void qb_guielement_resizeby(qbGuiElement el, vec2s size_delta);
 
-QB_API vec2s qb_guiblock_size(qbGuiBlock block);
-QB_API vec2s qb_guiblock_pos(qbGuiBlock block);
-QB_API vec2s qb_guiblock_relpos(qbGuiBlock block);
+QB_API vec2s qb_guielement_getsize(qbGuiElement el);
+QB_API vec2s qb_guielement_getpos(qbGuiElement el);
+QB_API vec2s qb_guielement_getrelpos(qbGuiElement el);
 
-QB_API void qb_guiblock_setvalue(qbGuiBlock block, qbVar val);
-QB_API qbVar qb_guiblock_value(qbGuiBlock block);
+QB_API void qb_guielement_setvalue(qbGuiElement el, qbVar val);
+QB_API qbVar qb_guielement_getvalue(qbGuiElement el);
 
-QB_API void qb_guiblock_text(qbGuiBlock block, const char16_t* text);
+QB_API qbVar qb_guielement_getstate(qbGuiElement el);
 
-QB_API qbGuiBlock qb_guiblock_focus();
-QB_API qbGuiBlock qb_guiblock_focusat(int x, int y);
+QB_API const utf8_t* qb_guielement_gettext(qbGuiElement el);
+QB_API void qb_guielement_settext(qbGuiElement el, const utf8_t* text);
 
-QB_API void qb_gui_subscribe(const char* path[], qbGuiBlockCallbacks callbacks, qbVar user_state);
+QB_API qbGuiElement qb_guielement_getfocus();
+QB_API qbGuiElement qb_guielement_getfocusat(float x, float y);
 
-QB_API void qb_textbox_create(qbGuiBlock* window,
-                              qbTextboxAttr textbox_attr,
-                              const char* name,
-                              vec2s size,
-                              uint32_t font_size,
-                              const char16_t* text);
-QB_API void qb_textbox_text(qbGuiBlock block, const char16_t* text);
-QB_API void qb_textbox_color(qbGuiBlock block, vec4s text_color);
-QB_API void qb_textbox_scale(qbGuiBlock block, vec2s scale);
-QB_API void qb_textbox_fontsize(qbGuiBlock block, uint32_t font_size);
+QB_API void qb_guielement_settextcolor(qbGuiElement el, vec4s color);
+QB_API void qb_guielement_settextscale(qbGuiElement el, vec2s scale);
+QB_API void qb_guielement_settextsize(qbGuiElement el, uint32_t size);
+QB_API void qb_guielement_settextalign(qbGuiElement el, qbTextAlign align);
 
 QB_API void qb_gui_resize(uint32_t width, uint32_t height);
 

@@ -74,6 +74,7 @@ void SystemImpl::Run(GameState* game_state, void* event) {
     if (source_size == 0) {
       Run_0(&frame);
     } else if (source_size == 1) {
+      game_state->ComponentLock(components_[0], instances_[0].is_mutable);
       Component* c = game_state->ComponentGet(components_[0]);
       c->Lock(instances_[0].is_mutable);
       Run_1(c, &frame, game_state);
@@ -85,11 +86,17 @@ void SystemImpl::Run(GameState* game_state, void* event) {
       for (auto component : components_) {
         Component* c = game_state->ComponentGet(component);
         c->Lock(instances_[index].is_mutable);
-        components.push_back(c);
-        c->Unlock(instances_[index].is_mutable);
+        components.push_back(c);        
         ++index;
       }
+
       Run_N(components, &frame, game_state);
+
+      index = 0;
+      for (auto component : components) {
+        component->Unlock(instances_[index].is_mutable);
+        ++index;
+      }
     }
     for (auto& t : tickets_) {
       t->unlock();

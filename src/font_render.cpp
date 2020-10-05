@@ -17,12 +17,13 @@
 */
 
 #include "font_render.h"
+#include "utf8.h"
 
 FontRender::FontRender(Font* font) : font_(font) {}
 
 
 std::vector<FontRender::FormatChar> FontRender::ParseToFormatString(
-    const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale) {
+    const utf8_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale) {
 
   std::vector<FontRender::FormatChar> ret;
 
@@ -30,13 +31,7 @@ std::vector<FontRender::FormatChar> FontRender::ParseToFormatString(
     return ret;
   }
 
-  size_t len = 0;
-  for (size_t i = 0; i < 1 << 10; ++i) {
-    if (text[i] == 0) {
-      break;
-    }
-    ++len;
-  }
+  size_t len = u8_strlen((char*)text);
 
   ret.reserve(len);
 
@@ -44,19 +39,24 @@ std::vector<FontRender::FormatChar> FontRender::ParseToFormatString(
   float break_bitmapwidth = 0.f;
   int64_t previous_breakpoint = -1;
   bool replace_breakpoint = true;
-  for (size_t i = 0; i < len; ++i) {
-    FormatChar c = { text[i], (*font_)[text[i]], Format::CHAR };    
+
+  int i = 0;
+  utf8_t* s = (utf8_t*)text;
+  uint32_t uni_c;
+  while ((uni_c = u8_nextchar(s, &i)) != 0) {
+    FormatChar c = { uni_c, (*font_)[uni_c], Format::CHAR };
+
     float advance = c.info.ax * font_scale.x;
-    if (text[i] == u'\n') {
+    if (uni_c == U'\n') {
       line_bitmapwidth = 0.f;
       break_bitmapwidth = 0.f;
       c.f = Format::NEWLINE;
-    } else if (text[i] == u' ') {
+    } else if (uni_c == U' ') {
       line_bitmapwidth += advance;
       break_bitmapwidth = 0.f;
       previous_breakpoint = ret.size();
       c.f = Format::SPACE;
-    } else if (text[i] == u'.') {
+    } else if (uni_c == U'.') {
       line_bitmapwidth += advance;
       break_bitmapwidth = 0.f;
       previous_breakpoint = ret.size();
@@ -103,22 +103,13 @@ std::vector<FontRender::FormatChar> FontRender::ParseToFormatString(
 
 // Todo: improve with decomposed signed distance fields: 
 // https://gamedev.stackexchange.com/questions/150704/freetype-create-signed-distance-field-based-font
-void FontRender::Render(const char16_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale,
+void FontRender::Render(const utf8_t* text, qbTextAlign align, vec2s bounding_size, vec2s font_scale,
                         std::vector<float>* vertices, std::vector<int>* indices) {
   if (!text) {
     return;
   }
 
   auto format_string = ParseToFormatString(text, align, bounding_size, font_scale);
-
-  size_t len = 0;
-  for (size_t i = 0; i < 1 << 10; ++i) {
-    if (text[i] == 0) {
-      break;
-    }
-    ++len;
-  }
-
   float x = 0;
   float y = 0;
   int index = 0;

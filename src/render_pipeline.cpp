@@ -728,6 +728,10 @@ void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b) {
   std::swap(*a, *b);
 }
 
+size_t qb_gpubuffer_size(qbGpuBuffer buffer) {
+  return buffer->size;
+}
+
 void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
   *buffer_ref = new qbMeshBuffer_;
   qbMeshBuffer buffer = *buffer_ref;

@@ -46,6 +46,12 @@
     <Filter Include="Source Files\reactphysics3d">
       <UniqueIdentifier>{45af0b28-33e4-48ee-be14-318a8ac6f473}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\lua">
+      <UniqueIdentifier>{283d4081-80e0-4e0d-87ae-16f4091c85b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\lua">
+      <UniqueIdentifier>{91789908-0950-4d4b-a235-5a133154146c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -222,9 +228,6 @@
     <ClInclude Include="..\..\..\include\cubez\socket.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\lua_bindings.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\stb_image.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
@@ -245,6 +248,30 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\mesh_loader.h">
       <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_draw_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_gui_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_audio_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_cubez_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_common.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\lua_input_bindings.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utf8.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -414,9 +441,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\socket.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\lua_bindings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\input.cpp">
@@ -703,6 +727,24 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\mesh_loader.cpp">
       <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_bindings.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_common.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_input_bindings.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\utf8.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

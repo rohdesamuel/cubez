@@ -95,8 +95,14 @@ void ProgramImpl::UnsubscribeFrom(qbEvent event, qbSystem system) {
   events_.Unsubscribe(event, system);
 }
 
+void ProgramImpl::SubscribeToOnReady(void(*onready)(qbProgram* program, qbVar), qbVar state) {
+  onready_fns_.push_back({ onready, state });
+}
+
 void ProgramImpl::Ready() {
-  // Give copy of components.
+  for (auto& fn_state : onready_fns_) {
+    fn_state.first((qbProgram*)this, fn_state.second);
+  }
 }
 
 void ProgramImpl::Run(GameState* state, lua_State* lua_state) {

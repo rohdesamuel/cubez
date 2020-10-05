@@ -47,8 +47,8 @@ public:
   Font(FT_Face face, const char* font_name);
   ~Font();
 
-  Character& operator[](char16_t);
-  const Character& operator[](char16_t) const;
+  Character& operator[](uint32_t);
+  const Character& operator[](uint32_t) const;
   qbImage Atlas() const;
 
   uint32_t FontHeight() const;
@@ -59,7 +59,7 @@ public:
 
 private:
   const char* font_name_;
-  std::unordered_map<char16_t, Character> characters_;
+  std::unordered_map<uint32_t, Character> characters_;
   qbImage font_atlas_;
   uint32_t atlas_width_;
   uint32_t atlas_height_;

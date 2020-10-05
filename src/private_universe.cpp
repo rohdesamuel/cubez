@@ -165,6 +165,12 @@ qbResult PrivateUniverse::join_program(qbId program) {
   return programs_->JoinProgram(program);
 }
 
+void PrivateUniverse::onready_program(
+  qbId program, void(*onready)(qbProgram* program, qbVar), qbVar state) {
+  qbProgram* p = programs_->GetProgram(program);
+  ProgramImpl::FromRaw(p)->SubscribeToOnReady(onready, state);
+}
+
 qbResult PrivateUniverse::system_create(qbSystem* system, 
                                         const qbSystemAttr_& attr) {
   qbProgram* p = programs_->GetProgram(attr.program);
@@ -336,18 +342,28 @@ qbSchema PrivateUniverse::schema_find(const char* name) {
 }
 
 qbResult PrivateUniverse::instance_oncreate(qbComponent component,
-                                            qbInstanceOnCreate on_create) {
+                                            qbInstanceOnCreate on_create,
+                                            qbVar state) {
+  struct qbInstanceOnCreateState {
+    qbInstanceOnCreate on_create;
+    qbVar state;
+  };
+  
+  qbInstanceOnCreateState* fn_state = new qbInstanceOnCreateState();
+  fn_state->on_create = on_create;
+  fn_state->state = state;
+
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_create);
+  qb_systemattr_setuserstate(attr, fn_state);
   qb_systemattr_setcallback(attr, [](qbFrame* frame) {
     qbInstanceOnCreateEvent_* event =
       (qbInstanceOnCreateEvent_*)frame->event;
-    qbInstanceOnCreate on_create = (qbInstanceOnCreate)frame->state;
+    qbInstanceOnCreateState* fn_state = (qbInstanceOnCreateState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
       event->entity, event->component, event->state);
-    on_create(&instance);
+    fn_state->on_create(&instance, fn_state->state);
   });
   qbSystem system;
   qb_system_create(&system, attr);
@@ -358,18 +374,28 @@ qbResult PrivateUniverse::instance_oncreate(qbComponent component,
 }
 
 qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
-                                             qbInstanceOnDestroy on_destroy) {
+                                             qbInstanceOnDestroy on_destroy,
+                                             qbVar state) {
+  struct qbInstanceOnDestroyState {
+    qbInstanceOnDestroy on_destroy;
+    qbVar state;
+  };
+
+  qbInstanceOnDestroyState* fn_state = new qbInstanceOnDestroyState();
+  fn_state->on_destroy = on_destroy;
+  fn_state->state = state;
+
   qbSystemAttr attr;
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, (void*)on_destroy);
+  qb_systemattr_setuserstate(attr, fn_state);
   qb_systemattr_setcallback(attr, [](qbFrame* frame) {
     qbInstanceOnDestroyEvent_* event =
       (qbInstanceOnDestroyEvent_*)frame->event;
-    qbInstanceOnDestroy on_destroy = (qbInstanceOnDestroy)frame->state;
+    qbInstanceOnDestroyState* fn_state = (qbInstanceOnDestroyState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
       event->entity, event->component, event->state);
-    on_destroy(&instance);
+    fn_state->on_destroy(&instance, fn_state->state);
   });
   qbSystem system;
   qb_system_create(&system, attr);

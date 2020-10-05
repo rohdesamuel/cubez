@@ -304,7 +304,7 @@ void update_light_ubo(qbForwardRenderer r, const struct qbCamera_* camera) {
 
 void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event) {
   qbForwardRenderer r = (qbForwardRenderer)self;
-  qbFrameBuffer camera_fbo = qb_camera_fbo(camera);
+  qbFrameBuffer camera_fbo = qb_camera_getfbo(camera);
 
   update_camera_ubo(r, camera);
   update_light_ubo(r, camera);

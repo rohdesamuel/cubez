@@ -54,7 +54,7 @@ class Component {
   qbId Id() const;
 
   void Lock(bool is_mutable=false);
-  void Unlock(bool is_mutable = false);
+  void Unlock(bool is_mutable=false);
 
   iterator begin();
   iterator end();

@@ -81,7 +81,10 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define BEGIN_EXTERN_C extern "C" {
 #define END_EXTERN_C }
 #include <cstdint>
+#include <cassert>
 #else
+#include <stdint.h>
+#include <assert.h>
 #ifndef bool
 #define bool int
 #define true 1
@@ -117,6 +120,7 @@ using std::size_t;
 typedef int64_t qbHandle;
 typedef int64_t qbOffset;
 typedef int64_t qbId;
+typedef char utf8_t;
 
 // Cubez engine success codes.
 enum qbResult {

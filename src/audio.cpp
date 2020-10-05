@@ -82,7 +82,7 @@ void qb_audio_free(qbAudioBuffer loaded) {
   loaded_.erase(loaded->id);
 }
 
-int qb_audio_size(qbAudioBuffer loaded) {
+int qb_audio_getsize(qbAudioBuffer loaded) {
   return cs_sound_size(&loaded->loaded);
 }
 
@@ -112,13 +112,13 @@ void qb_audio_pause(qbAudioPlaying playing) {
   }
 }
 
-void qb_audio_pan(qbAudioPlaying playing, float pan) {
+void qb_audio_setpan(qbAudioPlaying playing, float pan) {
   if (cs_is_active(&playing->playing)) {
     cs_set_pan(&playing->playing, pan);
   }
 }
 
-void qb_audio_volume(qbAudioPlaying playing, float left, float right) {
+void qb_audio_setvolume(qbAudioPlaying playing, float left, float right) {
   if (cs_is_active(&playing->playing)) {
     cs_set_volume(&playing->playing, left, right);
   }

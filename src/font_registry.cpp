@@ -124,11 +124,11 @@ Font::~Font() {
   qb_image_destroy(&font_atlas_);
 }
 
-Character& Font::operator[](char16_t c) {
+Character& Font::operator[](uint32_t c) {
   return characters_[c];
 }
 
-const Character& Font::operator[](char16_t c) const {
+const Character& Font::operator[](uint32_t c) const {
   return characters_.at(c);
 }
 

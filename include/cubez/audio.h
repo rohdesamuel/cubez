@@ -52,15 +52,15 @@ QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
 QB_API qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded);
 
 QB_API void qb_audio_free(qbAudioBuffer loaded);
-QB_API int qb_audio_size(qbAudioBuffer loaded);
+QB_API int qb_audio_getsize(qbAudioBuffer loaded);
 
 QB_API int qb_audio_isplaying(qbAudioPlaying playing);
 QB_API void qb_audio_play(qbAudioPlaying playing);
 QB_API void qb_audio_stop(qbAudioPlaying playing);
 QB_API void qb_audio_loop(qbAudioPlaying playing, qbAudoLoop enable_loop);
 QB_API void qb_audio_pause(qbAudioPlaying playing);
-QB_API void qb_audio_pan(qbAudioPlaying playing, float pan);
-QB_API void qb_audio_volume(qbAudioPlaying playing, float left, float right);
+QB_API void qb_audio_setpan(qbAudioPlaying playing, float pan);
+QB_API void qb_audio_setvolume(qbAudioPlaying playing, float left, float right);
 
 QB_API void qb_audio_stopall();
 

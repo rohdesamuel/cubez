@@ -99,6 +99,8 @@ class PrivateUniverse {
   qbResult run_program(qbId program);
   qbResult detach_program(qbId program);
   qbResult join_program(qbId program);
+  void onready_program(qbId program,
+                       void(*onready)(qbProgram* program, qbVar), qbVar state);
 
   // qbSystem manipulation.
   qbResult system_create(qbSystem* system, const qbSystemAttr_& attr);
@@ -136,9 +138,11 @@ class PrivateUniverse {
 
   // Instance manipulation.
   qbResult instance_oncreate(qbComponent component,
-                             qbInstanceOnCreate on_create);
+                             qbInstanceOnCreate on_create,
+                             qbVar state);
   qbResult instance_ondestroy(qbComponent component,
-                              qbInstanceOnDestroy on_destroy);
+                              qbInstanceOnDestroy on_destroy,
+                              qbVar state);
   bool instance_hascomponent(qbInstance instance, qbComponent component);
   qbResult instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer);
   qbResult instance_getconst(qbInstance instance, void* pbuffer);

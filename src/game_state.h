@@ -46,11 +46,15 @@ public:
   // Component manipulation.
   qbResult ComponentSubscribeToOnCreate(qbSystem system, qbComponent component);
   qbResult ComponentSubscribeToOnDestroy(qbSystem system, qbComponent component);
-  Component* ComponentGet(qbComponent component);
+  
   void* ComponentGetEntityData(qbComponent component, qbEntity entity);
   size_t ComponentGetCount(qbComponent component);
+  void ComponentLock(qbComponent component, bool is_mutable);
+  void ComponentUnlock(qbComponent component, bool is_mutable);
+  Component* ComponentGet(qbComponent component);
 
 private:
+  
   qbResult EntityRemoveComponentInternal(qbEntity entity, qbComponent component);
   qbResult EntityDestroyInternal(qbEntity entity);
 

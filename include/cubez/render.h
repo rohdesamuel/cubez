@@ -174,14 +174,14 @@ QB_API void qb_camera_create(qbCamera* camera, qbCameraAttr attr);
 QB_API void qb_camera_destroy(qbCamera* camera);
 QB_API void qb_camera_activate(qbCamera camera);
 QB_API void qb_camera_deactivate(qbCamera camera);
-QB_API qbCamera qb_camera_active();
+QB_API qbCamera qb_camera_getactive();
 
 QB_API void qb_camera_resize(qbCamera camera, uint32_t width, uint32_t height);
-QB_API void qb_camera_fov(qbCamera camera, float fov);
-QB_API void qb_camera_clip(qbCamera camera, float znear, float zfar);
-QB_API void qb_camera_rotation(qbCamera camera, mat4s rotation);
-QB_API void qb_camera_origin(qbCamera camera, vec3s origin);
-QB_API qbFrameBuffer qb_camera_fbo(qbCamera camera);
+QB_API void qb_camera_setfov(qbCamera camera, float fov);
+QB_API void qb_camera_setclip(qbCamera camera, float znear, float zfar);
+QB_API void qb_camera_setrotation(qbCamera camera, mat4s rotation);
+QB_API void qb_camera_setorigin(qbCamera camera, vec3s origin);
+QB_API qbFrameBuffer qb_camera_getfbo(qbCamera camera);
 
 QB_API vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen);
 QB_API vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world);
@@ -193,7 +193,7 @@ QB_API bool qb_light_isenabled(qbId id, qbLightType light_type);
 QB_API void qb_light_directional(qbId id, vec3s rgb, vec3s dir, float brightness);
 QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float brightness, float range);
 
-QB_API size_t qb_light_max(qbLightType light_type);
+QB_API size_t qb_light_getmax(qbLightType light_type);
 
 QB_API qbResult qb_render(qbRenderEvent event);
 QB_API qbEvent qb_render_event();

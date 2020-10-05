@@ -44,7 +44,7 @@ std::vector<std::string> log_buffers[2];
 
 void log_initialize() {
   // Create a separate program/system to handle stdout.
-  program_id = qb_create_program(kStdout);
+  program_id = qb_program_create(kStdout);
 
   read_log = 0;
   write_log = 1;
@@ -78,7 +78,7 @@ void log_initialize() {
     qb_eventattr_destroy(&attr);
   }
 
-  qb_detach_program(program_id);
+  qb_program_detach(program_id);
 }
 
 void qb_log(qbLogLevel level, const char* format, ...) {
