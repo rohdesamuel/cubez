@@ -550,16 +550,16 @@ bool gui_handle_input(qbInputEvent input_event) {
       if (e->button.button == QB_BUTTON_LEFT && e->button.state == QB_MOUSE_UP) {
         focused = nullptr;
       }
+
+      if (focused && focused->callbacks.onclick) {
+        qbMouseEvent e = &input_event->mouse_event;
+        event_handled |= focused->callbacks.onclick(focused, &e->button);
+      }
     } else if (input_event->mouse_event.type == QB_MOUSE_EVENT_SCROLL) {
       qbMouseEvent e = &input_event->mouse_event;
       if (closest && closest->callbacks.onscroll) {
         event_handled |= closest->callbacks.onscroll(closest, &e->scroll);
       }
-    }
-
-    if (focused && focused->callbacks.onclick) {
-      qbMouseEvent e = &input_event->mouse_event;
-      event_handled |= focused->callbacks.onclick(focused, &e->button);
     }
 
     if (focused && focused->callbacks.onmove) {
