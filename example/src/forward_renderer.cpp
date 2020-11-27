@@ -377,6 +377,11 @@ void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
 
 void render_callback(qbFrame* f) {
   qbRenderEvent event = (qbRenderEvent)f->event;
+
+  if (!event->camera) {
+    return;
+  }
+
   render(event->renderer, event->camera, event);
 }
 
