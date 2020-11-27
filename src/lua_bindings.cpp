@@ -50,9 +50,6 @@ static const luaL_Reg qb_lib[] = {
   { "component_create", component_create },
   { "component_count", component_count },
   { "component_find", component_find },
-  { "component_oncreate", component_oncreate },
-  { "component_ondestroy", component_ondestroy },
-
 
   { "entity_create", entity_create },
   { "entity_destroy", entity_destroy },
@@ -138,22 +135,13 @@ function _QB.Component:create (tdata)
   return { id=self.id, _data=tdata }
 end
 
-function _QB.Component:oncreate (fn)
-  return _QB.component_oncreate(self.id, fn)
-end
-
-function _QB.Component:ondestroy(fn)
-  return _QB.component_ondestroy(self.id, fn)
-end
-
 function _QB.Component:count ()
   return _QB.component_count(self.id)
 end
 
-------------------------
+--------------------------
 -- The Instance metatable.
-------------------------
-
+--------------------------
 _QB.Instance = {}
 _QB.Instance.__index = _QB.Instance
 
@@ -209,9 +197,9 @@ function _QB.system.create (components, fn)
 end
 
 
-------------------------
+-----------------
 -- Input Methods.
-------------------------
+-----------------
 _QB.keyboard = {}
 _QB.mouse = {}
 
@@ -248,9 +236,9 @@ function _QB.userfocus ()
 end
 
 
-------------------------
+-----------------
 -- Input Methods.
-------------------------
+-----------------
 _QB.gui = {}
 _QB.gui.property = {
   X='x',
