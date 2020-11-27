@@ -121,9 +121,11 @@ qbEvent qb_render_event() {
 }
 
 qbResult qb_render(qbRenderEvent event) {
-  qb_render_makecurrent();
-  qb_event_sendsync(render_event, event);
-  qb_render_swapbuffers();
+  if (render_event) {
+    qb_render_makecurrent();
+    qb_event_sendsync(render_event, event);
+    qb_render_swapbuffers();
+  }
   return QB_OK;
 }
 
@@ -291,6 +293,10 @@ int qb_window_bordered() {
 }
 
 void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCameraInternal cam = new qbCameraInternal_;
   *camera_ref = (qbCamera)cam;
   qbCamera_* camera = (qbCamera_*)*camera_ref;
@@ -325,11 +331,19 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
 }
 
 void qb_camera_destroy(qbCamera* camera) {
+  if (!camera || !*camera) {
+    return;
+  }
+
   delete *camera;
   *camera = nullptr;
 }
 
 void qb_camera_activate(qbCamera camera) {
+  if (!camera) {
+    return;
+  }
+
   active_camera = (qbCameraInternal)camera;
 }
 
@@ -342,6 +356,10 @@ qbCamera qb_camera_getactive() {
 }
 
 void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCamera_* camera = (qbCamera_*)camera_ref;
 
   if (camera->width == width && camera->height == height) {
@@ -358,12 +376,20 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
 }
 
 void qb_camera_setfov(qbCamera camera_ref, float fov) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->fov = fov;
   camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
 }
 
 void qb_camera_setclip(qbCamera camera_ref, float znear, float zfar) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCamera_* camera = (qbCamera_*)camera_ref;
   if (camera->znear == znear && camera->zfar == zfar) {
     return;
@@ -375,6 +401,10 @@ void qb_camera_setclip(qbCamera camera_ref, float znear, float zfar) {
 }
 
 void qb_camera_setrotation(qbCamera camera_ref, mat4s rotation) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->rotation_mat = rotation;
 
@@ -386,6 +416,10 @@ void qb_camera_setrotation(qbCamera camera_ref, mat4s rotation) {
 }
 
 void qb_camera_setorigin(qbCamera camera_ref, vec3s origin) {
+  if (!camera_ref) {
+    return;
+  }
+
   qbCamera_* camera = (qbCamera_*)camera_ref;
   camera->origin = origin;
 
@@ -397,6 +431,10 @@ void qb_camera_setorigin(qbCamera camera_ref, vec3s origin) {
 }
 
 vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
+  if (!camera) {
+    return{};
+  }
+
   // NORMALISED DEVICE SPACE
   float x = 2.0f * screen.x / (float)qb_window_width() - 1.0f;
   float y = -2.0f * screen.y / (float)qb_window_height() + 1.0f;
@@ -419,11 +457,19 @@ vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
 }
 
 vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
+  if (!camera) {
+    return{};
+  }
+
   mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
   return glms_vec2(glms_mat4_mulv3(project_view, world, 1.0f));
 }
 
-QB_API qbFrameBuffer qb_camera_getfbo(qbCamera camera) {
+qbFrameBuffer qb_camera_getfbo(qbCamera camera) {
+  if (!camera) {
+    return nullptr;
+  }
+
   return ((qbCameraInternal)camera)->fbo;
 }
 
