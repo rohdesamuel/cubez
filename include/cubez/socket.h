@@ -128,4 +128,16 @@ QB_API int32_t qb_socket_recvfrom(qbSocket socket, char* buf, size_t len, int fl
 QB_API qbResult qb_socket_setopt(qbSocket socket, int level, int name, const char* val, int len);
 QB_API qbResult qb_socket_getopt(qbSocket socket, int level, int name, char* val, int* len);
 
+QB_API uint16_t qb_htons(uint16_t hostshort);
+QB_API uint32_t qb_htonl(uint32_t hostlong);
+QB_API uint64_t qb_htonll(uint64_t hostlong);
+QB_API uint32_t qb_htonf(float hostfloat);
+QB_API uint64_t qb_htond(double hostdouble);
+
+QB_API uint16_t qb_ntohs(uint16_t netshort);
+QB_API uint32_t qb_ntohl(uint32_t netlong);
+QB_API uint64_t qb_ntohll(uint64_t hostlong);
+QB_API float qb_ntohf(uint32_t hostfloat);
+QB_API double qb_ntohd(uint64_t hostdouble);
+
 #endif  // CUBEZ_SOCKET__H

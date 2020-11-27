@@ -204,6 +204,7 @@ qbResult qb_socket_create(qbSocket* socket_ref, qbSocketAttr attr) {
   int type = translate_qb_type(attr->np);
   int af = translate_qb_af(attr->af);
 
+  errno = 0;
   qbSocket sock = socket(af, type, np);
 #ifdef __COMPILE_AS_WINDOWS__
   if (sock == INVALID_SOCKET) {
@@ -220,6 +221,8 @@ qbResult qb_socket_create(qbSocket* socket_ref, qbSocketAttr attr) {
 }
 
 qbResult qb_socket_close(qbSocket socket) {
+  errno = 0;
+
 #ifdef __COMPILE_AS_WINDOWS__  
   if (closesocket(socket) == SOCKET_ERROR) {
     QB_RETURN_SOCKET_ERROR;
@@ -234,6 +237,8 @@ qbResult qb_socket_close(qbSocket socket) {
 
 qbResult qb_socket_shutdown(qbSocket socket, qbSocketShutdown how) {
   int res = shutdown(socket, how);
+
+  errno = 0;
 #ifdef __COMPILE_AS_WINDOWS__  
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_ERROR;
@@ -248,6 +253,8 @@ qbResult qb_socket_shutdown(qbSocket socket, qbSocketShutdown how) {
 
 qbResult qb_socket_bind(qbSocket socket, qbEndpoint endpoint) {
   int res = 0; EACCES;
+
+  errno = 0;
   if (endpoint->af == QB_IPV4) {
     sockaddr_in receiver = {};
     receiver.sin_family = AF_INET;
@@ -277,6 +284,7 @@ qbResult qb_socket_bind(qbSocket socket, qbEndpoint endpoint) {
 qbResult qb_socket_listen(qbSocket socket, int backlog) {
   int res = listen(socket, backlog);
 
+  errno = 0;
 #ifdef __COMPILE_AS_WINDOWS__
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_ERROR;
@@ -293,6 +301,7 @@ qbResult qb_socket_accept(qbSocket socket, qbSocket* peer, qbEndpoint endpoint) 
   char addr[sizeof(sockaddr_in6)] = { 0 };
   int addr_len;
 
+  errno = 0;
   qbSocket res = accept(socket, (sockaddr*)addr, &addr_len);
 #ifdef __COMPILE_AS_WINDOWS__
   if (res == INVALID_SOCKET) {
@@ -324,6 +333,8 @@ qbResult qb_socket_accept(qbSocket socket, qbSocket* peer, qbEndpoint endpoint) 
 
 qbResult qb_socket_connect(qbSocket socket, qbEndpoint endpoint) {
   int res = 0;
+
+  errno = 0;
   if (endpoint->af == QB_IPV4) {
     sockaddr_in peer = {};
     peer.sin_family = AF_INET;
@@ -351,7 +362,10 @@ qbResult qb_socket_connect(qbSocket socket, qbEndpoint endpoint) {
 }
 
 int32_t qb_socket_send(qbSocket socket, const char* buf, size_t len, int flags) {
-  int res = send(socket, buf, (int)len, flags);
+  int res = 0;
+
+  errno = 0;
+  res = send(socket, buf, (int)len, flags);
 #ifdef __COMPILE_AS_WINDOWS__
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_MSG_ERROR;
@@ -366,6 +380,8 @@ int32_t qb_socket_send(qbSocket socket, const char* buf, size_t len, int flags) 
 
 int32_t qb_socket_sendto(qbSocket socket, const char* buf, size_t len, int flags, qbEndpoint endpoint) {
   int res = 0;
+
+  errno = 0;
   if (endpoint->af == QB_IPV4) {
     sockaddr_in peer = {};
     peer.sin_family = AF_INET;
@@ -392,7 +408,10 @@ int32_t qb_socket_sendto(qbSocket socket, const char* buf, size_t len, int flags
 }
 
 int32_t qb_socket_recv(qbSocket socket, char* buf, size_t len, int flags) {
-  int res = recv(socket, buf, (int)len, flags);
+  int res = 0;
+  
+  errno = 0;
+  res = recv(socket, buf, (int)len, flags);
 #ifdef __COMPILE_AS_WINDOWS__  
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_MSG_ERROR;
@@ -408,8 +427,10 @@ int32_t qb_socket_recv(qbSocket socket, char* buf, size_t len, int flags) {
 int32_t qb_socket_recvfrom(qbSocket socket, char* buf, size_t len, int flags, qbEndpoint endpoint) {
   char addr[sizeof(sockaddr_in6)] = { 0 };
   int addr_len;
-
-  int res = recvfrom(socket, buf, (int)len, flags, (sockaddr*)addr, &addr_len);
+  int res = 0;
+  
+  errno = 0;
+  res = recvfrom(socket, buf, (int)len, flags, (sockaddr*)addr, &addr_len);
 #ifdef __COMPILE_AS_WINDOWS__  
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_MSG_ERROR;
@@ -438,7 +459,10 @@ int32_t qb_socket_recvfrom(qbSocket socket, char* buf, size_t len, int flags, qb
 }
 
 qbResult qb_socket_setopt(qbSocket socket, int level, int name, const char* val, int len) {
-  int res = setsockopt(socket, level, name, val, len);
+  int res = 0;
+  
+  errno = 0;
+  res = setsockopt(socket, level, name, val, len);
 #ifdef __COMPILE_AS_WINDOWS__  
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_ERROR;
@@ -452,7 +476,10 @@ qbResult qb_socket_setopt(qbSocket socket, int level, int name, const char* val,
 }
 
 qbResult qb_socket_getopt(qbSocket socket, int level, int name, char* val, int* len) {
-  int res = getsockopt(socket, level, name, val, len);
+  int res = 0;
+  
+  errno = 0;
+  res = getsockopt(socket, level, name, val, len);
 #ifdef __COMPILE_AS_WINDOWS__  
   if (res == SOCKET_ERROR) {
     QB_RETURN_SOCKET_ERROR;
@@ -466,7 +493,9 @@ qbResult qb_socket_getopt(qbSocket socket, int level, int name, char* val, int* 
 }
 
 qbResult qb_endpoint(qbEndpoint endpoint, const char* addrs, int port) {
-  int res = inet_pton(AF_INET, addrs, &endpoint->in_addr);
+  int res = 0;
+  
+  res = inet_pton(AF_INET, addrs, &endpoint->in_addr);
   if (res == 1) {
     endpoint->af = QB_IPV4;
     endpoint->port = htons(port);
@@ -484,4 +513,44 @@ qbResult qb_endpoint(qbEndpoint endpoint, const char* addrs, int port) {
     return QB_ERROR_SOCKET;
   }
   return QB_OK;
+}
+
+uint32_t qb_htonl(uint32_t hostlong) {
+  return htonl(hostlong);
+}
+
+uint16_t qb_htons(uint16_t hostshort) {
+  return htons(hostshort);
+}
+
+uint64_t qb_htonll(uint64_t hostlong) {
+  return htonll(hostlong);
+}
+
+uint32_t qb_htonf(float hostfloat) {
+  return htonll(hostfloat);
+}
+
+uint64_t qb_htond(double hostdouble) {
+  return htond(hostdouble);
+}
+
+uint16_t qb_ntohs(uint16_t netshort) {
+  return ntohs(netshort);
+}
+
+uint32_t qb_ntohl(uint32_t netlong) {
+  return ntohl(netlong);
+}
+
+uint64_t qb_ntohll(uint64_t hostlong) {
+  return ntohll(hostlong);
+}
+
+float qb_ntohf(uint32_t hostfloat) {
+  return ntohf(hostfloat);
+}
+
+double qb_ntohd(uint64_t hostdouble) {
+  return ntohd(hostdouble);
 }
