@@ -448,8 +448,8 @@ int guielement_create(lua_State* L) {
       lua_call(L, 3, 1);
       int idx = lua_gettop(L);
       qbVar ret_val = lua_idx_to_var(L, idx);
-      qb_var_destroy(new_val);
-      qb_var_destroy(cur_val);
+      qb_var_destroy(&new_val);
+      qb_var_destroy(&cur_val);
       ret = ret_val;
 
       lua_pop(L, 1);
@@ -476,7 +476,7 @@ int guielement_create(lua_State* L) {
       lua_call(L, 2, 1);
       int idx = lua_gettop(L);
       qbVar ret_val = lua_idx_to_var(L, idx);
-      qb_var_destroy(ret);
+      qb_var_destroy(&ret);
       ret = ret_val;
 
       lua_pop(L, 1);

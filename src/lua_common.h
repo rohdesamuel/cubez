@@ -62,12 +62,22 @@ void lua_table_iterate(lua_State* L, int i, F&& f) {
   }
 }
 
+struct ParsedType {
+  qbTag main_type;
+  
+  union {
+    qbTag k_type;
+    qbTag v_type;
+  };
+
+  size_t size;
+};
+
 void push_new_table(lua_State* L, const char* metatable);
 
-std::pair<qbTag, size_t> parse_type_string(const std::string& s);
+struct qbSchemaFieldType_ parse_type_string(const std::string& s);
 
 void push_var_to_lua(lua_State* L, qbVar v);
-void push_var_to_lua(lua_State* L, qbRef v);
 
 qbVar lua_idx_to_var(lua_State* L, int idx);
 

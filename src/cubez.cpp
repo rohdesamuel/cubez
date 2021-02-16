@@ -20,6 +20,9 @@
 #include <cubez/utils.h>
 #include <cubez/render.h>
 #include <cubez/audio.h>
+#include <cubez/socket.h>
+#include <cubez/struct.h>
+
 #include "defs.h"
 #include "private_universe.h"
 #include "byte_vector.h"
@@ -34,6 +37,7 @@
 #include "audio_internal.h"
 #include "network_impl.h"
 #include "lua_bindings.h"
+#include "utf8.h"
 
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
@@ -193,9 +197,7 @@ qbResult loop(qbLoopCallbacks callbacks,
     gui_element_updateuniforms();
   }
 
-  if (e.camera) {
-    qb_render(&e);
-  }
+  qb_render(&e);
 
   if (callbacks && callbacks->on_postrender) {
     callbacks->on_postrender(&e, args->postrender);
@@ -305,9 +307,53 @@ qbResult qb_componentattr_setshared(qbComponentAttr attr, bool is_shared) {
   return qbResult::QB_OK;
 }
 
+qbResult qb_componentattr_onpack(
+  qbComponentAttr attr,
+  void(*fn)(qbComponent component, qbEntity entity, const void *read, qbBuffer *buf, ptrdiff_t *pos)) {
+
+  attr->onpack = fn;
+  return qbResult::QB_OK;
+}
+
+qbResult qb_componentattr_onunpack(
+  qbComponentAttr attr,
+  void(*fn)(qbComponent component, qbEntity entity, void *write, const qbBuffer *read, ptrdiff_t *pos)) {
+  
+  attr->onunpack = fn;
+  return qbResult::QB_OK;
+}
+
 qbResult qb_componentattr_setschema(qbComponentAttr attr, qbSchema schema) {
   attr->schema = schema;
   return qbResult::QB_OK;
+}
+
+void pack_struct(qbSchema schema, const void* read, qbBuffer* buf, ptrdiff_t* pos) {
+  for (size_t i = 0; i < schema->fields.size(); ++i) {
+    const auto& field = schema->fields[i];
+    const char* data = &((qbStruct_*)read)->data + field.offset;
+
+    switch (field.type.tag) {
+      case QB_TAG_INT:
+      case QB_TAG_UINT:
+      case QB_TAG_DOUBLE:
+      case QB_TAG_BYTES:
+        qb_buffer_write(buf, pos, field.size, data);
+        break;
+
+      case QB_TAG_CSTRING:
+      case QB_TAG_STRING:
+      {
+        qbStr_* s = *(qbStr_**)data;
+        qb_buffer_write(buf, pos, s->len, s->bytes);
+        break;
+      }
+
+      case QB_TAG_STRUCT:
+        pack_struct(schema, data, buf, pos);
+        break;
+    }
+  }
 }
 
 qbResult qb_component_create(
@@ -318,6 +364,15 @@ qbResult qb_component_create(
 
   if (name[0] == '\0') {
     return QB_UNKNOWN;
+  }
+
+  if (attr->type == QB_COMPONENT_TYPE_SCHEMA) {
+    if (!attr->onpack) {
+      attr->onpack = [](qbComponent component, qbEntity entity, const void* read, qbBuffer* buf, ptrdiff_t* pos) {
+        static qbSchema schema = qb_component_schema(component);
+        pack_struct(schema, read, buf, pos);
+      };
+    }
   }
 
   attr->name = STRDUP(name);
@@ -338,7 +393,7 @@ qbComponent qb_component_find(const char* name, qbSchema* schema) {
   }
 
   qbComponent ret = AS_PRIVATE(component_find(name));
-  if (schema) {
+  if (ret >= 0 && schema) {
     *schema = qb_component_schema(ret);
   }
 
@@ -349,10 +404,41 @@ qbSchema qb_component_schema(qbComponent component) {
   return AS_PRIVATE(component_schema(component));
 }
 
+size_t qb_component_size(qbComponent component) {
+  return size_t();
+}
+
+size_t qb_component_pack(qbComponent component, qbEntity entity,
+                                const void* read, qbBuffer* write, int* pos) {
+  return qbResult();
+}
+
+size_t qb_component_unpack(qbComponent component, qbEntity entity,
+                                  void* data, const qbBuffer* read, int* pos) {
+  return qbResult();
+}
+
+qbResult qb_component_oncreate(qbComponent component, qbSystem system) {
+  return AS_PRIVATE(component_oncreate(component, system));
+}
+
+qbResult qb_component_ondestroy(qbComponent component, qbSystem system) {
+  return AS_PRIVATE(component_ondestroy(component, system));
+}
+
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
   *attr = (qbEntityAttr)calloc(1, sizeof(qbEntityAttr_));
   new (*attr) qbEntityAttr_;
 	return qbResult::QB_OK;
+}
+
+size_t qb_entityattr_size() {
+  return sizeof(qbEntityAttr_);
+}
+
+qbResult qb_entityattr_init(qbEntityAttr* attr) {
+  new(*attr)(qbEntityAttr_){};
+  return QB_OK;
 }
 
 qbResult qb_entityattr_destroy(qbEntityAttr* attr) {
@@ -595,7 +681,7 @@ qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer)
 qbRef qb_instance_at(qbInstance instance, const char* key) {
   qbStruct_* s = (qbStruct_*)instance->data;
   qbVar var_s = qbStruct(s->internals.schema, s);
-  return qb_ref_at(var_s, key);
+  return qb_ref_at(var_s, qbPtr((void*)key));
 }
 
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
@@ -668,7 +754,7 @@ bool qb_coro_done(qbCoro coro) {
 }
 
 qbVar qbPtr(void* p) {
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_PTR;
   v.size = sizeof(p);
   v.p = p;
@@ -676,7 +762,7 @@ qbVar qbPtr(void* p) {
 }
 
 qbVar qbInt(int64_t i) {
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_INT;
   v.size = sizeof(i);
   v.i = i;
@@ -684,7 +770,7 @@ qbVar qbInt(int64_t i) {
 }
 
 qbVar qbUint(uint64_t u) {
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_UINT;
   v.size = sizeof(u);
   v.u = u;
@@ -692,7 +778,7 @@ qbVar qbUint(uint64_t u) {
 }
 
 qbVar qbDouble(double d) {
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_DOUBLE;
   v.size = sizeof(d);
   v.d = d;
@@ -700,7 +786,7 @@ qbVar qbDouble(double d) {
 }
 
 qbVar qbStruct(qbSchema schema, void* buf) {
-  qbVar v;
+  qbVar v{};
   v.p = buf;
   v.tag = QB_TAG_STRUCT;
   v.size = schema->size;
@@ -711,65 +797,303 @@ qbVar qbStruct(qbSchema schema, void* buf) {
   return v;
 }
 
-qbVar qbString(const char* s) {
-  size_t len = strlen(s) + 1;
-  qbStr* str = (qbStr*)malloc(sizeof(qbStr) + len);
-  str->len = len;
-  STRCPY(str->bytes, len, s);
+qbVar qbString(const utf8_t* s) {  
 
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_STRING;
-  v.s = str;
+  if (s) {
+    size_t len = strlen(s) + 1;
+    utf8_t* str = (utf8_t*)malloc(len);
+    STRCPY(str, len, s);
+    v.s = str;
+    v.size = len;
+  }
+    
+  return v;
+}
+
+qbVar qbCString(utf8_t* s) {
+  qbVar v{};
+  v.tag = QB_TAG_CSTRING;
+  v.s = s;
+  v.size = s ? strlen(s) + 1 : 0;
+
   return v;
 }
 
 qbVar qbBytes(const char* bytes, size_t size) {
-  qbVar v;
+  qbVar v{};
   v.tag = QB_TAG_BYTES;
   v.size = size;
-  v.p = malloc(size);
-  memcpy(v.p, bytes, size);
+
+  if (bytes) {
+    v.p = malloc(size);
+    memcpy(v.p, bytes, size);
+  } else {
+    size = 0;
+  }
 
   return v;
 }
 
-qbRef qb_ref_at(qbVar v, const char* key) {
-  qbStruct_* s = (qbStruct_*)v.p;
+qbVar qbArray(qbTag v_type) {
+  qbVar v{};
+  v.tag = QB_TAG_ARRAY;
+  v.size = sizeof(void*);
+  v.p = new qbArray_{v_type};
 
-  if (!key) {
-    return{ QB_TAG_STRUCT, s->internals.schema->size, (void*)&s->data };
+  return v;
+}
+
+qbVar* qb_array_at(qbVar array, int32_t i) {
+  qbArray_* a = (qbArray_*)array.p;
+
+  if (a->array.empty()) {
+    return nullptr;
   }
 
-  for (const auto& f : s->internals.schema->fields) {
-    if (f.key == key) {
-      qbRef r;
-      r.tag = f.tag;
-      r.size = f.size;
-      char* loc = &s->data + f.offset;
+  i %= a->array.size();
+  return &a->array[i];
+}
 
-      if (r.tag == QB_TAG_INT || r.tag == QB_TAG_UINT) {
-        r.i = (int64_t*)loc;
-      } else if (r.tag == QB_TAG_DOUBLE) {
-        r.d = (double*)loc;
-      } else if (r.tag == QB_TAG_STRING) {
-        r.s = (qbStr**)loc;
-      } else if (r.tag == QB_TAG_BYTES) {
-        r.p = loc;
-      } else {
-        memcpy(&r.bytes, loc, f.size);
-      }
-      return r;
+qbVar* qb_array_append(qbVar array, qbVar v) {
+  qbArray_* a = (qbArray_*)array.p;
+
+  if (v.tag != a->type && a->type != QB_TAG_ANY) {
+    return nullptr;
+  }
+
+  a->array.push_back(v);
+  return &a->array.back();
+}
+
+void qb_array_insert(qbVar array, qbVar v, int32_t i) {
+  qbArray_* a = (qbArray_*)array.p;
+
+  if (v.tag != a->type && a->type != QB_TAG_ANY) {
+    return;
+  }
+
+  i %= a->array.size();
+
+  a->array.insert(a->array.begin() + i, v);
+}
+
+void qb_array_erase(qbVar array, int32_t i) {
+  qbArray_* a = (qbArray_*)array.p;
+
+  if (a->array.empty()) {
+    return;
+  }
+
+  i %= a->array.size();
+  a->array.erase(a->array.begin() + i);
+}
+
+void qb_array_swap(qbVar array, int32_t i, int32_t j) {
+  qbArray_* a = (qbArray_*)array.p;
+  if (a->array.empty()) {
+    return;
+  }
+
+  std::swap(a->array[i], a->array[j]);
+}
+
+void qb_array_resize(qbVar array, size_t size) {
+  qbArray_* a = (qbArray_*)array.p;
+  qbVar v = {};
+  v.tag = a->type;
+  
+  switch (v.tag) {
+    case QB_TAG_NIL:
+    case QB_TAG_FUTURE:
+    case QB_TAG_MAP:
+    case QB_TAG_ANY:
+      v.size = 0;
+      break;
+
+    case QB_TAG_STRING:
+      v = qbString(nullptr);
+      break;
+
+    case QB_TAG_CSTRING:
+      v = qbCString(nullptr);
+      break;
+
+    case QB_TAG_BYTES:
+      v = qbBytes(nullptr, 0);
+      break;
+
+    case QB_TAG_PTR:
+      v.size = sizeof(void*);
+      break;
+
+    case QB_TAG_INT:
+    case QB_TAG_UINT:
+      v.size = sizeof(int64_t);
+      break;
+
+    case QB_TAG_DOUBLE:
+      v.size = sizeof(double);
+      break;
+
+    case QB_TAG_ARRAY:
+      v = qbArray(QB_TAG_ANY);
+      break;
+  }
+  return a->array.resize(size, v);
+}
+
+size_t qb_array_count(qbVar array) {
+  qbArray_* a = (qbArray_*)array.p;
+  return a->array.size();
+}
+
+qbVar* qb_array_raw(qbVar array) {
+  qbArray_* a = (qbArray_*)array.p;
+  return a->array.data();
+}
+
+qbTag qb_array_type(qbVar array) {
+  qbArray_* a = (qbArray_*)array.p;
+  return a->type;
+}
+
+bool qb_array_iterate(qbVar array, bool(*it)(qbVar* k, qbVar state), qbVar state) {
+  if (array.tag != QB_TAG_ARRAY) {
+    return false;
+  }
+
+  for (auto& v : ((qbArray_*)array.p)->array) {
+    if (!it(&v, state)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+qbVar qbMap(qbTag k_type, qbTag v_type) {
+  if (k_type != QB_TAG_PTR &&
+      k_type != QB_TAG_INT &&
+      k_type != QB_TAG_UINT &&
+      k_type != QB_TAG_DOUBLE &&
+      k_type != QB_TAG_STRING &&
+      k_type != QB_TAG_CSTRING &&
+      k_type != QB_TAG_ANY) {
+    return qbNil;
+  }
+
+  qbVar v{};
+  v.tag = QB_TAG_MAP;
+  v.size = sizeof(void*);
+  v.p = new qbMap_{ k_type, v_type };
+
+  return v;
+}
+
+qbVar* qb_map_at(qbVar map, qbVar k) {
+  qbMap_* m = (qbMap_*)map.p;
+
+  if (k.tag != m->k_type && m->k_type != QB_TAG_ANY) {
+    return nullptr;
+  }
+
+  auto it = m->map.insert({ { k }, qbVar{} }).first;
+  return &it->second;
+}
+
+qbVar* qb_map_insert(qbVar map, qbVar k, qbVar v) {
+  qbVar* ret = qb_map_at(map, k);
+  *ret = v;
+  return ret;
+}
+
+void qb_map_erase(qbVar map, qbVar k) {
+  qbMap_* m = (qbMap_*)map.p;
+
+  if (k.tag != m->k_type) {
+    return;
+  }
+
+  auto it = m->map.find({ k });
+  if (it != m->map.end()) {
+    m->map.erase(it);
+  }
+}
+
+void qb_map_swap(qbVar map, qbVar a, qbVar b) {
+  qbMap_* m = (qbMap_*)map.p;
+
+  if (a.tag != m->k_type || b.tag != m->k_type) {
+    return;
+  }
+
+  std::swap(m->map[{a}], m->map[{b}]);
+}
+
+size_t qb_map_count(qbVar map) {
+  qbMap_* m = (qbMap_*)map.p;
+  return m->map.size();
+}
+
+bool qb_map_has(qbVar map, qbVar k) {
+  qbMap_* m = (qbMap_*)map.p;
+
+  if (k.tag != m->k_type) {
+    return false;
+  }
+
+  return m->map.count({ k }) == 1;
+}
+
+qbTag qb_map_keytype(qbVar map) {
+  qbMap_* m = (qbMap_*)map.p;
+  return m->k_type;
+}
+
+qbTag qb_map_valtype(qbVar map) {
+  qbMap_* m = (qbMap_*)map.p;
+  return m->v_type;
+}
+
+bool qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state) {
+  if (map.tag != QB_TAG_MAP) {
+    return false;
+  }
+
+  for (auto& p : ((qbMap_*)map.p)->map) {
+    if (!it(p.first.v, &p.second, state)) {
+      return false;
     }
   }
 
-  return{ QB_TAG_NIL, 0 };
+  return true;
 }
 
-qbVar qb_var_at(qbVar v, const char* key) {
-  qbStruct_* s = (qbStruct_*)v.p;
+qbVar qb_var_at(qbVar var, qbVar key) {
+  switch (var.tag) {
+    case QB_TAG_ARRAY:
+      if (key.tag == QB_TAG_INT) {
+        return *qb_array_at(var, key.i);
+      } else {
+        return qbNil;
+      }
+    case QB_TAG_MAP:
+      return *qb_map_at(var, key);
+    case QB_TAG_STRUCT:
+      if (key.tag == QB_TAG_INT) {
+        return *qb_struct_ati(var, key.i);
+      } else if (key.tag == QB_TAG_UINT) {
+        return *qb_struct_ati(var, key.u);
+      } else {
+        return qbNil;
+      }
+  }
 
-  if (!key) {
-    return{ QB_TAG_STRUCT, s->internals.schema->size, (void*)&s->data };
+  return qbNil;
+#if 0
+  if (var.tag == QB_TAG_ARRAY) {
+
   }
 
   for (const auto& f : s->internals.schema->fields) {
@@ -784,7 +1108,8 @@ qbVar qb_var_at(qbVar v, const char* key) {
       } else if (v.tag == QB_TAG_DOUBLE) {
         v.d = *(double*)loc;
       } else if (v.tag == QB_TAG_STRING) {
-        v.s = *(qbStr**)loc;
+        v.s = (*(qbStr_**)loc)->bytes;
+        v.size = (*(qbStr_**)loc)->len;
       } else if (v.tag == QB_TAG_BYTES) {
         v.p = loc;
       } else {
@@ -794,13 +1119,408 @@ qbVar qb_var_at(qbVar v, const char* key) {
     }
   }
 
-  return{ QB_TAG_NIL, 0 };
+  return qbNil;
+#endif
 }
 
-void qb_var_destroy(qbVar v) {
-  if (v.tag == QB_TAG_STRING || v.tag == QB_TAG_BYTES) {
-    free(v.s);
+qbRef qb_ref_at(qbVar var, qbVar key) {
+  qbStruct_* s = (qbStruct_*)var.p;
+
+  switch (var.tag) {
+    case QB_TAG_ARRAY:
+      if (key.tag == QB_TAG_INT) {
+        return qb_array_at(var, key.i);
+      } else {
+        return qbRef{};
+      }
+    case QB_TAG_MAP:
+      return qb_map_at(var, key);
+    case QB_TAG_STRUCT:
+      if (key.tag == QB_TAG_INT) {
+        return qb_struct_ati(var, key.i);
+      } else if (key.tag == QB_TAG_UINT) {
+        return qb_struct_ati(var, key.u);
+      } else {
+        return qbRef{};
+      }
   }
+
+  return qbRef{};
+
+#if 0
+  qbStruct_* s = (qbStruct_*)v.p;
+
+  if (i >= s->internals.schema->fields.size()) {
+    return{ QB_TAG_NIL, 0, 0 };
+  }
+
+  const auto& f = s->internals.schema->fields[i];
+
+  qbRef r{};
+  r.tag = f.tag;
+  r.size = f.size;
+  char* loc = &s->data + f.offset;
+
+  if (r.tag == QB_TAG_INT || r.tag == QB_TAG_UINT) {
+    r.i = (int64_t*)loc;
+  } else if (r.tag == QB_TAG_DOUBLE) {
+    r.d = (double*)loc;
+  } else if (r.tag == QB_TAG_STRING) {
+    r.s = (utf8_t**)&(*(qbStr_**)loc)->bytes;
+    r.size = (*(qbStr_**)loc)->len;
+  } else if (r.tag == QB_TAG_BYTES) {
+    r.p = loc;
+  } else {
+    memcpy(&r.bytes, loc, f.size);
+  }
+  return r;
+#endif
+}
+
+uint8_t qb_struct_numfields(qbVar v) {
+  if (v.tag != QB_TAG_STRUCT) {
+    return 0;
+  }
+
+  return ((qbStruct_*)v.p)->internals.schema->fields.size();
+}
+
+size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
+  ptrdiff_t saved_pos = *pos;
+  size_t total = 0;
+  size_t written = 0;
+
+  written = qb_buffer_write(buf, pos, sizeof(v.tag), &v.tag);
+  total += written;
+  if (written != sizeof(v.tag)) {
+    goto incomplete_write;
+  }
+  
+  written = qb_buffer_write(buf, pos, sizeof(v.size), &v.size);
+  total += written;
+  if (written != sizeof(v.tag)) {
+    goto incomplete_write;
+  }
+
+  switch (v.tag) {
+    case QB_TAG_INT:
+    case QB_TAG_UINT:
+    {
+      uint64_t l = qb_htonll(v.i);
+
+      written = qb_buffer_write(buf, pos, sizeof(l), &l);
+      total += written;
+      if (written != sizeof(v.tag)) {
+        goto incomplete_write;
+      }
+      break;
+    }      
+
+    case QB_TAG_DOUBLE:
+    {
+      uint64_t d = qb_htond(v.d);
+
+      written = qb_buffer_write(buf, pos, sizeof(d), &d);
+      total += written;
+      if (written != sizeof(v.tag)) {
+        goto incomplete_write;
+      }
+      break;
+    }
+
+    case QB_TAG_CSTRING:
+    case QB_TAG_STRING:
+      written = qb_buffer_write(buf, pos, v.size, v.s);
+      total += written;
+      if (written != v.size) {
+        goto incomplete_write;
+      }
+      break;
+
+    case QB_TAG_BYTES:
+      written = qb_buffer_write(buf, pos, v.size, v.p);
+      total += written;
+      if (written != v.size) {
+        goto incomplete_write;
+      }
+      break;
+
+    case QB_TAG_STRUCT:
+    {
+      qbSchema schema = qb_struct_getschema(v);
+      const char* name = qb_schema_name(schema);
+      size_t len = strlen(name) + 1;
+      size_t nlen = qb_htonll(len);
+
+      written = qb_buffer_write(buf, pos, sizeof(nlen), &nlen);
+      total += written;
+      if (written != sizeof(nlen)) {
+        goto incomplete_write;
+      }
+
+      written = qb_buffer_write(buf, pos, len, name);
+      total += written;
+      if (written != len) {
+        goto incomplete_write;
+      }
+
+      auto num_fields = qb_struct_numfields(v);
+      for (auto i = 0; i < num_fields; ++i) {
+        qbVar* var = qb_struct_ati(v, i);
+        written = qb_var_pack(*var, buf, pos);
+        total += written;
+        if (written == 0) {
+          goto incomplete_write;
+        }
+      }
+      
+      break;
+    }
+
+    case QB_TAG_ARRAY:
+    {
+      size_t count = qb_array_count(v);
+      for (size_t i = 0; i < count; ++i) {
+        qbVar* var = qb_array_at(v, i);
+        written = qb_var_pack(*var, buf, pos);
+        total += written;
+        if (written == 0) {
+          goto incomplete_write;
+        }
+      }
+
+      break;
+    }
+
+    case QB_TAG_MAP:
+    {
+      struct StreamState {
+        qbBuffer* buf;
+        ptrdiff_t* pos;
+        size_t* total;
+      } stream_state { buf, pos, &total };
+
+      if (!qb_map_iterate(v, [](qbVar k, qbVar* v, qbVar state) {
+        StreamState* s = (StreamState*)state.p;
+        size_t written = qb_var_pack(*v, s->buf, s->pos);
+        s->total += written;
+
+        return written != 0;
+      }, qbPtr(&stream_state))) {
+        goto incomplete_write;
+      }
+      break;
+    }
+  }
+
+  return written;
+
+incomplete_write:
+  *pos = saved_pos;
+  return 0;
+}
+
+#if 0
+size_t qb_var_unpack(qbVar* v, const qbBuffer* read, ptrdiff_t* pos) {
+  ptrdiff_t saved_pos = *pos;
+  size_t total = 0;
+  size_t read_bytes = 0;
+
+  read_bytes = qb_buffer_read(read, pos, sizeof(v->tag), &v->tag);
+  total += read_bytes;
+  if (read_bytes != sizeof(v->tag)) {
+    goto incomplete_read;
+  }
+
+  read_bytes = qb_buffer_read(read, pos, sizeof(v->size), &v->size);
+  total += read_bytes;
+  if (read_bytes != sizeof(v->tag)) {
+    goto incomplete_read;
+  }
+
+  switch (v->tag) {
+    case QB_TAG_INT:
+    case QB_TAG_UINT:
+    {
+      read_bytes = qb_buffer_read(read, pos, sizeof(v->i), &v->i);
+      total += read_bytes;
+      if (read_bytes != sizeof(v->tag)) {
+        goto incomplete_read;
+      }
+
+      v->i = qb_ntohll(v->i);
+      break;
+    }
+
+    case QB_TAG_DOUBLE:
+    {
+      read_bytes = qb_buffer_read(read, pos, sizeof(v->d), &v->d);
+      total += read_bytes;
+      if (read_bytes != sizeof(v->tag)) {
+        goto incomplete_read;
+      }
+
+      v->d = qb_ntohd(v->d);
+      break;
+    }
+
+    case QB_TAG_CSTRING:
+    case QB_TAG_STRING:
+      v->s = (utf8_t*)malloc(v->size);
+
+      read_bytes = qb_buffer_read(read, pos, v->size, v->s);
+      total += read_bytes;
+      if (read_bytes != v->size) {
+        free(v->s);
+        goto incomplete_read;
+      }
+      break;
+
+    case QB_TAG_BYTES:
+      v->p = malloc(v->size);
+
+      read_bytes = qb_buffer_read(read, pos, v->size, v->p);
+      total += read_bytes;
+      if (read_bytes != v->size) {
+        free(v->p);
+        goto incomplete_read;
+      }
+      break;
+
+    case QB_TAG_STRUCT:
+    {
+      char name[QB_MAX_NAME_LENGTH] = {'\0'};
+
+      size_t len;
+      read_bytes = qb_buffer_read(read, pos, sizeof(len), &len);
+      total += read_bytes;
+      if (read_bytes != sizeof(v->tag)) {
+        goto incomplete_read;
+      }
+      len = std::min(qb_ntohll(len), (size_t)QB_MAX_NAME_LENGTH);
+
+      read_bytes = qb_buffer_read(read, pos, len, name);
+      total += read_bytes;
+      if (read_bytes != sizeof(v->tag)) {
+        goto incomplete_read;
+      }
+      name[QB_MAX_NAME_LENGTH - 1] = '\0';
+
+      qbSchema schema = qb_schema_find(name);
+
+      *v = qb_struct_create(schema);
+      auto num_fields = qb_schema_numfields(schema);
+      for (auto i = 0; i < num_fields; ++i) {
+        qbVar var = qb_var_ati(*v, i);
+
+        read_bytes = qb_var_unpack(var, buf, pos);
+        total += written;
+        if (written == 0) {
+          goto incomplete_write;
+        }
+      }
+
+      break;
+    }
+
+    case QB_TAG_ARRAY:
+    {
+      size_t count = qb_array_count(v);
+      for (size_t i = 0; i < count; ++i) {
+        qbVar* var = qb_array_at(v, i);
+        written = qb_var_pack(*var, buf, pos);
+        total += written;
+        if (written == 0) {
+          goto incomplete_write;
+        }
+      }
+
+      break;
+    }
+
+    case QB_TAG_MAP:
+    {
+      struct StreamState {
+        qbBuffer* buf;
+        ptrdiff_t* pos;
+        size_t* total;
+      } stream_state{ buf, pos, &total };
+
+      if (!qb_map_iterate(v, [](qbVar k, qbVar* v, qbVar state) {
+        StreamState* s = (StreamState*)state.p;
+        size_t written = qb_var_pack(*v, s->buf, s->pos);
+        s->total += written;
+
+        return written != 0;
+      }, qbPtr(&stream_state))) {
+        goto incomplete_write;
+      }
+      break;
+    }
+  }
+
+  return written;
+
+incomplete_read:
+  *pos = saved_pos;
+  return 0;
+}
+#endif
+
+void qb_var_copy(const qbVar* from, qbVar* to) {
+  if (from == to) {
+    return;
+  }
+
+  switch (to->tag) {
+    case QB_TAG_STRING:
+      qb_var_destroy(to);
+      break;
+
+    case QB_TAG_STRUCT:
+      break;
+
+    case QB_TAG_ARRAY:
+      break;
+  }
+
+  if (from->tag == QB_TAG_STRING) {
+    *to = qbString(from->s);
+  } else if (from->tag == QB_TAG_BYTES) {
+    *to = qbBytes((const char*)from->p, from->size);
+  } else {
+    memcpy(to, from, sizeof(qbVar));
+  }
+}
+
+void qb_var_move(qbVar* from, qbVar* to) {
+  if (from == to) {
+    return;
+  }
+
+  memcpy(to, from, sizeof(qbVar));
+  memset(from, 0, sizeof(qbVar));
+}
+
+void qb_var_destroy(qbVar* v) {
+  if (v->tag == QB_TAG_STRING && v->s) {
+    free(v->s);
+  } else if (v->tag == QB_TAG_BYTES && v->p) {
+    free(v->p);
+  } else if (v->tag == QB_TAG_ARRAY) {
+    qbArray_* a = (qbArray_*)v->p;
+    for (auto& var : a->array) {
+      qb_var_destroy(&var);
+    }
+    delete a;
+  } else if (v->tag == QB_TAG_MAP) {
+    qbMap_* m = (qbMap_*)v->p;
+    for (auto& var : m->map) {
+      qb_var_destroy(&var.second);
+    }
+    delete m;
+  }
+  *v = {};
 }
 
 qbResult qb_scene_create(qbScene* scene, const char* name) {
@@ -868,6 +1588,14 @@ qbSchema qb_schema_find(const char* name) {
   return AS_PRIVATE(schema_find(name));
 }
 
+const char* qb_schema_name(qbSchema schema) {
+  return schema->name.data();
+}
+
+qbComponent qb_schema_component(qbSchema schema) {
+  return schema->component;
+}
+
 size_t qb_schema_size(qbSchema schema) {
   return schema->size;
 }
@@ -876,9 +1604,28 @@ size_t qb_struct_size(qbSchema schema) {
   return sizeof(qbStructInternals_) + schema->size;
 }
 
-size_t qb_schema_fields(qbSchema schema, qbSchemaField* fields) {
+uint8_t qb_schema_fields(qbSchema schema, qbSchemaField* fields) {  
+  if (schema->fields.size() > 255) {
+    *fields = nullptr;
+    return 0;
+  }
+
   *fields = schema->fields.data();
-  return schema->fields.size();
+  return (uint8_t)schema->fields.size();
+}
+
+uint8_t qb_schema_numfields(qbSchema schema) {
+  if (schema->fields.size() > 255) {
+    return 0;
+  }
+  return (uint8_t)schema->fields.size();
+}
+
+qbSchema qb_struct_getschema(qbVar v) {
+  if (v.tag != QB_TAG_STRUCT) {
+    return nullptr;
+  }
+  return ((qbStruct_*)v.p)->internals.schema;
 }
 
 const char* qb_schemafield_name(qbSchemaField field) {
@@ -886,7 +1633,7 @@ const char* qb_schemafield_name(qbSchemaField field) {
 }
 
 qbTag qb_schemafield_tag(qbSchemaField field) {
-  return field->tag;
+  return field->type.tag;
 }
 
 size_t qb_schemafield_offset(qbSchemaField field) {
@@ -895,4 +1642,36 @@ size_t qb_schemafield_offset(qbSchemaField field) {
 
 size_t qb_schemafield_size(qbSchemaField field) {
   return field->size;
+}
+
+size_t qb_buffer_write(qbBuffer* buf, ptrdiff_t* pos, size_t size, const void* bytes) {
+  if (!buf || !pos || !bytes || !size) {
+    return 0;
+  }
+
+  size = std::min(size, buf->capacity);
+  *pos = std::min(std::max(0LL, *pos), (ptrdiff_t)buf->capacity);
+  ptrdiff_t end = std::min(*pos + size, buf->capacity);
+  ptrdiff_t write_size = std::max(end - *pos, 0LL);
+
+  memcpy(buf->bytes + *pos, bytes, write_size);
+
+  *pos += write_size;
+  return write_size;
+}
+
+size_t qb_buffer_read(const qbBuffer* buf, ptrdiff_t* pos, size_t size, void* bytes) {
+  if (!buf || !pos || !bytes || !size) {
+    return 0;
+  }
+
+  size = std::min(size, buf->capacity);
+  *pos = std::min(std::max(0LL, *pos), (ptrdiff_t)buf->capacity);
+  ptrdiff_t end = std::min(*pos + size, buf->capacity);
+  ptrdiff_t read_size = std::max(end - *pos, 0LL);
+
+  memcpy(bytes, buf->bytes + *pos, read_size);
+
+  *pos += read_size;
+  return read_size;
 }

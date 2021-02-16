@@ -22,6 +22,7 @@
 #include <cubez/cubez.h>
 
 #include "component_registry.h"
+#include "cubez/struct.h"
 
 extern "C" {
 #include <lua/lua.h>
@@ -38,80 +39,29 @@ void _entity_add_component(lua_State* L, qbEntity entity, qbComponent component,
   memset(struct_inst, 0, sizeof(qbStructInternals_) + schema->size);
   struct_inst->internals.schema = schema;
 
-  char* entity_buf = &struct_inst->data;
+  qbVar* entity_buf = (qbVar*)(&struct_inst->data);
 
   lua_table_iterate(L, schema_pos, [&](lua_State* L) -> bool {
-    qbTag type = QB_TAG_NIL;
-    size_t offset = 0;
-    size_t size = 0;
+    qbSchemaFieldType_ type{};
+    size_t index = 0;
 
     if (lua_isnumber(L, -2)) {
       int64_t key = lua_tointeger(L, -2);
-      type = schema->fields[key - 1].tag;
-      offset = schema->fields[key - 1].offset;
-      size = schema->fields[key - 1].size;
+      type = schema->fields[key - 1].type;
+      index = key - 1;
     } else if (lua_isstring(L, -2)) {
       std::string key = lua_tostring(L, -2);
-      for (const auto& f : schema->fields) {
+      index = 0;
+      for (const auto& f : schema->fields) {        
         if (f.key == key) {
-          type = f.tag;
-          offset = f.offset;
-          size = f.size;
+          type = f.type;          
           break;
         }
+        ++index;
       }
     }
 
-    switch (type) {
-      case QB_TAG_NIL:
-        break;
-
-      case QB_TAG_LUA_BOOLEAN:
-      {
-        int b = lua_toboolean(L, -1);
-        memcpy(entity_buf + offset, &b, size);
-        break;
-      }
-
-      case QB_TAG_DOUBLE:
-      case QB_TAG_INT:
-      case QB_TAG_UINT:
-      {
-        double n = lua_tonumber(L, -1);
-        memcpy(entity_buf + offset, &n, size);
-        break;
-      }
-
-      case QB_TAG_STRING:
-      {
-        size_t len;
-        const char* lua_str = lua_tolstring(L, -1, &len);
-        qbStr* str = (qbStr*)malloc(sizeof(qbStr) + len + 1);
-        str->len = len;
-        STRCPY(str->bytes, len + 1, lua_str);
-
-        memcpy(entity_buf + offset, &str, sizeof(qbStr*));
-        break;
-      }
-
-      case QB_TAG_BYTES:
-      {
-        size_t len;
-        const char* str = lua_tolstring(L, -1, &len);
-        len = std::min(len, size);
-        memcpy(entity_buf + offset, str, len);
-        break;
-      }
-
-      case QB_TAG_LUA_TABLE:
-      case QB_TAG_LUA_FUNCTION:
-      {
-        lua_pushvalue(L, -1);
-        qbLuaReference ref = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
-        memcpy(entity_buf + offset, &ref, sizeof(ref));
-        break;
-      }
-    }
+    entity_buf[index] = lua_idx_to_var(L, lua_gettop(L));
 
     return false;
   });
@@ -148,6 +98,14 @@ void _entity_add_components(lua_State* L, qbEntity entity, int schema_pos) {
 
 }
 
+struct GuiLuaState {
+  lua_State* L;
+  qbComponent component;
+};
+
+std::mutex component_tables_mu;
+std::unordered_map<qbComponent, qbLuaReference> component_tables;
+
 int component_create(lua_State* L) {
   static const int COMPONENT_NAME_ARG = 1;
   static const int COMPONENT_SCHEMA_ARG = 2;
@@ -164,6 +122,8 @@ int component_create(lua_State* L) {
   qbSchema schema = new qbSchema_;
 
   const char* name = lua_tostring(L, COMPONENT_NAME_ARG);
+  size_t name_len = std::min(strlen(name) + 1, (size_t)QB_MAX_NAME_LENGTH);
+  schema->name = std::string(name).substr(0, name_len);
 
   lua_table_iterate(L, COMPONENT_SCHEMA_ARG, [&](lua_State* L) -> bool {
     if (!lua_istable(L, -1)) {
@@ -187,65 +147,126 @@ int component_create(lua_State* L) {
     key.erase(std::remove_if(key.begin(), key.end(), isspace), key.end());
     value.erase(std::remove_if(value.begin(), value.end(), isspace), value.end());
 
-    auto type_size = parse_type_string(value);
+    qbSchemaFieldType_ type = parse_type_string(value);
+    size_t size = type.tag == QB_TAG_BYTES ? type.subtag.buffer_size : sizeof(qbVar);
 
-    schema->fields.push_back(qbSchemaField_{ key, type_size.first, struct_size, type_size.second });
-    struct_size += type_size.second;
+    schema->fields.push_back(qbSchemaField_{ key, type, struct_size, size});
+    struct_size += size;
 
     lua_pop(L, 2);
     return false;
   });
   schema->size = struct_size;
-
-  qbComponent new_component;
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_componentattr_setdatasize(attr, sizeof(qbStructInternals_) + struct_size);
     qb_componentattr_setschema(attr, schema);
-    qb_component_create(&new_component, name, attr);
+    qb_component_create(&schema->component, name, attr);
     qb_componentattr_destroy(&attr);
   }
-
-  /*
-  qb_instance_ondestroy(new_component, [](qbInstance inst) {
-  qbScriptInstance* script_inst;
-  qb_instance_const(inst, &script_inst);
-  qbComponent c = script_inst->m.c;
-  char* buf = &script_inst->data;
-
-  for (const auto& f : schemas[c].fields) {
-
-  }
-
-  for (const auto& f : schemas[c].fields) {
-  if (f.type == qbScriptType::QB_SCRIPT_TYPE_TABLE || f.type == qbScriptType::QB_SCRIPT_TYPE_FUNCTION) {
-  qbLuaReference* lua_ref = (qbLuaReference*)(buf + f.offset);
-  luaL_unref(lua_ref->l, LUA_REGISTRYINDEX, lua_ref->ref);
-  }
-  }
-  });*/
-  /*if (!lua_isnil(L, COMPONENT_OPTS_ARG)) {
-  if (lua_getfield(L, COMPONENT_OPTS_ARG, "oncreate") != LUA_TNIL) {
-  component_schema.on_create = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
-  } else {
-  lua_pop(L, 1);
-  }
-
-  if (lua_getfield(L, COMPONENT_OPTS_ARG, "ondestroy") != LUA_TNIL) {
-  component_schema.on_destroy = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
-  } else {
-  lua_pop(L, 1);
-  }
-  }*/
 
   // Return a new table: { id = new component } with qb.Component as the
   // metatable.
   push_new_table(L, "Component");
+  int newtable = lua_gettop(L);
 
   // Set the return's component.
-  lua_pushinteger(L, new_component);
-  lua_setfield(L, -2, "id");
+  lua_pushinteger(L, schema->component);
+  lua_setfield(L, newtable, "id");
+
+  {
+    std::lock_guard<decltype(component_tables_mu)> l(component_tables_mu);
+    lua_pushvalue(L, newtable);
+    component_tables[schema->component] = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
+  }
+
+  struct GuiLuaState {
+    lua_State* L;
+    qbComponent component;
+  };
+
+  qb_instance_oncreate(schema->component, [](qbInstance instance, qbVar state) {
+    lua_State* L = ((GuiLuaState*)state.p)->L;
+    qbComponent component = ((GuiLuaState*)state.p)->component;
+    {
+      qbLuaReference& lua_ref = component_tables[component];
+      lua_rawgeti(L, LUA_REGISTRYINDEX, lua_ref.ref);
+    }
+    int component_table = lua_gettop(L);
+
+    if (lua_getfield(L, component_table, "oncreate") == LUA_TNIL) {
+      lua_pop(L, 2);
+      return;
+    }
+
+    lua_pushvalue(L, component_table);
+    lua_newtable(L);
+    int entity_table = lua_gettop(L);
+    lua_pushinteger(L, qb_instance_entity(instance));
+    lua_setfield(L, entity_table, "id");
+
+    lua_getglobal(L, "qb");
+      lua_getfield(L, -1, "Entity");
+      lua_setmetatable(L, entity_table);
+    lua_pop(L, 1);
+
+    qbStruct_* buf;
+    qb_instance_const(instance, &buf);
+    *(qbStruct_**)lua_newuserdata(L, sizeof(qbStruct_*)) = buf;
+
+    int userdata = lua_gettop(L);
+
+    lua_getglobal(L, "qb");
+      lua_getfield(L, -1, "Instance");
+      lua_setmetatable(L, userdata);
+    lua_pop(L, 1);
+
+    lua_call(L, 3, 0);
+
+    lua_pop(L, 1);
+  }, qbPtr(new GuiLuaState{ L, schema->component }));
+
+  qb_instance_ondestroy(schema->component, [](qbInstance instance, qbVar state) {
+    lua_State* L = ((GuiLuaState*)state.p)->L;
+    qbComponent component = ((GuiLuaState*)state.p)->component;
+    {
+      qbLuaReference& lua_ref = component_tables[component];
+      lua_rawgeti(L, LUA_REGISTRYINDEX, lua_ref.ref);
+    }
+    int component_table = lua_gettop(L);
+
+    if (lua_getfield(L, component_table, "ondestroy") == LUA_TNIL) {
+      lua_pop(L, 2);
+      return;
+    }
+
+    lua_pushvalue(L, component_table);
+    lua_newtable(L);
+    int entity_table = lua_gettop(L);
+    lua_pushinteger(L, qb_instance_entity(instance));
+    lua_setfield(L, entity_table, "id");
+
+    lua_getglobal(L, "qb");
+    lua_getfield(L, -1, "Entity");
+    lua_setmetatable(L, entity_table);
+    lua_pop(L, 1);
+
+    qbStruct_* buf;
+    qb_instance_const(instance, &buf);
+    *(qbStruct_**)lua_newuserdata(L, sizeof(qbStruct_*)) = buf;
+
+    int userdata = lua_gettop(L);
+
+    lua_getglobal(L, "qb");
+    lua_getfield(L, -1, "Instance");
+    lua_setmetatable(L, userdata);
+    lua_pop(L, 1);
+
+    lua_call(L, 3, 0);
+
+    lua_pop(L, 1);
+  }, qbPtr(new GuiLuaState{ L, schema->component }));
 
   return 1;
 }
@@ -410,54 +431,63 @@ int system_create(lua_State* L) {
       for (size_t i = 0; i < f->components.size(); ++i) {
         qbSchema schema = qb_component_schema(f->components[i]);
 
-        char* buf;
-        qb_instance_const(insts[i], &buf);
+        qbVar* vars;
+        qb_instance_const(insts[i], &vars);
         lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->instance_tables[i]);
-        for (const auto& field : schema->fields) {
-          switch (field.tag) {
+        for (size_t i = 0; i < schema->fields.size(); ++i) {
+          const auto& field = schema->fields[i];
+
+          switch (field.type.tag) {
             case QB_TAG_LUA_BOOLEAN:
-            {
-              int b = *(int*)(buf + field.offset);
-              lua_pushboolean(f->l, b);
+              lua_pushboolean(f->l, vars[i].i);
               break;
-            }
 
             case QB_TAG_DOUBLE:
-            {
-              double d = *(double*)(buf + field.offset);
-              lua_pushnumber(f->l, d);
+              lua_pushnumber(f->l, vars[i].d);
               break;
-            }
 
             case QB_TAG_INT:
             case QB_TAG_UINT:
-            {
-              int64_t i = *(int64_t*)(buf + field.offset);
-              lua_pushinteger(f->l, i);
+              lua_pushinteger(f->l, vars[i].i);
               break;
-            }
 
+            case QB_TAG_CSTRING:
             case QB_TAG_STRING:
-            {
-              qbStr* s = *(qbStr**)(buf + field.offset);
-              lua_pushstring(f->l, s->bytes);
+              lua_pushstring(f->l, vars[i].s);
               break;
-            }
 
             case QB_TAG_BYTES:
+              lua_pushlstring(f->l, vars[i].s, vars[i].size);
+              break;
+
+            case QB_TAG_MAP:
             {
-              const char* s = (const char*)(buf + field.offset);
-              lua_pushlstring(f->l, s, field.size);
+              qbVar* map = (qbVar*)lua_newuserdata(f->l, sizeof(qbVar));
+              *map = vars[i];
+              int userdata = lua_gettop(f->l);
+
+              lua_getglobal(f->l, "qb");
+                lua_getfield(f->l, -1, "Map");
+                lua_setmetatable(f->l, userdata);
+              lua_pop(f->l, 1);
               break;
             }
 
-            case QB_TAG_LUA_TABLE:
-            case QB_TAG_LUA_FUNCTION:
+            case QB_TAG_ARRAY:
             {
-              qbLuaReference* lua_ref = (qbLuaReference*)(buf + field.offset);
-              lua_rawgeti(f->l, LUA_REGISTRYINDEX, lua_ref->ref);
+              qbVar* array = (qbVar*)lua_newuserdata(f->l, sizeof(qbVar));
+              *array = vars[i];
+
+              int userdata = lua_gettop(f->l);
+
+              lua_getglobal(f->l, "qb");
+                lua_getfield(f->l, -1, "Array");
+                lua_setmetatable(f->l, userdata);
+              lua_pop(f->l, 1);
+              break;
             }
           }
+
           lua_setfield(f->l, -2, field.key.c_str());
         }
       }
@@ -467,46 +497,34 @@ int system_create(lua_State* L) {
       for (size_t i = 0; i < f->components.size(); ++i) {
         qbSchema schema = qb_component_schema(f->components[i]);
 
-        char* buf;
-        qb_instance_const(insts[i], &buf);
+        qbVar* vars;
+        qb_instance_const(insts[i], &vars);
 
         lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->instance_tables[i]);
-        for (const auto& field : schema->fields) {
+        for (size_t j = 0; j < schema->fields.size(); ++j) {
+
+          const auto& field = schema->fields[j];
           lua_getfield(f->l, -1, field.key.c_str());
 
-          switch (field.tag) {
+          switch (field.type.tag) {
             case QB_TAG_LUA_BOOLEAN:
-            {
-              int b = lua_toboolean(f->l, -1);
-              *(int*)(buf + field.offset) = b;
+              vars[j] = qbInt(lua_toboolean(f->l, -1));
               break;
-            }
 
             case QB_TAG_DOUBLE:
-            {
-              double d = lua_tonumber(f->l, -1);
-              *(double*)(buf + field.offset) = d;
+              vars[j] = qbDouble(lua_tonumber(f->l, -1));
               break;
-            }
 
             case QB_TAG_INT:
             case QB_TAG_UINT:
-            {
-              int64_t i = lua_tointeger(f->l, -1);
-              *(int64_t*)(buf + field.offset) = i;
+              vars[j] = qbInt(lua_tointeger(f->l, -1));
               break;
-            }
 
+            case QB_TAG_CSTRING:
             case QB_TAG_STRING:
             {
-              free(*(qbStr**)(buf + field.offset));
-              size_t len;
-              const char* lua_str = lua_tolstring(f->l, -1, &len);
-              qbStr* str = (qbStr*)malloc(sizeof(qbStr) + len + 1);
-              str->len = len;
-              STRCPY(str->bytes, len + 1, lua_str);
-              
-              *(qbStr**)(buf + field.offset) = str;
+              const char* lua_str = lua_tostring(f->l, -1);
+              vars[j] = qbString(lua_str);
               break;
             }
 
@@ -515,7 +533,7 @@ int system_create(lua_State* L) {
               size_t len;
               const char* str = lua_tolstring(f->l, -1, &len);
               len = std::min(len, field.size);
-              memcpy(buf + field.offset, str, len);
+              vars[j] = qbBytes(str, len);
               break;
             }
           }
@@ -561,8 +579,8 @@ int entity_getcomponent(lua_State* L) {
   int userdata = lua_gettop(L);
   
   lua_getglobal(L, "qb");
-  lua_getfield(L, -1, "Instance");
-  lua_setmetatable(L, userdata);
+    lua_getfield(L, -1, "Instance");
+    lua_setmetatable(L, userdata);
   lua_pop(L, 1);
 
   return 1;
@@ -578,8 +596,8 @@ int instance_get(lua_State* L) {
   qbVar v = qbStruct(s->internals.schema, s);
   const char* key = lua_tostring(L, 2);
 
-  qbRef r = qb_ref_at(v, key);
-  push_var_to_lua(L, r);
+  qbRef r = qb_struct_at(v, key);
+  push_var_to_lua(L, *r);
   
   return 1;
 }
@@ -593,36 +611,171 @@ int instance_set(lua_State* L) {
   qbVar v = qbStruct(s->internals.schema, s);
   const char* key = lua_tostring(L, 2);
   qbVar val = lua_idx_to_var(L, 3);  
-  qbRef ref = qb_ref_at(v, key);
+  qbRef ref = qb_struct_at(v, key);
 
-  if (val.tag != ref.tag) {
+  if (val.tag != ref->tag) {
     return 0;
   }
 
-  switch (ref.tag) {
+  switch (ref->tag) {
     case QB_TAG_LUA_BOOLEAN:
     case QB_TAG_INT:
     case QB_TAG_UINT:
-      *ref.i = val.i;
+      ref->i = val.i;
       break;
 
     case QB_TAG_DOUBLE:
-      *ref.d = val.d;
+      ref->d = val.d;
       break;
 
     case QB_TAG_STRING:
-      free(*ref.s);
-      *ref.s = qbString(val.s->bytes).s;
+      free(ref->s);
+      ref->s = qbString(val.s).s;
       break;
 
     case QB_TAG_BYTES:
-      memcpy(ref.s, val.s, std::min(ref.size, val.size));
+      memcpy(ref->s, val.s, std::min(ref->size, val.size));
       break;
 
     case QB_TAG_PTR:
-      ref.p = val.p;
+      ref->p = val.p;
       break;
   }
+
+  return 0;
+}
+
+qbVar* lua_mapat(lua_State* L, qbVar map, int idx) {
+  qbVar* found = nullptr;
+
+  qbTag key_type = qb_map_keytype(map);
+  qbVar key = qbNil;
+  if (key_type == QB_TAG_ANY) {
+    key = lua_idx_to_var(L, idx);
+  }
+
+  switch (key_type) {
+    case QB_TAG_ANY:
+    {
+      found = qb_map_at(map, key);
+      break;
+    }
+
+    case QB_TAG_PTR:
+    {
+      void* key = lua_touserdata(L, idx);
+      found = qb_map_at(map, qbPtr(key));
+      break;
+    }
+
+    case QB_TAG_INT:
+    case QB_TAG_UINT:
+    {
+      int key = lua_tointeger(L, idx);
+      found = qb_map_at(map, qbInt(key));
+      break;
+    }
+
+    case QB_TAG_DOUBLE:
+    {
+      double key = lua_tonumber(L, idx);
+      found = qb_map_at(map, qbDouble(key));
+      break;
+    }
+
+    case QB_TAG_STRING:
+    {
+      const char* key = lua_tostring(L, idx);
+      found = qb_map_at(map, qbString(key));
+      break;
+    }
+
+    case QB_TAG_CSTRING:
+    {
+      char* key = (char*)lua_touserdata(L, idx);
+      found = qb_map_at(map, qbCString(key));
+      break;
+    }
+  }
+
+  return found;
+}
+
+int map_get(lua_State* L) {
+  if (!lua_isuserdata(L, 1)) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  qbVar* var = (qbVar*)lua_touserdata(L, 1);
+  qbVar* found = lua_mapat(L, *var, 2);
+
+  if (found) {
+    push_var_to_lua(L, *found);
+  } else {
+    push_var_to_lua(L, qbNil);
+  }
+  
+  return 1;
+}
+
+int map_set(lua_State* L) {
+  if (!lua_isuserdata(L, 1)) {
+    return 0;
+  }
+
+  qbVar* var = (qbVar*)lua_touserdata(L, 1);  
+  qbVar val = lua_idx_to_var(L, 3);
+  
+  if (val.tag != qb_map_valtype(*var) && qb_map_valtype(*var) != QB_TAG_ANY) {
+    return 0;
+  }
+
+  *lua_mapat(L, *var, 2) = val;
+
+  return 0;
+}
+
+int array_get(lua_State* L) {
+  if (!lua_isuserdata(L, 1)) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  qbVar* v = (qbVar*)lua_touserdata(L, 1);
+  int key = lua_tointeger(L, 2) - 1;
+
+  if (key >= qb_array_count(*v)) {
+    qb_array_resize(*v, key + 1);
+    push_var_to_lua(L, qbNil);
+    return 1;
+  }
+
+  qbRef r = qb_array_at(*v, key);
+  push_var_to_lua(L, *r);
+
+  return 1;
+}
+
+int array_set(lua_State* L) {
+  if (!lua_isuserdata(L, 1)) {
+    return 0;
+  }
+
+  qbVar* v = (qbVar*)lua_touserdata(L, 1);
+  qbVar val = lua_idx_to_var(L, 3);
+
+  if (val.tag != qb_array_type(*v) && qb_array_type(*v) != QB_TAG_ANY) {
+    return 0;
+  }
+
+  int key = lua_tointeger(L, 2) - 1;
+
+  if (key >= qb_array_count(*v)) {
+    qb_array_resize(*v, key + 1);
+  }
+
+  *qb_array_at(*v, key) = val;
 
   return 0;
 }

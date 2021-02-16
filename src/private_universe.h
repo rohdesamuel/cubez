@@ -154,6 +154,8 @@ class PrivateUniverse {
   size_t component_getcount(qbComponent component);
   qbComponent component_find(const char* name);
   qbSchema component_schema(qbComponent component);
+  qbResult component_oncreate(qbComponent component, qbSystem system);
+  qbResult component_ondestroy(qbComponent component, qbSystem system);
 
   // Schema manipulation.
   qbSchema schema_find(const char* name);

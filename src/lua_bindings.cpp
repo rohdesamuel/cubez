@@ -63,6 +63,11 @@ static const luaL_Reg qb_lib[] = {
 
   { "system_create", system_create },
 
+  { "map_get", map_get },
+  { "map_set", map_set },
+  { "array_get", array_get },
+  { "array_set", array_set },
+
   { "key_ispressed", key_pressed },
   { "scan_ispressed", scan_pressed },
   { "mouse_ispressed", mouse_pressed },
@@ -146,11 +151,36 @@ _QB.Instance = {}
 _QB.Instance.__index = _QB.Instance
 
 function qb.Instance:__index (k)
-  return _QB.instance_get(self, k);
+  return _QB.instance_get(self, k)
 end
 
 function qb.Instance:__newindex (k, v)
-  _QB.instance_set(self, k, v);
+  _QB.instance_set(self, k, v)
+end
+
+----------------------------
+-- The Map/Array metatables.
+----------------------------
+_QB.Array = {}
+_QB.Array.__index = _QB.Array
+
+function qb.Array:__index (k)
+  return _QB.array_get(self, k)
+end
+
+function qb.Array:__newindex (k, v)
+  _QB.array_set(self, k, v)
+end
+
+_QB.Map = {}
+_QB.Map.__index = _QB.Map
+
+function qb.Map:__index (k)
+  return _QB.map_get(self, k)
+end
+
+function qb.Map:__newindex (k, v)
+  _QB.map_set(self, k, v)
 end
 
 ------------------------

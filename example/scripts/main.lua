@@ -3,40 +3,36 @@
 
   BallTag = qb.component.create('BallTag', {})
 
-  opts = {
-    oncreate=function (entity, pos)
-      print(entity, pos)
-      print(entity:has(Velocity))
-    end
-  }
-
   Position = qb.component.create('Position', {
     { x='number' },
     { y='number' },
   }, opts)
 
+  function Position:oncreate(entity, pos)
+    print('Position[' .. entity.id .. '] (' .. pos.x .. ', ' .. pos.y .. ')')
+  end
+  
   Velocity = qb.component.create('Velocity', {
     { x='number' },
     { y='number' },
   })
 
-
-  --[[
-  Position:oncreate(
-    function(entity, pos)
-      print(entity.id, pos)
-    end)
-
-  pos = ball:get(Position)
-
-  --]]
+  function Velocity:ondestroy(entity, vel)
+    --print('Velocity[' .. entity.id .. '] (' .. vel.x .. ', ' .. vel.y .. ')')
+  end
 
   Name = qb.component.create('Name', {
     { name='string' },
   })
 
+  SomeArray = qb.component.create('SomeArray', {
+    { map='map[string, number]' },
+    { array='array[any]' },
+  })
+
   ball = qb.entity.create(
-    Position:create{ 10, 555 },
+    SomeArray:create{map={a=0}, array={20, 2}},
+    Position:create{ math.random(100), 555 },
     Velocity:create{ x=1, y=3 }
   )
 
@@ -48,17 +44,29 @@
   print(ball_name.name)
 
   ball_pos = ball:get(Position)
-  print(ball_pos)
   print(ball_pos.x)
   ball_pos.x = 100
   print(ball_pos.x)
 
+  ball_somearray = ball:get(SomeArray)
+  map = ball_somearray.map
+  print('arr.map["a"] = ', map['a'])
+  map['a'] = 1
+  print('arr.map["a"] = ', map['a'])
+
+  arr = ball_somearray.array
+  print('arr.arr[1] = ', arr[1])
+  some_table = {c=ball}
+  arr[1] = {b=some_table}
+  print('arr.arr[1] = ', arr[1])
+  a = arr[1]
+  print(arr[1].b.c)
 
   ball:add(BallTag:create{})
   
   for i=1, 50 do
     qb.entity.create(
-      Position:create{ x=0, y=0 }
+      Position:create{ x=math.random(100), y=math.random(100) }
     )
   end
   
@@ -99,22 +107,27 @@
 
   function el:onfocus ()
     print('onfocus')
+    return true
   end
 
   function el:onclick ()
     print('onclick')
+    return true
   end
 
   function el:onscroll ()
     print('onscroll')
+    return true
   end
 
   function el:onmove ()
     print('onmove')
+    return true
   end
 
   function el:onkey ()
     print('onkey')
+    return true
   end
 
   function el:onopen ()
@@ -148,11 +161,11 @@ end
 
 function qb.update()
   if qb.keyboard.ispressed('space') then
-    qb.entity.create({
+    qb.entity.create(
       Position:create{ x=0, y=0 },
       Velocity:create{ x=1, y=0 },
       BallTag:create{}
-    })
+    )
     print('There are', BallTag:count(), 'balls')
   end  
 end

@@ -122,6 +122,8 @@ typedef int64_t qbOffset;
 typedef int64_t qbId;
 typedef char utf8_t;
 
+#define QB_MAX_NAME_LENGTH 128
+
 // Cubez engine success codes.
 enum qbResult {
   QB_OK = 0,

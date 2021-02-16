@@ -840,6 +840,11 @@ qbVar test_collision(qbVar v) {
   float rot = 0.f;
   float dis = 10.f;
   while (true) {
+    if (!qb_camera_getactive()) {
+      qb_coro_yield(qbNil);
+      continue;
+    }
+
     qbTransform a_t, b_t, c_t, ship_t;
     qbCollider ship_collider;
     qb_instance_find(qb_transform(), a_block, &a_t);
@@ -871,7 +876,7 @@ qbVar test_collision(qbVar v) {
     qb_mouse_getwheel(&scroll_x, &scroll_y);
     dis += (float)scroll_y;
 
-    if (qb_collider_checkray(a, a_t, &mouse_ray, &t)) {
+    /*if (qb_collider_checkray(a, a_t, &mouse_ray, &t)) {
       (*material)->albedo = { 1.f, 0.0f, 0.f };
     } else {
       (*material)->albedo = { 0.f, 1.f, 0.f };
@@ -882,7 +887,7 @@ qbVar test_collision(qbVar v) {
       (*material)->albedo = { 1.f, 0.0f, 0.f };
     } else {
       (*material)->albedo = { 0.f, 1.f, 0.f };
-    }
+    }*/
 
     rot += 0.1f;
     
@@ -898,9 +903,82 @@ int main(int, char* []) {
   qb_start();
   create_game();
 
+  struct TestInner {
+    int val;
+  };
+
+  struct TestC {
+    int a;
+    TestInner b;
+  };
+
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+
+    qb_componentattr_onpack(attr,
+      [](qbComponent, qbEntity, const void* read, qbBuffer* write, ptrdiff_t* pos) {
+        TestC* t = (TestC*)read;
+        
+        qb_buffer_write(write, pos, sizeof(int), &t->a);
+        qb_buffer_write(write, pos, sizeof(int), &t->b.val);
+      });
+
+    qb_componentattr_onunpack(attr,
+      [](qbComponent, qbEntity, void* write, const qbBuffer* read, ptrdiff_t* pos) {
+        TestC* t = (TestC*)write;
+        memset(t, 0, sizeof(TestC));
+        
+        qb_buffer_read(read, pos, sizeof(int), &t->a);
+        qb_buffer_read(read, pos, sizeof(int), &t->b.val);
+      });
+
+    qb_componentattr_destroy(&attr);
+  }
+
   qb_mouse_setrelative(0);
 
-  qb_coro_sync(test_collision, qbNil);
+#if 0
+  {
+    uint8_t buf_[150] = { 0 };
+    qbBuffer buf{ sizeof(buf_), buf_ };
+    
+    ptrdiff_t pos = 0;
+    qbVar a = qbDouble(1.125);
+    qb_buffer_write(&buf, &pos, a.size, a.bytes);
+
+
+    pos = 0;
+    qbVar b = qbDouble(0.);
+
+    qb_buffer_read(&buf, &pos, b.size, &b.bytes);
+    std::cout << b.d << std::endl;
+
+    for (qbIterator_ it = qb_iterator_begin(qb_transform()); !qb_iterator_isdone(&it); qb_iterator_next(&it)) {
+      qbTransform t = (qbTransform)qb_iterator_at(&it);
+    }
+  }
+  {
+    qbVar array = qbArray(QB_TAG_INT);
+    qb_array_append(array, qbInt(10));
+
+    std::cout << qb_array_at(array, -1)->i << std::endl;
+  }
+
+  {
+    qbVar map = qbMap(QB_TAG_STRING, QB_TAG_INT);
+    qb_map_insert(map, qbString("Hello, World!"), qbInt(10));
+
+    std::cout << qb_map_at(map, qbString("Hello, World!"))->i << std::endl;
+  }
+
+#endif
+  {
+    qbEntityAttr attr;
+    qb_entityattr_create__unsafe(&attr);
+  }
+
+  //qb_coro_sync(test_collision, qbNil);
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

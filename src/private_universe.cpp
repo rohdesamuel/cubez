@@ -337,6 +337,16 @@ qbSchema PrivateUniverse::component_schema(qbComponent component) {
   return components_->FindSchema(component);
 }
 
+qbResult PrivateUniverse::component_oncreate(qbComponent component, qbSystem system) {
+  WorkingScene()->ComponentSubscribeToOnCreate(system, component);
+  return QB_OK;
+}
+
+qbResult PrivateUniverse::component_ondestroy(qbComponent component, qbSystem system) {
+  WorkingScene()->ComponentSubscribeToOnDestroy(system, component);
+  return QB_OK;
+}
+
 qbSchema PrivateUniverse::schema_find(const char* name) {
   return components_->FindSchema(name);
 }

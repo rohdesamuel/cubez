@@ -27,6 +27,7 @@
 #include <vector>
 #include <functional>
 #include <mutex>
+#include <unordered_map>
 
 typedef void(*qbInstanceOnCreate)(qbInstance instance, qbVar state);
 typedef void(*qbInstanceOnDestroy)(qbInstance instance, qbVar state);
@@ -69,6 +70,9 @@ struct qbComponentAttr_ {
   size_t data_size;
   bool is_shared;
   qbComponentType type;
+
+  void(*onpack)(qbComponent component, qbEntity entity, const void* read, qbBuffer* buf, ptrdiff_t* pos);
+  void(*onunpack)(qbComponent component, qbEntity entity, void* write, const qbBuffer* read, ptrdiff_t* pos);
 };
 
 struct qbBarrier_ {
@@ -160,26 +164,125 @@ struct qbEvent_ {
   void* event;
 };
 
+struct qbSchemaFieldType_ {
+  qbTag tag;
+
+  union {
+    struct {
+      qbTag k;
+      qbTag v;
+    } map;
+
+    qbTag array;
+    qbSchema schema;
+    size_t buffer_size;
+  } subtag;
+};
+
 struct qbSchemaField_ {
   std::string key;
 
-  qbTag tag;
+  qbSchemaFieldType_ type;
+
   size_t offset;
   size_t size;
 };
 
 struct qbSchema_ {
+  std::string name;
   std::vector<qbSchemaField_> fields;
   size_t size;
+  qbComponent component;
 };
 
 struct qbStructInternals_ {
   qbSchema_* schema;
+  qbEntity entity;
 };
 
 struct qbStruct_ {
   qbStructInternals_ internals;
   char data;
 };
+
+struct qbArray_ {
+  qbTag type;
+  std::vector<qbVar> array;
+};
+
+struct qbStr_ {
+  size_t len;
+  utf8_t bytes[];
+};
+
+struct ComparableVar {
+  qbVar v;
+
+  bool operator==(const ComparableVar& other) const {
+    if (v.tag != other.v.tag) {
+      return false;
+    }
+
+    if (v.tag == QB_TAG_STRING || v.tag == QB_TAG_CSTRING) {
+      return strcmp(v.s, other.v.s) == 0;
+    } else if (v.tag == QB_TAG_BYTES) {
+      if (v.size != other.v.size) {
+        return false;
+      }
+      return memcmp(v.p, other.v.p, v.size) == 0;
+    }
+    return memcmp(v.bytes, other.v.bytes, sizeof(v.bytes)) == 0;
+  }
+};
+
+namespace std
+{
+template <>
+struct hash<ComparableVar> {
+  std::size_t operator()(const ComparableVar& k) const {
+    switch (k.v.tag) {
+      case QB_TAG_INT:
+        return hash<int64_t>()(k.v.i);
+      case QB_TAG_BYTES:
+      case QB_TAG_PTR:
+      case QB_TAG_UINT:
+        return hash<uint64_t>()(k.v.u);
+      case QB_TAG_DOUBLE:
+        return hash<double>()(k.v.d);
+      
+      case QB_TAG_CSTRING:
+        return hash<char*>()(k.v.s);
+
+      case QB_TAG_STRING:
+      {
+        utf8_t* str = k.v.s;
+        unsigned long hash = 5381;
+        int c;
+
+        while (c = *str++)
+          hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+        return hash;
+      }
+    }
+    return 0;
+  }
+};
+}
+
+struct qbMap_ {
+  qbTag k_type;
+  qbTag v_type;
+  std::unordered_map<ComparableVar, qbVar> map;
+};
+
+typedef struct qbSchemaAttrField_ {
+  std::string field;
+  qbSchemaFieldType_ type;
+} qbSchemaAttrField_;
+
+typedef struct qbSchemaAttr_ {
+  std::vector<qbSchemaAttrField_> fields;
+} qbSchemaAttr_;
 
 #endif

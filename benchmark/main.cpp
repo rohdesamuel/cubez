@@ -50,18 +50,18 @@ double create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
   qbTimer timer;
   qb_timer_create(&timer, 0);
 
+  qb_timer_start(timer);
   qbEntityAttr attr;
   qb_entityattr_create(&attr);
-
-  qb_timer_start(timer);
-  for (uint64_t i = 0; i < count; ++i) {
+  for (uint64_t i = 0; i < count; ++i) {    
     qbEntity entity;
     qb_entity_create(&entity, attr);
   }
   qb_loop(0, 0);
+  qb_entityattr_destroy(&attr);
   qb_timer_stop(timer);
 
-  qb_entityattr_destroy(&attr);
+  
   double result = qb_timer_elapsed(timer);
   qb_timer_destroy(&timer);
 
@@ -128,10 +128,10 @@ double coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
     qb_coro_sync([](qbVar) {
       for (;;) {
         *Count() += 1;
-        qb_coro_yield(qbNil);
+        qb_coro_yield(qbInt(0));
       }
-      return qbNil;
-    }, qbNil);
+      return qbInt(0);
+    }, qbInt(0));
   }
 
   qb_timer_start(timer);
@@ -214,7 +214,10 @@ int main() {
     qb_component_create(&comflabulation_component, "Comfabulation", attr);
     qb_componentattr_destroy(&attr);
   }
-
+  uint64_t count = 100000;
+  uint64_t iterations = 500;
+  uint64_t test_iterations = 1;
+#if 0
   pos_component = qb_component_find("Position", &pos_schema);
   vel_component = qb_component_find("Velocity", &vel_schema);
 
@@ -240,9 +243,8 @@ int main() {
   }
 
 
-  uint64_t count = 100000;
-  uint64_t iterations = 500;
-  uint64_t test_iterations = 1;
+
+
   
   qbTimer timer;
   qb_timer_create(&timer, 0);
@@ -263,9 +265,9 @@ int main() {
   std::cout << "Elapsed per object: " << ((double)elapsed / 1e9) / iterations / count << "s\n";
   std::cout << "Elapsed per object: " << ((double)elapsed) / iterations / count << "ns\n";
   qb_timer_destroy(&timer);
-  
-  /*do_benchmark("Create entities benchmark",
-               create_entities_benchmark, count, iterations, 1);*/
+#endif  
+  do_benchmark("Create entities benchmark",
+               create_entities_benchmark, count, iterations, 1);
   //do_benchmark("Unpack one component benchmark",
   //  iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
   /*do_benchmark("coroutine_overhead_benchmark",

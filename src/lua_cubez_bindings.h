@@ -109,4 +109,9 @@ int instance_set(lua_State* L);
 */
 int system_create(lua_State* L);
 
+int map_get(lua_State* L);
+int map_set(lua_State* L);
+int array_get(lua_State* L);
+int array_set(lua_State* L);
+
 #endif  // CUBEZ_LUA_CUBEZ_BINDINGS__H
