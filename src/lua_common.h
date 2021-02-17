@@ -28,6 +28,8 @@ extern "C" {
 
 struct lua_State;
 
+#define LUA_CHECK_TYPE(L, idx, type) assert(lua_type(L, idx) == type && "Lua at " #idx " does not match type \"" #type "\"")
+
 typedef enum {
   QB_TAG_LUA_BOOLEAN = QB_TAG_BYTES + 1,
   QB_TAG_LUA_TABLE,

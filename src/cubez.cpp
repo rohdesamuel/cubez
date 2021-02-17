@@ -1198,7 +1198,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
   
   written = qb_buffer_write(buf, pos, sizeof(v.size), &v.size);
   total += written;
-  if (written != sizeof(v.tag)) {
+  if (written != sizeof(v.size)) {
     goto incomplete_write;
   }
 
@@ -1210,7 +1210,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
 
       written = qb_buffer_write(buf, pos, sizeof(l), &l);
       total += written;
-      if (written != sizeof(v.tag)) {
+      if (written != sizeof(l)) {
         goto incomplete_write;
       }
       break;
@@ -1222,7 +1222,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
 
       written = qb_buffer_write(buf, pos, sizeof(d), &d);
       total += written;
-      if (written != sizeof(v.tag)) {
+      if (written != sizeof(d)) {
         goto incomplete_write;
       }
       break;
@@ -1264,7 +1264,13 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
         goto incomplete_write;
       }
 
-      auto num_fields = qb_struct_numfields(v);
+      uint8_t num_fields = qb_struct_numfields(v);
+      written = qb_buffer_write(buf, pos, sizeof(num_fields), &num_fields);
+      total += written;
+      if (written != sizeof(num_fields)) {
+        goto incomplete_write;
+      }
+
       for (auto i = 0; i < num_fields; ++i) {
         qbVar* var = qb_struct_ati(v, i);
         written = qb_var_pack(*var, buf, pos);
@@ -1280,6 +1286,12 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
     case QB_TAG_ARRAY:
     {
       size_t count = qb_array_count(v);
+      written = qb_buffer_write(buf, pos, sizeof(count), &count);
+      total += written;
+      if (written != sizeof(count)) {
+        goto incomplete_write;
+      }
+
       for (size_t i = 0; i < count; ++i) {
         qbVar* var = qb_array_at(v, i);
         written = qb_var_pack(*var, buf, pos);
@@ -1300,10 +1312,27 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
         size_t* total;
       } stream_state { buf, pos, &total };
 
+      size_t count = qb_map_count(v);
+      written = qb_buffer_write(buf, pos, sizeof(count), &count);
+      total += written;
+      if (written != sizeof(count)) {
+        goto incomplete_write;
+      }
+
       if (!qb_map_iterate(v, [](qbVar k, qbVar* v, qbVar state) {
         StreamState* s = (StreamState*)state.p;
-        size_t written = qb_var_pack(*v, s->buf, s->pos);
+
+        size_t written = qb_var_pack(k, s->buf, s->pos);
         s->total += written;
+        if (written == 0) {
+          return false;
+        }
+
+        written = qb_var_pack(*v, s->buf, s->pos);
+        s->total += written;
+        if (written == 0) {
+          return false;
+        }
 
         return written != 0;
       }, qbPtr(&stream_state))) {
@@ -1472,16 +1501,10 @@ void qb_var_copy(const qbVar* from, qbVar* to) {
     return;
   }
 
-  switch (to->tag) {
-    case QB_TAG_STRING:
-      qb_var_destroy(to);
-      break;
-
-    case QB_TAG_STRUCT:
-      break;
-
-    case QB_TAG_ARRAY:
-      break;
+  if (to->tag == QB_TAG_STRING ||
+      to->tag == QB_TAG_ARRAY ||
+      to->tag == QB_TAG_MAP) {
+    qb_var_destroy(to);
   }
 
   if (from->tag == QB_TAG_STRING) {
@@ -1496,6 +1519,12 @@ void qb_var_copy(const qbVar* from, qbVar* to) {
 void qb_var_move(qbVar* from, qbVar* to) {
   if (from == to) {
     return;
+  }
+
+  if (to->tag == QB_TAG_STRING ||
+      to->tag == QB_TAG_ARRAY ||
+      to->tag == QB_TAG_MAP) {
+    qb_var_destroy(to);
   }
 
   memcpy(to, from, sizeof(qbVar));
@@ -1514,11 +1543,7 @@ void qb_var_destroy(qbVar* v) {
     }
     delete a;
   } else if (v->tag == QB_TAG_MAP) {
-    qbMap_* m = (qbMap_*)v->p;
-    for (auto& var : m->map) {
-      qb_var_destroy(&var.second);
-    }
-    delete m;
+    delete (qbMap_*)v->p;
   }
   *v = {};
 }

@@ -21,4 +21,15 @@
 
 struct lua_State;
 
+int audio_loadwav(lua_State* L);
+int audio_free(lua_State* L);
+int audio_isplaying(lua_State* L);
+int audio_play(lua_State* L);
+int audio_stop(lua_State* L);
+int audio_pause(lua_State* L);
+int audio_setloop(lua_State* L);
+int audio_setpan(lua_State* L);
+int audio_setvolume(lua_State* L);
+int audio_stopall(lua_State* L);
+
 #endif  // CUBEZ_LUA_AUDIO_BINDINGS__H

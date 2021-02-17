@@ -1,6 +1,8 @@
 ﻿function qb.start(width, height)
   print('on start')
 
+  sound = qb.audio.loadwav('resources/jump.wav')
+
   BallTag = qb.component.create('BallTag', {})
 
   Position = qb.component.create('Position', {
@@ -77,7 +79,7 @@
       pos.x = pos.x + vel.x
       pos.y = pos.y + vel.y
     end)
-
+--[[
   qb.system.create({ Position },
     function (entity, pos)
       if not entity:has(Velocity) then
@@ -86,7 +88,8 @@
         entity:remove(Velocity)
       end
     end)
-    
+--]]
+
   focused_el = qb.gui.getfocus()
 
   x, y = qb.mouse.getposition()
@@ -161,6 +164,7 @@ end
 
 function qb.update()
   if qb.keyboard.ispressed('space') then
+    sound:play()
     qb.entity.create(
       Position:create{ x=0, y=0 },
       Velocity:create{ x=1, y=0 },

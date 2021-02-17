@@ -205,11 +205,6 @@ struct qbStruct_ {
   char data;
 };
 
-struct qbArray_ {
-  qbTag type;
-  std::vector<qbVar> array;
-};
-
 struct qbStr_ {
   size_t len;
   utf8_t bytes[];
@@ -217,6 +212,19 @@ struct qbStr_ {
 
 struct ComparableVar {
   qbVar v;
+  ComparableVar(qbVar v) : v(v) { }
+
+  ComparableVar(const ComparableVar& other) {
+    qb_var_copy(&other.v, &v);
+  }
+
+  ComparableVar(ComparableVar&& other) {
+    qb_var_move(&other.v, &v);
+  }
+
+  ~ComparableVar() {
+    qb_var_destroy(&v);
+  }
 
   bool operator==(const ComparableVar& other) const {
     if (v.tag != other.v.tag) {
@@ -233,6 +241,11 @@ struct ComparableVar {
     }
     return memcmp(v.bytes, other.v.bytes, sizeof(v.bytes)) == 0;
   }
+};
+
+struct qbArray_ {
+  qbTag type;
+  std::vector<qbVar> array;
 };
 
 namespace std

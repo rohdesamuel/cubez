@@ -50,6 +50,7 @@ typedef enum qbAudoLoop {
 
 QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
 QB_API qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded);
+QB_API qbAudioBuffer qb_audio_buffer(qbAudioPlaying playing);
 
 QB_API void qb_audio_free(qbAudioBuffer loaded);
 QB_API int qb_audio_getsize(qbAudioBuffer loaded);

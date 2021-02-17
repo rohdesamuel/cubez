@@ -381,6 +381,7 @@
     <ClCompile Include="..\..\..\src\input.cpp" />
     <ClCompile Include="..\..\..\src\instance_registry.cpp" />
     <ClCompile Include="..\..\..\src\log.cpp" />
+    <ClCompile Include="..\..\..\src\lua_audio_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_common.cpp" />
     <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp" />

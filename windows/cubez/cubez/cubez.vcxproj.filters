@@ -761,6 +761,9 @@
     <ClCompile Include="..\..\..\src\struct.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\lua_audio_bindings.cpp">
+      <Filter>Source Files\lua</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="lua.md">

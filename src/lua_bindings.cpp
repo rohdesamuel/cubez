@@ -26,6 +26,7 @@
 #include "lua_cubez_bindings.h"
 #include "lua_input_bindings.h"
 #include "lua_gui_bindings.h"
+#include "lua_audio_bindings.h"
 
 extern "C" {
 #include <lua/lua.h>
@@ -108,6 +109,17 @@ static const luaL_Reg qb_lib[] = {
   { "guielement_settextcolor", guielement_settextcolor },
   { "guielement_settextscale", guielement_settextscale },
   { "guielement_settextsize", guielement_settextsize },
+
+  { "audio_loadwav", audio_loadwav },
+  { "audio_free", audio_free },
+  { "audio_isplaying", audio_isplaying },
+  { "audio_play", audio_play },
+  { "audio_stop", audio_stop },
+  { "audio_pause", audio_pause },
+  { "audio_setloop", audio_setloop },
+  { "audio_setpan", audio_setpan },
+  { "audio_setvolume", audio_setvolume },
+  { "audio_stopall", audio_stopall },
 
   { nullptr, nullptr }
 };
@@ -422,6 +434,57 @@ end
 
 function _QB.gui.Element:settextalign (align)
   _QB.guielement_settextalign(self._element, align)
+end
+
+-----------------
+-- Audio Methods.
+-----------------
+_QB.audio = {}
+
+_QB.audio.Sound = {}
+_QB.audio.Sound.__index = _QB.audio.Sound
+
+function _QB.audio.loadwav (file)
+  local ret = { _sound=_QB.audio_loadwav(file) }
+  setmetatable(ret, _QB.audio.Sound)
+
+  return ret
+end
+
+function _QB.audio.stopall ()
+  return _QB.audio_stopall()
+end
+
+function _QB.audio.Sound:free ()
+  return _QB.audio_free(self._sound)
+end
+
+function _QB.audio.Sound:isplaying ()
+  return _QB.audio_isplaying(self._sound)
+end
+
+function _QB.audio.Sound:play ()
+  return _QB.audio_play(self._sound)
+end
+
+function _QB.audio.Sound:stop ()
+  return _QB.audio_stop(self._sound)
+end
+
+function _QB.audio.Sound:pause ()
+  return _QB.audio_pause(self._sound)
+end
+
+function _QB.audio.Sound:setloop (loop)
+  return _QB.audio_setloop(self._sound, loop)
+end
+
+function _QB.audio.Sound:setpan (pan)
+  return _QB.audio_setpan(self._sound, pan)
+end
+
+function _QB.audio.Sound:setvolume (vol)
+  return _QB.audio_setvolume(self._sound, vol)
 end
 
 )";

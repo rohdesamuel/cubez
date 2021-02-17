@@ -36,6 +36,7 @@ typedef struct qbAudioPlaying_ {
   qbId id;
   cs_playing_sound_t playing;
   int paused;
+  qbAudioBuffer buf;
 } qbAudioPlaying_, *qbAudioPlaying;
 
 qbId sound_id;
@@ -57,6 +58,7 @@ void audio_shutdown() {
   if (!ctx) {
     return;
   }
+  qb_audio_stopall();
   cs_shutdown_context(ctx);
 }
 
@@ -68,9 +70,13 @@ qbAudioBuffer qb_audio_loadwav(const char* file) {
 
 qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded) {
   qbId id = sound_id;
-  qbAudioPlaying_ sound = { sound_id, cs_make_playing_sound(&loaded->loaded) };
+  qbAudioPlaying_ sound = { sound_id, cs_make_playing_sound(&loaded->loaded), 1, loaded };
   sounds_.insert(id, sound);
   return &sounds_[id];
+}
+
+qbAudioBuffer qb_audio_buffer(qbAudioPlaying playing) {
+  return playing->buf;
 }
 
 void qb_audio_free(qbAudioBuffer loaded) {
