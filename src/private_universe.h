@@ -159,6 +159,7 @@ class PrivateUniverse {
 
   // Schema manipulation.
   qbSchema schema_find(const char* name);
+  void schema_register(qbSchema schema);
 
   // Synchronization methods.
   qbBarrier barrier_create();

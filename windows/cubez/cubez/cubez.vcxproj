@@ -331,7 +331,6 @@
     <ClInclude Include="..\..\..\src\program_registry.h" />
     <ClInclude Include="..\..\..\src\program_thread.h" />
     <ClInclude Include="..\..\..\src\stb_image.h" />
-    <ClInclude Include="..\..\..\src\struct_internal.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
     <ClInclude Include="..\..\..\src\task.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />

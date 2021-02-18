@@ -56,6 +56,20 @@ typedef struct {
 QB_API size_t qb_buffer_write(qbBuffer* buf, ptrdiff_t* pos, size_t size, const void* bytes);
 QB_API size_t qb_buffer_read(const qbBuffer* buf, ptrdiff_t* pos, size_t size, void* bytes);
 
+QB_API size_t qb_buffer_writestr(qbBuffer* buf, ptrdiff_t* pos, size_t len, const char* s);
+QB_API size_t qb_buffer_writell(qbBuffer* buf, ptrdiff_t* pos, int64_t n);
+QB_API size_t qb_buffer_writel(qbBuffer* buf, ptrdiff_t* pos, int32_t n);
+QB_API size_t qb_buffer_writes(qbBuffer* buf, ptrdiff_t* pos, int16_t n);
+QB_API size_t qb_buffer_writed(qbBuffer* buf, ptrdiff_t* pos, double n);
+QB_API size_t qb_buffer_writef(qbBuffer* buf, ptrdiff_t* pos, float n);
+
+QB_API size_t qb_buffer_readstr(const qbBuffer* buf, ptrdiff_t* pos, size_t* len, char** s);
+QB_API size_t qb_buffer_readll(const qbBuffer* buf, ptrdiff_t* pos, int64_t* n);
+QB_API size_t qb_buffer_readl(const qbBuffer* buf, ptrdiff_t* pos, int32_t* n);
+QB_API size_t qb_buffer_reads(const qbBuffer* buf, ptrdiff_t* pos, int16_t* n);
+QB_API size_t qb_buffer_readd(const qbBuffer* buf, ptrdiff_t* pos, double* n);
+QB_API size_t qb_buffer_readf(const qbBuffer* buf, ptrdiff_t* pos, float* n);
+
 typedef struct {
   qbTag tag;
   size_t size;
@@ -112,7 +126,7 @@ QB_API qbTag       qb_map_valtype(qbVar map);
 QB_API bool        qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state);
 
 QB_API size_t      qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos);
-QB_API size_t      qb_var_unpack(qbVar* v, const qbBuffer* read, ptrdiff_t* pos);
+QB_API size_t      qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos);
 QB_API void        qb_var_copy(const qbVar* from, qbVar* to);
 QB_API void        qb_var_move(qbVar* from, qbVar* to);
 QB_API void        qb_var_destroy(qbVar* v);

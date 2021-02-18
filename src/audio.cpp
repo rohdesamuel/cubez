@@ -58,7 +58,6 @@ void audio_shutdown() {
   if (!ctx) {
     return;
   }
-  qb_audio_stopall();
   cs_shutdown_context(ctx);
 }
 

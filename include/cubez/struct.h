@@ -27,7 +27,6 @@ QB_API qbResult qb_schemaattr_destroy(qbSchemaAttr* attr);
 QB_API qbResult qb_schemaattr_addscalar(qbSchemaAttr attr, const char* name, qbTag tag);
 QB_API qbResult qb_schemaattr_addmap(qbSchemaAttr attr, const char* name, qbTag k, qbTag v);
 QB_API qbResult qb_schemaattr_addarray(qbSchemaAttr attr, const char* name, qbTag k);
-QB_API qbResult qb_schemaattr_addstruct(qbSchemaAttr attr, const char* name, qbSchema schema);
 QB_API qbResult qb_schemaattr_addbytes(qbSchemaAttr attr, const char* name, size_t size);
 QB_API qbResult qb_schema_create(qbSchema* schema,
                                  const char* name,

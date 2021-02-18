@@ -118,53 +118,66 @@ int component_create(lua_State* L) {
   // Iterate through the table on the stack and generate a schema for the given
   // component. This allows for the dynamic construction of components instead
   // of defining a new struct.
-  size_t struct_size = 0;
-  qbSchema schema = new qbSchema_;
+  qbSchema schema;
+  qbComponent component;
 
   const char* name = lua_tostring(L, COMPONENT_NAME_ARG);
   size_t name_len = std::min(strlen(name) + 1, (size_t)QB_MAX_NAME_LENGTH);
-  schema->name = std::string(name).substr(0, name_len);
-
-  lua_table_iterate(L, COMPONENT_SCHEMA_ARG, [&](lua_State* L) -> bool {
-    if (!lua_istable(L, -1)) {
-      std::cout << "expected table\n";
-    }
-
-    lua_pushnil(L);
-    lua_next(L, -2);
-
-    // Check key and value are strings.
-    if (!lua_isstring(L, -2) || !lua_isstring(L, -1)) {
-      std::string key_name = lua_typename(L, lua_type(L, -2));
-      std::string value_name = lua_typename(L, lua_type(L, -1));
-      std::cout << "component_create takes a table of KV pairs of strings. Given args: "
-        << "key: " << key_name.c_str() << ", value: " << value_name.c_str() << std::endl;
-      return true;
-    }
-    std::string key = lua_tostring(L, -2);
-    std::string value = lua_tostring(L, -1);
-
-    key.erase(std::remove_if(key.begin(), key.end(), isspace), key.end());
-    value.erase(std::remove_if(value.begin(), value.end(), isspace), value.end());
-
-    qbSchemaFieldType_ type = parse_type_string(value);
-    size_t size = type.tag == QB_TAG_BYTES ? type.subtag.buffer_size : sizeof(qbVar);
-
-    schema->fields.push_back(qbSchemaField_{ key, type, struct_size, size});
-    struct_size += size;
-
-    lua_pop(L, 2);
-    return false;
-  });
-  schema->size = struct_size;
+  std::string schema_name = std::string(name).substr(0, name_len);  
   {
-    qbComponentAttr attr;
-    qb_componentattr_create(&attr);
-    qb_componentattr_setdatasize(attr, sizeof(qbStructInternals_) + struct_size);
-    qb_componentattr_setschema(attr, schema);
-    qb_component_create(&schema->component, name, attr);
-    qb_componentattr_destroy(&attr);
+    qbSchemaAttr attr;
+    qb_schemaattr_create(&attr);
+
+    lua_table_iterate(L, COMPONENT_SCHEMA_ARG, [&](lua_State* L) -> bool {
+      if (!lua_istable(L, -1)) {
+        std::cout << "expected table\n";
+      }
+
+      lua_pushnil(L);
+      lua_next(L, -2);
+
+      // Check key and value are strings.
+      if (!lua_isstring(L, -2) || !lua_isstring(L, -1)) {
+        std::string key_name = lua_typename(L, lua_type(L, -2));
+        std::string value_name = lua_typename(L, lua_type(L, -1));
+        std::cout << "component_create takes a table of KV pairs of strings. Given args: "
+          << "key: " << key_name.c_str() << ", value: " << value_name.c_str() << std::endl;
+        return true;
+      }
+      std::string key = lua_tostring(L, -2);
+      std::string value = lua_tostring(L, -1);
+
+      key.erase(std::remove_if(key.begin(), key.end(), isspace), key.end());
+      value.erase(std::remove_if(value.begin(), value.end(), isspace), value.end());
+
+      qbSchemaFieldType_ type = parse_type_string(value);
+      switch (type.tag) {
+        case QB_TAG_ARRAY:
+          qb_schemaattr_addarray(attr, key.data(), type.subtag.array);
+          break;
+
+        case QB_TAG_MAP:
+          qb_schemaattr_addmap(attr, key.data(), type.subtag.map.k, type.subtag.map.v);
+          break;
+
+        case QB_TAG_BYTES:
+          qb_schemaattr_addbytes(attr, key.data(), type.subtag.buffer_size);
+          break;
+
+        default:
+          qb_schemaattr_addscalar(attr, key.data(), type.tag);
+          break;
+      }
+
+      lua_pop(L, 2);
+      return false;
+    });
+
+    qb_schema_create(&schema, name, attr);
+    qb_schemaattr_destroy(&attr);
   }
+
+  component = qb_schema_component(schema);
 
   // Return a new table: { id = new component } with qb.Component as the
   // metatable.
@@ -172,13 +185,13 @@ int component_create(lua_State* L) {
   int newtable = lua_gettop(L);
 
   // Set the return's component.
-  lua_pushinteger(L, schema->component);
+  lua_pushinteger(L, component);
   lua_setfield(L, newtable, "id");
 
   {
     std::lock_guard<decltype(component_tables_mu)> l(component_tables_mu);
     lua_pushvalue(L, newtable);
-    component_tables[schema->component] = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
+    component_tables[component] = { L, luaL_ref(L, LUA_REGISTRYINDEX) };
   }
 
   struct GuiLuaState {
@@ -186,7 +199,7 @@ int component_create(lua_State* L) {
     qbComponent component;
   };
 
-  qb_instance_oncreate(schema->component, [](qbInstance instance, qbVar state) {
+  qb_instance_oncreate(component, [](qbInstance instance, qbVar state) {
     lua_State* L = ((GuiLuaState*)state.p)->L;
     qbComponent component = ((GuiLuaState*)state.p)->component;
     {
@@ -225,9 +238,9 @@ int component_create(lua_State* L) {
     lua_call(L, 3, 0);
 
     lua_pop(L, 1);
-  }, qbPtr(new GuiLuaState{ L, schema->component }));
+  }, qbPtr(new GuiLuaState{ L, component }));
 
-  qb_instance_ondestroy(schema->component, [](qbInstance instance, qbVar state) {
+  qb_instance_ondestroy(component, [](qbInstance instance, qbVar state) {
     lua_State* L = ((GuiLuaState*)state.p)->L;
     qbComponent component = ((GuiLuaState*)state.p)->component;
     {
@@ -266,7 +279,7 @@ int component_create(lua_State* L) {
     lua_call(L, 3, 0);
 
     lua_pop(L, 1);
-  }, qbPtr(new GuiLuaState{ L, schema->component }));
+  }, qbPtr(new GuiLuaState{ L, component }));
 
   return 1;
 }

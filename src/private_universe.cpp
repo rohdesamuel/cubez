@@ -322,7 +322,12 @@ qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
 }
 
 qbResult PrivateUniverse::component_create(qbComponent* component, qbComponentAttr attr) {
-  return components_->Create(component, attr);
+  qbResult res = components_->Create(component, attr);
+  if (res == QB_OK && attr->schema) {
+    components_->RegisterSchema(*component, attr->schema);
+  }
+
+  return res;
 }
 
 size_t PrivateUniverse::component_getcount(qbComponent component) {

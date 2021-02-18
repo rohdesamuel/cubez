@@ -18,6 +18,7 @@
 #include <string>
 #include <cglm/struct.h>
 #include <cubez/socket.h>
+#include <cubez/struct.h>
 
 qbVar print_timing_info(qbVar var) {
   for (;;) {
@@ -979,6 +980,26 @@ int main(int, char* []) {
   }
 
   //qb_coro_sync(test_collision, qbNil);
+
+  uint8_t buf[128];
+  qbBuffer buffer{ sizeof(buf), buf };
+
+  qbSchema pos_schema = qb_schema_find("Position");
+  void* s = alloca(qb_struct_size(pos_schema));
+
+  qbVar v = qbMap(QB_TAG_INT, QB_TAG_ANY);
+  qb_map_insert(v, qbInt(97), qbInt(10));
+  qb_map_insert(v, qbInt(112), qbString("HElllooo, world"));
+
+  qbVar before = v;
+  qbVar after = qbNil;
+
+  ptrdiff_t pos = 0;
+  qb_var_pack(before, &buffer, &pos);
+  pos = 0;
+
+  qb_var_unpack(&after, &buffer, &pos);
+  std::cout << qb_map_at(v, qbInt(97))->i << ", " << qb_map_at(v, qbInt(112))->s << std::endl;
 
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};  

@@ -212,19 +212,6 @@ struct qbStr_ {
 
 struct ComparableVar {
   qbVar v;
-  ComparableVar(qbVar v) : v(v) { }
-
-  ComparableVar(const ComparableVar& other) {
-    qb_var_copy(&other.v, &v);
-  }
-
-  ComparableVar(ComparableVar&& other) {
-    qb_var_move(&other.v, &v);
-  }
-
-  ~ComparableVar() {
-    qb_var_destroy(&v);
-  }
 
   bool operator==(const ComparableVar& other) const {
     if (v.tag != other.v.tag) {

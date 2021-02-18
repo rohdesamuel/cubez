@@ -276,9 +276,6 @@
     <ClInclude Include="..\..\..\include\cubez\sprite.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\struct_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\struct.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
