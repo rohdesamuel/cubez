@@ -1011,7 +1011,7 @@ int main(int, char* []) {
     int32_t read_bytes = 0;
 
     qbVar received = qbMap(QB_TAG_INT, QB_TAG_ANY);
-    for (int i = 0; i < 200; ++i) {            
+    while (qb_running()) {
       // Pump the socket until we have the header.
       while (read_bytes < sizeof(int32_t)) {
         read_bytes += qb_socket_recv(
@@ -1046,6 +1046,14 @@ int main(int, char* []) {
       // Now we have one full packet in the process_buf.
       qbVar v;
       read = qb_var_unpack(&v, &process_buf, &pos);
+
+      qbCamera camera = qb_camera_getactive();
+
+      qb_camera_setrotation(
+        camera, glms_rotate(GLMS_MAT4_IDENTITY_INIT,
+                            (float)qb_struct_at(v, "y")->i / 10.f,
+                            vec3s{ 0, 0, 1 }));
+
       if (read == 0) {
         std::cout << "Could not unpack" << std::endl;
       } else {
@@ -1055,10 +1063,6 @@ int main(int, char* []) {
         qb_var_destroy(&str);
         qb_var_destroy(&v);
       } 
-
-      if (!qb_running()) {
-        return qbNil;
-      }
 
       //std::this_thread::sleep_for(std::chrono::seconds(1));
     }
@@ -1090,7 +1094,7 @@ int main(int, char* []) {
     void* s = alloca(qb_struct_size(pos_schema));
     memset(s, 0, qb_struct_size(pos_schema));
     
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100000; ++i) {
       uint8_t buffer[128];
       ptrdiff_t pos = 0;
       qbBuffer_ buf{ sizeof(buffer), buffer };
@@ -1113,7 +1117,7 @@ int main(int, char* []) {
         return qbNil;
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     return qbNil;
   }, qbNil);

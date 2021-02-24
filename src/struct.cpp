@@ -148,11 +148,19 @@ qbVar qb_struct_create(qbSchema schema, qbVar* fields) {
     memset(&s->data, 0, schema->size);
   }
 
-  return qbStruct(schema, s);
+  qbVar ret = qbStruct(schema, s);
+  s->internals.mem_type = qbStructInternals_::MEM_TYPE::ALLOC;
+
+  return ret;
 }
 
 void qb_struct_destroy(qbVar* v) {
   qbStruct_* s = (qbStruct_*)v->p;
+  if (s->internals.mem_type != qbStructInternals_::MEM_TYPE::ALLOC) {
+    *v = qbNil;
+    return;
+  }
+
   uint8_t i = 0;
   for (auto i = 0; i < s->internals.schema->fields.size(); ++i) {
     qb_var_destroy(qb_struct_ati(*v, i));
@@ -195,14 +203,6 @@ const char* qb_struct_keyat(qbVar v, uint8_t i) {
   }
 
   return s->internals.schema->fields[i].key.data();
-}
-
-qbEntity qb_struct_entity(qbVar v) {
-  if (v.tag != QB_TAG_STRUCT) {
-    return qbInvalidEntity;
-  }
-
-  return ((qbStruct_*)v.p)->internals.entity;
 }
 
 size_t qb_schema_unpack(qbSchema* schema, const qbBuffer_* buf, ptrdiff_t* pos) {

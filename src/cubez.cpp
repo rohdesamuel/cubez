@@ -815,7 +815,6 @@ qbVar qbStruct(qbSchema schema, void* buf) {
 }
 
 qbVar qbString(const utf8_t* s) {  
-
   qbVar v{};
   v.tag = QB_TAG_STRING;
   if (s) {
@@ -1108,36 +1107,6 @@ qbVar qb_var_at(qbVar var, qbVar key) {
   }
 
   return qbNil;
-#if 0
-  if (var.tag == QB_TAG_ARRAY) {
-
-  }
-
-  for (const auto& f : s->internals.schema->fields) {
-    if (f.key == key) {
-      qbVar v;
-      v.tag = f.tag;
-      v.size = f.size;
-      char* loc = &s->data + f.offset;
-
-      if (v.tag == QB_TAG_INT || v.tag == QB_TAG_UINT) {
-        v.i = *(int64_t*)loc;
-      } else if (v.tag == QB_TAG_DOUBLE) {
-        v.d = *(double*)loc;
-      } else if (v.tag == QB_TAG_STRING) {
-        v.s = (*(qbStr_**)loc)->bytes;
-        v.size = (*(qbStr_**)loc)->len;
-      } else if (v.tag == QB_TAG_BYTES) {
-        v.p = loc;
-      } else {
-        memcpy(&v.bytes, loc, f.size);
-      }
-      return v;
-    }
-  }
-
-  return qbNil;
-#endif
 }
 
 qbRef qb_ref_at(qbVar var, qbVar key) {
@@ -1163,35 +1132,6 @@ qbRef qb_ref_at(qbVar var, qbVar key) {
   }
 
   return qbRef{};
-
-#if 0
-  qbStruct_* s = (qbStruct_*)v.p;
-
-  if (i >= s->internals.schema->fields.size()) {
-    return{ QB_TAG_NIL, 0, 0 };
-  }
-
-  const auto& f = s->internals.schema->fields[i];
-
-  qbRef r{};
-  r.tag = f.tag;
-  r.size = f.size;
-  char* loc = &s->data + f.offset;
-
-  if (r.tag == QB_TAG_INT || r.tag == QB_TAG_UINT) {
-    r.i = (int64_t*)loc;
-  } else if (r.tag == QB_TAG_DOUBLE) {
-    r.d = (double*)loc;
-  } else if (r.tag == QB_TAG_STRING) {
-    r.s = (utf8_t**)&(*(qbStr_**)loc)->bytes;
-    r.size = (*(qbStr_**)loc)->len;
-  } else if (r.tag == QB_TAG_BYTES) {
-    r.p = loc;
-  } else {
-    memcpy(&r.bytes, loc, f.size);
-  }
-  return r;
-#endif
 }
 
 uint8_t qb_struct_numfields(qbVar v) {
@@ -1748,11 +1688,7 @@ void qb_var_copy(const qbVar* from, qbVar* to) {
     return;
   }
 
-  if (to->tag == QB_TAG_STRING ||
-      to->tag == QB_TAG_ARRAY ||
-      to->tag == QB_TAG_MAP) {
-    qb_var_destroy(to);
-  }
+  qb_var_destroy(to);
 
   if (from->tag == QB_TAG_STRING) {
     *to = qbString(from->s);
@@ -1768,14 +1704,10 @@ void qb_var_move(qbVar* from, qbVar* to) {
     return;
   }
 
-  if (to->tag == QB_TAG_STRING ||
-      to->tag == QB_TAG_ARRAY ||
-      to->tag == QB_TAG_MAP) {
-    qb_var_destroy(to);
-  }
+  qb_var_destroy(to);
 
   memcpy(to, from, sizeof(qbVar));
-  memset(from, 0, sizeof(qbVar));
+  *from = {};
 }
 
 void qb_var_destroy(qbVar* v) {

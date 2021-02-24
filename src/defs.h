@@ -202,13 +202,8 @@ struct qbStructInternals_ {
   
   enum class MEM_TYPE : uint8_t {
     USER,
-    HEAP,
-    ENTITY
+    ALLOC,
   } mem_type;
-
-  union {
-    qbEntity entity;
-  };
 };
 
 
