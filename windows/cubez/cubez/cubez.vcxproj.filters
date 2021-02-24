@@ -52,6 +52,12 @@
     <Filter Include="Header Files\lua">
       <UniqueIdentifier>{91789908-0950-4d4b-a235-5a133154146c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\mempool">
+      <UniqueIdentifier>{31370dd0-3bc6-49f6-a14d-4e8825729d0e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\mempool">
+      <UniqueIdentifier>{ede01714-5c68-47dd-9dc3-d267d98c63a1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\thread_pool.h">
@@ -94,9 +100,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\system_impl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\memory_pool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\buddy_system_allocator.h">
@@ -279,6 +282,18 @@
     <ClInclude Include="..\..\..\include\cubez\struct.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\memory_internal.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\mem-pool\mem_pool.h">
+      <Filter>Header Files\mempool</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\mem-pool\internals.h">
+      <Filter>Header Files\mempool</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -315,9 +330,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\event.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\memory_pool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\snapshot.cpp">
@@ -760,6 +772,21 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\lua_audio_bindings.cpp">
       <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\memory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mem-pool\buffer.cpp">
+      <Filter>Source Files\mempool</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mem-pool\fixed.cpp">
+      <Filter>Source Files\mempool</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mem-pool\variable.cpp">
+      <Filter>Source Files\mempool</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\mem-pool\mempool_utils.cpp">
+      <Filter>Source Files\mempool</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -51,24 +51,24 @@ typedef enum {
 typedef struct {
   const size_t capacity;  
   uint8_t* bytes;
-} qbBuffer;
+} qbBuffer_;
 
-QB_API size_t qb_buffer_write(qbBuffer* buf, ptrdiff_t* pos, size_t size, const void* bytes);
-QB_API size_t qb_buffer_read(const qbBuffer* buf, ptrdiff_t* pos, size_t size, void* bytes);
+QB_API size_t qb_buffer_write(qbBuffer_* buf, ptrdiff_t* pos, size_t size, const void* bytes);
+QB_API size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* bytes);
 
-QB_API size_t qb_buffer_writestr(qbBuffer* buf, ptrdiff_t* pos, size_t len, const char* s);
-QB_API size_t qb_buffer_writell(qbBuffer* buf, ptrdiff_t* pos, int64_t n);
-QB_API size_t qb_buffer_writel(qbBuffer* buf, ptrdiff_t* pos, int32_t n);
-QB_API size_t qb_buffer_writes(qbBuffer* buf, ptrdiff_t* pos, int16_t n);
-QB_API size_t qb_buffer_writed(qbBuffer* buf, ptrdiff_t* pos, double n);
-QB_API size_t qb_buffer_writef(qbBuffer* buf, ptrdiff_t* pos, float n);
+QB_API size_t qb_buffer_writestr(qbBuffer_* buf, ptrdiff_t* pos, size_t len, const char* s);
+QB_API size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n);
+QB_API size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n);
+QB_API size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n);
+QB_API size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n);
+QB_API size_t qb_buffer_writef(qbBuffer_* buf, ptrdiff_t* pos, float n);
 
-QB_API size_t qb_buffer_readstr(const qbBuffer* buf, ptrdiff_t* pos, size_t* len, char** s);
-QB_API size_t qb_buffer_readll(const qbBuffer* buf, ptrdiff_t* pos, int64_t* n);
-QB_API size_t qb_buffer_readl(const qbBuffer* buf, ptrdiff_t* pos, int32_t* n);
-QB_API size_t qb_buffer_reads(const qbBuffer* buf, ptrdiff_t* pos, int16_t* n);
-QB_API size_t qb_buffer_readd(const qbBuffer* buf, ptrdiff_t* pos, double* n);
-QB_API size_t qb_buffer_readf(const qbBuffer* buf, ptrdiff_t* pos, float* n);
+QB_API size_t qb_buffer_readstr(const qbBuffer_* buf, ptrdiff_t* pos, size_t* len, char** s);
+QB_API size_t qb_buffer_readll(const qbBuffer_* buf, ptrdiff_t* pos, int64_t* n);
+QB_API size_t qb_buffer_readl(const qbBuffer_* buf, ptrdiff_t* pos, int32_t* n);
+QB_API size_t qb_buffer_reads(const qbBuffer_* buf, ptrdiff_t* pos, int16_t* n);
+QB_API size_t qb_buffer_readd(const qbBuffer_* buf, ptrdiff_t* pos, double* n);
+QB_API size_t qb_buffer_readf(const qbBuffer_* buf, ptrdiff_t* pos, float* n);
 
 typedef struct {
   qbTag tag;
@@ -125,11 +125,12 @@ QB_API qbTag       qb_map_keytype(qbVar map);
 QB_API qbTag       qb_map_valtype(qbVar map);
 QB_API bool        qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state);
 
-QB_API size_t      qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos);
-QB_API size_t      qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos);
+QB_API size_t      qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos);
+QB_API size_t      qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos);
 QB_API void        qb_var_copy(const qbVar* from, qbVar* to);
 QB_API void        qb_var_move(qbVar* from, qbVar* to);
 QB_API void        qb_var_destroy(qbVar* v);
+QB_API qbVar       qb_var_tostring(qbVar v);
 
 // Represents a non-value.
 QB_API extern const qbVar qbNil;
@@ -171,9 +172,6 @@ typedef struct {
 
   qbFeature enabled;
 
-  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
-  void (*destroy_renderer)(struct qbRenderer_* renderer);
-
   struct qbRendererAttr_* renderer_args;
   struct qbAudioAttr_* audio_args;
   struct qbScriptAttr_* script_args;
@@ -182,6 +180,7 @@ typedef struct {
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
+QB_API bool qb_running();
 
 typedef struct {
   void(*on_update)(uint64_t, qbVar);
@@ -317,12 +316,12 @@ QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr, bool is_sh
 // Unimplemented.
 QB_API qbResult      qb_componentattr_onpack(qbComponentAttr attr,
                                              void(*fn)(qbComponent component, qbEntity entity,
-                                                       const void* read, qbBuffer* buf, ptrdiff_t* pos));
+                                                       const void* read, qbBuffer_* buf, ptrdiff_t* pos));
 
 // Unimplemented.
 QB_API qbResult      qb_componentattr_onunpack(qbComponentAttr attr,
                                                void(*fn)(qbComponent component, qbEntity entity,
-                                                         void* write, const qbBuffer* read, ptrdiff_t* pos));
+                                                         void* write, const qbBuffer_* read, ptrdiff_t* pos));
 
 // Sets the data type for the component.
 // Same as qb_componentattr_setdatasize(attr, sizeof(type)).
@@ -353,11 +352,11 @@ QB_API size_t        qb_component_size(qbComponent component);
 
 // Unimplemented.
 QB_API size_t        qb_component_pack(qbComponent component, qbEntity entity, const void* read,
-                                       qbBuffer* write, int* pos);
+                                       qbBuffer_* write, int* pos);
 
 // Unimplemented.
 QB_API size_t        qb_component_unpack(qbComponent component, qbEntity entity, void* data,
-                                         const qbBuffer* read, int* pos);
+                                         const qbBuffer_* read, int* pos);
 
 QB_API qbResult      qb_component_oncreate(qbComponent component, qbSystem system);
 QB_API qbResult      qb_component_ondestroy(qbComponent component, qbSystem system);
@@ -792,6 +791,9 @@ QB_API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
 // background thread. Thread-safe.
 // WARNING: A coroutine has its own stack, do not pass in pointers to stack
 // variables. They will be invalid pointers.
+// WARNING: Any async coros still running when qb_stop() is called will block
+// shutting down. Use `qb_running()` to check state of game engine and return
+// early.
 QB_API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
 
 // Yields control with the given var back to the current coroutine's caller.

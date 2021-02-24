@@ -22,6 +22,7 @@
 #include <cubez/audio.h>
 #include <cubez/socket.h>
 #include <cubez/struct.h>
+#include <iomanip>
 
 #include "defs.h"
 #include "private_universe.h"
@@ -38,6 +39,7 @@
 #include "network_impl.h"
 #include "lua_bindings.h"
 #include "utf8.h"
+#include "memory_internal.h"
 
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
@@ -62,7 +64,7 @@ struct GameLoop {
   double current_time;
   double start_time;
   double accumulator;
-  bool is_running;
+  std::atomic_bool is_running{ false };
 } game_loop;
 
 qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
@@ -94,12 +96,14 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     input_initialize();
   }
   if (universe_->enabled & QB_FEATURE_GRAPHICS) {
+    assert(attr->renderer_args && "No renderer_args defined.");
+
     RenderSettings render_settings;
     render_settings.title = attr->title;
     render_settings.width = attr->width;
     render_settings.height = attr->height;
-    render_settings.create_renderer = attr->create_renderer;
-    render_settings.destroy_renderer = attr->destroy_renderer;
+    render_settings.create_renderer = attr->renderer_args->create_renderer;
+    render_settings.destroy_renderer = attr->renderer_args->destroy_renderer;
 
     qbRendererAttr_ empty_args = {};
     render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
@@ -107,6 +111,8 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   }
 
   if (universe_->enabled & QB_FEATURE_AUDIO) {
+    assert(attr->audio_args && "No audio_args defined.");
+
     AudioSettings s = {};
     s.sample_frequency = attr->audio_args->sample_frequency;
     s.buffered_samples = attr->audio_args->buffered_samples;
@@ -134,13 +140,20 @@ qbResult qb_start() {
 }
 
 qbResult qb_stop() {
+  game_loop.is_running = false;
+  qbResult ret = AS_PRIVATE(stop());
+  delete coro_scheduler;
+
   network_shutdown();
   audio_shutdown();
   render_shutdown();
-  
-  qbResult ret = AS_PRIVATE(stop());
+    
   universe_ = nullptr;
   return ret;
+}
+
+bool qb_running() {
+  return game_loop.is_running;
 }
 
 qbResult loop(qbLoopCallbacks callbacks,
@@ -167,6 +180,7 @@ qbResult loop(qbLoopCallbacks callbacks,
   if (callbacks && callbacks->on_fixedupdate) {
     callbacks->on_fixedupdate(universe_->frame, args->fixed_update);
   }
+
   while (game_loop.accumulator >= game_loop.dt) {
     qb_timer_start(update_timer);
     if (callbacks && callbacks->on_update) {
@@ -209,6 +223,8 @@ qbResult loop(qbLoopCallbacks callbacks,
     elapsed_render += game_loop.dt;
   }
   game_loop.accumulator += elapsed_render;
+
+  memory_flush_all(universe_->frame);
 
   ++universe_->frame;
   qb_timer_stop(fps_timer);
@@ -309,7 +325,7 @@ qbResult qb_componentattr_setshared(qbComponentAttr attr, bool is_shared) {
 
 qbResult qb_componentattr_onpack(
   qbComponentAttr attr,
-  void(*fn)(qbComponent component, qbEntity entity, const void *read, qbBuffer *buf, ptrdiff_t *pos)) {
+  void(*fn)(qbComponent component, qbEntity entity, const void *read, qbBuffer_ *buf, ptrdiff_t *pos)) {
 
   attr->onpack = fn;
   return qbResult::QB_OK;
@@ -317,7 +333,7 @@ qbResult qb_componentattr_onpack(
 
 qbResult qb_componentattr_onunpack(
   qbComponentAttr attr,
-  void(*fn)(qbComponent component, qbEntity entity, void *write, const qbBuffer *read, ptrdiff_t *pos)) {
+  void(*fn)(qbComponent component, qbEntity entity, void *write, const qbBuffer_ *read, ptrdiff_t *pos)) {
   
   attr->onunpack = fn;
   return qbResult::QB_OK;
@@ -328,7 +344,7 @@ qbResult qb_componentattr_setschema(qbComponentAttr attr, qbSchema schema) {
   return qbResult::QB_OK;
 }
 
-void pack_struct(qbSchema schema, const void* read, qbBuffer* buf, ptrdiff_t* pos) {
+void pack_struct(qbSchema schema, const void* read, qbBuffer_* buf, ptrdiff_t* pos) {
   for (size_t i = 0; i < schema->fields.size(); ++i) {
     const auto& field = schema->fields[i];
     const char* data = &((qbStruct_*)read)->data + field.offset;
@@ -368,7 +384,7 @@ qbResult qb_component_create(
 
   if (attr->type == QB_COMPONENT_TYPE_SCHEMA) {
     if (!attr->onpack) {
-      attr->onpack = [](qbComponent component, qbEntity entity, const void* read, qbBuffer* buf, ptrdiff_t* pos) {
+      attr->onpack = [](qbComponent component, qbEntity entity, const void* read, qbBuffer_* buf, ptrdiff_t* pos) {
         static qbSchema schema = qb_component_schema(component);
         pack_struct(schema, read, buf, pos);
       };
@@ -409,12 +425,12 @@ size_t qb_component_size(qbComponent component) {
 }
 
 size_t qb_component_pack(qbComponent component, qbEntity entity,
-                                const void* read, qbBuffer* write, int* pos) {
+                                const void* read, qbBuffer_* write, int* pos) {
   return qbResult();
 }
 
 size_t qb_component_unpack(qbComponent component, qbEntity entity,
-                                  void* data, const qbBuffer* read, int* pos) {
+                                  void* data, const qbBuffer_* read, int* pos) {
   return qbResult();
 }
 
@@ -793,7 +809,8 @@ qbVar qbStruct(qbSchema schema, void* buf) {
 
   qbStruct_* s = (qbStruct_*)buf;
   s->internals.schema = schema;
-  
+  s->internals.mem_type = qbStructInternals_::MEM_TYPE::USER;
+
   return v;
 }
 
@@ -1185,26 +1202,29 @@ uint8_t qb_struct_numfields(qbVar v) {
   return ((qbStruct_*)v.p)->internals.schema->fields.size();
 }
 
-size_t qb_buffer_writestr(qbBuffer* buf, ptrdiff_t* pos, size_t len, const char* s) {
+size_t qb_buffer_writestr(qbBuffer_* buf, ptrdiff_t* pos, size_t len, const char* s) {
   ptrdiff_t saved = *pos;
 
+  size_t total = 0;
   size_t written = qb_buffer_writell(buf, pos, len);
+  total += written;
   if (written == 0) {
     *pos = saved;
     return 0;
   }
 
   written = qb_buffer_write(buf, pos, len, s);
+  total += written;
   if (written != len) {
     *pos = saved;
     return 0;
   }
 
-  return written;
+  return total;
 }
 
 
-size_t qb_buffer_writell(qbBuffer* buf, ptrdiff_t* pos, int64_t n) {
+size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonll(n);
@@ -1216,7 +1236,7 @@ size_t qb_buffer_writell(qbBuffer* buf, ptrdiff_t* pos, int64_t n) {
   return written;
 }
 
-size_t qb_buffer_writel(qbBuffer* buf, ptrdiff_t* pos, int32_t n) {
+size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonl(n);
@@ -1228,7 +1248,7 @@ size_t qb_buffer_writel(qbBuffer* buf, ptrdiff_t* pos, int32_t n) {
   return written;
 }
 
-size_t qb_buffer_writes(qbBuffer* buf, ptrdiff_t* pos, int16_t n) {
+size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htons(n);
@@ -1240,7 +1260,7 @@ size_t qb_buffer_writes(qbBuffer* buf, ptrdiff_t* pos, int16_t n) {
   return written;
 }
 
-size_t qb_buffer_writed(qbBuffer* buf, ptrdiff_t* pos, double n) {
+size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n) {
   ptrdiff_t saved = *pos;
 
   union {
@@ -1258,7 +1278,7 @@ size_t qb_buffer_writed(qbBuffer* buf, ptrdiff_t* pos, double n) {
   return written;
 }
 
-size_t qb_buffer_writef(qbBuffer* buf, ptrdiff_t* pos, float n) {
+size_t qb_buffer_writef(qbBuffer_* buf, ptrdiff_t* pos, float n) {
   ptrdiff_t saved = *pos;
 
   union {
@@ -1276,7 +1296,7 @@ size_t qb_buffer_writef(qbBuffer* buf, ptrdiff_t* pos, float n) {
   return written;
 }
 
-size_t qb_buffer_readstr(const qbBuffer* buf, ptrdiff_t* pos, size_t* len, char** s) {
+size_t qb_buffer_readstr(const qbBuffer_* buf, ptrdiff_t* pos, size_t* len, char** s) {
   ptrdiff_t saved = *pos;
 
   size_t read = qb_buffer_readll(buf, pos, (int64_t*)len);
@@ -1286,12 +1306,13 @@ size_t qb_buffer_readstr(const qbBuffer* buf, ptrdiff_t* pos, size_t* len, char*
   }
 
   *s = (char*)(buf->bytes + *pos);
+  *pos += *len;
   read += *len;
 
   return read;
 }
 
-size_t qb_buffer_readll(const qbBuffer* buf, ptrdiff_t* pos, int64_t* n) {
+size_t qb_buffer_readll(const qbBuffer_* buf, ptrdiff_t* pos, int64_t* n) {
   ptrdiff_t saved = *pos;
 
   size_t read = qb_buffer_read(buf, pos, sizeof(int64_t), n);
@@ -1305,7 +1326,7 @@ size_t qb_buffer_readll(const qbBuffer* buf, ptrdiff_t* pos, int64_t* n) {
   return read;
 }
 
-size_t qb_buffer_readl(const qbBuffer* buf, ptrdiff_t* pos, int32_t* n) {
+size_t qb_buffer_readl(const qbBuffer_* buf, ptrdiff_t* pos, int32_t* n) {
   ptrdiff_t saved = *pos;
 
   size_t read = qb_buffer_read(buf, pos, sizeof(int32_t), n);
@@ -1319,7 +1340,7 @@ size_t qb_buffer_readl(const qbBuffer* buf, ptrdiff_t* pos, int32_t* n) {
   return read;
 }
 
-size_t qb_buffer_reads(const qbBuffer* buf, ptrdiff_t* pos, int16_t* n) {
+size_t qb_buffer_reads(const qbBuffer_* buf, ptrdiff_t* pos, int16_t* n) {
   ptrdiff_t saved = *pos;
 
   size_t read = qb_buffer_read(buf, pos, sizeof(int16_t), n);
@@ -1333,7 +1354,7 @@ size_t qb_buffer_reads(const qbBuffer* buf, ptrdiff_t* pos, int16_t* n) {
   return read;
 }
 
-size_t qb_buffer_readd(const qbBuffer* buf, ptrdiff_t* pos, double* n) {
+size_t qb_buffer_readd(const qbBuffer_* buf, ptrdiff_t* pos, double* n) {
   ptrdiff_t saved = *pos;
 
   union {
@@ -1354,7 +1375,7 @@ size_t qb_buffer_readd(const qbBuffer* buf, ptrdiff_t* pos, double* n) {
   return read;
 }
 
-size_t qb_buffer_readf(const qbBuffer* buf, ptrdiff_t* pos, float* n) {
+size_t qb_buffer_readf(const qbBuffer_* buf, ptrdiff_t* pos, float* n) {
   ptrdiff_t saved = *pos;
 
   union {
@@ -1375,7 +1396,7 @@ size_t qb_buffer_readf(const qbBuffer* buf, ptrdiff_t* pos, float* n) {
   return read;
 }
 
-size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
+size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
   ptrdiff_t saved_pos = *pos;
   size_t total = 0;
   size_t written = 0;
@@ -1388,7 +1409,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
   
   written = qb_buffer_writell(buf, pos, v.size);
   total += written;
-  if (written != sizeof(v.size)) {
+  if (written == 0) {
     goto incomplete_write;
   }
 
@@ -1398,7 +1419,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
     {
       written = qb_buffer_writell(buf, pos, v.i);
       total += written;
-      if (written != sizeof(v.i)) {
+      if (written == 0) {
         goto incomplete_write;
       }
       break;
@@ -1408,7 +1429,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
     {
       written = qb_buffer_writed(buf, pos, v.d);
       total += written;
-      if (written != sizeof(v.d)) {
+      if (written == 0) {
         goto incomplete_write;
       }
       break;
@@ -1418,7 +1439,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
     case QB_TAG_STRING:
       written = qb_buffer_writestr(buf, pos, v.size, v.s);
       total += written;
-      if (written != v.size) {
+      if (written == 0) {
         goto incomplete_write;
       }
       break;
@@ -1437,7 +1458,11 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
       const char* name = qb_schema_name(schema);
       size_t len = strlen(name) + 1;
 
-      qb_buffer_writestr(buf, pos, len, name);
+      written = qb_buffer_writestr(buf, pos, len, name);
+      total += written;
+      if (written == 0) {
+        goto incomplete_write;
+      }
 
       uint8_t num_fields = qb_struct_numfields(v);
       for (auto i = 0; i < num_fields; ++i) {
@@ -1494,7 +1519,7 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
       }
 
       struct StreamState {
-        qbBuffer* buf;
+        qbBuffer_* buf;
         ptrdiff_t* pos;
         size_t* total;
       } stream_state { buf, pos, &total };
@@ -1529,14 +1554,14 @@ size_t qb_var_pack(qbVar v, qbBuffer* buf, ptrdiff_t* pos) {
     }
   }
 
-  return written;
+  return total;
 
 incomplete_write:
   *pos = saved_pos;
   return 0;
 }
 
-size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
+size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
   ptrdiff_t saved_pos = *pos;
   size_t total = 0;
   size_t bytes_read = 0;
@@ -1549,7 +1574,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
 
   bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
   total += bytes_read;
-  if (bytes_read != sizeof(v->size)) {
+  if (bytes_read == 0) {
     goto incomplete_read;
   }
 
@@ -1559,7 +1584,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
     {
       bytes_read = qb_buffer_readll(buf, pos, &v->i);
       total += bytes_read;
-      if (bytes_read != sizeof(v->i)) {
+      if (bytes_read == 0) {
         goto incomplete_read;
       }
       break;
@@ -1569,7 +1594,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
     {
       bytes_read = qb_buffer_readd(buf, pos, &v->d);
       total += bytes_read;
-      if (bytes_read != sizeof(v->d)) {
+      if (bytes_read == 0) {
         goto incomplete_read;
       }
       break;
@@ -1615,12 +1640,18 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
         goto incomplete_read;
       }
 
-      uint8_t num_fields = qb_schema_numfields(schema);
-      for (auto i = 0; i < num_fields; ++i) {
-        bytes_read = qb_var_unpack(v, buf, pos);
-        total += bytes_read;
-        if (bytes_read == 0) {
-          goto incomplete_read;
+      *v = qb_struct_create(schema, nullptr);
+
+      {
+        uint8_t num_fields = qb_schema_numfields(schema);
+
+        for (auto i = 0; i < num_fields; ++i) {
+          qbVar* val = qb_struct_ati(*v, i);
+          bytes_read = qb_var_unpack(val, buf, pos);
+          total += bytes_read;
+          if (bytes_read == 0) {
+            goto incomplete_read;
+          }
         }
       }
 
@@ -1705,7 +1736,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer* buf, ptrdiff_t* pos) {
     }
   }
 
-  return bytes_read;
+  return total;
 
 incomplete_read:
   *pos = saved_pos;
@@ -1748,20 +1779,155 @@ void qb_var_move(qbVar* from, qbVar* to) {
 }
 
 void qb_var_destroy(qbVar* v) {
-  if (v->tag == QB_TAG_STRING && v->s) {
-    free(v->s);
-  } else if (v->tag == QB_TAG_BYTES && v->p) {
-    free(v->p);
-  } else if (v->tag == QB_TAG_ARRAY) {
-    qbArray_* a = (qbArray_*)v->p;
-    for (auto& var : a->array) {
-      qb_var_destroy(&var);
+  switch (v->tag) {
+    case QB_TAG_STRING:
+      free(v->s);
+      break;
+
+    case QB_TAG_BYTES:
+      free(v->p);
+      break;
+
+    case QB_TAG_ARRAY:
+    {
+      qbArray_* a = (qbArray_*)v->p;
+      for (auto& var : a->array) {
+        qb_var_destroy(&var);
+      }
+      delete a;
+      break;
     }
-    delete a;
-  } else if (v->tag == QB_TAG_MAP) {
-    delete (qbMap_*)v->p;
+
+    case QB_TAG_MAP:
+      delete (qbMap_*)v->p;
+      break;
+
+    case QB_TAG_STRUCT:
+      qb_struct_destroy(v);
+      break;
   }
+
   *v = {};
+}
+
+qbVar qb_var_tostring(qbVar v) {
+  qbVar s;
+
+  std::string str;
+  switch (v.tag) {
+    case QB_TAG_NIL:
+      str = "[NIL]";
+      break;
+
+    case QB_TAG_FUTURE:
+      str = "[FUTURE]";
+      break;
+
+    case QB_TAG_ANY:
+      str = "[ANY]";
+      break;
+
+    case QB_TAG_PTR:
+    {
+      char hex_string[sizeof(v.i) * 2 + 2];
+
+      sprintf_s(hex_string, sizeof(hex_string), "%08llX", v.i);
+      str = std::string("[PTR]: 0x") + hex_string;
+      break;
+    }
+
+    case QB_TAG_INT:
+      str = std::string("[INT]: ") + std::to_string(v.i);
+      break;
+
+    case QB_TAG_UINT:
+      str = std::string("[UINT]: ") + std::to_string(v.u);
+      break;
+
+    case QB_TAG_DOUBLE:
+      str = std::string("[DOUBLE]: ") + std::to_string(v.d);
+      break;
+
+    case QB_TAG_STRING:
+      str = std::string("[STRING]: ") + v.s;
+      break;
+
+    case QB_TAG_CSTRING:
+      str = std::string("[CSTRING]: ") + v.s;
+      break;
+
+    case QB_TAG_STRUCT:
+    {
+      str = std::string("[STRUCT]: { ");
+      qbSchema schema = qb_struct_getschema(v);
+
+      for (auto i = 0; i < qb_struct_numfields(v); ++i) {
+        qbVar val = qb_var_tostring(*qb_struct_ati(v, i));
+        if (i != 0) {
+          str += ", ";
+        }
+        str += std::string("(") + qb_struct_keyat(v, i) + ", " + val.s + ")";
+
+        qb_var_destroy(&val);
+      }
+      str += " }";
+      break;
+    }
+
+    case QB_TAG_ARRAY:
+    {
+      str = std::string("[ARRAY]: [ ");
+
+      for (auto i = 0; i < qb_array_count(v); ++i) {
+        if (i != 0) {
+          str += ", ";
+        }
+        qbVar val = qb_var_tostring(*qb_array_at(v, i));
+        str += val.s;
+
+        qb_var_destroy(&val);
+      }
+      str += " ]";
+      break;
+    }
+
+    case QB_TAG_MAP:
+    {
+      str = std::string("[MAP]: { ");
+
+      struct stream_state {
+        bool first;
+        std::string& str;
+      } state{ true, str };
+
+      qb_map_iterate(v, [](qbVar k, qbVar* v, qbVar state_var) {
+        struct stream_state* state = (struct stream_state*)state_var.p;
+        
+        if (!state->first) {
+          state->str += ", ";
+        }        
+
+        qbVar k_str = qb_var_tostring(k);
+        qbVar v_str = qb_var_tostring(*v);
+        state->str += std::string("(") + k_str.s + ", " + v_str.s + ")";
+
+        state->first = false;
+        qb_var_destroy(&k_str);
+        qb_var_destroy(&v_str);
+        
+        return true;
+      }, qbPtr(&state));
+
+      str += " }";
+      break;
+    }
+  }
+
+  if (!str.empty()) {
+    s = qbString(str.data());
+  }
+
+  return s;
 }
 
 qbResult qb_scene_create(qbScene* scene, const char* name) {
@@ -1885,7 +2051,7 @@ size_t qb_schemafield_size(qbSchemaField field) {
   return field->size;
 }
 
-size_t qb_buffer_write(qbBuffer* buf, ptrdiff_t* pos, size_t size, const void* bytes) {
+size_t qb_buffer_write(qbBuffer_* buf, ptrdiff_t* pos, size_t size, const void* bytes) {
   if (!buf || !pos || !bytes || !size) {
     return 0;
   }
@@ -1901,7 +2067,7 @@ size_t qb_buffer_write(qbBuffer* buf, ptrdiff_t* pos, size_t size, const void* b
   return write_size;
 }
 
-size_t qb_buffer_read(const qbBuffer* buf, ptrdiff_t* pos, size_t size, void* bytes) {
+size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* bytes) {
   if (!buf || !pos || !bytes || !size) {
     return 0;
   }

@@ -83,6 +83,9 @@ typedef struct qbRenderer_ {
 } qbRenderer_, *qbRenderer;
 
 typedef struct qbRendererAttr_ {
+  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+  void(*destroy_renderer)(struct qbRenderer_* renderer);
+
   // A list of any new uniforms to be used in the shader. The bindings should
   // start at 0. These should not include any texture sampler uniforms. For
   // those, use the image_samplers value.

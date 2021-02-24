@@ -1,282 +1,103 @@
-/*-
-* Copyright (c) 2013 Cosku Acay, http://www.coskuacay.com
-*
-* Permission is hereby granted, free of charge, to any person obtaining a
-* copy of this software and associated documentation files (the "Software"),
-* to deal in the Software without restriction, including without limitation
-* the rights to use, copy, modify, merge, publish, distribute, sublicense,
-* and/or sell copies of the Software, and to permit persons to whom the
-* Software is furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-* IN THE SOFTWARE.
+#ifndef MEM_POOL_H
+#define MEM_POOL_H
+
+
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+
+/**
+* Pass this as the second argument to pool_variable_init if you wan to skip
+* best fit checks
 */
-
-#ifndef MEMORY_POOL_H
-#define MEMORY_POOL_H
-
-#include <climits>
-#include <cstddef>
-
-template <typename T, size_t BlockSize = 4096>
-class MemoryPool {
-public:
-  /* Member types */
-  typedef T               value_type;
-  typedef T*              pointer;
-  typedef T&              reference;
-  typedef const T*        const_pointer;
-  typedef const T&        const_reference;
-  typedef size_t          size_type;
-  typedef ptrdiff_t       difference_type;
-  typedef std::false_type propagate_on_container_copy_assignment;
-  typedef std::true_type  propagate_on_container_move_assignment;
-  typedef std::true_type  propagate_on_container_swap;
-
-  template <typename U> struct rebind {
-    typedef MemoryPool<U> other;
-  };
-
-  /* Member functions */
-  MemoryPool() noexcept;
-  MemoryPool(const MemoryPool& memoryPool) noexcept;
-  MemoryPool(MemoryPool&& memoryPool) noexcept;
-  template <class U> MemoryPool(const MemoryPool<U>& memoryPool) noexcept;
-
-  ~MemoryPool() noexcept;
-
-  MemoryPool& operator=(const MemoryPool& memoryPool) = delete;
-  MemoryPool& operator=(MemoryPool&& memoryPool) noexcept;
-
-  pointer address(reference x) const noexcept;
-  const_pointer address(const_reference x) const noexcept;
-
-  // Can only allocate one object at a time. n and hint are ignored
-  pointer allocate(size_type n = 1, const_pointer hint = 0);
-  void deallocate(pointer p, size_type n = 1);
-
-  size_type max_size() const noexcept;
-
-  template <class U, class... Args> void construct(U* p, Args&&... args);
-  template <class U> void destroy(U* p);
-
-  template <class... Args> pointer newElement(Args&&... args);
-  void deleteElement(pointer p);
-
-private:
-  union Slot_ {
-    value_type element;
-    Slot_* next;
-  };
-
-  typedef char* data_pointer_;
-  typedef Slot_ slot_type_;
-  typedef Slot_* slot_pointer_;
-
-  slot_pointer_ currentBlock_;
-  slot_pointer_ currentSlot_;
-  slot_pointer_ lastSlot_;
-  slot_pointer_ freeSlots_;
-
-  size_type padPointer(data_pointer_ p, size_type align) const noexcept;
-  void allocateBlock();
-
-  static_assert(BlockSize >= 2 * sizeof(slot_type_), "BlockSize too small.");
-};
-
-template <typename T, size_t BlockSize>
-inline typename MemoryPool<T, BlockSize>::size_type
-MemoryPool<T, BlockSize>::padPointer(data_pointer_ p, size_type align)
-const noexcept {
-  uintptr_t result = reinterpret_cast<uintptr_t>(p);
-  return ((align - result) % align);
-}
-
-
-
-template <typename T, size_t BlockSize>
-MemoryPool<T, BlockSize>::MemoryPool()
-noexcept {
-  currentBlock_ = nullptr;
-  currentSlot_ = nullptr;
-  lastSlot_ = nullptr;
-  freeSlots_ = nullptr;
-}
-
-
-
-template <typename T, size_t BlockSize>
-MemoryPool<T, BlockSize>::MemoryPool(const MemoryPool& memoryPool)
-noexcept :
-MemoryPool() {}
-
-
-
-template <typename T, size_t BlockSize>
-MemoryPool<T, BlockSize>::MemoryPool(MemoryPool&& memoryPool)
-noexcept {
-  currentBlock_ = memoryPool.currentBlock_;
-  memoryPool.currentBlock_ = nullptr;
-  currentSlot_ = memoryPool.currentSlot_;
-  lastSlot_ = memoryPool.lastSlot_;
-  freeSlots_ = memoryPool.freeSlots;
-}
-
-
-template <typename T, size_t BlockSize>
-template<class U>
-MemoryPool<T, BlockSize>::MemoryPool(const MemoryPool<U>& memoryPool)
-noexcept :
-MemoryPool() {}
-
-
-
-template <typename T, size_t BlockSize>
-MemoryPool<T, BlockSize>&
-MemoryPool<T, BlockSize>::operator=(MemoryPool&& memoryPool)
-noexcept {
-  if (this != &memoryPool) {
-    std::swap(currentBlock_, memoryPool.currentBlock_);
-    currentSlot_ = memoryPool.currentSlot_;
-    lastSlot_ = memoryPool.lastSlot_;
-    freeSlots_ = memoryPool.freeSlots;
-  }
-  return *this;
-}
-
-
-
-template <typename T, size_t BlockSize>
-MemoryPool<T, BlockSize>::~MemoryPool()
-noexcept {
-  slot_pointer_ curr = currentBlock_;
-  while (curr != nullptr) {
-    slot_pointer_ prev = curr->next;
-    operator delete(reinterpret_cast<void*>(curr));
-    curr = prev;
-  }
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline typename MemoryPool<T, BlockSize>::pointer
-MemoryPool<T, BlockSize>::address(reference x)
-const noexcept {
-  return &x;
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline typename MemoryPool<T, BlockSize>::const_pointer
-MemoryPool<T, BlockSize>::address(const_reference x)
-const noexcept {
-  return &x;
-}
-
-
-
-template <typename T, size_t BlockSize>
-void
-MemoryPool<T, BlockSize>::allocateBlock() {
-  // Allocate space for the new block and store a pointer to the previous one
-  data_pointer_ newBlock = reinterpret_cast<data_pointer_>
-    (operator new(BlockSize));
-  reinterpret_cast<slot_pointer_>(newBlock)->next = currentBlock_;
-  currentBlock_ = reinterpret_cast<slot_pointer_>(newBlock);
-  // Pad block body to staisfy the alignment requirements for elements
-  data_pointer_ body = newBlock + sizeof(slot_pointer_);
-  size_type bodyPadding = padPointer(body, alignof(slot_type_));
-  currentSlot_ = reinterpret_cast<slot_pointer_>(body + bodyPadding);
-  lastSlot_ = reinterpret_cast<slot_pointer_>
-    (newBlock + BlockSize - sizeof(slot_type_) + 1);
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline typename MemoryPool<T, BlockSize>::pointer
-MemoryPool<T, BlockSize>::allocate(size_type n, const_pointer hint) {
-  if (freeSlots_ != nullptr) {
-    pointer result = reinterpret_cast<pointer>(freeSlots_);
-    freeSlots_ = freeSlots_->next;
-    return result;
-  } else {
-    if (currentSlot_ >= lastSlot_)
-      allocateBlock();
-    return reinterpret_cast<pointer>(currentSlot_++);
-  }
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline void
-MemoryPool<T, BlockSize>::deallocate(pointer p, size_type n) {
-  if (p != nullptr) {
-    reinterpret_cast<slot_pointer_>(p)->next = freeSlots_;
-    freeSlots_ = reinterpret_cast<slot_pointer_>(p);
-  }
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline typename MemoryPool<T, BlockSize>::size_type
-MemoryPool<T, BlockSize>::max_size()
-const noexcept {
-  size_type maxBlocks = -1 / BlockSize;
-  return (BlockSize - sizeof(data_pointer_)) / sizeof(slot_type_) * maxBlocks;
-}
-
-
-
-template <typename T, size_t BlockSize>
-template <class U, class... Args>
-inline void
-MemoryPool<T, BlockSize>::construct(U* p, Args&&... args) {
-  new (p) U(std::forward<Args>(args)...);
-}
-
-
-
-template <typename T, size_t BlockSize>
-template <class U>
-inline void
-MemoryPool<T, BlockSize>::destroy(U* p) {
-  p->~U();
-}
-
-
-
-template <typename T, size_t BlockSize>
-template <class... Args>
-inline typename MemoryPool<T, BlockSize>::pointer
-MemoryPool<T, BlockSize>::newElement(Args&&... args) {
-  pointer result = allocate();
-  construct<value_type>(result, std::forward<Args>(args)...);
-  return result;
-}
-
-
-
-template <typename T, size_t BlockSize>
-inline void
-MemoryPool<T, BlockSize>::deleteElement(pointer p) {
-  if (p != nullptr) {
-    p->~value_type();
-    deallocate(p);
-  }
-}
-
-
-#endif // MEMORY_POOL_H
+/* #define MEM_POOL_NO_BEST_FIT 101 */
+static const uint16_t MEM_POOL_NO_BEST_FIT = 101;
+
+
+typedef struct FixedMemPool FixedMemPool;
+
+typedef struct VariableMemPool VariableMemPool;
+
+/**
+* Return one of these from the callback function to either continue or stop the iteration
+*/
+typedef enum {
+  MEM_POOL_FOREACH_STOP,
+  MEM_POOL_FOREACH_CONTINUE
+} MemPoolForeachStatus;
+
+typedef MemPoolForeachStatus(*FixedPoolForeach)(void *block);
+
+typedef enum {
+  MEM_POOL_ERR_OK,
+  MEM_POOL_ERR_MUTEX_INIT,
+  MEM_POOL_ERR_MUTEX_DESTROY,
+  MEM_POOL_ERR_LOCK,
+  MEM_POOL_ERR_UNLOCK,
+  MEM_POOL_ERR_MALLOC,
+  MEM_POOL_ERR_UNKNOWN_BLOCK
+} MemPoolError;
+
+/**
+* initializes a new MemPool, with the given block size. If it runs out of space,
+* it'll create a new internal Buffer with increase_count * block_size size
+*/
+MemPoolError pool_fixed_init(FixedMemPool **pool, size_t block_size, size_t increase_count);
+
+MemPoolError pool_fixed_alloc(FixedMemPool *pool, void **ptr);
+
+/**
+* @return MEM_POOL_ERR_OK if associated MEM_POOL_ERR_UNKNOWN if not, or the error indicating the failure
+*/
+MemPoolError pool_fixed_is_associated(FixedMemPool *pool, void *ptr);
+
+/**
+* Iterates through all the blocks allocated with the given pool
+*/
+MemPoolError pool_fixed_foreach(FixedMemPool *pool, FixedPoolForeach callback);
+
+/**
+* The memory block is not actually freed, just given back to the pool to reuse it
+*
+* @return -1 if the pointer is not known by the pool, 0 otherwise
+*/
+MemPoolError pool_fixed_free(FixedMemPool *pool, void *ptr);
+
+MemPoolError pool_fixed_destroy(FixedMemPool *pool);
+
+/**
+* grow_size deremines the size of a new buffer required from malloc when no more free (fitting) space left
+* tolerance_percent is the maximum difference in percentage when looking for best fitting free blocks
+* if not reuqired, use MEM_POOL_NO_BEST_FIT
+*/
+MemPoolError pool_variable_init(VariableMemPool **pool, size_t grow_size, uint16_t tolerance_percent);
+
+MemPoolError pool_variable_alloc(VariableMemPool *pool, size_t size, void **ptr);
+
+/**
+* @return MEM_POOL_ERR_OK if associated MEM_POOL_ERR_UNKNOWN if not, or the error indicating the failure
+*/
+MemPoolError pool_variable_is_associated(VariableMemPool *pool, void *ptr);
+
+/*
+* Before appending to the free list, this function will attempt to merge neighbouring memory blocks
+* (including the space used by their headers) in the given buffer.
+*/
+MemPoolError pool_variable_free(VariableMemPool *pool, void *ptr);
+
+MemPoolError pool_variable_destroy(VariableMemPool *pool);
+
+/*
+* @return same as pool_variable_is_associated
+* The *aligned* size of the block is written to the size_t pointer
+*/
+MemPoolError pool_variable_aligned_sizeof(VariableMemPool *pool, void *ptr, size_t *size);
+
+/**
+* Rounds up the size to the correct alignment
+*/
+size_t mem_align(size_t size);
+
+
+#endif

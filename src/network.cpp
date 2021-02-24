@@ -15,9 +15,9 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#include <cubez/network.h>
 
 #include "network_impl.h"
-#include <cubez/common.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define WIN32_LEAN_AND_MEAN
@@ -44,4 +44,22 @@ void network_shutdown() {
 #ifdef __COMPILE_AS_WINDOWS__
   WSACleanup();
 #endif
+}
+
+int32_t qb_packet_send(qbSocket socket, qbPacket packet) {
+  return qb_socket_send(socket, &packet->data, packet->size, 0);
+}
+
+int32_t qb_packet_sendto(qbSocket socket, qbPacket packet, qbEndpoint endpoint) {
+  return qb_socket_sendto(socket, &packet->data, packet->size, 0, endpoint);
+}
+
+int32_t qb_packet_recv(qbSocket socket, qbBuffer_* buf,
+                       void(*recv)(qbVar, qbPacket), qbVar state) {
+  return 0;
+}
+
+int32_t qb_packet_recvfrom(qbSocket socket, qbBuffer_* buf, qbEndpoint endpoint,
+                           void(*recv)(qbVar, qbPacket), qbVar state) {
+  return 0;
 }

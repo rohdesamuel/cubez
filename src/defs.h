@@ -71,8 +71,8 @@ struct qbComponentAttr_ {
   bool is_shared;
   qbComponentType type;
 
-  void(*onpack)(qbComponent component, qbEntity entity, const void* read, qbBuffer* buf, ptrdiff_t* pos);
-  void(*onunpack)(qbComponent component, qbEntity entity, void* write, const qbBuffer* read, ptrdiff_t* pos);
+  void(*onpack)(qbComponent component, qbEntity entity, const void* read, qbBuffer_* buf, ptrdiff_t* pos);
+  void(*onunpack)(qbComponent component, qbEntity entity, void* write, const qbBuffer_* read, ptrdiff_t* pos);
 };
 
 struct qbBarrier_ {
@@ -193,12 +193,25 @@ struct qbSchema_ {
   std::vector<qbSchemaField_> fields;
   size_t size;
   qbComponent component;
+
+  struct qbMemoryAllocator_* allocator;
 };
 
 struct qbStructInternals_ {
-  qbSchema_* schema;
-  qbEntity entity;
+  qbSchema_* schema;  
+  
+  enum class MEM_TYPE : uint8_t {
+    USER,
+    HEAP,
+    ENTITY
+  } mem_type;
+
+  union {
+    qbEntity entity;
+  };
 };
+
+
 
 struct qbStruct_ {
   qbStructInternals_ internals;
@@ -283,6 +296,7 @@ typedef struct qbSchemaAttrField_ {
 
 typedef struct qbSchemaAttr_ {
   std::vector<qbSchemaAttrField_> fields;
+  struct qbMemoryAllocator_* allocator;
 } qbSchemaAttr_;
 
 #endif

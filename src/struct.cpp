@@ -18,6 +18,7 @@
 
 #include <cubez/struct.h>
 #include "defs.h"
+#include "block_vector.h"
 
 size_t tag_to_size(qbSchemaFieldType_ type) {
   switch (type.tag) {
@@ -97,6 +98,11 @@ qbResult qb_schemaattr_addbytes(qbSchemaAttr attr, const char* name, size_t size
   return QB_OK;
 }
 
+qbResult qb_schemaattr_setallocator(qbSchemaAttr attr, qbMemoryAllocator allocator) {
+  attr->allocator = allocator;
+  return QB_OK;
+}
+
 qbResult qb_schemaattr_destroy(qbSchemaAttr* attr) {
   delete *attr;
   *attr = nullptr;
@@ -121,6 +127,7 @@ qbResult qb_schema_create(qbSchema* schema_ref, const char* name, qbSchemaAttr a
   }
   schema->name = name;
   schema->size = schema->fields.size() * sizeof(qbVar);
+  schema->allocator = attr->allocator ? attr->allocator : qb_memallocator_pool();
 
   qbComponentAttr cattr;
   qb_componentattr_create(&cattr);
@@ -131,18 +138,17 @@ qbResult qb_schema_create(qbSchema* schema_ref, const char* name, qbSchemaAttr a
   return QB_OK;
 }
 
-qbVar qb_struct_create(qbSchema schema) {
-  qbStruct_* s = (qbStruct_*)alloca(sizeof(qbStructInternals_) + schema->size);
+qbVar qb_struct_create(qbSchema schema, qbVar* fields) {
+  qbStruct_* s = (qbStruct_*)qb_alloc(schema->allocator, sizeof(qbStructInternals_) + schema->size);
 
-  qbEntityAttr attr;
-  qb_entityattr_create__unsafe(&attr);
-  qb_entity_create(&s->internals.entity, attr);
-  qb_entity_addcomponent(s->internals.entity, schema->component, s);
+  s->internals.schema = schema;
+  if (fields) {
+    memcpy(&s->data, fields, schema->size);
+  } else {
+    memset(&s->data, 0, schema->size);
+  }
 
-  qbStruct_* ret;
-  qb_instance_find(schema->component, s->internals.entity, &ret);
-
-  return qbStruct(schema, ret);
+  return qbStruct(schema, s);
 }
 
 void qb_struct_destroy(qbVar* v) {
@@ -152,8 +158,8 @@ void qb_struct_destroy(qbVar* v) {
     qb_var_destroy(qb_struct_ati(*v, i));
     ++i;
   } 
-  qb_entity_destroy(s->internals.entity);
-
+  qbMemoryAllocator allocator = s->internals.schema->allocator;
+  qb_dealloc(allocator, s);
   *v = qbNil;
 }
 
@@ -177,10 +183,77 @@ qbVar* qb_struct_ati(qbVar v, uint8_t i) {
   return &((qbVar*)(&s->data))[i];
 }
 
+qbVar* qb_struct_fields(qbVar v) {
+  qbStruct_* s = (qbStruct_*)v.p;
+  return (qbVar*)(&s->data);
+}
+
+const char* qb_struct_keyat(qbVar v, uint8_t i) {
+  qbStruct_* s = (qbStruct_*)v.p;
+  if (i >= s->internals.schema->fields.size()) {
+    return nullptr;
+  }
+
+  return s->internals.schema->fields[i].key.data();
+}
+
 qbEntity qb_struct_entity(qbVar v) {
   if (v.tag != QB_TAG_STRUCT) {
     return qbInvalidEntity;
   }
 
   return ((qbStruct_*)v.p)->internals.entity;
+}
+
+size_t qb_schema_unpack(qbSchema* schema, const qbBuffer_* buf, ptrdiff_t* pos) {
+  ptrdiff_t saved_pos = *pos;
+  size_t total = 0;
+  size_t bytes_read = 0;
+
+  qbTag tag;
+  bytes_read = qb_buffer_read(buf, pos, sizeof(tag), &tag);
+  total += bytes_read;
+  if (bytes_read != sizeof(tag) || tag != QB_TAG_STRUCT) {
+    goto incomplete_read;
+  }
+
+  size_t size;
+  bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&size);
+  total += bytes_read;
+  if (bytes_read == 0) {
+    goto incomplete_read;
+  }
+
+  utf8_t* name;
+  size_t len;
+
+  bytes_read = qb_buffer_readstr(buf, pos, &len, &name);
+  total += bytes_read;
+  if (bytes_read == 0) {
+    goto incomplete_read;
+  }
+
+  *schema = qb_schema_find(name);
+  if (!*schema) {
+    goto incomplete_read;
+  }
+
+  return total;
+
+incomplete_read:
+  *pos = saved_pos;
+  return 0;
+}
+
+qbResult qb_struct_find(qbVar* v, qbSchema schema, qbEntity entity) {
+  qbComponent c = qb_schema_component(schema);
+
+  void* data;
+  qbResult res = qb_instance_find(c, entity, &data);
+  if (res != QB_OK) {
+    return  res;
+  }
+
+  *v = qbStruct(schema, data);
+  return QB_OK;
 }

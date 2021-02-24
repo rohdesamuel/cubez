@@ -20,6 +20,9 @@
 #include <cubez/socket.h>
 #include <cubez/struct.h>
 
+#define NOMINMAX
+#include <winsock.h>
+
 qbVar print_timing_info(qbVar var) {
   for (;;) {
     qbTiming info = (qbTiming)var.p;
@@ -748,8 +751,8 @@ void initialize_universe(qbUniverse* uni) {
   uni_attr.height = height;
 
   qbRendererAttr_ renderer_attr = {};
-  uni_attr.create_renderer = qb_forwardrenderer_create;
-  uni_attr.destroy_renderer = qb_forwardrenderer_destroy;
+  renderer_attr.create_renderer = qb_forwardrenderer_create;
+  renderer_attr.destroy_renderer = qb_forwardrenderer_destroy;
   uni_attr.renderer_args = &renderer_attr;
 
   qbAudioAttr_ audio_attr = {};
@@ -918,7 +921,7 @@ int main(int, char* []) {
     qb_componentattr_create(&attr);
 
     qb_componentattr_onpack(attr,
-      [](qbComponent, qbEntity, const void* read, qbBuffer* write, ptrdiff_t* pos) {
+      [](qbComponent, qbEntity, const void* read, qbBuffer_* write, ptrdiff_t* pos) {
         TestC* t = (TestC*)read;
         
         qb_buffer_write(write, pos, sizeof(int), &t->a);
@@ -926,7 +929,7 @@ int main(int, char* []) {
       });
 
     qb_componentattr_onunpack(attr,
-      [](qbComponent, qbEntity, void* write, const qbBuffer* read, ptrdiff_t* pos) {
+      [](qbComponent, qbEntity, void* write, const qbBuffer_* read, ptrdiff_t* pos) {
         TestC* t = (TestC*)write;
         memset(t, 0, sizeof(TestC));
         
@@ -979,13 +982,146 @@ int main(int, char* []) {
     qb_entityattr_create__unsafe(&attr);
   }
 
+
+  qb_coro_async([](qbVar) {
+    qbSocket server;
+    {
+      qbSocketAttr_ attr{};
+      attr.np = QB_TCP;
+      attr.af = QB_IPV4;
+      qb_socket_create(&server, &attr);
+    }
+
+    qbEndpoint_ endpoint{};
+    qb_endpoint(&endpoint, "127.0.0.1", 12346);
+
+    qbResult err = qb_socket_connect(server, &endpoint);
+    while (err == QB_ERROR_SOCKET && errno == QB_SOCKET_ECONNREFUSED) {
+      qb_coro_wait(0.5);
+      err = qb_socket_connect(server, &endpoint);
+    }
+    const size_t capacity = 1 << 16;
+    qbBuffer_ read_buf{ capacity, new uint8_t[capacity] };
+    qbBuffer_ process_buf{ capacity, new uint8_t[capacity] };
+
+    qbSchema pos_schema = qb_schema_find("Position");
+    void* s = alloca(qb_struct_size(pos_schema));
+    memset(s, 0, qb_struct_size(pos_schema));
+
+    int32_t read_bytes = 0;
+
+    qbVar received = qbMap(QB_TAG_INT, QB_TAG_ANY);
+    for (int i = 0; i < 200; ++i) {            
+      // Pump the socket until we have the header.
+      while (read_bytes < sizeof(int32_t)) {
+        read_bytes += qb_socket_recv(
+          server, (char*)read_buf.bytes + read_bytes,
+          read_buf.capacity - read_bytes, 0);
+      }
+
+      // Get the size of the packet we expect.
+      ptrdiff_t pos = 0;
+      int32_t packet_size;
+      size_t read = qb_buffer_readl(&read_buf, &pos, &packet_size);
+      if (read != sizeof(int32_t)) {
+        std::cout << "Invalid packet: cannot read packet size\n";
+        break;
+      }
+
+      // Pump the socket until we have a full packet (but we may read more than
+      // one buffered packet).
+      while (read_bytes < packet_size) {
+        read_bytes += qb_socket_recv(
+          server, (char*)read_buf.bytes + read_bytes,
+          read_buf.capacity - read_bytes, 0);
+      }
+      
+      // Copy the read packet to be processed. This can be modified to be async
+      // instead: copy the read_buf into the process_buf, then continue reading
+      // from the socket.
+      read_bytes -= packet_size;
+      memcpy(process_buf.bytes, read_buf.bytes, packet_size);
+      memcpy(read_buf.bytes, read_buf.bytes + packet_size, read_bytes);
+
+      // Now we have one full packet in the process_buf.
+      qbVar v;
+      read = qb_var_unpack(&v, &process_buf, &pos);
+      if (read == 0) {
+        std::cout << "Could not unpack" << std::endl;
+      } else {
+        qbVar str = qb_var_tostring(v);
+        
+        std::cout << "Got from server: " << str.s << std::endl;
+        qb_var_destroy(&str);
+        qb_var_destroy(&v);
+      } 
+
+      if (!qb_running()) {
+        return qbNil;
+      }
+
+      //std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    return qbNil;
+  }, qbNil);
+
+  qb_coro_async([](qbVar) {
+    qbSocket server;
+    {
+      qbSocketAttr_ attr{};
+      attr.np = QB_TCP;
+      attr.af = QB_IPV4;
+      qb_socket_create(&server, &attr);
+    }
+
+    qbEndpoint_ endpoint{};
+    qb_endpoint(&endpoint, INADDR_ANY, 12346);
+
+    int opt = 1;
+    qb_socket_setopt(server, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+    qb_socket_bind(server, &endpoint);
+    qb_socket_listen(server, 0);
+
+    qbSocket client{};
+    qb_socket_accept(server, &client, &endpoint);
+
+    qbSchema pos_schema = qb_schema_find("Position");
+    void* s = alloca(qb_struct_size(pos_schema));
+    memset(s, 0, qb_struct_size(pos_schema));
+    
+    for (int i = 0; i < 100; ++i) {
+      uint8_t buffer[128];
+      ptrdiff_t pos = 0;
+      qbBuffer_ buf{ sizeof(buffer), buffer };
+
+      qbVar v = qbStruct(pos_schema, s);
+      *qb_struct_ati(v, 0) = qbInt(0);
+      *qb_struct_ati(v, 1) = qbInt(i);
+
+      size_t written = 0;
+      written += qb_buffer_writel(&buf, &pos, 0);
+      written += qb_var_pack(v, &buf, &pos);
+      
+      pos = 0;
+      qb_buffer_writel(&buf, &pos, written);
+      //std::cout << "Wrote " << written << " bytes\n";
+
+      qb_socket_send(client, (char*)buffer, written, 0);
+
+      if (!qb_running()) {
+        return qbNil;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    return qbNil;
+  }, qbNil);
+
   //qb_coro_sync(test_collision, qbNil);
 
   uint8_t buf[128];
-  qbBuffer buffer{ sizeof(buf), buf };
-
-  qbSchema pos_schema = qb_schema_find("Position");
-  void* s = alloca(qb_struct_size(pos_schema));
+  qbBuffer_ buffer{ sizeof(buf), buf };
 
   qbVar v = qbMap(QB_TAG_INT, QB_TAG_ANY);
   qb_map_insert(v, qbInt(97), qbInt(10));

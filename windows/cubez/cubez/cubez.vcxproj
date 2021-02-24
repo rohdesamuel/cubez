@@ -269,6 +269,7 @@
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
     <ClInclude Include="..\..\..\include\cubez\input.h" />
     <ClInclude Include="..\..\..\include\cubez\log.h" />
+    <ClInclude Include="..\..\..\include\cubez\memory.h" />
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
     <ClInclude Include="..\..\..\include\cubez\network.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
@@ -313,6 +314,9 @@
     <ClInclude Include="..\..\..\src\lua_draw_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_gui_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_input_bindings.h" />
+    <ClInclude Include="..\..\..\src\mem-pool\internals.h" />
+    <ClInclude Include="..\..\..\src\mem-pool\mem_pool.h" />
+    <ClInclude Include="..\..\..\src\memory_internal.h" />
     <ClInclude Include="..\..\..\src\meshoptimizer\meshoptimizer.h" />
     <ClInclude Include="..\..\..\src\mesh_builder.h" />
     <ClInclude Include="..\..\..\src\mesh_loader.h" />
@@ -325,7 +329,6 @@
     <ClInclude Include="..\..\..\src\simplex.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
     <ClInclude Include="..\..\..\src\sparse_set.h" />
-    <ClInclude Include="..\..\..\src\memory_pool.h" />
     <ClInclude Include="..\..\..\src\private_universe.h" />
     <ClInclude Include="..\..\..\src\program_impl.h" />
     <ClInclude Include="..\..\..\src\program_registry.h" />
@@ -386,7 +389,11 @@
     <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_input_bindings.cpp" />
-    <ClCompile Include="..\..\..\src\memory_pool.cpp" />
+    <ClCompile Include="..\..\..\src\mem-pool\buffer.cpp" />
+    <ClCompile Include="..\..\..\src\mem-pool\fixed.cpp" />
+    <ClCompile Include="..\..\..\src\mem-pool\mempool_utils.cpp" />
+    <ClCompile Include="..\..\..\src\mem-pool\variable.cpp" />
+    <ClCompile Include="..\..\..\src\memory.cpp" />
     <ClCompile Include="..\..\..\src\mesh.cpp" />
     <ClCompile Include="..\..\..\src\meshoptimizer\indexgenerator.cpp" />
     <ClCompile Include="..\..\..\src\meshoptimizer\simplifier.cpp" />

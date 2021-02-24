@@ -89,8 +89,11 @@ inline ThreadPool::~ThreadPool()
     stop = true;
   }
   condition.notify_all();
-  for(std::thread &worker: workers)
-    worker.join();
+  for (std::thread &worker : workers) {
+    if (worker.joinable()) {
+      worker.join();
+    }
+  }
 }
 
 #endif
