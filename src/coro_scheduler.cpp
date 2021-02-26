@@ -27,7 +27,7 @@
 //    sync_coro into its thread.
 
 CoroScheduler::CoroScheduler(size_t num_threads) {
-  thread_pool_.reset(new ThreadPool(num_threads));
+  thread_pool_.reset(new CoroThreadPool(num_threads));
   coros_ = new SyncCoros();
 
   sync_coro_ = qb_coro_create([](qbVar var) {

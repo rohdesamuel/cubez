@@ -7,6 +7,7 @@
 #include <cubez/audio.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/gui.h>
+#include <cubez/async.h>
 #include "forward_renderer.h"
 
 #include "pong.h"
@@ -982,8 +983,11 @@ int main(int, char* []) {
     qb_entityattr_create__unsafe(&attr);
   }
 
+  qbChannel packet_channel;
+  qb_channel_create(&packet_channel);
 
-  qb_coro_async([](qbVar) {
+  qb_coro_async([](qbVar channel_ptr) {
+    qbChannel channel = (qbChannel)channel_ptr.p;
     qbSocket server;
     {
       qbSocketAttr_ attr{};
@@ -1009,8 +1013,6 @@ int main(int, char* []) {
     memset(s, 0, qb_struct_size(pos_schema));
 
     int32_t read_bytes = 0;
-
-    qbVar received = qbMap(QB_TAG_INT, QB_TAG_ANY);
     while (qb_running()) {
       // Pump the socket until we have the header.
       while (read_bytes < sizeof(int32_t)) {
@@ -1047,28 +1049,25 @@ int main(int, char* []) {
       qbVar v;
       read = qb_var_unpack(&v, &process_buf, &pos);
 
-      qbCamera camera = qb_camera_getactive();
-
-      qb_camera_setrotation(
-        camera, glms_rotate(GLMS_MAT4_IDENTITY_INIT,
-                            (float)qb_struct_at(v, "y")->i / 10.f,
-                            vec3s{ 0, 0, 1 }));
-
-      if (read == 0) {
-        std::cout << "Could not unpack" << std::endl;
-      } else {
-        qbVar str = qb_var_tostring(v);
-        
-        std::cout << "Got from server: " << str.s << std::endl;
-        qb_var_destroy(&str);
-        qb_var_destroy(&v);
-      } 
-
-      //std::this_thread::sleep_for(std::chrono::seconds(1));
+      qb_channel_write(channel, v);
     }
 
     return qbNil;
-  }, qbNil);
+  }, qbPtr(packet_channel));
+
+  qb_coro_async([](qbVar channel_ptr) {
+    qbChannel channel = (qbChannel)channel_ptr.p;
+    while (qb_running()) {
+      qbVar v;
+      qb_channel_read(channel, &v);
+      qbVar str = qb_var_tostring(v);
+
+      std::cout << "Got from server: " << str.s << std::endl;
+      qb_var_destroy(&str);
+      qb_var_destroy(&v);
+    }
+    return qbNil;
+  }, qbPtr(packet_channel));
 
   qb_coro_async([](qbVar) {
     qbSocket server;
@@ -1117,10 +1116,11 @@ int main(int, char* []) {
         return qbNil;
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     return qbNil;
   }, qbNil);
+
 
   //qb_coro_sync(test_collision, qbNil);
 

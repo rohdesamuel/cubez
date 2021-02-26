@@ -26,6 +26,7 @@
 
 #include <vector>
 #include <functional>
+#include <future>
 #include <mutex>
 #include <unordered_map>
 
@@ -293,5 +294,12 @@ typedef struct qbSchemaAttr_ {
   std::vector<qbSchemaAttrField_> fields;
   struct qbMemoryAllocator_* allocator;
 } qbSchemaAttr_;
+
+typedef struct qbTask_ {
+  std::promise<qbId> p;
+  std::future<qbId> f;
+  qbId task_id;
+  qbVar output;
+} qbTask_;
 
 #endif

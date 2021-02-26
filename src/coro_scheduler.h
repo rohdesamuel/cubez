@@ -54,7 +54,7 @@ private:
     std::vector<SyncCoro> new_coros;
   };
 
-  std::unique_ptr<ThreadPool> thread_pool_;
+  std::unique_ptr<CoroThreadPool> thread_pool_;
   SyncCoros* coros_;
   qbCoro sync_coro_;
 };

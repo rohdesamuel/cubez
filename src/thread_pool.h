@@ -4,6 +4,8 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
+#include <cubez/async.h>
+
 #include <vector>
 #include <queue>
 #include <memory>
@@ -13,16 +15,16 @@
 #include <future>
 #include <functional>
 #include <stdexcept>
-
 #include "coro.h"
+#include "defs.h"
 
-class ThreadPool {
+class CoroThreadPool {
 public:
-  ThreadPool(size_t);
+  CoroThreadPool(size_t);
   template<class F, class... Args>
   auto enqueue(F&& f, Args&&... args) 
     -> std::future<typename std::result_of<F(Args...)>::type>;
-  ~ThreadPool();
+  ~CoroThreadPool();
 private:
   // need to keep track of threads so we can join them
   std::vector< std::thread > workers;
@@ -36,7 +38,7 @@ private:
 };
  
 // the constructor just launches some amount of workers
-inline ThreadPool::ThreadPool(size_t threads)
+inline CoroThreadPool::CoroThreadPool(size_t threads)
   :   stop(false) {
   for (size_t i = 0; i < threads; ++i) {
     workers.emplace_back(
@@ -63,7 +65,7 @@ inline ThreadPool::ThreadPool(size_t threads)
 
 // add new work item to the pool
 template<class F, class... Args>
-auto ThreadPool::enqueue(F&& f, Args&&... args) 
+auto CoroThreadPool::enqueue(F&& f, Args&&... args)
   -> std::future<typename std::result_of<F(Args...)>::type>
 {
   using return_type = typename std::result_of<F(Args...)>::type;
@@ -82,7 +84,7 @@ auto ThreadPool::enqueue(F&& f, Args&&... args)
 }
 
 // the destructor joins all threads
-inline ThreadPool::~ThreadPool()
+inline CoroThreadPool::~CoroThreadPool()
 {
   {
     std::unique_lock<std::mutex> lock(queue_mutex);
@@ -94,6 +96,54 @@ inline ThreadPool::~ThreadPool()
       worker.join();
     }
   }
+}
+
+class TaskThreadPool {
+public:
+  TaskThreadPool(size_t threads);
+  ~TaskThreadPool();
+
+  template<class F>
+  qbTask enqueue(F&& f);
+
+  qbVar join(qbTask task);
+  qbChannel input(qbId task_id, uint8_t input);
+
+private:
+  // need to keep track of threads so we can join them
+  std::vector< std::thread > workers_;
+  // the task queue
+  std::queue< std::function<void(qbId)> > tasks_;
+  std::vector<std::condition_variable*> tasks_cvs_;
+  std::vector<std::mutex*> tasks_join_mutexes_;
+
+  std::vector<std::vector<qbChannel>> task_inputs_;
+
+  // synchronization
+  std::mutex queue_mutex_;
+  std::condition_variable condition_;
+  bool stop_;
+  size_t max_inputs_;
+};
+
+// add new work item to the pool
+template<class F>
+qbTask TaskThreadPool::enqueue(F&& f) {
+  qbTask ret = new qbTask_{};
+  ret->f = ret->p.get_future();
+
+  {
+    std::unique_lock<std::mutex> lock(queue_mutex_);
+    tasks_.emplace([this, f, ret](qbId task_id) {      
+      ret->p.set_value(task_id);
+      ret->output = f();
+    });
+  }
+  condition_.notify_one();
+
+  ret->task_id = ret->f.get();
+
+  return ret;
 }
 
 #endif

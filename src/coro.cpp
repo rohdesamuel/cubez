@@ -61,8 +61,8 @@
 * this will need to be increased.
 */
 #define STACK_TGROW (1 << 12)
-#define STACK_DEFAULT sizeof(intptr_t) * STACK_TGROW
-#define STACK_TSHRINK 2 * STACK_DEFAULT
+#define STACK_DEFAULT (sizeof(intptr_t) * STACK_TGROW)
+#define STACK_TSHRINK (2 * STACK_DEFAULT)
 #define STACK_ADJ STACK_DEFAULT
 
 /* the coroutine structure */

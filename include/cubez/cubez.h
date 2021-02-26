@@ -153,7 +153,7 @@ typedef enum {
 } qbFeature;
 
 // Holds the game engine state
-typedef struct {
+typedef struct qbUniverse {
   void* self;
 
   qbFeature enabled;
@@ -165,6 +165,11 @@ typedef struct qbScriptAttr_ {
   const char* entrypoint;
 } qbScriptAttr_;
 
+typedef struct qbSchedulerAttr_ {
+  size_t max_async_coros;
+  size_t max_async_tasks;
+} qbSchedulerAttr_;
+
 typedef struct {
   const char* title;
   uint32_t width;
@@ -175,6 +180,7 @@ typedef struct {
   struct qbRendererAttr_* renderer_args;
   struct qbAudioAttr_* audio_args;
   struct qbScriptAttr_* script_args;
+  struct qbSchedulerAttr_* scheduler_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
@@ -182,7 +188,7 @@ QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
 QB_API bool qb_running();
 
-typedef struct {
+typedef struct qbLoopCallbacks_ {
   void(*on_update)(uint64_t, qbVar);
   void(*on_fixedupdate)(uint64_t, qbVar);
   void(*on_prerender)(struct qbRenderEvent_*, qbVar);
@@ -198,7 +204,7 @@ typedef struct {
 
 QB_API qbResult qb_loop(qbLoopCallbacks callbacks, qbLoopArgs args);
 
-typedef struct {
+typedef struct qbTiming_ {
   uint64_t frame;
   double udpate_fps;
   double render_fps;
@@ -217,7 +223,7 @@ QB_API qbResult qb_load(const char* file);
 // collections, systems, events, and subscriptions. Programs can only talk to
 // each other through messages. Programs can access each other's collections
 // only after it has been shared.
-typedef struct {
+typedef struct qbProgram {
   const qbId id;
   const char* name;
   const void* self;
@@ -272,7 +278,7 @@ typedef struct qbAlarm_* qbAlarm;
 ///////////////////////////////////////////////////////////
 
 // ======== qbComponentType ========
-typedef enum {
+typedef enum qbComponentType {
   // A piece of serializable memory.
   QB_COMPONENT_TYPE_RAW = 0,
 
@@ -497,7 +503,7 @@ QB_API bool          qb_entity_hascomponent(qbEntity entity,
 // was triggered by an event, the "event" member will point to its message. If
 // the system has user state, defined with "setuserstate" this will be filled
 // in.
-typedef struct {
+typedef struct qbFrame {
   qbSystem system;
   void* event;
   void* state;
@@ -531,7 +537,7 @@ QB_API qbResult      qb_systemattr_addmutable(qbSystemAttr attr,
                                               qbComponent component);
 
 // ======== qbComponentJoin ========
-typedef enum {
+typedef enum qbComponentJoin {
   QB_JOIN_INNER = 0,
   QB_JOIN_LEFT,
   QB_JOIN_CROSS,
@@ -565,7 +571,7 @@ QB_API qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
                                                 qbConditionFn condition);
 
 // ======== qbTrigger ========
-typedef enum {
+typedef enum qbTrigger {
   QB_TRIGGER_LOOP = 0,
   QB_TRIGGER_EVENT
 } qbTrigger;
@@ -614,8 +620,6 @@ QB_API qbResult      qb_system_disable(qbSystem system);
 // Unimplemented.
 QB_API qbResult      qb_system_run(qbSystem system);
 
-QB_API qbResult      qb_system_foreach(qbComponent* components, size_t component_count,
-                                       qbVar state, void(*fn)(qbInstance*, qbVar));
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
@@ -816,5 +820,6 @@ QB_API qbVar      qb_coro_peek(qbCoro coro);
 
 // Returns true if Coroutine is finished running.
 QB_API bool       qb_coro_done(qbCoro coro);
+
 
 #endif  // #ifndef CUBEZ__H

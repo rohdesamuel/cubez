@@ -40,7 +40,7 @@
 #include "lua_bindings.h"
 #include "utf8.h"
 #include "memory_internal.h"
-
+#include "async_internal.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -82,7 +82,8 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   }
 
   universe_->self = new PrivateUniverse();
-  coro_scheduler = new CoroScheduler(4);
+  coro_scheduler = new CoroScheduler(attr->scheduler_args ? attr->scheduler_args->max_async_coros : 4);
+  async_initialize(attr->scheduler_args);  
 
   qbResult ret = AS_PRIVATE(init());
 
@@ -142,6 +143,8 @@ qbResult qb_start() {
 qbResult qb_stop() {
   game_loop.is_running = false;
   qbResult ret = AS_PRIVATE(stop());
+
+  async_stop();
   delete coro_scheduler;
 
   network_shutdown();
@@ -1168,8 +1171,8 @@ size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonll(n);
-  size_t written = qb_buffer_write(buf, pos, sizeof(int64_t), &n);
-  if (written != sizeof(int64_t)) {
+  size_t written = qb_buffer_write(buf, pos, 8, &n);
+  if (written != 8) {
     *pos = saved;
     return 0;
   }
@@ -1180,8 +1183,8 @@ size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonl(n);
-  size_t written = qb_buffer_write(buf, pos, sizeof(int32_t), &n);
-  if (written != sizeof(int32_t)) {
+  size_t written = qb_buffer_write(buf, pos, 4, &n);
+  if (written != 4) {
     *pos = saved;
     return 0;
   }
@@ -1192,8 +1195,8 @@ size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htons(n);
-  size_t written = qb_buffer_write(buf, pos, sizeof(int16_t), &n);
-  if (written != sizeof(int16_t)) {
+  size_t written = qb_buffer_write(buf, pos, 2, &n);
+  if (written != 2) {
     *pos = saved;
     return 0;
   }
@@ -1210,8 +1213,8 @@ size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n) {
 
   d_to_i.d = n;
   d_to_i.i = qb_htonll(d_to_i.i);
-  size_t written = qb_buffer_write(buf, pos, sizeof(double), &d_to_i);
-  if (written != sizeof(double)) {
+  size_t written = qb_buffer_write(buf, pos, 8, &d_to_i);
+  if (written != 8) {
     *pos = saved;
     return 0;
   }
@@ -1228,8 +1231,8 @@ size_t qb_buffer_writef(qbBuffer_* buf, ptrdiff_t* pos, float n) {
 
   f_to_i.f = n;
   f_to_i.i = qb_htonl(f_to_i.i);
-  size_t written = qb_buffer_write(buf, pos, sizeof(float), &f_to_i);
-  if (written != sizeof(float)) {
+  size_t written = qb_buffer_write(buf, pos, 4, &f_to_i);
+  if (written != 4) {
     *pos = saved;
     return 0;
   }
@@ -1255,10 +1258,10 @@ size_t qb_buffer_readstr(const qbBuffer_* buf, ptrdiff_t* pos, size_t* len, char
 size_t qb_buffer_readll(const qbBuffer_* buf, ptrdiff_t* pos, int64_t* n) {
   ptrdiff_t saved = *pos;
 
-  size_t read = qb_buffer_read(buf, pos, sizeof(int64_t), n);
+  size_t read = qb_buffer_read(buf, pos, 8, n);
   *n = qb_ntohll(*n);
 
-  if (read != sizeof(int64_t)) {
+  if (read != 8) {
     *pos = saved;
     return 0;
   }
@@ -1269,10 +1272,10 @@ size_t qb_buffer_readll(const qbBuffer_* buf, ptrdiff_t* pos, int64_t* n) {
 size_t qb_buffer_readl(const qbBuffer_* buf, ptrdiff_t* pos, int32_t* n) {
   ptrdiff_t saved = *pos;
 
-  size_t read = qb_buffer_read(buf, pos, sizeof(int32_t), n);
+  size_t read = qb_buffer_read(buf, pos, 4, n);
   *n = qb_ntohl(*n);
 
-  if (read != sizeof(int32_t)) {
+  if (read != 4) {
     *pos = saved;
     return 0;
   }
@@ -1283,10 +1286,10 @@ size_t qb_buffer_readl(const qbBuffer_* buf, ptrdiff_t* pos, int32_t* n) {
 size_t qb_buffer_reads(const qbBuffer_* buf, ptrdiff_t* pos, int16_t* n) {
   ptrdiff_t saved = *pos;
 
-  size_t read = qb_buffer_read(buf, pos, sizeof(int16_t), n);
+  size_t read = qb_buffer_read(buf, pos, 2, n);
   *n = qb_ntohs(*n);
 
-  if (read != sizeof(int16_t)) {
+  if (read != 2) {
     *pos = saved;
     return 0;
   }
@@ -1302,12 +1305,12 @@ size_t qb_buffer_readd(const qbBuffer_* buf, ptrdiff_t* pos, double* n) {
     int64_t i;
   } d_to_i;
 
-  size_t read = qb_buffer_read(buf, pos, sizeof(double), &d_to_i);
+  size_t read = qb_buffer_read(buf, pos, 8, &d_to_i);
 
   d_to_i.i = qb_ntohll(d_to_i.i);  
   *n = d_to_i.d;
 
-  if (read != sizeof(double)) {
+  if (read != 8) {
     *pos = saved;
     return 0;
   }
@@ -1323,12 +1326,12 @@ size_t qb_buffer_readf(const qbBuffer_* buf, ptrdiff_t* pos, float* n) {
     int64_t i;
   } f_to_i;
 
-  size_t read = qb_buffer_read(buf, pos, sizeof(float), &f_to_i);
+  size_t read = qb_buffer_read(buf, pos, 4, &f_to_i);
 
   f_to_i.i = qb_ntohll(f_to_i.i);
   *n = f_to_i.f;
 
-  if (read != sizeof(float)) {
+  if (read != 4) {
     *pos = saved;
     return 0;
   }
@@ -1341,15 +1344,10 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
   size_t total = 0;
   size_t written = 0;
 
-  written = qb_buffer_write(buf, pos, sizeof(v.tag), &v.tag);
+  uint16_t tag = v.tag & 0xFFFF;
+  written = qb_buffer_write(buf, pos, 2, &tag);
   total += written;
-  if (written != sizeof(v.tag)) {
-    goto incomplete_write;
-  }
-  
-  written = qb_buffer_writell(buf, pos, v.size);
-  total += written;
-  if (written == 0) {
+  if (written != 2) {
     goto incomplete_write;
   }
 
@@ -1385,6 +1383,12 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
       break;
 
     case QB_TAG_BYTES:
+      written = qb_buffer_writell(buf, pos, v.size);
+      total += written;
+      if (written == 0) {
+        goto incomplete_write;
+      }
+
       written = qb_buffer_write(buf, pos, v.size, v.p);
       total += written;
       if (written != v.size) {
@@ -1397,6 +1401,12 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
       qbSchema schema = qb_struct_getschema(v);
       const char* name = qb_schema_name(schema);
       size_t len = strlen(name) + 1;
+
+      written = qb_buffer_writell(buf, pos, v.size);
+      total += written;
+      if (written == 0) {
+        goto incomplete_write;
+      }
 
       written = qb_buffer_writestr(buf, pos, len, name);
       total += written;
@@ -1419,6 +1429,12 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
 
     case QB_TAG_ARRAY:
     {
+      written = qb_buffer_writell(buf, pos, v.size);
+      total += written;
+      if (written == 0) {
+        goto incomplete_write;
+      }
+
       written = qb_buffer_writel(buf, pos, qb_array_type(v));
       total += written;
       if (written == 0) {
@@ -1446,6 +1462,12 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
 
     case QB_TAG_MAP:
     {
+      written = qb_buffer_writell(buf, pos, v.size);
+      total += written;
+      if (written == 0) {
+        goto incomplete_write;
+      }
+
       written = qb_buffer_writel(buf, pos, qb_map_keytype(v));
       total += written;
       if (written == 0) {
@@ -1506,15 +1528,10 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
   size_t total = 0;
   size_t bytes_read = 0;
 
-  bytes_read = qb_buffer_read(buf, pos, sizeof(v->tag), &v->tag);
+  v->tag = QB_TAG_NIL;
+  bytes_read = qb_buffer_read(buf, pos, 2, &v->tag);
   total += bytes_read;
-  if (bytes_read != sizeof(v->tag)) {
-    goto incomplete_read;
-  }
-
-  bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
-  total += bytes_read;
-  if (bytes_read == 0) {
+  if (bytes_read != 2) {
     goto incomplete_read;
   }
 
@@ -1556,6 +1573,12 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
       break;
 
     case QB_TAG_BYTES:
+      bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
+      total += bytes_read;
+      if (bytes_read == 0) {
+        goto incomplete_read;
+      }
+
       v->p = malloc(v->size);
       bytes_read = qb_buffer_read(buf, pos, v->size, v->p);
       total += bytes_read;
@@ -1568,6 +1591,12 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
     {      
       utf8_t* name;
       size_t len;
+
+      bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
+      total += bytes_read;
+      if (bytes_read == 0) {
+        goto incomplete_read;
+      }
 
       bytes_read = qb_buffer_readstr(buf, pos, &len, &name);
       total += bytes_read;
@@ -1600,6 +1629,12 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
 
     case QB_TAG_ARRAY:
     {
+      bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
+      total += bytes_read;
+      if (bytes_read == 0) {
+        goto incomplete_read;
+      }
+
       qbTag array_type;
       bytes_read = qb_buffer_readl(buf, pos, (int32_t*)&array_type);
       total += bytes_read;
@@ -1632,6 +1667,12 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
 
     case QB_TAG_MAP:
     {
+      bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);
+      total += bytes_read;
+      if (bytes_read == 0) {
+        goto incomplete_read;
+      }
+
       qbTag key_type;
       bytes_read = qb_buffer_readl(buf, pos, (int32_t*)&key_type);
       total += bytes_read;

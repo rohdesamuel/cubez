@@ -294,6 +294,12 @@
     <ClInclude Include="..\..\..\src\mem-pool\internals.h">
       <Filter>Header Files\mempool</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\async.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\async_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -787,6 +793,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\mem-pool\mempool_utils.cpp">
       <Filter>Source Files\mempool</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\async.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\thread_pool.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
