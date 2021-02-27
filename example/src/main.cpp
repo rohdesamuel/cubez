@@ -943,41 +943,6 @@ int main(int, char* []) {
 
   qb_mouse_setrelative(0);
 
-#if 0
-  {
-    uint8_t buf_[150] = { 0 };
-    qbBuffer buf{ sizeof(buf_), buf_ };
-    
-    ptrdiff_t pos = 0;
-    qbVar a = qbDouble(1.125);
-    qb_buffer_write(&buf, &pos, a.size, a.bytes);
-
-
-    pos = 0;
-    qbVar b = qbDouble(0.);
-
-    qb_buffer_read(&buf, &pos, b.size, &b.bytes);
-    std::cout << b.d << std::endl;
-
-    for (qbIterator_ it = qb_iterator_begin(qb_transform()); !qb_iterator_isdone(&it); qb_iterator_next(&it)) {
-      qbTransform t = (qbTransform)qb_iterator_at(&it);
-    }
-  }
-  {
-    qbVar array = qbArray(QB_TAG_INT);
-    qb_array_append(array, qbInt(10));
-
-    std::cout << qb_array_at(array, -1)->i << std::endl;
-  }
-
-  {
-    qbVar map = qbMap(QB_TAG_STRING, QB_TAG_INT);
-    qb_map_insert(map, qbString("Hello, World!"), qbInt(10));
-
-    std::cout << qb_map_at(map, qbString("Hello, World!"))->i << std::endl;
-  }
-
-#endif
   {
     qbEntityAttr attr;
     qb_entityattr_create__unsafe(&attr);
@@ -986,7 +951,7 @@ int main(int, char* []) {
   qbChannel packet_channel;
   qb_channel_create(&packet_channel);
 
-  qb_coro_async([](qbVar channel_ptr) {
+  qbTask socket_task = qb_task_async([](qbTask, qbVar channel_ptr) {
     qbChannel channel = (qbChannel)channel_ptr.p;
     qbSocket server;
     {
@@ -1055,7 +1020,7 @@ int main(int, char* []) {
     return qbNil;
   }, qbPtr(packet_channel));
 
-  qb_coro_async([](qbVar channel_ptr) {
+  qbTask read_task = qb_task_async([](qbTask, qbVar channel_ptr) {
     qbChannel channel = (qbChannel)channel_ptr.p;
     while (qb_running()) {
       qbVar v;
@@ -1069,7 +1034,7 @@ int main(int, char* []) {
     return qbNil;
   }, qbPtr(packet_channel));
 
-  qb_coro_async([](qbVar) {
+  qbTask server_task = qb_task_async([](qbTask, qbVar) {
     qbSocket server;
     {
       qbSocketAttr_ attr{};
@@ -1120,9 +1085,6 @@ int main(int, char* []) {
     }
     return qbNil;
   }, qbNil);
-
-
-  //qb_coro_sync(test_collision, qbNil);
 
   uint8_t buf[128];
   qbBuffer_ buffer{ sizeof(buf), buf };

@@ -296,10 +296,13 @@ typedef struct qbSchemaAttr_ {
 } qbSchemaAttr_;
 
 typedef struct qbTask_ {
-  std::promise<qbId> p;
-  std::future<qbId> f;
+  std::promise<qbId> id_promise;
+  std::future<qbId> id_future;
+
+  std::promise<qbVar> output_promise;
+  std::future<qbVar> output_future;
+
   qbId task_id;
-  qbVar output;
 } qbTask_;
 
 #endif

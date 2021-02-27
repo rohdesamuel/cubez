@@ -146,6 +146,7 @@ qbTask qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var) {
   qbTask task = thread_pool->enqueue([task, entry, var]() -> qbVar {
     return (*entry)(task, var);
   });
+  
   return task;
 }
 

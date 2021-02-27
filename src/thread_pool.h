@@ -115,7 +115,6 @@ private:
   // the task queue
   std::queue< std::function<void(qbId)> > tasks_;
   std::vector<std::condition_variable*> tasks_cvs_;
-  std::vector<std::mutex*> tasks_join_mutexes_;
 
   std::vector<std::vector<qbChannel>> task_inputs_;
 
@@ -130,18 +129,19 @@ private:
 template<class F>
 qbTask TaskThreadPool::enqueue(F&& f) {
   qbTask ret = new qbTask_{};
-  ret->f = ret->p.get_future();
+  ret->id_future = ret->id_promise.get_future();
+  ret->output_future = ret->output_promise.get_future();
 
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
     tasks_.emplace([this, f, ret](qbId task_id) {      
-      ret->p.set_value(task_id);
-      ret->output = f();
+      ret->id_promise.set_value(task_id);
+      ret->output_promise.set_value(f());
     });
   }
   condition_.notify_one();
 
-  ret->task_id = ret->f.get();
+  ret->task_id = ret->id_future.get();
 
   return ret;
 }
