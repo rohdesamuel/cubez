@@ -135,5 +135,11 @@
     <None Include="..\..\..\example\scripts\main.lua">
       <Filter>Scripts</Filter>
     </None>
+    <None Include="..\..\..\example\resources\sprite.vs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\..\example\resources\sprite.fs">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

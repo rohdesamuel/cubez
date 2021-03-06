@@ -19,6 +19,7 @@
 #include "forward_renderer.h"
 
 #include <cubez/render.h>
+#include <cubez/sprite.h>
 #include <cubez/mesh.h>
 #include <map>
 #include <iostream>
@@ -361,6 +362,8 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   qbFrameBuffer final = qb_surface_target(r->merge_surface, 0);
 
   qb_renderpass_draw(r->gui_pass, final);
+
+  qb_sprite_flush(final);
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
 }

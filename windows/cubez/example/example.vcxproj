@@ -285,6 +285,8 @@
     <None Include="..\..\..\example\resources\shaders\vs\v2f_c4f_t2f_t2f_d28f.vert" />
     <None Include="..\..\..\example\resources\simple.fs" />
     <None Include="..\..\..\example\resources\simple.vs" />
+    <None Include="..\..\..\example\resources\sprite.fs" />
+    <None Include="..\..\..\example\resources\sprite.vs" />
     <None Include="..\..\..\example\resources\texture.fs" />
     <None Include="..\..\..\example\resources\texture.vs" />
     <None Include="..\..\..\example\scripts\main.lua" />

@@ -276,9 +276,6 @@
     <ClInclude Include="..\..\..\src\utf8.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\sprite.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\struct.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
@@ -299,6 +296,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\async_internal.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\sprite.h">
+      <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

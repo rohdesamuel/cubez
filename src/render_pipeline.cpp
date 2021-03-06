@@ -89,6 +89,9 @@ typedef struct qbImage_ {
   uint32_t id;
   qbImageType type;
   qbPixelFormat format;
+
+  uint32_t width;
+  uint32_t height;
 } qbImage_;
 
 typedef struct qbGpuBuffer_ {
@@ -118,9 +121,8 @@ typedef struct qbMeshBuffer_ {
   qbGpuBuffer* uniforms;
   size_t uniforms_count;
 
-  uint32_t* sampler_bindings;
-  qbImage* images;
-  size_t images_count;
+  std::vector<uint32_t> sampler_bindings;
+  std::vector<qbImage> images;
 
   qbGeometryDescriptor_ descriptor;
 
@@ -732,6 +734,25 @@ size_t qb_gpubuffer_size(qbGpuBuffer buffer) {
   return buffer->size;
 }
 
+void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size) {
+  if (buffer->size == new_size) {
+    return;
+  }
+
+  size_t copy_size = std::min(buffer->size, new_size);
+  char* new_data = new char[new_size];
+  memcpy(new_data, buffer->data, copy_size);
+
+  delete[] buffer->data;
+  buffer->data = new_data;
+  buffer->size = new_size;
+
+  GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
+  glBindBuffer(target, buffer->id);
+  glBufferData(target, buffer->size, buffer->data, GL_DYNAMIC_DRAW);
+  CHECK_GL();
+}
+
 void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
   *buffer_ref = new qbMeshBuffer_;
   qbMeshBuffer buffer = *buffer_ref;
@@ -754,9 +775,8 @@ void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
   buffer->uniforms = nullptr;
   buffer->uniform_bindings = nullptr;
 
-  buffer->images_count = 0;
-  buffer->sampler_bindings = nullptr;
-  buffer->images = nullptr;
+  buffer->sampler_bindings = {};
+  buffer->images = {};
   buffer->instance_count = attr->instance_count;
   buffer->name = STRDUP(attr->name);
   buffer->ext = attr->ext;
@@ -772,8 +792,6 @@ void qb_meshbuffer_destroy(qbMeshBuffer* buffer_ref) {
   delete[](*buffer_ref)->descriptor.bindings;
   delete[](*buffer_ref)->descriptor.attributes;
   delete[](*buffer_ref)->vertices;
-  delete[](*buffer_ref)->sampler_bindings;
-  delete[](*buffer_ref)->images;
   delete[](*buffer_ref)->uniforms;
   delete[](*buffer_ref)->uniform_bindings;
   delete *buffer_ref;
@@ -788,15 +806,26 @@ qbRenderExt qb_meshbuffer_ext(qbMeshBuffer buffer) {
 }
 
 void qb_meshbuffer_attachimages(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]) {
-  if (buffer->images_count != 0) {
+  if (!buffer->images.empty() != 0) {
     FATAL("qbMeshBuffer already has attached images. Use qb_meshbuffer_updateimages to change attached images");
   }
-  buffer->images_count = count;
-  buffer->sampler_bindings = new uint32_t[buffer->images_count];
-  buffer->images = new qbImage[buffer->images_count];
 
-  memcpy(buffer->sampler_bindings, bindings, buffer->images_count * sizeof(uint32_t));
-  memcpy(buffer->images, images, buffer->images_count * sizeof(qbImage));
+  buffer->sampler_bindings.reserve(count);
+  buffer->images.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    buffer->sampler_bindings.push_back(bindings[i]);
+    buffer->images.push_back(images[i]);
+  }
+}
+
+void qb_meshbuffer_updateimages(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]) {
+  buffer->sampler_bindings.resize(count);
+  buffer->images.resize(count);
+
+  for (size_t i = 0; i < count; ++i) {
+    buffer->sampler_bindings[i] = bindings[i];
+    buffer->images[i] = images[i];
+  }
 }
 
 void qb_meshbuffer_attachuniforms(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbGpuBuffer uniforms[]) {
@@ -860,14 +889,14 @@ void qb_meshbuffer_attachindices(qbMeshBuffer buffer, qbGpuBuffer indices) {
 
 void qb_meshbuffer_render(qbMeshBuffer buffer, qbDrawMode mode, uint32_t bindings[]) {
   // Bind textures.
-  for (size_t i = 0; i < buffer->images_count; ++i) {
+  for (size_t i = 0; i < buffer->images.size(); ++i) {
     glActiveTexture((GLenum)(GL_TEXTURE0 + i));
 
     qbImageType type;
     uint32_t image_id = 0;
     uint32_t module_binding = bindings[i];
 
-    for (size_t j = 0; j < buffer->images_count; ++j) {
+    for (size_t j = 0; j < buffer->images.size(); ++j) {
       uint32_t buffer_binding = buffer->sampler_bindings[j];
       if (module_binding == buffer_binding) {
         type = buffer->images[j]->type;
@@ -909,8 +938,8 @@ void qb_meshbuffer_indices(qbMeshBuffer buffer, qbGpuBuffer* indices) {
 }
 
 size_t qb_meshbuffer_images(qbMeshBuffer buffer, qbImage** images) {
-  *images = buffer->images;
-  return buffer->images_count;
+  *images = buffer->images.data();
+  return buffer->images.size();
 }
 
 size_t qb_meshbuffer_uniforms(qbMeshBuffer buffer, qbGpuBuffer** uniforms) {
@@ -1217,6 +1246,9 @@ void qb_image_create(qbImage* image_ref, qbImageAttr attr, qbPixelMap pixel_map)
     glGenerateMipmap(image_type);
   }
 
+  image->width = pixel_map->width;
+  image->height = pixel_map->height;
+
   glPixelStorei(GL_UNPACK_ALIGNMENT, stored_alignment);
   CHECK_GL();
 }
@@ -1227,6 +1259,8 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
   image->format = format;
   image->name = STRDUP(attr->name);
   image->ext = attr->ext;
+  image->width = width;
+  image->height = height;
 
   // Load the image from the file into SDL's surface representation
   GLenum image_type = TranslateQbImageTypeToOpenGl(image->type);
@@ -1274,12 +1308,15 @@ const char* qb_image_name(qbImage image) {
 }
 
 void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
-  qbImage image = *image_ref = new qbImage_;
+  qbImage image = *image_ref = new qbImage_{};
   image->type = attr->type;
   
   // Load the image from the file into SDL's surface representation
   int w, h, n;
   unsigned char* pixels = stbi_load(file, &w, &h, &n, 0);
+
+  image->width = w;
+  image->height = h;
 
   if (!pixels) {
     std::cout << "Could not load texture " << file << ": " << stbi_failure_reason() << std::endl;
@@ -1343,6 +1380,14 @@ void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data) {
 
   glPixelStorei(GL_UNPACK_ALIGNMENT, stored_alignment);
   CHECK_GL();
+}
+
+int qb_image_width(qbImage image) {
+  return image->width;
+}
+
+int qb_image_height(qbImage image) {
+  return image->height;
 }
 
 qbImage qb_framebuffer_createdrawbuffer(uint32_t color_binding, uint32_t width, uint32_t height) {
@@ -2040,7 +2085,7 @@ void qb_surface_resize(qbSurface surface, uint32_t width, uint32_t height) {
 }
 
 void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output) {
-  for (size_t i = 0; i < surface->dbo->images_count; ++i) {
+  for (size_t i = 0; i < surface->dbo->images.size(); ++i) {
     surface->dbo->images[i] = input[i];
   }
   qb_renderpass_draw(surface->pass, output);

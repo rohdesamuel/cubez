@@ -432,6 +432,8 @@ QB_API void qb_image_destroy(qbImage* image);
 QB_API const char* qb_image_name(qbImage image);
 QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const char* file);
 QB_API void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data);
+QB_API int qb_image_width(qbImage image);
+QB_API int qb_image_height(qbImage image);
 
 QB_API void qb_gpubuffer_create(qbGpuBuffer* buffer, qbGpuBufferAttr attr);
 QB_API void qb_gpubuffer_destroy(qbGpuBuffer* buffer);
@@ -441,6 +443,7 @@ QB_API void qb_gpubuffer_update(qbGpuBuffer buffer, intptr_t offset, size_t size
 QB_API void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src, intptr_t dst_offset, intptr_t src_offset, size_t size);
 QB_API void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b);
 QB_API size_t qb_gpubuffer_size(qbGpuBuffer buffer);
+QB_API void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size);
 
 QB_API void qb_meshbuffer_create(qbMeshBuffer* buffer, qbMeshBufferAttr attr);
 QB_API void qb_meshbuffer_destroy(qbMeshBuffer* buffer);
@@ -454,6 +457,7 @@ QB_API size_t qb_meshbuffer_vertices(qbMeshBuffer buffer, qbGpuBuffer** vertices
 QB_API size_t qb_meshbuffer_images(qbMeshBuffer buffer, qbImage** images);
 QB_API size_t qb_meshbuffer_uniforms(qbMeshBuffer buffer, qbGpuBuffer** uniforms);
 QB_API void qb_meshbuffer_indices(qbMeshBuffer buffer, qbGpuBuffer* indices);
+QB_API void qb_meshbuffer_updateimages(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]);
 
 QB_API void qb_rendergroup_create(qbRenderGroup* group, qbRenderGroupAttr attr);
 QB_API void qb_rendergroup_destroy(qbRenderGroup* group);

@@ -8,8 +8,11 @@
 #include <cubez/render_pipeline.h>
 #include <cubez/gui.h>
 #include <cubez/async.h>
-#include "forward_renderer.h"
+#include <cubez/socket.h>
+#include <cubez/struct.h>
+#include <cubez/sprite.h>
 
+#include "forward_renderer.h"
 #include "pong.h"
 
 #include <algorithm>
@@ -18,8 +21,6 @@
 #include <unordered_map>
 #include <string>
 #include <cglm/struct.h>
-#include <cubez/socket.h>
-#include <cubez/struct.h>
 
 #define NOMINMAX
 #include <winsock.h>
@@ -901,6 +902,8 @@ qbVar test_collision(qbVar v) {
   }
 }
 
+qbSprite ball_sprite;
+
 int main(int, char* []) {
   // Create and initialize the game engine.
   qbUniverse uni = {};
@@ -943,13 +946,22 @@ int main(int, char* []) {
 
   qb_mouse_setrelative(0);
 
-  {
-    qbEntityAttr attr;
-    qb_entityattr_create__unsafe(&attr);
-  }
-
   qbChannel packet_channel;
   qb_channel_create(&packet_channel);
+
+  qbTask read_task = qb_task_async([](qbTask, qbVar channel_ptr) {
+    qbChannel channel = (qbChannel)channel_ptr.p;
+    while (qb_running()) {
+      qbVar v;
+      qb_channel_read(channel, &v);
+      qbVar str = qb_var_tostring(v);
+
+      std::cout << "Got from server: " << str.s << std::endl;
+      qb_var_destroy(&str);
+      qb_var_destroy(&v);
+    }
+    return qbNil;
+  }, qbPtr(packet_channel));
 
   qbTask socket_task = qb_task_async([](qbTask, qbVar channel_ptr) {
     qbChannel channel = (qbChannel)channel_ptr.p;
@@ -1017,20 +1029,6 @@ int main(int, char* []) {
       qb_channel_write(channel, v);
     }
 
-    return qbNil;
-  }, qbPtr(packet_channel));
-
-  qbTask read_task = qb_task_async([](qbTask, qbVar channel_ptr) {
-    qbChannel channel = (qbChannel)channel_ptr.p;
-    while (qb_running()) {
-      qbVar v;
-      qb_channel_read(channel, &v);
-      qbVar str = qb_var_tostring(v);
-
-      std::cout << "Got from server: " << str.s << std::endl;
-      qb_var_destroy(&str);
-      qb_var_destroy(&v);
-    }
     return qbNil;
   }, qbPtr(packet_channel));
 
@@ -1103,8 +1101,17 @@ int main(int, char* []) {
   qb_var_unpack(&after, &buffer, &pos);
   std::cout << qb_map_at(v, qbInt(97))->i << ", " << qb_map_at(v, qbInt(112))->s << std::endl;
 
+  qb_sprite_initialize(qb_window_width(), qb_window_height());
+
+  ball_sprite = qb_sprite_load("", "resources/soccer_ball.bmp");
+
   qbLoopCallbacks_ loop_callbacks = {};
-  qbLoopArgs_ loop_args = {};  
+  loop_callbacks.on_prerender = [](qbRenderEvent_* e, qbVar v_sprite_render_arg) {
+    qb_sprite_draw(ball_sprite, -1, { 500, 500 });
+  };
+
+  qbLoopArgs_ loop_args = {};
+
   while (qb_loop(&loop_callbacks, &loop_args) != QB_DONE) {
     qb_timing(uni, &timing_info);
   }
