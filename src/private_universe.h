@@ -101,6 +101,7 @@ class PrivateUniverse {
   qbResult join_program(qbId program);
   void onready_program(qbId program,
                        void(*onready)(qbProgram* program, qbVar), qbVar state);
+  lua_State* main_lua_state();
 
   // qbSystem manipulation.
   qbResult system_create(qbSystem* system, const qbSystemAttr_& attr);

@@ -165,6 +165,10 @@ qbResult PrivateUniverse::join_program(qbId program) {
   return programs_->JoinProgram(program);
 }
 
+lua_State* PrivateUniverse::main_lua_state() {
+  return programs_->main_lua_state();
+}
+
 void PrivateUniverse::onready_program(
   qbId program, void(*onready)(qbProgram* program, qbVar), qbVar state) {
   qbProgram* p = programs_->GetProgram(program);
