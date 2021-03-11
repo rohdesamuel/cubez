@@ -519,6 +519,21 @@ void lua_update(lua_State* L) {
   lua_pop(L, 1);
 }
 
+void lua_draw(lua_State* L) {
+  if (!L) {
+    return;
+  }
+
+  // Call qb.udpate()
+  lua_getglobal(L, "qb");
+  lua_getfield(L, -1, "draw");
+  if (!lua_isnil(L, -1)) {
+    lua_call(L, 0, 0);
+  }
+  lua_pop(L, 1);
+}
+
+
 void lua_init(lua_State* L) {
   if (!L) {
     return;

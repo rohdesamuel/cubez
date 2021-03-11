@@ -27,5 +27,6 @@ lua_State* lua_thread_initialize();
 
 void lua_start(lua_State* L);
 void lua_update(lua_State* L);
+void lua_draw(lua_State* L);
 
 #endif  // CUBEZ_LUA_BINDINGS__H
