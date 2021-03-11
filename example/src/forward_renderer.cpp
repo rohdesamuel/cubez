@@ -360,15 +360,17 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   }
 
   qbFrameBuffer final = qb_surface_target(r->merge_surface, 0);
-
+    
   qb_renderpass_draw(r->gui_pass, final);
 
-  qb_sprite_flush(final);
+  qb_sprite_flush(final, event);
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
 }
 
 void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
+  qb_sprite_onresize(width, height);
+
   qbForwardRenderer r = (qbForwardRenderer)self;
   qb_renderpipeline_resize(self->render_pipeline, { 0, 0, (float)width, (float)height });
   
@@ -1299,7 +1301,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       qbGpuBuffer material_buffer = qb_rendergroup_finduniform_bybinding(group, renderer->material_uniform);
 
       ModelUniform model_uniform;
-      mat4s orientation = glms_translate(transform->orientation, transform->pivot);
+      mat4s orientation = glms_translate(transform->orientation, transform->offset);
       mat4s pos = glms_translate(GLMS_MAT4_IDENTITY_INIT, transform->position);
       model_uniform.m = glms_mat4_mul(pos, orientation);
       model_uniform.rot = transform->orientation;
