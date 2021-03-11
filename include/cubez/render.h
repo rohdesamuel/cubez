@@ -146,6 +146,7 @@ typedef const qbCamera_* qbCamera;
 
 typedef struct qbRenderEvent_ {
   double alpha;
+  double dt;
   uint64_t frame;
 
   qbRenderer renderer;
@@ -207,9 +208,10 @@ QB_API qbResult qb_render_makecurrent();
 QB_API qbResult qb_render_makenull();
 
 typedef struct qbTransform_ {
-  vec3s pivot;
+  vec3s offset;
   vec3s position;
   mat4s orientation;
+  vec3s scale;
 } qbTransform_, *qbTransform;
 
 QB_API void qb_modelgroup_create(qbModelGroup* modelgroup);
