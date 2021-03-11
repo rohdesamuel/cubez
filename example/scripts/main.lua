@@ -173,3 +173,6 @@ function qb.update()
     print('There are', BallTag:count(), 'balls')
   end  
 end
+
+function qb.draw()
+end

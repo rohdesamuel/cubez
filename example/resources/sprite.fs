@@ -1,6 +1,6 @@
 #version 330 core
 
-uniform sampler2D tex_sampler;
+uniform sampler2D tex_sampler[32];
 
 layout (location = 0) out vec4 out_color;
 
@@ -8,20 +8,10 @@ in VertexData
 {
 	flat vec4 col;
   vec2 tex;
+  flat float tex_id;
 } o;
 
-float udRoundBox(vec2 p, vec2 b, float r) {
-  vec2 q = abs(p) - b;
-  return length(max(q, 0.0)) + min(max(q.x, q.y),0.0) - r;
-}
-
 void main() {
-  //if (o.render_mode == 0) { // RENDER_MODE_SOLID
-	out_color = o.col;
-  //} else if (o.render_mode == 1) { // RENDER_MODE_IMAGE
-	out_color = texture2D(tex_sampler, o.tex);// * o.col;
-	//  out_color.a = o.col.a;
-  //}
-
-  //out_color = vec4(1.0, 0.0, 1.0, 1.0);
+  int index = int(o.tex_id);
+  out_color = texture(tex_sampler[index], o.tex) * o.col;
 }

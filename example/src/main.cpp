@@ -903,6 +903,10 @@ qbVar test_collision(qbVar v) {
 }
 
 qbSprite ball_sprite;
+qbSprite wall_sprite;
+qbSprite sheet;
+qbAnimation sheet_animation;
+qbSprite test_animator;
 
 int main(int, char* []) {
   // Create and initialize the game engine.
@@ -949,6 +953,7 @@ int main(int, char* []) {
   qbChannel packet_channel;
   qb_channel_create(&packet_channel);
 
+#if 0
   qbTask read_task = qb_task_async([](qbTask, qbVar channel_ptr) {
     qbChannel channel = (qbChannel)channel_ptr.p;
     while (qb_running()) {
@@ -962,7 +967,6 @@ int main(int, char* []) {
     }
     return qbNil;
   }, qbPtr(packet_channel));
-
   qbTask socket_task = qb_task_async([](qbTask, qbVar channel_ptr) {
     qbChannel channel = (qbChannel)channel_ptr.p;
     qbSocket server;
@@ -1031,7 +1035,6 @@ int main(int, char* []) {
 
     return qbNil;
   }, qbPtr(packet_channel));
-
   qbTask server_task = qb_task_async([](qbTask, qbVar) {
     qbSocket server;
     {
@@ -1083,7 +1086,7 @@ int main(int, char* []) {
     }
     return qbNil;
   }, qbNil);
-
+#endif
   uint8_t buf[128];
   qbBuffer_ buffer{ sizeof(buf), buf };
 
@@ -1104,13 +1107,74 @@ int main(int, char* []) {
   qb_sprite_initialize(qb_window_width(), qb_window_height());
 
   ball_sprite = qb_sprite_load("", "resources/soccer_ball.bmp");
+  
+  sheet = qb_spritesheet_load("", "resources/roguelikeSheet_transparent.png", 16, 16, 1);
+  wall_sprite = qb_sprite_fromsheet("", sheet, 10, 1);
+
+  {
+    std::vector<std::string> files = {
+      "resources/run_animation/run-1.png",
+      "resources/run_animation/run-2.png",
+      "resources/run_animation/run-3.png",
+      "resources/run_animation/run-4.png",
+      "resources/run_animation/run-5.png",
+      "resources/run_animation/run-6.png",
+      "resources/run_animation/run-7.png",
+      "resources/run_animation/run-8.png",
+    };
+
+    std::vector<qbSprite> frames;
+    std::vector<double> durations;
+    for (auto& file : files) {
+      frames.push_back(qb_sprite_load("", file.c_str()));
+    }
+
+    qbAnimationAttr_ attr{};
+    attr.repeat = true;
+    attr.frames = frames.data();
+    attr.frame_speed = 100.0;
+    attr.frame_count = frames.size();
+
+    sheet_animation = qb_animation_create("", &attr);
+  }
+
+  test_animator = qb_animation_play(sheet_animation);
+
+  vec2s* sprite_pos = new vec2s{};
+  {
+    qbEntity sprite = qb_entity_empty();
+
+    qb_entity_addcomponent(sprite, qb_sprite(), test_animator);
+    qb_entity_addcomponent(sprite, qb_transform(), nullptr);
+  }
 
   qbLoopCallbacks_ loop_callbacks = {};
-  loop_callbacks.on_prerender = [](qbRenderEvent_* e, qbVar v_sprite_render_arg) {
-    qb_sprite_draw(ball_sprite, -1, { 500, 500 });
+  loop_callbacks.on_update = [](uint64_t frame, qbVar pos) {
+    vec2s* p = (vec2s*)pos.p;
+
+    static float rot = 0;
+    if (qb_key_ispressed(qbKey::QB_KEY_LEFT)) {
+      p->x -= 2.5f;
+    }
+    
+    if (qb_key_ispressed(qbKey::QB_KEY_RIGHT)) {
+      p->x += 1.5f;
+    }
+
+    //qb_sprite_draw_ext(ball_sprite, { 500, 500 }, { 1.f, 1.f }, rot, GLMS_VEC4_ONE_INIT);
+    //qb_sprite_draw_ext(wall_sprite, { 500, 500 }, { 4.f, 4.f }, 0.f, GLMS_VEC4_ONE_INIT);
+    //qb_sprite_draw(sheet, { 0, 0 });
+    rot += 0.0001f;
+  };
+
+  loop_callbacks.on_prerender = [](qbRenderEvent, qbVar pos) {
+    vec2s* p = (vec2s*)pos.p;
+    qb_sprite_draw_ext(test_animator, *p, { 4.f, 4.f }, 0.f, GLMS_VEC4_ONE_INIT);
   };
 
   qbLoopArgs_ loop_args = {};
+  loop_args.update = qbPtr(sprite_pos);
+  loop_args.prerender = qbPtr(sprite_pos);
 
   while (qb_loop(&loop_callbacks, &loop_args) != QB_DONE) {
     qb_timing(uni, &timing_info);
