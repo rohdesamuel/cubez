@@ -189,8 +189,8 @@ QB_API qbResult qb_stop();
 QB_API bool qb_running();
 
 typedef struct qbLoopCallbacks_ {
-  void(*on_update)(uint64_t, qbVar);
-  void(*on_fixedupdate)(uint64_t, qbVar);
+  void(*on_update)(uint64_t frame, qbVar);
+  void(*on_fixedupdate)(uint64_t frame, qbVar);
   void(*on_prerender)(struct qbRenderEvent_*, qbVar);
   void(*on_postrender)(struct qbRenderEvent_*, qbVar);
 } qbLoopCallbacks_, *qbLoopCallbacks;
@@ -209,6 +209,13 @@ typedef struct qbTiming_ {
   double udpate_fps;
   double render_fps;
   double total_fps;
+
+  uint64_t total_elapsed_ns;
+  uint64_t render_elapsed_ns;
+
+  double* update_elapsed_samples;
+  size_t update_elapsed_samples_count;
+
 } qbTiming_, *qbTiming;
 QB_API qbResult qb_timing(qbUniverse universe, qbTiming timing);
 
@@ -464,6 +471,9 @@ QB_API extern const qbEntity qbInvalidEntity;
 QB_API qbResult      qb_entity_create(qbEntity* entity,
                                       qbEntityAttr attr);
 
+// Creates a new empty qbEntity.
+QB_API qbEntity      qb_entity_empty();
+
 // Destroys the specified entity and all of its components. This destroys the
 // entity at the end of the frame ensuring that references to entities are
 // always valid during a frame.
@@ -492,6 +502,12 @@ QB_API qbResult      qb_entity_removecomponent(qbEntity entity,
 // This is only thread-safe if the component is a "shared" component, created
 // with the `qb_componentattr_setshared` method.
 QB_API bool          qb_entity_hascomponent(qbEntity entity,
+                                            qbComponent component);
+
+// Returns the specified component.
+// This is only thread-safe if the component is a "shared" component, created
+// with the `qb_componentattr_setshared` method.
+QB_API void*         qb_entity_getcomponent(qbEntity entity,
                                             qbComponent component);
 
 ///////////////////////////////////////////////////////////

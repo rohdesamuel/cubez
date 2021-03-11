@@ -50,6 +50,8 @@ const qbEntity qbInvalidEntity = -1;
 
 static qbUniverse* universe_ = nullptr;
 qbTiming_ timing_info;
+std::vector<double> elapsed_update_samples;
+
 qbTimer fps_timer;
 qbTimer update_timer;
 qbTimer render_timer;
@@ -126,7 +128,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qb_timer_create(&render_timer, 50);
   }
 
-  network_initialize();  
+  network_initialize();
 
   return ret;
 }
@@ -161,6 +163,8 @@ bool qb_running() {
 
 qbResult loop(qbLoopCallbacks callbacks,
               qbLoopArgs args) {
+  elapsed_update_samples.clear();
+
   qb_timer_start(fps_timer);
 
   const static double extra_render_time = universe_->enabled & QB_FEATURE_GRAPHICS ? 0.0 : game_loop.dt;
@@ -192,7 +196,7 @@ qbResult loop(qbLoopCallbacks callbacks,
     qbResult result = AS_PRIVATE(loop());
     coro_scheduler->run_sync();
 
-    qb_timer_add(update_timer);
+    elapsed_update_samples.push_back(qb_timer_add(update_timer));
 
     game_loop.accumulator -= game_loop.dt;
     game_loop.t += game_loop.dt;
@@ -203,6 +207,7 @@ qbResult loop(qbLoopCallbacks callbacks,
   qbRenderEvent_ e;
   e.frame = universe_->frame;
   e.alpha = game_loop.accumulator / game_loop.dt;
+  e.dt = frame_time;
   e.camera = qb_camera_getactive();
   e.renderer = qb_renderer();
 
@@ -214,13 +219,14 @@ qbResult loop(qbLoopCallbacks callbacks,
     gui_element_updateuniforms();
   }
 
+  lua_draw(AS_PRIVATE(main_lua_state()));
   qb_render(&e);
 
   if (callbacks && callbacks->on_postrender) {
     callbacks->on_postrender(&e, args->postrender);
   }
 
-  qb_timer_add(render_timer);
+  timing_info.render_elapsed_ns = qb_timer_add(render_timer);
   double elapsed_render = qb_timer_average(render_timer) * 1e-9 + extra_render_time;
   if (elapsed_render < 10e-9) {
     elapsed_render += game_loop.dt;
@@ -244,6 +250,9 @@ qbResult loop(qbLoopCallbacks callbacks,
   timing_info.render_fps = render_fps;
   timing_info.total_fps = total_fps;
   timing_info.udpate_fps = update_fps;
+  timing_info.total_elapsed_ns = fps_timer_elapsed;  
+  timing_info.update_elapsed_samples = elapsed_update_samples.data();
+  timing_info.update_elapsed_samples_count = elapsed_update_samples.size();
 
   return game_loop.is_running ? QB_OK : QB_DONE;
 }
@@ -473,7 +482,19 @@ qbResult qb_entityattr_addcomponent(qbEntityAttr attr, qbComponent component,
 }
 
 qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
+  qbEntityAttr_ empty{};
+
+  if (!attr) {
+    attr = &empty;
+  }
+
   return AS_PRIVATE(entity_create(entity, *attr));
+}
+
+qbEntity qb_entity_empty() {
+  qbEntity ret;
+  qb_entity_create(&ret, nullptr);
+  return ret;
 }
 
 qbResult qb_entity_destroy(qbEntity entity) {
@@ -627,9 +648,6 @@ qbResult qb_eventattr_setmessagesize(qbEventAttr attr, size_t size) {
 }
 
 qbResult qb_event_create(qbEvent* event, qbEventAttr attr) {
-  if (!attr->program) {
-    attr->program = 0;
-  }
 #ifdef __ENGINE_DEBUG__
   DEBUG_ASSERT(attr->message_size > 0,
                qbResult::QB_ERROR_EVENTATTR_MESSAGE_SIZE_IS_ZERO);
