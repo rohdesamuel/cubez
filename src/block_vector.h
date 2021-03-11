@@ -194,6 +194,8 @@ public:
     resize_capacity(count_ + 1);
     if (data) {
       apex::memmove((*this)[count_ - 1], data, elem_size_);
+    } else {
+      memset((*this)[count_ - 1], 0, elem_size_);
     }
   }
 
@@ -204,6 +206,8 @@ public:
     }
     if (data) {
       apex::memcpy((*this)[count_ - 1], data, elem_size_);
+    } else {
+      memset((*this)[count_ - 1], 0, elem_size_);
     }
   }
 
