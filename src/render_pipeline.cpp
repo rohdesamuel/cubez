@@ -611,10 +611,11 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
   uint32_t program = (uint32_t)module->shader->id();
 
   for (auto i = 0; i < module->resources_count; ++i) {
-    qbShaderResourceInfo attr = module->resources + i;
-    if (attr->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
-      int32_t block_index = glGetUniformBlockIndex(program, attr->name);
-      glUniformBlockBinding(program, block_index, attr->binding);
+    qbShaderResourceInfo info = module->resources + i;
+    info->name = STRDUP(attr->resources[i].name);
+    if (info->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
+      int32_t block_index = glGetUniformBlockIndex(program, info->name);
+      glUniformBlockBinding(program, block_index, info->binding);
       CHECK_GL();
     }
   }
