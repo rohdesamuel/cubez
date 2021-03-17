@@ -21,4 +21,11 @@
 
 struct lua_State;
 
+int window_width(lua_State* L);
+int window_height(lua_State* L);
+int window_getfullscreen(lua_State* L);
+int window_setfullscreen(lua_State* L);
+int window_getbordered(lua_State* L);
+int window_setbordered(lua_State* L);
+
 #endif  // CUBEZ_LUA_DRAW_BINDINGS__H

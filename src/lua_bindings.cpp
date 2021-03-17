@@ -27,6 +27,8 @@
 #include "lua_input_bindings.h"
 #include "lua_gui_bindings.h"
 #include "lua_audio_bindings.h"
+#include "lua_sprite_bindings.h"
+#include "lua_draw_bindings.h"
 
 extern "C" {
 #include <lua/lua.h>
@@ -78,6 +80,13 @@ static const luaL_Reg qb_lib[] = {
   { "mouse_relative", mouse_relative },
   { "userfocus", userfocus },
 
+  { "window_width", window_width },
+  { "window_height", window_height },
+  { "window_getfullscreen", window_getfullscreen },
+  { "window_setfullscreen", window_setfullscreen },
+  { "window_getbordered", window_getbordered },
+  { "window_setbordered", window_setbordered },
+
   { "guielement_getfocus", guielement_getfocus },
   { "guielement_getfocusat", guielement_getfocusat },
   { "guielement_find", guielement_find },
@@ -120,6 +129,30 @@ static const luaL_Reg qb_lib[] = {
   { "audio_setpan", audio_setpan },
   { "audio_setvolume", audio_setvolume },
   { "audio_stopall", audio_stopall },
+
+  { "sprite_load", sprite_load },
+  { "spritesheet_load", spritesheet_load },
+  { "sprite_fromsheet", sprite_fromsheet },
+  { "sprite_draw", sprite_draw },
+  { "sprite_draw_ext", sprite_draw_ext },
+  { "sprite_drawpart", sprite_drawpart },
+  { "sprite_drawpart_ext", sprite_drawpart_ext },
+  { "sprite_setoffset", sprite_setoffset },
+  { "sprite_width", sprite_width },
+  { "sprite_height", sprite_height },
+  { "sprite_setdepth", sprite_setdepth },
+  { "sprite_getdepth", sprite_getdepth },
+
+  { "sprite_framecount", sprite_framecount },
+  { "sprite_getframe", sprite_getframe },
+  { "sprite_setframe", sprite_setframe },
+
+  { "animation_create", animation_create },
+  { "animation_loaddir", animation_loaddir },
+  { "animation_fromsheet", animation_fromsheet },
+  { "animation_play", animation_play },
+  { "animation_getoffset", animation_getoffset },
+  { "animation_setoffset", animation_setoffset },
 
   { nullptr, nullptr }
 };
@@ -487,6 +520,179 @@ function _QB.audio.Sound:setvolume (vol)
   return _QB.audio_setvolume(self._sound, vol)
 end
 
+------------------
+-- Draw Methods.
+------------------
+_QB.sprite = {}
+
+_QB.sprite.Sprite = {}
+function _QB.sprite.Sprite.__eq(a, b)
+  return a._sprite == b._sprite
+end
+_QB.sprite.Sprite.__index = _QB.sprite.Sprite
+
+function _QB.sprite.load (file)
+  local ret = { _sprite=_QB.sprite_load(file) }
+  setmetatable(ret, _QB.sprite.Sprite)
+
+  return ret
+end
+
+function _QB.sprite.loadsheet (file, tw, th, margin)
+  local ret = { _sprite=_QB.spritesheet_load(file, tw, th, margin) }
+  setmetatable(ret, _QB.sprite.Sprite)
+
+  return ret
+end
+
+function _QB.sprite.fromsheet (sheet, ix, iy)
+  local ret = { _sprite=_QB.sprite_fromsheet(sheet, ix, iy) }
+  setmetatable(ret, _QB.sprite.Sprite)
+
+  return ret
+end
+
+function _QB.sprite.Sprite:draw (x, y)
+  _QB.sprite_draw(self._sprite, x, y)
+end
+
+function _QB.sprite.Sprite:draw_ext (x, y, sx, sy, rot, col)
+  _QB.sprite_draw_ext(self._sprite, x, y, sx, sy, rot, col)
+end
+
+function _QB.sprite.Sprite:drawpart (x, y, left, top, width, height)
+  _QB.sprite_drawpart(self._sprite, x, y, left, top, width, height)
+end
+
+function _QB.sprite.Sprite:drawpart_ext (x, y, left, top, width, height, sx, sy, rot, col)
+  _QB.sprite_drawpart_ext(self._sprite, x, y, left, top, width, height, sx, sy, rot, col)
+end
+
+function _QB.sprite.Sprite:getoffset ()
+  return _QB.sprite_getoffset(self._sprite)
+end
+
+function _QB.sprite.Sprite:setoffset (ox, oy)
+  _QB.sprite_setoffset(self._sprite, ox, oy)
+end
+
+function _QB.sprite.Sprite:width ()
+  return _QB.sprite_width(self._sprite)
+end
+
+function _QB.sprite.Sprite:height ()
+  return _QB.sprite_height(self._sprite)
+end
+
+function _QB.sprite.Sprite:getdepth ()
+  return _QB.sprite_getdepth(self._sprite)
+end
+
+function _QB.sprite.Sprite:setdepth ()
+  _QB.sprite_setdepth(self._sprite)
+end
+
+function _QB.sprite.Sprite:framecount ()
+  return _QB.sprite_framecount(self._sprite)
+end
+
+function _QB.sprite.Sprite:getframe()
+  return _QB.sprite_getframe(self._sprite)
+end
+
+function _QB.sprite.Sprite:setframe(frame)
+  _QB.sprite_setframe(self._sprite, frame)
+end
+
+
+_QB.animation = {}
+_QB.animation.Animation = {}
+function _QB.animation.Animation.__eq(a, b)
+  return a._animation == b._animation
+end
+
+_QB.animation.Animation.__index = _QB.animation.Animation
+
+function _QB.animation.create (frames, frame_speed, frame_repeat, keyframe)
+  local sprites = {}
+  for i, sprite in ipairs(frames) do
+    sprites[i] = sprite._sprite
+  end
+
+  local frame_speed = frame_speed or 1.0
+  local frame_repeat = frame_repeat or false
+  local keyframe = keyframe or 0
+
+  local ret = { _animation=_QB.animation_create(sprites, frame_speed, frame_repeat, keyframe) }
+  setmetatable(ret, _QB.animation.Animation)
+  return ret
+end
+
+function _QB.animation.loaddir (dir, frame_speed, frame_repeat, keyframe)
+  local frame_speed = frame_speed or 1.0
+  local frame_repeat = frame_repeat or false
+  local keyframe = keyframe or 0
+
+  local ret = { _animation=_QB.animation_loaddir(dir, frame_speed, frame_repeat, keyframe) }
+  setmetatable(ret, _QB.animation.Animation)
+  return ret
+end
+
+function _QB.animation.fromsheet (sheet, index_start, index_end, frame_speed, frame_repeat, keyframe)
+  local frame_speed = frame_speed or 1.0
+  local frame_repeat = frame_repeat or false
+  local keyframe = keyframe or 0
+
+  local ret = { _animation=_QB.animation_fromsheet(sheet._sprite, index_start, index_end, frame_speed, frame_repeat, keyframe) }
+  setmetatable(ret, _QB.animation.Animation)
+  return ret
+end
+
+function _QB.animation.Animation:play ()
+  local ret = { _sprite=_QB.animation_play(self._animation) }
+  setmetatable(ret, _QB.sprite.Sprite)
+  return ret
+end
+
+function _QB.animation.Animation:getoffset ()
+  return _QB.animation.animation_getoffset(self._animation)
+end
+
+function _QB.animation.Animation:setoffset (ox, oy)
+  _QB.animation.animation_setoffset(self._animation, ox, oy)
+end
+
+_QB.window = {}
+_QB.window.fullscreen_type = {
+  WINDOWED='windowed',
+  WINDOW_FULLSCREEN='window_fullscreen',
+  WINDOW_FULLSCREEN_DESKTOP='window_fullscreen_desktop',
+}
+
+function _QB.window.width()
+  return _QB.window_width()
+end
+
+function _QB.window.height()
+  return _QB.window_height()
+end
+
+function _QB.window.getfullscreen()
+  _QB.window_getfullscreen()
+end
+
+function _QB.window.setfullscreen(type)
+  _QB.window_setfullscreen(type)
+end
+
+function _QB.window.getbordered()
+  _QB.window_getbordered()
+end
+
+function _QB.window.setbordered(bordered)
+  _QB.window_setbordered(bordered)
+end
+
 )";
 
 void lua_start(lua_State* L) {
@@ -524,7 +730,7 @@ void lua_draw(lua_State* L) {
     return;
   }
 
-  // Call qb.udpate()
+  // Call qb.draw()
   lua_getglobal(L, "qb");
   lua_getfield(L, -1, "draw");
   if (!lua_isnil(L, -1)) {
@@ -533,6 +739,21 @@ void lua_draw(lua_State* L) {
   lua_pop(L, 1);
 }
 
+void lua_resize(lua_State* L, uint32_t width, uint32_t height) {
+  if (!L) {
+    return;
+  }
+
+  // Call qb.draw()
+  lua_getglobal(L, "qb");
+  lua_getfield(L, -1, "resize");
+  lua_pushinteger(L, width);
+  lua_pushinteger(L, height);
+  if (!lua_isnil(L, -1)) {
+    lua_call(L, 2, 0);
+  }
+  lua_pop(L, 1);
+}
 
 void lua_init(lua_State* L) {
   if (!L) {

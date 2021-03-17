@@ -95,11 +95,11 @@
   x, y = qb.mouse.getposition()
   focused_at = qb.gui.getfocusat(x, y)
 
+  --[[
   el = qb.gui.element.create('something', {
     backgroundcolor={1.0, 0.0, 0.0, 0.9},
     radius=5,
   })
-
   el = qb.gui.element.find('something')
   el:setconstraint(
     { 'x', 'pixel', 500 },
@@ -153,6 +153,23 @@
   el:setvalue('Hello, world!')
   print(el:getvalue())
 
+  --]]
+
+  adventurer_sheet = qb.sprite.loadsheet('resources/Adventurer/adventurer-Sheet.png', 50, 37, 0)
+  adventurer_sheet:setoffset(25, 0)
+
+  idle_animation = qb.animation.fromsheet(adventurer_sheet, 0, 4, 300, true):play()  
+  running_animation = qb.animation.fromsheet(adventurer_sheet, 8, 14, 100, true):play()
+  jumping_animation = qb.animation.fromsheet(adventurer_sheet, 14, 24, 85, false):play()
+  landing_animation = qb.animation.fromsheet(adventurer_sheet, 14, 16, 200, false):play()
+  crouching_animation = qb.animation.fromsheet(adventurer_sheet, 4, 8, 400, true):play()
+
+  current_animation = nil
+
+  player = qb.entity.create()
+  player:add(Position:create{x=0, y=0})
+  facing = 1
+
 end
 
 -- Called on every initialization of a new Lua State in the engine. This occurs
@@ -163,8 +180,56 @@ function qb.init()
 end
 
 function qb.update()
+  local player = player
+  local pos = player:get(Position)
+  
+  if qb.keyboard.ispressed('left') then
+    pos.x = pos.x - 3
+    facing = -1
+    if current_animation ~= jumping_animation and current_animation ~= landing_animation then
+      current_animation = running_animation      
+    end
+  elseif qb.keyboard.ispressed('right') then
+    pos.x = pos.x + 3
+    facing = 1
+    if current_animation ~= jumping_animation and current_animation ~= landing_animation then
+      current_animation = running_animation
+    end
+  elseif qb.keyboard.ispressed('down') then
+    current_animation = crouching_animation
+  elseif current_animation ~= jumping_animation and current_animation ~= landing_animation then
+    current_animation = idle_animation
+  end
+
+  if qb.keyboard.ispressed('up') then
+    pos.y = pos.y - 3
+  end
+
+  if qb.keyboard.ispressed('down') then
+    --pos.y = pos.y + 3
+  end
+
+  if qb.keyboard.ispressed('space') then
+    current_animation = jumping_animation
+  end
+
+  if current_animation == jumping_animation then
+    if current_animation:getframe() >= current_animation:framecount() - 1 then
+      current_animation:setframe(0)
+      current_animation = landing_animation
+    end
+  end
+
+  if current_animation == landing_animation then
+    if current_animation:getframe() >= current_animation:framecount() - 1 then
+      current_animation:setframe(0)
+      current_animation = idle_animation
+    end
+  end
+
   if qb.keyboard.ispressed('space') then
     sound:play()
+    sound:setvolume(0.1)
     qb.entity.create(
       Position:create{ x=0, y=0 },
       Velocity:create{ x=1, y=0 },
@@ -175,4 +240,18 @@ function qb.update()
 end
 
 function qb.draw()
+  local animated = animated
+  local player = player
+  local pos = player:get(Position)
+
+  local scale_x = 4 * facing
+  if current_animation then
+    current_animation:draw_ext(pos.x, pos.y, scale_x, 4, 0, {})
+  end
+
+  --adventurer_sheet:drawpart(0, 0, pos.x, pos.y, qb.window.width(), qb.window.height())
+end
+
+function qb.resize(width, height)
+  print(width, height)
 end

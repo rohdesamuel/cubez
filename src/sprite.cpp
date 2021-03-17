@@ -4,12 +4,17 @@
 #include <cglm/struct.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <iostream>
 #include <iterator>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <stdlib.h>
+
+namespace fs = std::experimental::filesystem;
 
 constexpr int MAX_BATCH_TEXTURE_UNITS = 31;
 constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
@@ -34,6 +39,15 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   // Texture Id
   1;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
+
+namespace
+{
+
+std::string get_stem(const fs::path &p) {
+  return (p.stem().string());
+}
+
+}  // namespace
 
 // std140 layout
 struct UniformCamera {
@@ -95,8 +109,13 @@ struct QueuedSprite {
   // RGBA color.
   vec4s col;
 
+  int32_t left, top;
+
+  int32_t w, h;
+
   // If the sprite is part of an animation, then this will point to its
   // animator.
+  qbSprite animator_sprite;
   qbAnimator animator;
 
   bool operator<(const QueuedSprite& other) {
@@ -114,6 +133,8 @@ struct qbAnimation_ {
   double frame_duration;
   bool repeat;
   int keyframe;
+
+  vec2s offset;
 
   uint32_t w, h;
 };
@@ -140,8 +161,8 @@ qbImage clear_texture;
 
 qbComponent sprite_component;
 
-qbSprite qb_spritesheet_load(const char* sheet_name, const char* filename, int tw, int th, int margin) {
-  qbSprite sheet = qb_sprite_load(sheet_name, filename);
+qbSprite qb_spritesheet_load(const char* filename, int tw, int th, int margin) {
+  qbSprite sheet = qb_sprite_load(filename);
   sheet->tw = tw;
   sheet->th = th;
   sheet->margin = margin;
@@ -149,7 +170,7 @@ qbSprite qb_spritesheet_load(const char* sheet_name, const char* filename, int t
   return sheet;
 }
 
-qbSprite qb_sprite_fromsheet(const char* sprite_name, qbSprite sheet, int ix, int iy) {
+qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy) {
   qbSprite ret = new qbSprite_{};
   ret->w = sheet->w;
   ret->h = sheet->h;
@@ -159,11 +180,12 @@ qbSprite qb_sprite_fromsheet(const char* sprite_name, qbSprite sheet, int ix, in
   ret->th = sheet->th;
   ret->ix = ix;
   ret->iy = iy;
+  ret->offset = sheet->offset;
 
   return ret;
 }
 
-qbSprite qb_sprite_load(const char* sprite_name, const char* filename) {
+qbSprite qb_sprite_load(const char* filename) {
   qbImage img{};
   qbImageAttr_ attr{};
   attr.type = qbImageType::QB_IMAGE_TYPE_2D;
@@ -180,17 +202,70 @@ qbSprite qb_sprite_load(const char* sprite_name, const char* filename) {
   return ret;
 }
 
-qbSprite qb_sprite_find(const char* sprite_name) {
-  return nullptr;
+qbAnimation qb_animation_loaddir(const char* dir, qbAnimationAttr attr) {
+  thread_local static char buf[512];
+
+  const fs::path path{ dir };
+
+  std::vector<qbSprite> frames;
+  for (const auto& entry : fs::directory_iterator(path)) {    
+    size_t written = wcstombs(buf, entry.path().c_str(), sizeof(buf));
+    if (written == sizeof(buf)) {
+      buf[sizeof(buf) - 1] = '\0';
+    }
+
+    frames.push_back(qb_sprite_load(buf));
+  }
+
+  std::vector<double> durations;
+  for (int i = 0; i < attr->frame_count; ++i) {
+    durations.push_back(attr->durations[i]);
+  }
+
+  if (attr->frame_count > frames.size()) {
+    for (int i = 0; i < frames.size() - attr->frame_count; ++i) {
+      durations.push_back(0.0);
+    }
+  }
+
+  attr->frames = frames.data();
+  attr->durations = durations.data();
+  attr->frame_count = frames.size();
+
+  return qb_animation_create(attr);
+}
+
+void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
+                             vec4s col, int32_t left, int32_t top, int32_t width, int32_t height) {
+  qbSprite animator_sprite = nullptr;
+  qbAnimator animator = nullptr;
+
+  if (sprite->animator.animation) {
+    animator_sprite = sprite;
+    animator = &sprite->animator;
+    sprite = sprite->animator.animation->frames[sprite->animator.frame];    
+  }
+
+  sprites.push_back({ sprite, sprite->depth, pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
+  std::push_heap(sprites.begin(), sprites.end());
 }
 
 void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot, vec4s col) {
+  qbSprite animator_sprite = nullptr;
+  qbAnimator animator = nullptr;
+
   if (sprite->animator.animation) {
-    qbSprite frame = sprite->animator.animation->frames[sprite->animator.frame];
-    sprites.push_back({ frame, sprite->depth, pos, scale, rot, col, &sprite->animator });
-  } else {
-    sprites.push_back({ sprite, sprite->depth, pos, scale, rot, col });
+    animator_sprite = sprite;
+    animator = &sprite->animator;
+    sprite = sprite->animator.animation->frames[sprite->animator.frame];
   }
+
+  int32_t width = sprite->tw + sprite->margin;
+  int32_t height = sprite->th + sprite->margin;
+  int32_t left = sprite->ix * width;
+  int32_t top = sprite->iy * height;
+
+  sprites.push_back({ sprite, sprite->depth, pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
   std::push_heap(sprites.begin(), sprites.end());
 }
 
@@ -202,12 +277,25 @@ void qb_sprite_draw_ext(qbSprite sprite, vec2s pos, vec2s scale, float rot, vec4
   qb_sprite_draw_internal(sprite, pos, scale, rot, col);
 }
 
+void qb_sprite_drawpart(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height) {
+  qb_sprite_draw_internal(sprite, pos, GLMS_VEC2_ONE_INIT, 0.f, GLMS_VEC4_ONE_INIT, left, top, width, height);
+}
+
+void qb_sprite_drawpart_ext(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height,
+                                vec2s scale, float rot, vec4s col) {
+  qb_sprite_draw_internal(sprite, pos, scale, rot, col, left, top, width, height);
+}
+
 void qb_sprite_setdepth(qbSprite sprite, float depth) {
   sprite->depth = depth;
 }
 
 float qb_sprite_getdepth(qbSprite sprite) {
   return sprite->depth;
+}
+
+vec2s qb_sprite_getoffset(qbSprite sprite) {
+  return sprite->offset;
 }
 
 void qb_sprite_setoffset(qbSprite sprite, vec2s offset) {
@@ -222,7 +310,23 @@ uint32_t qb_sprite_height(qbSprite sprite) {
   return sprite->h;
 }
 
-qbAnimation qb_animation_create(const char* animation_name, qbAnimationAttr attr) {
+uint32_t qb_sprite_framecount(qbSprite sprite) {
+  return sprite->animator.animation ? sprite->animator.animation->frames.size() : 1;
+}
+
+uint32_t  qb_sprite_getframe(qbSprite sprite) {
+  return sprite->animator.animation ? sprite->animator.frame : 1;
+}
+
+void qb_sprite_setframe(qbSprite sprite, uint32_t frame_index) {
+  if (sprite->animator.animation) {
+    uint32_t framecount = std::max(qb_sprite_framecount(sprite), 1u);
+    frame_index %= framecount;
+    sprite->animator.frame = frame_index;
+  }
+}
+
+qbAnimation qb_animation_create(qbAnimationAttr attr) {
   qbAnimation animation = new qbAnimation_{};
   uint32_t width = 0;
   uint32_t height = 0;
@@ -242,11 +346,11 @@ qbAnimation qb_animation_create(const char* animation_name, qbAnimationAttr attr
   animation->frame_duration = attr->frame_speed / 1000.0;
   animation->w = width;
   animation->h = height;
+  animation->offset = attr->offset;
   return animation;
 }
 
-qbAnimation qb_animation_fromsheet(const char* animation_name, qbAnimationAttr attr, qbSprite sheet,
-                                   int index_start, int index_end) {
+qbAnimation qb_animation_fromsheet(qbAnimationAttr attr, qbSprite sheet, int index_start, int index_end) {
   std::vector<qbSprite> frames;
   std::vector<double> durations;
 
@@ -254,7 +358,7 @@ qbAnimation qb_animation_fromsheet(const char* animation_name, qbAnimationAttr a
   for (int i = index_start; i < index_end; ++i) {
     int ix = i % iw;
     int iy = i / iw;
-    frames.push_back(qb_sprite_fromsheet(nullptr, sheet, ix, iy));
+    frames.push_back(qb_sprite_fromsheet(sheet, ix, iy));
   }
   
   for (int i = 0; i < attr->frame_count; ++i) {
@@ -270,8 +374,9 @@ qbAnimation qb_animation_fromsheet(const char* animation_name, qbAnimationAttr a
   attr->frames = frames.data();
   attr->durations = durations.data();
   attr->frame_count = frames.size();
+  attr->offset = qb_sprite_getoffset(sheet);
 
-  return qb_animation_create(animation_name, attr);
+  return qb_animation_create(attr);
 }
 
 qbSprite qb_animation_play(qbAnimation animation) {
@@ -281,6 +386,7 @@ qbSprite qb_animation_play(qbAnimation animation) {
 
   ret->animator.animation = animation;
   ret->animator.frame = animation->keyframe;
+  ret->offset = animation->offset;
   return ret;
 }
 
@@ -305,6 +411,14 @@ void qb_animator_update(qbAnimator animator, qbRenderEvent e) {
       --animator->frame;
     }
   }
+}
+
+vec2s qb_animation_getoffset(qbAnimation animation) {
+  return animation->offset;
+}
+
+void qb_animation_setoffset(qbAnimation animation, vec2s offset) {
+  animation->offset = offset;
 }
 
 qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
@@ -481,7 +595,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     attr.shader = shader_module;
     attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
-    attr.cull = QB_CULL_BACK;
+    attr.cull = QB_CULL_NONE;
 
     qbClearValue_ clear;
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
@@ -535,7 +649,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
   return render_pass;
 }
 
-void qb_sprite_initialize(uint32_t width, uint32_t height) {
+void sprite_initialize(uint32_t width, uint32_t height) {
   sprite_render_pass = sprite_create_renderpass(width, height);
 
   {
@@ -618,12 +732,15 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         4 * index + 2, 4 * index + 3, 4 * index + 0
       };
 
+      float offset_x = queued.animator ? queued.animator_sprite->offset.x : queued.sprite->offset.x;
+      float offset_y = queued.animator ? queued.animator_sprite->offset.y : queued.sprite->offset.y;
+
       for (uint32_t i = 0; i < 4; ++i) {
         float x = i & 0x1;
         float y = (i & 0x2) >> 1;
         // Position
-        attributes[0] = queued.sprite->tw * x - queued.sprite->offset.x;
-        attributes[1] = queued.sprite->th * y - queued.sprite->offset.y;
+        attributes[0] = queued.w * x - offset_x;
+        attributes[1] = queued.h * y - offset_y;
 
         // Offset
         attributes[2] = queued.pos.x;
@@ -636,8 +753,8 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         attributes[7] = queued.col.w;
 
         // Texture ix/iy for atlas.
-        attributes[8] = (queued.sprite->ix + x) * ((float)(queued.sprite->tw + queued.sprite->margin) / (float)queued.sprite->w);
-        attributes[9] = (queued.sprite->iy + y) * ((float)(queued.sprite->th + queued.sprite->margin) / (float)queued.sprite->h);
+        attributes[8] = (queued.left + x * (float)queued.w) / (float)queued.sprite->w;
+        attributes[9] = (queued.top + y * (float)queued.h) / (float)queued.sprite->h;
 
         // Scale
         attributes[10] = queued.scale.x;

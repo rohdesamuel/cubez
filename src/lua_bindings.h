@@ -28,5 +28,6 @@ lua_State* lua_thread_initialize();
 void lua_start(lua_State* L);
 void lua_update(lua_State* L);
 void lua_draw(lua_State* L);
+void lua_resize(lua_State* L, uint32_t width, uint32_t height);
 
 #endif  // CUBEZ_LUA_BINDINGS__H

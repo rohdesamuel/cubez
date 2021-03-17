@@ -316,6 +316,7 @@
     <ClInclude Include="..\..\..\src\lua_draw_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_gui_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_input_bindings.h" />
+    <ClInclude Include="..\..\..\src\lua_sprite_bindings.h" />
     <ClInclude Include="..\..\..\src\mem-pool\internals.h" />
     <ClInclude Include="..\..\..\src\mem-pool\mem_pool.h" />
     <ClInclude Include="..\..\..\src\memory_internal.h" />
@@ -335,6 +336,7 @@
     <ClInclude Include="..\..\..\src\program_impl.h" />
     <ClInclude Include="..\..\..\src\program_registry.h" />
     <ClInclude Include="..\..\..\src\program_thread.h" />
+    <ClInclude Include="..\..\..\src\sprite_internal.h" />
     <ClInclude Include="..\..\..\src\stb_image.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
     <ClInclude Include="..\..\..\src\task.h" />
@@ -390,8 +392,10 @@
     <ClCompile Include="..\..\..\src\lua_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_common.cpp" />
     <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp" />
+    <ClCompile Include="..\..\..\src\lua_draw_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_input_bindings.cpp" />
+    <ClCompile Include="..\..\..\src\lua_sprite_bindings.cpp" />
     <ClCompile Include="..\..\..\src\mem-pool\buffer.cpp" />
     <ClCompile Include="..\..\..\src\mem-pool\fixed.cpp" />
     <ClCompile Include="..\..\..\src\mem-pool\mempool_utils.cpp" />

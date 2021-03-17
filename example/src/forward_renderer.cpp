@@ -361,9 +361,9 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
 
   qbFrameBuffer final = qb_surface_target(r->merge_surface, 0);
     
-  qb_renderpass_draw(r->gui_pass, final);
-
   qb_sprite_flush(final, event);
+
+  qb_renderpass_draw(r->gui_pass, final);  
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
 }

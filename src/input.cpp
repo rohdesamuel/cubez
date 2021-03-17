@@ -107,7 +107,7 @@ void save_key_state(qbKey key, qbScanCode scan_code, bool state) {
   scan_states[(int)scan_code] = state;
 }
 
-void qb_handle_input(void(*shutdown_handler)()) {
+void qb_handle_input(void(*on_shutdown)(), void(*on_resize)(uint32_t, uint32_t)) {
   SDL_Event e;
 
   SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
@@ -162,12 +162,13 @@ void qb_handle_input(void(*shutdown_handler)()) {
       wheel_y = e.wheel.y;
     } else if (e.type == SDL_WINDOWEVENT) {
       if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-        qb_window_resize(e.window.data1, e.window.data2);        
+        qb_window_resize(e.window.data1, e.window.data2);
+        on_resize((uint32_t)e.window.data1, (uint32_t)e.window.data2);
       } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
         qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
       }
     } else if (e.type == SDL_QUIT) {
-      shutdown_handler();
+      on_shutdown();
       return;
     }
 

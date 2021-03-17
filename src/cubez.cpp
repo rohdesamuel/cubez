@@ -41,6 +41,7 @@
 #include "utf8.h"
 #include "memory_internal.h"
 #include "async_internal.h"
+#include "sprite_internal.h"
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -111,6 +112,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qbRendererAttr_ empty_args = {};
     render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
     render_initialize(&render_settings);
+    sprite_initialize(attr->width, attr->height);
   }
 
   if (universe_->enabled & QB_FEATURE_AUDIO) {
@@ -177,6 +179,8 @@ qbResult loop(qbLoopCallbacks callbacks,
     qb_handle_input([]() {
       qb_stop();
       game_loop.is_running = false;
+    }, [](uint32_t width, uint32_t height) {
+      lua_resize(AS_PRIVATE(main_lua_state()), width, height);
     });
 
     if (!game_loop.is_running) {

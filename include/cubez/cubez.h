@@ -193,6 +193,7 @@ typedef struct qbLoopCallbacks_ {
   void(*on_fixedupdate)(uint64_t frame, qbVar);
   void(*on_prerender)(struct qbRenderEvent_*, qbVar);
   void(*on_postrender)(struct qbRenderEvent_*, qbVar);
+  void(*on_resize)(uint32_t width, uint32_t height, qbVar);
 } qbLoopCallbacks_, *qbLoopCallbacks;
 
 typedef struct {
@@ -200,6 +201,7 @@ typedef struct {
   qbVar fixed_update;
   qbVar prerender;
   qbVar postrender;
+  qbVar resize;
 } qbLoopArgs_, *qbLoopArgs;
 
 QB_API qbResult qb_loop(qbLoopCallbacks callbacks, qbLoopArgs args);
