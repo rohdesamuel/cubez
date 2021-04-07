@@ -588,8 +588,8 @@ function _QB.sprite.Sprite:getdepth ()
   return _QB.sprite_getdepth(self._sprite)
 end
 
-function _QB.sprite.Sprite:setdepth ()
-  _QB.sprite_setdepth(self._sprite)
+function _QB.sprite.Sprite:setdepth (depth)
+  _QB.sprite_setdepth(self._sprite, depth)
 end
 
 function _QB.sprite.Sprite:framecount ()
@@ -747,9 +747,9 @@ void lua_resize(lua_State* L, uint32_t width, uint32_t height) {
   // Call qb.draw()
   lua_getglobal(L, "qb");
   lua_getfield(L, -1, "resize");
-  lua_pushinteger(L, width);
-  lua_pushinteger(L, height);
   if (!lua_isnil(L, -1)) {
+    lua_pushinteger(L, width);
+    lua_pushinteger(L, height);
     lua_call(L, 2, 0);
   }
   lua_pop(L, 1);
@@ -773,21 +773,8 @@ std::filesystem::path directory;
 std::filesystem::path entrypoint;
 
 void lua_bindings_initialize(struct qbScriptAttr_* attr) {
-  if (!attr->directory) {
-    directory = std::filesystem::current_path();
-  } else {
-    char** d = attr->directory;
-    while (*d) {
-      directory.append(*d);
-      ++d;
-    }
-  }
-
-  if (!attr->entrypoint) {
-    entrypoint = std::filesystem::path(directory).append("main.lua");
-  } else {
-    entrypoint = std::filesystem::path(directory).append(attr->entrypoint);
-  }
+  directory = std::filesystem::path(qb_resources()->dir) / qb_resources()->scripts;
+  entrypoint = attr->entrypoint ? directory / attr->entrypoint : directory / "main.lua";
 
   lua_input_initialize();
 }
