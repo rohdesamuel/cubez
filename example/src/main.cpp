@@ -759,15 +759,17 @@ void initialize_universe(qbUniverse* uni) {
 
   qbAudioAttr_ audio_attr = {};
   audio_attr.sample_frequency = 44100;
-  audio_attr.buffered_samples = 15;
+  audio_attr.buffered_samples = 8192;
   uni_attr.audio_args = &audio_attr;
 
   qbScriptAttr_ script_attr = {};
-  char* dir[] = { ".", "scripts", 0 };
   char* entrypoint = "main.lua";
-  script_attr.directory = dir;
   script_attr.entrypoint = entrypoint;
   uni_attr.script_args = &script_attr;
+
+  qbResourceAttr_ resource_attr = {};
+  resource_attr.scripts = "scripts";
+  uni_attr.resource_args = &resource_attr;
 
   qb_init(uni, &uni_attr);
 }
@@ -1104,16 +1106,16 @@ int main(int, char* []) {
   qb_var_unpack(&after, &buffer, &pos);
   std::cout << qb_map_at(v, qbInt(97))->i << ", " << qb_map_at(v, qbInt(112))->s << std::endl;
 
-  ball_sprite = qb_sprite_load("resources/soccer_ball.bmp");
+  ball_sprite = qb_sprite_load("soccer_ball.bmp");
   
-  sheet = qb_spritesheet_load("resources/roguelikeSheet_transparent.png", 16, 16, 1);
+  sheet = qb_spritesheet_load("roguelikeSheet_transparent.png", 16, 16, 1);
 
   {
     qbAnimationAttr_ attr{};
     attr.repeat = true;
     attr.frame_speed = 100.0;
 
-    sheet_animation = qb_animation_loaddir("resources/run_animation", &attr);
+    sheet_animation = qb_animation_loaddir("run_animation", &attr);
   }
 
   test_animator = qb_animation_play(sheet_animation);
