@@ -48,7 +48,7 @@ QB_API qbResult qb_memallocator_unregister(const char* name);
 // This is registered with the name "default".
 QB_API qbMemoryAllocator qb_memallocator_default();
 
-// Creates a memory pool allocator.
+// Creates a thread-safe memory pool allocator.
 QB_API qbMemoryAllocator qb_memallocator_pool();
 
 #endif  // CUBEZ_MEMORY__H
