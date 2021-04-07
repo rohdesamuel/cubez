@@ -204,11 +204,7 @@ qbVar lua_idx_to_var(lua_State* L, int idx) {
 
     case LUA_TNUMBER:
     {
-      double d = lua_tonumber(L, idx);
-      if ((int)d == d) {
-        return qbDouble(d);
-      }
-      return qbInt(lua_tointeger(L, idx));
+      return qbDouble(lua_tonumber(L, idx));
     }
 
     case LUA_TSTRING:
