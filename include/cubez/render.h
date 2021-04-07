@@ -199,7 +199,10 @@ QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float brightness, floa
 
 QB_API size_t qb_light_getmax(qbLightType light_type);
 
-QB_API qbResult qb_render(qbRenderEvent event);
+QB_API qbResult qb_render(qbRenderEvent event,
+                          void(*on_render)(struct qbRenderEvent_*, qbVar),
+                          void(*on_postrender)(struct qbRenderEvent_*, qbVar),
+                          qbVar on_render_arg, qbVar on_postrender_arg);
 QB_API qbEvent qb_render_event();
 
 QB_API qbRenderer qb_renderer();

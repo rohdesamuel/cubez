@@ -60,10 +60,10 @@ int window_height;
 SDL_Window *win = nullptr;
 SDL_GLContext context;
 
-qbRenderer renderer_;
-void(*destroy_renderer)(struct qbRenderer_* renderer);
+qbRenderer renderer_ = nullptr;
+void(*destroy_renderer)(struct qbRenderer_* renderer) = nullptr;
 
-qbCameraInternal active_camera;
+qbCameraInternal active_camera = nullptr;
 std::vector<qbCameraInternal> cameras;
 
 qbId light_id;
@@ -120,10 +120,21 @@ qbEvent qb_render_event() {
   return render_event;
 }
 
-qbResult qb_render(qbRenderEvent event) {
+qbResult qb_render(qbRenderEvent event,
+                   void(*on_render)(struct qbRenderEvent_*, qbVar),
+                   void(*on_postrender)(struct qbRenderEvent_*, qbVar),
+                   qbVar on_render_arg, qbVar on_postrender_arg) {
   if (render_event) {
     qb_render_makecurrent();
+    if (on_render) {
+      on_render(event, on_render_arg);
+    }
     qb_event_sendsync(render_event, event);
+
+    if (on_postrender) {
+      on_postrender(event, on_postrender_arg);
+    }
+
     qb_render_swapbuffers();
   }
   return QB_OK;
@@ -149,6 +160,9 @@ void initialize_context(const RenderSettings& settings) {
                          SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
 
   context = SDL_GL_CreateContext(win);
+  if (!context) {
+    std::cout << "Could not create OpenGL context: " << SDL_GetError();
+  }
 
   // Disable vsync.
   SDL_GL_SetSwapInterval(0);
@@ -174,8 +188,17 @@ void renderer_initialize(const RenderSettings& settings) {
     settings.opt_renderer_args->opt_gui_renderpass = gui_create_renderpass(settings.width, settings.height);
   }
 
-  renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);  
-  destroy_renderer = settings.destroy_renderer;
+  if (settings.create_renderer) {
+    renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);
+  } else {
+    renderer_ = nullptr;
+  }
+
+  if (settings.destroy_renderer) {
+    destroy_renderer = settings.destroy_renderer;
+  } else {
+    destroy_renderer = [](qbRenderer) {};
+  }
 }
 
 void render_initialize(RenderSettings* settings) {
@@ -229,13 +252,11 @@ void render_initialize(RenderSettings* settings) {
 }
 
 void render_shutdown() {
-  if (!renderer_) {
-    return;
-  }
-
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(win);
-  destroy_renderer(renderer_);
+  if (destroy_renderer) {
+    destroy_renderer(renderer_);
+  }
   renderer_ = nullptr;
 }
 
@@ -254,8 +275,9 @@ void qb_window_resize(uint32_t width, uint32_t height) {
   for (auto c : cameras) {
     qb_camera_resize((qbCamera)c, width, height);
   }
-
-  renderer_->resize(renderer_, width, height);
+  if (renderer_) {
+    renderer_->resize(renderer_, width, height);
+  }
   qb_gui_resize(width, height);
 }
 
@@ -326,7 +348,7 @@ void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
   camera->up = up;
 
   auto r = qb_renderer();
-  cam->fbo = r->camera_framebuffer_create(r, camera->width, camera->height);;
+  cam->fbo = r->camera_framebuffer_create(r, camera->width, camera->height);
   cameras.push_back(cam);
 }
 
