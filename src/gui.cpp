@@ -42,6 +42,10 @@
 #include "font_registry.h"
 #include "font_render.h"
 #include <cglm/struct.h>
+#include <filesystem>
+#include "inline_shaders.h"
+
+namespace fs = std::experimental::filesystem;
 
 // std140 layout
 struct GuiUniformCamera {
@@ -139,6 +143,8 @@ const size_t kMaxTextBoxGpuBufferSize = 32768;
 
 void qb_guielement_updateuniform(qbGuiElement el, GuiRenderMode render_mode, qbGpuBuffer ubo);
 void qb_guielement_destroy_(qbGuiElement el);
+
+fs::path font_directory;
 
 struct GuiNode {
   GuiNode(qbGuiElement el) : el(el) {}
@@ -480,8 +486,15 @@ private:
 std::unique_ptr<GuiTree> scene;
 
 void gui_initialize() {
+  font_directory = fs::path(qb_resources()->dir) / fs::path(qb_resources()->fonts);
+  std::string default_font_file = (font_directory / "OpenSans-Bold.ttf").string();
+
   font_registry = new FontRegistry();
-  font_registry->Load("resources/fonts/OpenSans-Bold.ttf", "opensans");
+  if (fs::exists(default_font_file)) {
+    font_registry->Load(default_font_file.c_str(), kDefaultFont);
+  } else {
+    std::cerr << "Could not load default font file: \"" << default_font_file << "\"\n";
+  }
   scene = std::make_unique<GuiTree>();
 }
 
@@ -656,8 +669,9 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     }
 
     qbShaderModuleAttr_ attr = {};
-    attr.vs = "resources/gui.vs";
-    attr.fs = "resources/gui.fs";
+    attr.vs = get_gui_vs();
+    attr.fs = get_gui_fs();
+    attr.interpret_as_strings = true;
 
     attr.resources = resources;
     attr.resources_count = sizeof(resources) / sizeof(resources[0]);

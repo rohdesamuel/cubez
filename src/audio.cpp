@@ -18,11 +18,15 @@
 
 #include <cubez/audio.h>
 
+#include <filesystem>
+
 #include "audio_internal.h"
 #include "cute_sound.h"
 
 #include "sparse_map.h"
 #include "block_vector.h"
+
+namespace fs = std::experimental::filesystem;
 
 // https://www.reddit.com/r/gamedev/comments/6i39j2/tinysound_the_cutest_library_to_get_audio_into/
 cs_context_t* ctx;
@@ -44,12 +48,18 @@ SparseMap<qbAudioPlaying_, TypedBlockVector<qbAudioPlaying_>> sounds_;
 SparseMap<qbAudioLoaded_, TypedBlockVector<qbAudioLoaded_>> loaded_;
 std::vector<qbId> unused_ids;
 
-void audio_initialize(const AudioSettings& settings) {
-  int buffered_samples = 8192; // number of samples internal buffers can hold at once
+void audio_initialize(qbAudioAttr settings) {
+  qbAudioAttr_ attr{};
+  attr.buffered_samples = 8192;
+  attr.sample_frequency = 44100;
+  if (!settings) {
+    settings = &attr;
+  }
+
   int use_playing_pool = 0; // non-zero uses high-level API, 0 uses low-level API
   int num_elements_in_playing_pool = use_playing_pool ? 5 : 0; // pooled memory array size for playing sounds
   void* no_allocator_used = NULL; // No custom allocator is used, just pass in NULL here.
-  ctx = cs_make_context(0, settings.sample_frequency, buffered_samples, num_elements_in_playing_pool, no_allocator_used);
+  ctx = cs_make_context(0, settings->sample_frequency, settings->buffered_samples, num_elements_in_playing_pool, no_allocator_used);
   sound_id = 0;
   cs_spawn_mix_thread(ctx);
 }
@@ -62,9 +72,15 @@ void audio_shutdown() {
 }
 
 qbAudioBuffer qb_audio_loadwav(const char* file) {
-  qbId id = sound_id;
-  loaded_.insert(id, qbAudioLoaded_{ sound_id, cs_load_wav(file) });
-  return &loaded_[id];
+  fs::path path = fs::path(qb_resources()->dir) / fs::path(qb_resources()->sounds) / file;
+  if (fs::exists(path)) {
+    qbId id = sound_id;
+    loaded_.insert(id, qbAudioLoaded_{ sound_id, cs_load_wav(path.string().c_str()) });
+    return &loaded_[id];
+  } else {
+    std::cerr << "Could not load sound: \"" << path << "\"";
+  }
+  return nullptr;
 }
 
 qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded) {
