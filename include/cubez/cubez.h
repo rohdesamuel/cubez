@@ -143,14 +143,13 @@ QB_API extern const qbVar qbFuture;
 //////////////////////  Flow Control  /////////////////////
 ///////////////////////////////////////////////////////////
 
-typedef enum {
-  QB_FEATURE_ALL,
-  QB_FEATURE_LOGGER = 0x0001,
-  QB_FEATURE_INPUT = 0x0002,
-  QB_FEATURE_GRAPHICS = 0x0004,
-  QB_FEATURE_AUDIO = 0x0008,
-  QB_FEATURE_GAME_LOOP = 0x0010,
-} qbFeature;
+#define QB_FEATURE_ALL 0x0000
+#define QB_FEATURE_LOGGER 0x0001
+#define QB_FEATURE_INPUT 0x0002
+#define QB_FEATURE_GRAPHICS 0x0004
+#define QB_FEATURE_AUDIO 0x0008
+#define QB_FEATURE_GAME_LOOP 0x0010
+typedef uint32_t qbFeature;
 
 // Holds the game engine state
 typedef struct qbUniverse {
@@ -160,8 +159,9 @@ typedef struct qbUniverse {
   uint64_t frame;
 } qbUniverse;
 
-typedef struct qbScriptAttr_ {
-  char** directory;
+typedef struct qbScriptAttr_ { 
+  // First script to run.
+  // Default "main.lua".
   const char* entrypoint;
 } qbScriptAttr_;
 
@@ -169,6 +169,19 @@ typedef struct qbSchedulerAttr_ {
   size_t max_async_coros;
   size_t max_async_tasks;
 } qbSchedulerAttr_;
+
+typedef struct qbResourceAttr_ {
+  // Relative path from binary to load resources from.
+  // Default "resources".
+  const char* dir;
+
+  // All the following paths default to load directly from the "resources" directory.
+  // If specified, are relative from the "resources" directory.
+  const char* scripts;
+  const char* fonts;
+  const char* sounds;
+  const char* sprites;
+} qbResourceAttr_, *qbResourceAttr;
 
 typedef struct {
   const char* title;
@@ -181,17 +194,19 @@ typedef struct {
   struct qbAudioAttr_* audio_args;
   struct qbScriptAttr_* script_args;
   struct qbSchedulerAttr_* scheduler_args;
+  struct qbResourceAttr_* resource_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
 QB_API bool qb_running();
+QB_API const qbResourceAttr_* qb_resources();
 
 typedef struct qbLoopCallbacks_ {
   void(*on_update)(uint64_t frame, qbVar);
   void(*on_fixedupdate)(uint64_t frame, qbVar);
-  void(*on_prerender)(struct qbRenderEvent_*, qbVar);
+  void(*on_render)(struct qbRenderEvent_*, qbVar);
   void(*on_postrender)(struct qbRenderEvent_*, qbVar);
   void(*on_resize)(uint32_t width, uint32_t height, qbVar);
 } qbLoopCallbacks_, *qbLoopCallbacks;
@@ -199,7 +214,7 @@ typedef struct qbLoopCallbacks_ {
 typedef struct {
   qbVar update;
   qbVar fixed_update;
-  qbVar prerender;
+  qbVar render;
   qbVar postrender;
   qbVar resize;
 } qbLoopArgs_, *qbLoopArgs;
@@ -263,6 +278,9 @@ QB_API qbResult qb_program_detach(qbId program);
 
 // Joins a program with the main game loop.
 QB_API qbResult qb_program_join(qbId program);
+
+// Returns the lua state of the main program.
+QB_API struct lua_State* qb_luastate();
 
 typedef qbId qbEntity;
 typedef struct qbEntityAttr_* qbEntityAttr;
@@ -429,8 +447,10 @@ QB_API bool        qb_instance_hascomponent(qbInstance instance,
                                             qbComponent component);
 
 // Returns a qbRef to the memory pointed at by key in the struct. Assumes that
-// the instance has an schema.
+// the instance has a schema.
 QB_API qbRef       qb_instance_at(qbInstance instance, const char* key);
+
+QB_API qbVar       qb_instance_struct(qbInstance instance);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Entities  ///////////////////////
@@ -638,6 +658,22 @@ QB_API qbResult      qb_system_disable(qbSystem system);
 // Unimplemented.
 QB_API qbResult      qb_system_run(qbSystem system);
 
+
+typedef enum qbQueryResult {
+  QB_QUERY_RESULT_DONE,
+  QB_QUERY_RESULT_CONTINUE,
+} qbQueryResult;
+
+typedef struct qbQuery_ {
+  qbComponent primary;
+
+  qbQueryResult(*fn)(struct qbQuery_* query, qbVar* args);
+
+  size_t secondary_count;
+  qbComponent* secondary;
+
+} qbQuery_, *qbQuery;
+QB_API qbResult      qb_query(qbQuery query, size_t arg_count, qbVar* args);
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
