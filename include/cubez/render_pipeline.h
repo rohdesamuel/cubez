@@ -75,12 +75,11 @@ typedef enum {
   QB_VERTEX_INPUT_RATE_INSTANCE,
 } qbVertexInputRate;
 
-typedef enum {
-  QB_COLOR_ATTACHMENT = 0x0001,
-  QB_DEPTH_ATTACHMENT = 0x0002,
-  QB_STENCIL_ATTACHMENT = 0x0004,
-  QB_DEPTH_STENCIL_ATTACHMENT = 0x0008,
-} qbFrameBufferAttachment;
+#define QB_COLOR_ATTACHMENT 0x0001
+#define QB_DEPTH_ATTACHMENT 0x0002
+#define QB_STENCIL_ATTACHMENT 0x0004
+#define QB_DEPTH_STENCIL_ATTACHMENT 0x0008
+typedef uint32_t qbFrameBufferAttachment;
 
 typedef struct {
   qbFrameBufferAttachment attachments;
@@ -320,6 +319,8 @@ typedef struct {
   vec4s viewport;
   float viewport_scale;
 
+  vec4s clear_color;
+
   qbRenderExt ext;
 } qbRenderPipelineAttr_, *qbRenderPipelineAttr;
 
@@ -327,6 +328,9 @@ typedef struct {
   const char* vs;
   const char* fs;
   const char* gs;
+
+  // If true, interprets vs, fs, gs as literal shader strings.
+  bool interpret_as_strings;
 
   qbShaderResourceInfo resources;
   size_t resources_count;
@@ -375,9 +379,21 @@ QB_API void qb_shadermodule_attachuniforms(qbShaderModule module, size_t count,
 QB_API void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count,
                                     uint32_t bindings[], qbImageSampler samplers[]);
 
-QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth, qbPixelFormat format, void* pixels);
-QB_API void qb_pixelmap_destroy(qbPixelMap* pixel_map);
-QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec2s dest_rect);
+QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth,
+                                     qbPixelFormat format, void* pixels);
+QB_API qbPixelMap qb_pixelmap_load(qbPixelFormat format, const char* file);
+QB_API void qb_pixelmap_destroy(qbPixelMap* pixels);
+
+QB_API uint32_t qb_pixelmap_width(qbPixelMap pixels);
+QB_API uint32_t qb_pixelmap_height(qbPixelMap pixels);
+QB_API uint32_t qb_pixelmap_depth(qbPixelMap pixels);
+QB_API size_t qb_pixelmap_size(qbPixelMap pixels);
+QB_API size_t qb_pixelmap_pixelsize(qbPixelMap pixels);
+QB_API qbPixelFormat qb_pixelmap_format(qbPixelMap pixels);
+
+QB_API uint8_t* qb_pixelmap_pixels(qbPixelMap pixels);
+QB_API uint8_t* qb_pixelmap_at(qbPixelMap pixels, int32_t x, int32_t y, int32_t z);
+QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec4s src_rect, vec4s dest_rect);
 
 QB_API void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr attr);
 QB_API void qb_renderpipeline_destroy(qbRenderPipeline* pipeline);

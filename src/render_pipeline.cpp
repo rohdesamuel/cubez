@@ -38,6 +38,8 @@
 #include <assert.h>
 #include "stb_image.h"
 
+#include "inline_shaders.h"
+
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
 #else
@@ -75,10 +77,13 @@ typedef struct qbPixelMap_ {
   uint32_t height;
   uint32_t depth;
   qbPixelFormat format;
-  void* pixels;
+  uint8_t* pixels;
 
   size_t size;
   size_t pixel_size;
+  size_t width_size;
+  size_t height_size;
+  size_t depth_size;
 
 } qbPixelMap_;
 
@@ -342,7 +347,8 @@ GLenum TranslateQbDrawModeToOpenGlMode(qbDrawMode mode) {
 
 void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 
-qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth, qbPixelFormat format, void* pixels) {
+qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth,
+                              qbPixelFormat format, void* pixels) {
   qbPixelMap p = new qbPixelMap_;
   p->width = width;
   p->height = height;
@@ -358,18 +364,51 @@ qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth, q
     p->size = width * height * depth;
   }
   p->size *= p->pixel_size;
-  if (p->size && pixels) {
-    p->pixels = (void*)new char[p->size];
-    memcpy(p->pixels, pixels, p->size);
+  if (p->size) {
+    p->pixels = new uint8_t[p->size];
   } else {
     p->pixels = nullptr;
+  }
+
+  p->width_size = p->width * p->pixel_size;
+  p->height_size = p->height * p->pixel_size;
+  p->depth_size = p->depth * p->pixel_size;
+
+  if (p->pixels && pixels) {
+    memcpy(p->pixels, pixels, p->size);
   }
 
   return p;
 }
 
+qbPixelMap qb_pixelmap_load(qbPixelFormat format, const char* file) {
+  qbPixelMap ret = new qbPixelMap_{};
+  ret->depth = 0;
+  ret->format = format;
+  ret->pixel_size = TranslateQbPixelFormatToPixelSize(format);
+
+  // Load the image from the file into SDL's surface representation
+  int w, h, n;
+  unsigned char* pixels = stbi_load(file, &w, &h, &n, ret->pixel_size);
+
+  ret->width = w;
+  ret->height = h;
+  ret->size = w * h * ret->pixel_size;
+  ret->pixels = new uint8_t[ret->size];
+  memcpy(ret->pixels, pixels, ret->size);
+
+  if (!pixels) {
+    std::cout << "Could not load texture " << file << ": " << stbi_failure_reason() << std::endl;
+    return nullptr;
+  }
+
+  stbi_image_free(pixels);
+
+  return ret;
+}
+
 void qb_pixelmap_destroy(qbPixelMap* pixels) {
-  delete[] (char*)((*pixels)->pixels);
+  delete[] (*pixels)->pixels;
   delete *pixels;
   *pixels = nullptr;
 }
@@ -382,14 +421,23 @@ uint32_t qb_pixelmap_height(qbPixelMap pixels) {
   return pixels->height;
 }
 
-void* qb_pixelmap_pixels(qbPixelMap pixels) {
-  if (!pixels->pixels) {
-    pixels->pixels = (void*)new char[pixels->size];
-  }
+uint32_t qb_pixelmap_depth(qbPixelMap pixels) {
+  return pixels->depth;
+}
+
+uint8_t* qb_pixelmap_pixels(qbPixelMap pixels) {
   return pixels->pixels;
 }
 
-qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec2s src_rect, vec2s dest_rect) {
+uint8_t* qb_pixelmap_at(qbPixelMap pixels, int32_t x, int32_t y, int32_t z) {
+  x = pixels->width == 0 ? 0 : x % pixels->width;
+  y = pixels->height == 0 ? 0 : y % pixels->height;
+  z = pixels->depth == 0 ? 0 : z % pixels->depth;
+
+  return pixels->pixels + (x * pixels->pixel_size) + (pixels->width_size * y) + (pixels->width_size * pixels->height_size * z);
+}
+
+qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec4s src_rect, vec4s dest_rect) {
   return QB_OK;
 }
 
@@ -442,8 +490,9 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       sampler_attr.name = "tex_sampler";
 
       qbShaderModuleAttr_ attr = {};
-      attr.vs = "resources/texture.vs";
-      attr.fs = "resources/texture.fs";
+      attr.vs = get_presentpass_vs();
+      attr.fs = get_presentpass_fs();
+      attr.interpret_as_strings = true;
 
       attr.resources = &sampler_attr;
       attr.resources_count = 1;
@@ -482,7 +531,7 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
       attr.viewport_scale = pipeline_attr->viewport_scale;
 
       qbClearValue_ clear = {};
-      clear.color = { 0.0, 0.0, 0.0, 1.0 };
+      clear.color = pipeline_attr->clear_color;
       clear.attachments = QB_COLOR_ATTACHMENT;
 
       attr.clear = clear;
@@ -602,7 +651,16 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
   std::string vs = attr->vs ? attr->vs : "";
   std::string fs = attr->fs ? attr->fs : "";
   std::string gs = attr->gs ? attr->gs : "";
-  module->shader = new ShaderProgram(ShaderProgram::load_from_file(vs, fs, gs));
+
+  if (attr->interpret_as_strings) {
+    if (gs.empty()) {
+      module->shader = new ShaderProgram(vs, fs);
+    } else {
+      module->shader = new ShaderProgram(vs, fs, gs);
+    }
+  } else {
+    module->shader = new ShaderProgram(ShaderProgram::load_from_file(vs, fs, gs));
+  }
 
   module->resources_count = attr->resources_count;
   module->resources = new qbShaderResourceInfo_[module->resources_count];

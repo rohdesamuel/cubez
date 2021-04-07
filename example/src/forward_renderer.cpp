@@ -311,7 +311,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   update_light_ubo(r, camera);
   {
     qbClearValue_ clear = {};
-    clear.attachments = qbFrameBufferAttachment(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
+    clear.attachments = QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT;
     clear.color = vec4s{ 0.0f, 0.0f, 0.0f, 1.0f };
     clear.depth = 1.0f;
     qb_framebuffer_clear(camera_fbo, &clear);
@@ -659,7 +659,7 @@ qbFrameBuffer camera_framebuffer_create(struct qbRenderer_* self, uint32_t width
   fbo_attr.height = height;
 
   qbFrameBufferAttachment attachments[] = {
-    (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT),
+    QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT,
     QB_COLOR_ATTACHMENT,
   };
 
@@ -1185,7 +1185,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
         ret->light_uniform = e.first.binding;
       }
 
-      if (uniform_index == native_uniform_count) {
+      if (uniform_index == native_uniform_count - 1) {
         uniform_start_binding = binding;
       }
       ++uniform_index;
@@ -1212,7 +1212,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
         ret->emission_map_binding = e.first.binding;
       }
 
-      if (sampler_index == native_sampler_count) {
+      if (sampler_index == native_sampler_count - 1) {
         sampler_start_binding = binding;
       }
       ++sampler_index;
@@ -1241,8 +1241,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
 
   {
     qbClearValue_ clear = {};
-    clear.attachments = (qbFrameBufferAttachment)(qbFrameBufferAttachment::QB_COLOR_ATTACHMENT |
-                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);    
+    clear.attachments = QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT;
     clear.depth = 0.0;
     clear.color = { 1.0, 1.0, 0.0, 1.0 };
 
@@ -1259,8 +1258,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
 
   {
     qbClearValue_ clear = {};
-    clear.attachments = (qbFrameBufferAttachment)(qbFrameBufferAttachment::QB_COLOR_ATTACHMENT |
-                                                  qbFrameBufferAttachment::QB_DEPTH_ATTACHMENT);
+    clear.attachments = QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT;
     clear.depth = 0.0;
     clear.color = { 1.0, 1.0, 0.0, 1.0 };
 
