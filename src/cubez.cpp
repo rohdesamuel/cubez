@@ -22,6 +22,7 @@
 #include <cubez/audio.h>
 #include <cubez/socket.h>
 #include <cubez/struct.h>
+#include <filesystem>
 #include <iomanip>
 
 #include "defs.h"
@@ -43,6 +44,8 @@
 #include "async_internal.h"
 #include "sprite_internal.h"
 
+namespace fs = std::experimental::filesystem;
+
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
 const qbVar qbNil = { QB_TAG_NIL, 0, 0 };
@@ -58,6 +61,9 @@ qbTimer update_timer;
 qbTimer render_timer;
 CoroScheduler* coro_scheduler;
 Coro coro_main;
+
+fs::path resource_dir;
+qbResourceAttr_ resource_attr{};
 
 struct GameLoop {
   const double kClockResolution = 1e9;
@@ -76,6 +82,33 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 
   utils_initialize();
   coro_main = coro_initialize(u);
+
+  {
+    resource_attr.dir = "resources";
+    resource_attr.fonts = "";
+    resource_attr.scripts = "";
+    resource_attr.sounds = "";
+    resource_attr.sprites = "";
+
+    if (attr->resource_args) {
+      resource_attr.dir = attr->resource_args->dir ?
+        STRDUP(attr->resource_args->dir) : resource_attr.dir;
+
+      resource_attr.fonts = attr->resource_args->fonts ?
+        STRDUP(attr->resource_args->fonts) : resource_attr.fonts;
+
+      resource_attr.scripts = attr->resource_args->scripts ?
+        STRDUP(attr->resource_args->scripts) : resource_attr.scripts;
+
+      resource_attr.sounds = attr->resource_args->sounds ?
+        STRDUP(attr->resource_args->sounds) : resource_attr.sounds;
+
+      resource_attr.sprites = attr->resource_args->sprites ?
+        STRDUP(attr->resource_args->sprites) : resource_attr.sprites;
+    }
+
+    resource_dir = fs::path(resource_attr.dir);
+  }
   
   // Initialize Lua before PrivateUniverse is constructed because the Lua VM
   // is initialized per-thread.
@@ -91,7 +124,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   qbResult ret = AS_PRIVATE(init());
 
   if (universe_->enabled == QB_FEATURE_ALL) {
-    universe_->enabled = (qbFeature)0xFFFF;
+    universe_->enabled = 0xFFFF;
   }
   if (universe_->enabled & QB_FEATURE_LOGGER) {
     log_initialize();
@@ -100,28 +133,24 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     input_initialize();
   }
   if (universe_->enabled & QB_FEATURE_GRAPHICS) {
-    assert(attr->renderer_args && "No renderer_args defined.");
-
-    RenderSettings render_settings;
+    RenderSettings render_settings{};
     render_settings.title = attr->title;
     render_settings.width = attr->width;
     render_settings.height = attr->height;
-    render_settings.create_renderer = attr->renderer_args->create_renderer;
-    render_settings.destroy_renderer = attr->renderer_args->destroy_renderer;
 
     qbRendererAttr_ empty_args = {};
+    if (attr->renderer_args) {
+      render_settings.create_renderer = attr->renderer_args->create_renderer;
+      render_settings.destroy_renderer = attr->renderer_args->destroy_renderer;
+    }
     render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
+
     render_initialize(&render_settings);
     sprite_initialize(attr->width, attr->height);
   }
 
   if (universe_->enabled & QB_FEATURE_AUDIO) {
-    assert(attr->audio_args && "No audio_args defined.");
-
-    AudioSettings s = {};
-    s.sample_frequency = attr->audio_args->sample_frequency;
-    s.buffered_samples = attr->audio_args->buffered_samples;
-    audio_initialize(s);
+    audio_initialize(attr->audio_args);
   }
 
   if (universe_->enabled & QB_FEATURE_GAME_LOOP) {
@@ -163,6 +192,10 @@ bool qb_running() {
   return game_loop.is_running;
 }
 
+const const qbResourceAttr_* qb_resources() {
+  return &resource_attr;
+}
+
 qbResult loop(qbLoopCallbacks callbacks,
               qbLoopArgs args) {
   elapsed_update_samples.clear();
@@ -176,12 +209,27 @@ qbResult loop(qbLoopCallbacks callbacks,
   game_loop.current_time = new_time;
 
   if (game_loop.accumulator >= game_loop.dt) {
-    qb_handle_input([]() {
+    struct ResizeState {
+      qbLoopCallbacks callbacks;
+      qbLoopArgs args;
+    } resize_state{ callbacks, args };
+
+    qb_handle_input([](qbVar) {
       qb_stop();
       game_loop.is_running = false;
-    }, [](uint32_t width, uint32_t height) {
+    }, [](qbVar arg, uint32_t width, uint32_t height) {      
+      ResizeState* resize_state = (ResizeState*)arg.p;
       lua_resize(AS_PRIVATE(main_lua_state()), width, height);
-    });
+
+      if (resize_state->callbacks->on_resize) {
+        resize_state->callbacks->on_resize(width, height, arg);
+      }
+
+      qbRenderer r = qb_renderer();
+      if (r) {
+        r->resize(r, width, height);
+      }
+    }, qbNil, qbPtr(&resize_state));
 
     if (!game_loop.is_running) {
       return QB_OK;
@@ -215,20 +263,12 @@ qbResult loop(qbLoopCallbacks callbacks,
   e.camera = qb_camera_getactive();
   e.renderer = qb_renderer();
 
-  if (callbacks && callbacks->on_prerender) {
-    callbacks->on_prerender(&e, args->prerender);
-  }
-
-  if (universe_->enabled & qbFeature::QB_FEATURE_GRAPHICS) {
+  if (universe_->enabled & QB_FEATURE_GRAPHICS) {
     gui_element_updateuniforms();
   }
 
   lua_draw(AS_PRIVATE(main_lua_state()));
-  qb_render(&e);
-
-  if (callbacks && callbacks->on_postrender) {
-    callbacks->on_postrender(&e, args->postrender);
-  }
+  qb_render(&e, callbacks->on_render, callbacks->on_postrender, args->render, args->postrender);
 
   timing_info.render_elapsed_ns = qb_timer_add(render_timer);
   double elapsed_render = qb_timer_average(render_timer) * 1e-9 + extra_render_time;
@@ -300,6 +340,10 @@ qbResult qb_program_detach(qbId program) {
 
 qbResult qb_program_join(qbId program) {
   return AS_PRIVATE(join_program(program));
+}
+
+struct lua_State* qb_luastate() {
+  return AS_PRIVATE(main_lua_state());
 }
 
 qbResult qb_system_enable(qbSystem system) {
@@ -725,6 +769,11 @@ qbRef qb_instance_at(qbInstance instance, const char* key) {
   return qb_ref_at(var_s, qbPtr((void*)key));
 }
 
+qbVar qb_instance_struct(qbInstance instance) {
+  qbStruct_* s = (qbStruct_*)instance->data;
+  return qbStruct(s->internals.schema, s);
+}
+
 qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
   qbCoro ret = new qbCoro_();
   ret->ret = qbFuture;
@@ -1112,26 +1161,8 @@ bool qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar 
 }
 
 qbVar qb_var_at(qbVar var, qbVar key) {
-  switch (var.tag) {
-    case QB_TAG_ARRAY:
-      if (key.tag == QB_TAG_INT) {
-        return *qb_array_at(var, key.i);
-      } else {
-        return qbNil;
-      }
-    case QB_TAG_MAP:
-      return *qb_map_at(var, key);
-    case QB_TAG_STRUCT:
-      if (key.tag == QB_TAG_INT) {
-        return *qb_struct_ati(var, key.i);
-      } else if (key.tag == QB_TAG_UINT) {
-        return *qb_struct_ati(var, key.u);
-      } else {
-        return qbNil;
-      }
-  }
-
-  return qbNil;
+  qbRef r = qb_ref_at(var, key);
+  return r ? *r : qbNil;
 }
 
 qbRef qb_ref_at(qbVar var, qbVar key) {
@@ -1151,6 +1182,8 @@ qbRef qb_ref_at(qbVar var, qbVar key) {
         return qb_struct_ati(var, key.i);
       } else if (key.tag == QB_TAG_UINT) {
         return qb_struct_ati(var, key.u);
+      } else if (key.tag == QB_TAG_STRING || key.tag == QB_TAG_CSTRING) { 
+        return qb_struct_at(var, (const char*)key.s);
       } else {
         return qbRef{};
       }
