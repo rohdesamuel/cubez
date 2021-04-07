@@ -14,6 +14,9 @@
 
 #include <stdlib.h>
 
+#include "sprite_internal.h"
+#include "inline_shaders.h"
+
 namespace fs = std::experimental::filesystem;
 
 constexpr int MAX_BATCH_TEXTURE_UNITS = 31;
@@ -39,6 +42,8 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   // Texture Id
   1;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
+
+fs::path sprite_path;
 
 namespace
 {
@@ -96,6 +101,7 @@ struct qbSprite_ {
 struct QueuedSprite {
   qbSprite sprite;
   float depth;
+  size_t index;
 
   // Position to draw at.
   vec2s pos;
@@ -119,8 +125,8 @@ struct QueuedSprite {
   qbAnimator animator;
 
   bool operator<(const QueuedSprite& other) {
-    if (depth == depth) {
-      return this < &other;
+    if (depth == other.depth) {
+      return index > other.index;
     }
     return depth < other.depth;
   }
@@ -186,11 +192,13 @@ qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy) {
 }
 
 qbSprite qb_sprite_load(const char* filename) {
+  fs::path path = fs::path(qb_resources()->dir) / fs::path(qb_resources()->sprites) / filename;
+
   qbImage img{};
   qbImageAttr_ attr{};
   attr.type = qbImageType::QB_IMAGE_TYPE_2D;
 
-  qb_image_load(&img, &attr, filename);
+  qb_image_load(&img, &attr, path.string().c_str());
 
   qbSprite ret = new qbSprite_{};
   ret->w = qb_image_width(img);
@@ -198,6 +206,34 @@ qbSprite qb_sprite_load(const char* filename) {
   ret->tw = ret->w;
   ret->th = ret->h;
   ret->img = img;
+
+  return ret;
+}
+
+qbSprite qb_sprite_frompixels(qbPixelMap pixels) {
+  qbImage img{};
+  qbImageAttr_ attr{};
+  attr.type = qbImageType::QB_IMAGE_TYPE_2D;
+
+  qb_image_create(&img, &attr, pixels);
+
+  qbSprite ret = new qbSprite_{};
+  ret->w = qb_image_width(img);
+  ret->h = qb_image_height(img);
+  ret->tw = ret->w;
+  ret->th = ret->h;
+  ret->img = img;
+
+  return ret;
+}
+
+qbSprite qb_sprite_fromimage(qbImage image) {
+  qbSprite ret = new qbSprite_{};
+  ret->w = qb_image_width(image);
+  ret->h = qb_image_height(image);
+  ret->tw = ret->w;
+  ret->th = ret->h;
+  ret->img = image;
 
   return ret;
 }
@@ -246,7 +282,7 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
     sprite = sprite->animator.animation->frames[sprite->animator.frame];    
   }
 
-  sprites.push_back({ sprite, sprite->depth, pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
+  sprites.push_back({ sprite, sprite->depth, sprites.size(), pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
   std::push_heap(sprites.begin(), sprites.end());
 }
 
@@ -265,7 +301,7 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
   int32_t left = sprite->ix * width;
   int32_t top = sprite->iy * height;
 
-  sprites.push_back({ sprite, sprite->depth, pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
+  sprites.push_back({ sprite, sprite->depth, sprites.size(), pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
   std::push_heap(sprites.begin(), sprites.end());
 }
 
@@ -310,20 +346,40 @@ uint32_t qb_sprite_height(qbSprite sprite) {
   return sprite->h;
 }
 
-uint32_t qb_sprite_framecount(qbSprite sprite) {
-  return sprite->animator.animation ? sprite->animator.animation->frames.size() : 1;
+int32_t qb_sprite_framecount(qbSprite sprite) {
+  return sprite->animator.animation ? (int32_t)sprite->animator.animation->frames.size() : 1;
 }
 
-uint32_t  qb_sprite_getframe(qbSprite sprite) {
-  return sprite->animator.animation ? sprite->animator.frame : 1;
+int32_t qb_sprite_getframe(qbSprite sprite) {
+  return sprite->animator.animation ? sprite->animator.frame : 0;
 }
 
-void qb_sprite_setframe(qbSprite sprite, uint32_t frame_index) {
-  if (sprite->animator.animation) {
-    uint32_t framecount = std::max(qb_sprite_framecount(sprite), 1u);
+void qb_sprite_setframe(qbSprite sprite, int32_t frame_index) {
+  if (frame_index == -1) {
+    return;
+  }
+
+  if (sprite->animator.animation) {        
+    int32_t framecount = std::max(qb_sprite_framecount(sprite), 1);
+    frame_index = std::abs(frame_index);
     frame_index %= framecount;
     sprite->animator.frame = frame_index;
   }
+}
+
+qbImage qb_sprite_subimg(qbSprite sprite, int32_t frame) {
+  if (!sprite->animator.animation) {
+    return sprite->img;
+  }
+
+  if (frame == -1) {
+    frame = qb_sprite_getframe(sprite);
+  }
+
+  int32_t framecount = std::max(qb_sprite_framecount(sprite), 1);
+  frame = std::abs(frame);
+  frame %= framecount;
+  return sprite->animator.animation->frames[frame]->img;
 }
 
 qbAnimation qb_animation_create(qbAnimationAttr attr) {
@@ -533,10 +589,11 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
       resources.push_back(info);
     }
-
+    
     qbShaderModuleAttr_ attr = {};
-    attr.vs = "resources/sprite.vs";
-    attr.fs = "resources/sprite.fs";
+    attr.vs = get_sprite_vs();
+    attr.fs = get_sprite_fs();
+    attr.interpret_as_strings = true;
 
     attr.resources = resources.data();
     attr.resources_count = resources.size();
@@ -599,7 +656,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
     qbClearValue_ clear;
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
-    clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clear.color = { 1.0f, 0.0f, 1.0f, 1.0f };
     clear.depth = 1.0f;
     attr.clear = clear;
 
@@ -651,6 +708,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
 void sprite_initialize(uint32_t width, uint32_t height) {
   sprite_render_pass = sprite_create_renderpass(width, height);
+  sprite_path = fs::path(qb_resources()->dir) / qb_resources()->sprites;
 
   {
     qbComponentAttr attr;
