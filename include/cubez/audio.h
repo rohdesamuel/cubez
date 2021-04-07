@@ -36,7 +36,12 @@ qb_audio_free(jump);
 */
 
 typedef struct qbAudioAttr_ {
+  // Audio sampling frequency.
+  // Default 44100Hz
   uint32_t sample_frequency;
+
+  // Number of samples internal buffers can hold at once.
+  // Default 8192 samples.
   uint32_t buffered_samples;
 } qbAudioAttr_, *qbAudioAttr;
 
@@ -48,7 +53,9 @@ typedef enum qbAudoLoop {
   QB_AUDIO_LOOP_ENABLE = 1
 } qbAudoLoop;
 
+// Loads the WAV file in the resources directory.
 QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
+
 QB_API qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded);
 QB_API qbAudioBuffer qb_audio_buffer(qbAudioPlaying playing);
 
