@@ -57,8 +57,8 @@ int sprite_draw(lua_State* L) {
   LUA_CHECK_TYPE(L, 3, LUA_TNUMBER);
   
   qbSprite sprite = (qbSprite)lua_touserdata(L, 1);
-  int x = lua_tointeger(L, 2);
-  int y = lua_tointeger(L, 3);
+  double x = lua_tonumber(L, 2);
+  double y = lua_tonumber(L, 3);
 
   qb_sprite_draw(sprite, { (float)x, (float)y });
 
