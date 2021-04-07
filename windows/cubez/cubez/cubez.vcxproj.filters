@@ -279,9 +279,6 @@
     <ClInclude Include="..\..\..\include\cubez\struct.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\memory.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\memory_internal.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
@@ -305,6 +302,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\lua_sprite_bindings.h">
       <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\inline_shaders.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\memory.h">
+      <Filter>Header Files\cubez</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -811,6 +814,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\lua_draw_bindings.cpp">
       <Filter>Source Files\lua</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\inline_shaders.cpp">
+      <Filter>Source Files\rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,7 @@
 ﻿function qb.start(width, height)
   print('on start')
 
-  sound = qb.audio.loadwav('resources/jump.wav')
+  sound = qb.audio.loadwav('jump.wav')
 
   BallTag = qb.component.create('BallTag', {})
 
@@ -155,7 +155,7 @@
 
   --]]
 
-  adventurer_sheet = qb.sprite.loadsheet('resources/Adventurer/adventurer-Sheet.png', 50, 37, 0)
+  adventurer_sheet = qb.sprite.loadsheet('Adventurer/adventurer-Sheet.png', 50, 37, 0)
   adventurer_sheet:setoffset(25, 0)
 
   idle_animation = qb.animation.fromsheet(adventurer_sheet, 0, 4, 300, true):play()  
@@ -229,7 +229,7 @@ function qb.update()
 
   if qb.keyboard.ispressed('space') then
     sound:play()
-    sound:setvolume(0.1)
+    --sound:setvolume(1)
     qb.entity.create(
       Position:create{ x=0, y=0 },
       Velocity:create{ x=1, y=0 },

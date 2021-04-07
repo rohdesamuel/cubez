@@ -279,6 +279,7 @@
     <None Include="..\..\..\example\resources\pbr.vs" />
     <None Include="..\..\..\example\resources\blur.fs" />
     <None Include="..\..\..\example\resources\blur.vs" />
+    <None Include="..\..\..\example\resources\scripts\main.lua" />
     <None Include="..\..\..\example\resources\sdf.fs" />
     <None Include="..\..\..\example\resources\sdf.vs" />
     <None Include="..\..\..\example\resources\shaders\ps\fill.frag" />
@@ -289,7 +290,6 @@
     <None Include="..\..\..\example\resources\sprite.vs" />
     <None Include="..\..\..\example\resources\texture.fs" />
     <None Include="..\..\..\example\resources\texture.vs" />
-    <None Include="..\..\..\example\scripts\main.lua" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

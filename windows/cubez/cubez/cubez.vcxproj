@@ -337,6 +337,7 @@
     <ClInclude Include="..\..\..\src\program_registry.h" />
     <ClInclude Include="..\..\..\src\program_thread.h" />
     <ClInclude Include="..\..\..\src\sprite_internal.h" />
+    <ClInclude Include="..\..\..\src\inline_shaders.h" />
     <ClInclude Include="..\..\..\src\stb_image.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
     <ClInclude Include="..\..\..\src\task.h" />
@@ -507,6 +508,7 @@
     <ClCompile Include="..\..\..\src\snapshot.cpp" />
     <ClCompile Include="..\..\..\src\socket.cpp" />
     <ClCompile Include="..\..\..\src\sprite.cpp" />
+    <ClCompile Include="..\..\..\src\inline_shaders.cpp" />
     <ClCompile Include="..\..\..\src\stb_image.cpp" />
     <ClCompile Include="..\..\..\src\struct.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
