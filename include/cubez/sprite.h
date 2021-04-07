@@ -34,14 +34,18 @@ QB_API qbSprite qb_spritesheet_load(const char* filename, int tw, int th, int ma
 
 QB_API qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy);
 
+QB_API qbSprite qb_sprite_frompixels(qbPixelMap pixels);
+
+QB_API qbSprite qb_sprite_fromimage(qbImage image);
+
 QB_API void     qb_sprite_draw(qbSprite sprite, vec2s pos);
 
 QB_API void     qb_sprite_draw_ext(qbSprite sprite, vec2s pos,
                                    vec2s scale, float rot, vec4s col);
 
-QB_API void qb_sprite_drawpart(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height);
+QB_API void     qb_sprite_drawpart(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height);
 
-QB_API void qb_sprite_drawpart_ext(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height,
+QB_API void     qb_sprite_drawpart_ext(qbSprite sprite, vec2s pos, int32_t left, int32_t top, int32_t width, int32_t height,
                                        vec2s scale, float rot, vec4s col);
 
 QB_API vec2s    qb_sprite_getoffset(qbSprite sprite);
@@ -53,9 +57,10 @@ QB_API uint32_t qb_sprite_height(qbSprite sprite);
 QB_API void     qb_sprite_setdepth(qbSprite sprite, float depth);
 QB_API float    qb_sprite_getdepth(qbSprite sprite);
 
-QB_API uint32_t qb_sprite_framecount(qbSprite sprite);
-QB_API uint32_t qb_sprite_getframe(qbSprite sprite);
-QB_API void     qb_sprite_setframe(qbSprite sprite, uint32_t frame_index);
+QB_API int32_t qb_sprite_framecount(qbSprite sprite);
+QB_API int32_t qb_sprite_getframe(qbSprite sprite);
+QB_API void     qb_sprite_setframe(qbSprite sprite, int32_t frame_index);
+QB_API qbImage  qb_sprite_subimg(qbSprite sprite, int32_t frame);
 
 QB_API void     qb_sprite_onresize(uint32_t width, uint32_t height);
 QB_API void     qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e);
