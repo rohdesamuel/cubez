@@ -9,6 +9,7 @@
 #include <ctime>
 #include <unordered_map>
 
+#include "concurrentqueue.h"
 #include "defs.h"
 #include "thread_pool.h"
 
@@ -80,18 +81,25 @@ private:
   std::mutex* select_mutex_;
 };
 
+struct qbQueue_ {
+  moodycamel::ConcurrentQueue<qbVar> queue_;
+};
+
 void qb_channel_create(qbChannel* channel) {
   *channel = new qbChannel_{};
 }
 
-qbResult qb_channel_write(qbChannel channel, qbVar v) {
-  channel->write(v);
-  return QB_OK;
+void qb_channel_destroy(qbChannel* channel) {
+  delete *channel;
+  *channel = nullptr;
 }
 
-qbResult qb_channel_read(qbChannel channel, qbVar* v) {
+void qb_channel_write(qbChannel channel, qbVar v) {
+  channel->write(v);
+}
+
+void qb_channel_read(qbChannel channel, qbVar* v) {
   channel->read(v);
-  return QB_OK;
 }
 
 qbVar qb_channel_select(qbChannel* channels, uint8_t len) {
@@ -132,6 +140,23 @@ qbVar qb_channel_select(qbChannel* channels, uint8_t len) {
   selected->read(&ret);
 
   return ret;
+}
+
+void qb_queue_create(qbQueue* queue) {
+  *queue = new qbQueue_;
+}
+
+void qb_queue_destroy(qbQueue* queue) {
+  delete *queue;
+  *queue = nullptr;
+}
+
+void qb_queue_write(qbQueue queue, qbVar v) {
+  queue->queue_.enqueue(v);
+}
+
+bool qb_queue_tryread(qbQueue queue, qbVar* v) {
+  return queue->queue_.try_dequeue(*v);
 }
 
 void async_initialize(qbSchedulerAttr_* attr) {

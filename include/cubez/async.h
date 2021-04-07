@@ -24,19 +24,34 @@
 #define QB_TASK_MAX_NUM_INPUTS 8
 
 typedef struct qbChannel_* qbChannel;
+typedef struct qbQueue_* qbQueue;
 typedef struct qbTask_* qbTask;
 
-// Create a multi-publisher single-subscriber channel.
+// Creates a multi-publisher single-subscriber thread-safe channel.
+// Has strong sequential consistency guarantee, e.g. two writes from two
+// different threads will be read in FIFO order.
 QB_API void qb_channel_create(qbChannel* channel);
+QB_API void qb_channel_destroy(qbChannel* channel);
 
 // Writes the given var to the channel. Blocks until is able to write.
-QB_API qbResult qb_channel_write(qbChannel channel, qbVar v);
+QB_API void qb_channel_write(qbChannel channel, qbVar v);
 
 // Reads a var from the channel. Blocks until data is available.
-QB_API qbResult qb_channel_read(qbChannel channel, qbVar* v);
+QB_API void qb_channel_read(qbChannel channel, qbVar* v);
+
+// Reads a var from the channel. Blocks until data is available.
+QB_API void qb_channel_read(qbChannel channel, qbVar* v);
 
 // Iterates through channels in a random order until data is available.
 QB_API qbVar qb_channel_select(qbChannel* channels, uint8_t len);
+
+// Creates a multi-publisher, multi-subscriper thread-safe queue.
+// There is no guarantee of sequential consistency, e.g. two writes from the
+// same thread may not be read in FIFO order.
+QB_API void qb_queue_create(qbQueue* queue);
+QB_API void qb_queue_destroy(qbQueue* queue);
+QB_API void qb_queue_write(qbQueue queue, qbVar v);
+QB_API bool qb_queue_tryread(qbQueue queue, qbVar* v);
 
 QB_API qbTask   qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var);
 
