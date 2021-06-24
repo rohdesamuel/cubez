@@ -137,6 +137,7 @@ static const luaL_Reg qb_lib[] = {
   { "sprite_draw_ext", sprite_draw_ext },
   { "sprite_drawpart", sprite_drawpart },
   { "sprite_drawpart_ext", sprite_drawpart_ext },
+  { "sprite_getoffset", sprite_getoffset },
   { "sprite_setoffset", sprite_setoffset },
   { "sprite_width", sprite_width },
   { "sprite_height", sprite_height },
@@ -474,12 +475,15 @@ end
 -----------------
 _QB.audio = {}
 
+_QB.audio.Sample = {}
+_QB.audio.Sample.__index = _QB.audio.Sample
+
 _QB.audio.Sound = {}
 _QB.audio.Sound.__index = _QB.audio.Sound
 
 function _QB.audio.loadwav (file)
-  local ret = { _sound=_QB.audio_loadwav(file) }
-  setmetatable(ret, _QB.audio.Sound)
+  local ret = { _sample=_QB.audio_loadwav(file) }
+  setmetatable(ret, _QB.audio.Sample)
 
   return ret
 end
@@ -488,16 +492,19 @@ function _QB.audio.stopall ()
   return _QB.audio_stopall()
 end
 
+function _QB.audio.Sample:play ()
+  local ret = { _sound=_QB.audio_play(self._sample) }
+  setmetatable(ret, _QB.audio.Sound)
+
+  return ret
+end
+
 function _QB.audio.Sound:free ()
   return _QB.audio_free(self._sound)
 end
 
 function _QB.audio.Sound:isplaying ()
   return _QB.audio_isplaying(self._sound)
-end
-
-function _QB.audio.Sound:play ()
-  return _QB.audio_play(self._sound)
 end
 
 function _QB.audio.Sound:stop ()
@@ -516,8 +523,8 @@ function _QB.audio.Sound:setpan (pan)
   return _QB.audio_setpan(self._sound, pan)
 end
 
-function _QB.audio.Sound:setvolume (vol)
-  return _QB.audio_setvolume(self._sound, vol)
+function _QB.audio.Sound:setvolume (left, right)
+  return _QB.audio_setvolume(self._sound, left, right)
 end
 
 ------------------

@@ -188,16 +188,27 @@ qbResult qb_stop() {
   return ret;
 }
 
-bool qb_running() {
+qbBool qb_running() {
   return game_loop.is_running;
 }
 
-const const qbResourceAttr_* qb_resources() {
+const qbResourceAttr_* qb_resources() {
   return &resource_attr;
 }
 
 qbResult loop(qbLoopCallbacks callbacks,
               qbLoopArgs args) {
+
+  qbLoopCallbacks_ empty_callbacks{};
+  qbLoopArgs_ empty_args{};
+  if (!callbacks) {
+    callbacks = &empty_callbacks;
+  }
+
+  if (!args) {
+    args = &empty_args;
+  }
+
   elapsed_update_samples.clear();
 
   qb_timer_start(fps_timer);
@@ -248,7 +259,7 @@ qbResult loop(qbLoopCallbacks callbacks,
     qbResult result = AS_PRIVATE(loop());
     coro_scheduler->run_sync();
 
-    elapsed_update_samples.push_back(qb_timer_add(update_timer));
+    elapsed_update_samples.push_back((double)qb_timer_add(update_timer));
 
     game_loop.accumulator -= game_loop.dt;
     game_loop.t += game_loop.dt;
@@ -354,6 +365,10 @@ qbResult qb_system_disable(qbSystem system) {
   return AS_PRIVATE(disable_system(system));
 }
 
+qbResult qb_system_run(qbSystem system) {
+  return AS_PRIVATE(run_system(system));
+}
+
 qbResult qb_componentattr_create(qbComponentAttr* attr) {
   *attr = (qbComponentAttr)calloc(1, sizeof(qbComponentAttr_));
   new (*attr) qbComponentAttr_;
@@ -378,8 +393,8 @@ qbResult qb_componentattr_settype(qbComponentAttr attr, qbComponentType type) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_componentattr_setshared(qbComponentAttr attr, bool is_shared) {
-  attr->is_shared = is_shared;
+qbResult qb_componentattr_setshared(qbComponentAttr attr, qbBool is_shared) {
+  attr->is_shared = is_shared == 1;
   return qbResult::QB_OK;
 }
 
@@ -549,7 +564,7 @@ qbResult qb_entity_destroy(qbEntity entity) {
   return AS_PRIVATE(entity_destroy(entity));
 }
 
-bool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
+qbBool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
   return AS_PRIVATE(entity_hascomponent(entity, component));
 }
 
@@ -673,6 +688,10 @@ qbResult qb_system_foreach(qbComponent* components, size_t component_count,
   return AS_PRIVATE(foreach_system(components, component_count, state, fn));
 }
 
+qbResult qb_query(qbQuery query, qbVar arg) {
+  return AS_PRIVATE(do_query(query, arg));
+}
+
 qbResult qb_eventattr_create(qbEventAttr* attr) {
   *attr = (qbEventAttr)calloc(1, sizeof(qbEventAttr_));
   new (*attr) qbEventAttr_;
@@ -755,7 +774,7 @@ qbResult qb_instance_component(qbInstance instance, qbComponent component, void*
   return AS_PRIVATE(instance_getcomponent(instance, component, pbuffer));
 }
 
-bool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
+qbBool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
   return AS_PRIVATE(instance_hascomponent(instance, component));
 }
 
@@ -839,8 +858,8 @@ void qb_coro_waitframes(uint32_t frames) {
   }
 }
 
-bool qb_coro_done(qbCoro coro) {
-  return qb_coro_peek(coro).tag != QB_TAG_NIL;
+qbBool qb_coro_done(qbCoro coro) {
+  return qb_coro_peek(coro).tag == QB_TAG_NIL ? QB_FALSE : QB_TRUE;
 }
 
 qbVar qbPtr(void* p) {
@@ -1049,17 +1068,17 @@ qbTag qb_array_type(qbVar array) {
   return a->type;
 }
 
-bool qb_array_iterate(qbVar array, bool(*it)(qbVar* k, qbVar state), qbVar state) {
+qbBool qb_array_iterate(qbVar array, qbBool(*it)(qbVar* k, qbVar state), qbVar state) {
   if (array.tag != QB_TAG_ARRAY) {
-    return false;
+    return QB_FALSE;
   }
 
   for (auto& v : ((qbArray_*)array.p)->array) {
     if (!it(&v, state)) {
-      return false;
+      return QB_FALSE;
     }
   }
-  return true;
+  return QB_TRUE;
 }
 
 qbVar qbMap(qbTag k_type, qbTag v_type) {
@@ -1126,14 +1145,14 @@ size_t qb_map_count(qbVar map) {
   return m->map.size();
 }
 
-bool qb_map_has(qbVar map, qbVar k) {
+qbBool qb_map_has(qbVar map, qbVar k) {
   qbMap_* m = (qbMap_*)map.p;
 
   if (k.tag != m->k_type) {
-    return false;
+    return QB_FALSE;
   }
 
-  return m->map.count({ k }) == 1;
+  return m->map.count({ k }) == 1 ? QB_TRUE : QB_FALSE;
 }
 
 qbTag qb_map_keytype(qbVar map) {
@@ -1146,18 +1165,18 @@ qbTag qb_map_valtype(qbVar map) {
   return m->v_type;
 }
 
-bool qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state) {
+qbBool qb_map_iterate(qbVar map, qbBool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state) {
   if (map.tag != QB_TAG_MAP) {
-    return false;
+    return QB_FALSE;
   }
 
   for (auto& p : ((qbMap_*)map.p)->map) {
     if (!it(p.first.v, &p.second, state)) {
-      return false;
+      return QB_FALSE;
     }
   }
 
-  return true;
+  return QB_TRUE;
 }
 
 qbVar qb_var_at(qbVar var, qbVar key) {
@@ -1171,7 +1190,7 @@ qbRef qb_ref_at(qbVar var, qbVar key) {
   switch (var.tag) {
     case QB_TAG_ARRAY:
       if (key.tag == QB_TAG_INT) {
-        return qb_array_at(var, key.i);
+        return qb_array_at(var, (int32_t)key.i);
       } else {
         return qbRef{};
       }
@@ -1179,9 +1198,9 @@ qbRef qb_ref_at(qbVar var, qbVar key) {
       return qb_map_at(var, key);
     case QB_TAG_STRUCT:
       if (key.tag == QB_TAG_INT) {
-        return qb_struct_ati(var, key.i);
+        return qb_struct_ati(var, (int32_t)key.i);
       } else if (key.tag == QB_TAG_UINT) {
-        return qb_struct_ati(var, key.u);
+        return qb_struct_ati(var, (uint8_t)key.u);
       } else if (key.tag == QB_TAG_STRING || key.tag == QB_TAG_CSTRING) { 
         return qb_struct_at(var, (const char*)key.s);
       } else {
@@ -1197,10 +1216,10 @@ uint8_t qb_struct_numfields(qbVar v) {
     return 0;
   }
 
-  return ((qbStruct_*)v.p)->internals.schema->fields.size();
+  return (uint8_t)((qbStruct_*)v.p)->internals.schema->fields.size();
 }
 
-size_t qb_buffer_writestr(qbBuffer_* buf, ptrdiff_t* pos, size_t len, const char* s) {
+size_t qb_buffer_writestr(qbBuffer buf, ptrdiff_t* pos, size_t len, const char* s) {
   ptrdiff_t saved = *pos;
 
   size_t total = 0;
@@ -1222,7 +1241,7 @@ size_t qb_buffer_writestr(qbBuffer_* buf, ptrdiff_t* pos, size_t len, const char
 }
 
 
-size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n) {
+size_t qb_buffer_writell(qbBuffer buf, ptrdiff_t* pos, int64_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonll(n);
@@ -1234,7 +1253,7 @@ size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n) {
   return written;
 }
 
-size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n) {
+size_t qb_buffer_writel(qbBuffer buf, ptrdiff_t* pos, int32_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htonl(n);
@@ -1246,7 +1265,7 @@ size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n) {
   return written;
 }
 
-size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n) {
+size_t qb_buffer_writes(qbBuffer buf, ptrdiff_t* pos, int16_t n) {
   ptrdiff_t saved = *pos;
 
   n = qb_htons(n);
@@ -1258,7 +1277,7 @@ size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n) {
   return written;
 }
 
-size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n) {
+size_t qb_buffer_writed(qbBuffer buf, ptrdiff_t* pos, double n) {
   ptrdiff_t saved = *pos;
 
   union {
@@ -1276,12 +1295,12 @@ size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n) {
   return written;
 }
 
-size_t qb_buffer_writef(qbBuffer_* buf, ptrdiff_t* pos, float n) {
+size_t qb_buffer_writef(qbBuffer buf, ptrdiff_t* pos, float n) {
   ptrdiff_t saved = *pos;
 
   union {
     float f;
-    int64_t i;
+    uint32_t i;
   } f_to_i;
 
   f_to_i.f = n;
@@ -1378,12 +1397,12 @@ size_t qb_buffer_readf(const qbBuffer_* buf, ptrdiff_t* pos, float* n) {
 
   union {
     float f;
-    int64_t i;
+    uint32_t i;
   } f_to_i;
 
   size_t read = qb_buffer_read(buf, pos, 4, &f_to_i);
 
-  f_to_i.i = qb_ntohll(f_to_i.i);
+  f_to_i.i = qb_ntohl(f_to_i.i);
   *n = f_to_i.f;
 
   if (read != 4) {
@@ -1504,7 +1523,7 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
       }
 
       for (size_t i = 0; i < count; ++i) {
-        qbVar* var = qb_array_at(v, i);
+        qbVar* var = qb_array_at(v, (int32_t)i);
         written = qb_var_pack(*var, buf, pos);
         total += written;
         if (written == 0) {
@@ -1554,16 +1573,16 @@ size_t qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos) {
         size_t written = qb_var_pack(k, s->buf, s->pos);
         s->total += written;
         if (written == 0) {
-          return false;
+          return QB_FALSE;
         }
 
         written = qb_var_pack(*v, s->buf, s->pos);
         s->total += written;
         if (written == 0) {
-          return false;
+          return QB_FALSE;
         }
 
-        return written != 0;
+        return written == 0 ? QB_FALSE : QB_TRUE;
       }, qbPtr(&stream_state))) {
         goto incomplete_write;
       }
@@ -1943,7 +1962,7 @@ qbVar qb_var_tostring(qbVar v) {
         qb_var_destroy(&k_str);
         qb_var_destroy(&v_str);
         
-        return true;
+        return QB_TRUE;
       }, qbPtr(&state));
 
       str += " }";
@@ -2079,7 +2098,7 @@ size_t qb_schemafield_size(qbSchemaField field) {
   return field->size;
 }
 
-size_t qb_buffer_write(qbBuffer_* buf, ptrdiff_t* pos, size_t size, const void* bytes) {
+size_t qb_buffer_write(qbBuffer buf, ptrdiff_t* pos, size_t size, const void* bytes) {
   if (!buf || !pos || !bytes || !size) {
     return 0;
   }

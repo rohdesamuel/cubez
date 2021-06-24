@@ -16,6 +16,7 @@
 #include "pong.h"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <thread>
 #include <unordered_map>
@@ -73,7 +74,7 @@ qbGuiElement qb_guislider_create(vec2s pos, float width, const char* name) {
   qbGuiElement slider;
   {
     qbGuiElementCallbacks_ callbacks = {};
-    callbacks.onfocus = [](qbGuiElement) { return true; };
+    callbacks.onfocus = [](qbGuiElement) { return QB_TRUE; };
     callbacks.ongetvalue = [](qbGuiElement b, qbVar) {
       double l = qb_guielement_getconstraint(b, QB_GUI_X, QB_CONSTRAINT_MIN);
       double r = qb_guielement_getconstraint(b, QB_GUI_X, QB_CONSTRAINT_MAX);
@@ -86,7 +87,7 @@ qbGuiElement qb_guislider_create(vec2s pos, float width, const char* name) {
       qb_guielement_setconstraint(b, QB_GUI_X, QB_CONSTRAINT_RELATIVE, x + (float)e->xrel);
 
       std::cout << qb_guielement_getvalue(b).d << std::endl;
-      return true;
+      return QB_TRUE;
     };
 
     qbGuiElementAttr_ attr = {};
@@ -119,11 +120,11 @@ void create_main_menu() {
   qbGuiElementCallbacks_ window_callbacks = {};
   window_callbacks.onfocus = [](qbGuiElement) {
     std::cout << "onfocus\n";
-    return true;
+    return QB_TRUE;
   };
   window_callbacks.onclick = [](qbGuiElement, qbMouseButtonEvent e) {
     std::cout << "onclick ( " << e->button << ", " << e->state << " )\n";
-    return true;
+    return QB_TRUE;
   };
   window_callbacks.onscroll = [](qbGuiElement el, qbMouseScrollEvent e) {
     std::cout << "onscroll ( " << e->xrel << ", " << e->yrel << " )\n";
@@ -135,7 +136,7 @@ void create_main_menu() {
       vec2s delta = { (float)e->xrel, (float)(e->yrel * 5) };
       qb_guielement_moveby(el, delta);
     }
-    return true;
+    return QB_TRUE;
   };
 
   qbImage ball_image;
@@ -186,7 +187,7 @@ void create_main_menu() {
     qbGuiElementCallbacks_ callbacks = {};
     callbacks.onfocus = [](qbGuiElement b) {
       std::cout << "ONFOCUS MAIN_MENU\n";
-      return true;
+      return QB_TRUE;
     };
 
     attr.callbacks = &callbacks;
@@ -210,7 +211,7 @@ void create_main_menu() {
 
       qbGuiElement parent = qb_guielement_find("main_menu");
       qb_guielement_moveby(parent, { (float)e->xrel, (float)e->yrel });
-      return true;
+      return QB_TRUE;
     };
 
     qbGuiElementAttr_ attr = {};
@@ -266,7 +267,7 @@ void create_main_menu() {
 
       qbGuiElement main_menu = qb_guielement_find("main_menu");
       qb_guielement_setconstraint(main_menu, QB_GUI_HEIGHT, QB_CONSTRAINT_MAX, 30.f);
-      return true;
+      return QB_TRUE;
     };
 
     qbGuiElementAttr_ attr = {};
@@ -292,7 +293,7 @@ void create_main_menu() {
 
       qbGuiElement main_menu = qb_guielement_find("main_menu");
       qb_guielement_clearconstraint(main_menu, QB_GUI_HEIGHT, QB_CONSTRAINT_MAX);
-      return true;
+      return QB_TRUE;
     };
 
     qbGuiElementAttr_ attr = {};
@@ -1126,6 +1127,21 @@ int main(int, char* []) {
   while (qb_loop(&loop_callbacks, &loop_args) != QB_DONE) {
     qb_timing(uni, &timing_info);
     //qb_sprite_drawpart(sheet, { 0, 0 }, (uint32_t)x, 0, (uint32_t)w, (uint32_t)h);
+    
+    if (1) {
+      static qbQueryComponent_ all[] = {
+        { qb_component_find("Position", nullptr) }
+      };
+
+      qbQuery_ q{};
+      q.fn = [](qbEntity entity, qbVar, qbVar) {
+        return QB_QUERY_RESULT_CONTINUE;
+      };
+      q.all = all;
+      q.all_count = sizeof(all) / sizeof(all[0]);
+      
+      qb_query(&q, qbNil);
+    }
   }
   return 0;
 }

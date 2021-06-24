@@ -528,7 +528,7 @@ uint64_t qb_htonll(uint64_t hostlong) {
 }
 
 uint32_t qb_htonf(float hostfloat) {
-  return htonll(hostfloat);
+  return htonf(hostfloat);
 }
 
 uint64_t qb_htond(double hostdouble) {

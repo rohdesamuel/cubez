@@ -34,18 +34,17 @@ class SystemImpl {
 
   void Run(GameState* game_state, void* event=nullptr);
 
-  qbInstance_ FindInstance(qbEntity entity, Component* component, GameState* state);
+  qbInstance_ FindInstance(qbEntity entity, Component* component);
 
  private:
   void CopyToInstance(Component* component, qbEntity entity,
-                      qbInstance instance, GameState* state);
+                      qbInstance instance);
   void CopyToInstance(Component* component, qbEntity entity,
-                      void* instance_data, qbInstance instance,
-                      GameState* state);
+                      void* instance_data, qbInstance instance);
 
   void Run_0(qbFrame* f);
-  void Run_1(Component* component, qbFrame* f, GameState* state);
-  void Run_N(const std::vector<Component*>& components, qbFrame* f, GameState* state);
+  void Run_1(Component* component, qbFrame* f);
+  void Run_N(const std::vector<Component*>& components, qbFrame* f);
 
   void RunTransform(qbInstance* instances, qbFrame* frame);
 

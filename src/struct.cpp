@@ -41,6 +41,7 @@ size_t tag_to_size(qbSchemaFieldType_ type) {
       assert(false && "unimplemented");
   }
   assert(false && "unsupported tag");
+  return 0;
 }
 
 qbResult qb_schemaattr_create(qbSchemaAttr* attr) {

@@ -168,6 +168,7 @@ enum qbFullscreenType {
 
 QB_API uint32_t qb_window_width();
 QB_API uint32_t qb_window_height();
+
 QB_API void qb_window_resize(uint32_t width, uint32_t height);
 QB_API void qb_window_setfullscreen(qbFullscreenType type);
 QB_API qbFullscreenType  qb_window_fullscreen();

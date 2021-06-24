@@ -155,7 +155,7 @@ void qb_queue_write(qbQueue queue, qbVar v) {
   queue->queue_.enqueue(v);
 }
 
-bool qb_queue_tryread(qbQueue queue, qbVar* v) {
+qbBool qb_queue_tryread(qbQueue queue, qbVar* v) {
   return queue->queue_.try_dequeue(*v);
 }
 

@@ -23,121 +23,9 @@
 #define QB_MINOR_VERSION 0
 #define QB_PATCH_VERSION 0
 
-#include "common.h"
-
-typedef enum {
-  QB_TAG_CUSTOM = -1,
-  QB_TAG_NIL = 0,
-  QB_TAG_FUTURE,
-  QB_TAG_ANY,
-
-  // Scalar types.
-  QB_TAG_PTR,
-  QB_TAG_INT,
-  QB_TAG_UINT,
-  QB_TAG_DOUBLE,
-  QB_TAG_STRING,
-  QB_TAG_CSTRING,
-
-  // Container types.
-  QB_TAG_STRUCT,
-  QB_TAG_ARRAY,
-  QB_TAG_MAP,
-  
-  // Buffer type.
-  QB_TAG_BYTES,
-} qbTag;
-
-typedef struct {
-  const size_t capacity;  
-  uint8_t* bytes;
-} qbBuffer_;
-
-QB_API size_t qb_buffer_write(qbBuffer_* buf, ptrdiff_t* pos, size_t size, const void* bytes);
-QB_API size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* bytes);
-
-QB_API size_t qb_buffer_writestr(qbBuffer_* buf, ptrdiff_t* pos, size_t len, const char* s);
-QB_API size_t qb_buffer_writell(qbBuffer_* buf, ptrdiff_t* pos, int64_t n);
-QB_API size_t qb_buffer_writel(qbBuffer_* buf, ptrdiff_t* pos, int32_t n);
-QB_API size_t qb_buffer_writes(qbBuffer_* buf, ptrdiff_t* pos, int16_t n);
-QB_API size_t qb_buffer_writed(qbBuffer_* buf, ptrdiff_t* pos, double n);
-QB_API size_t qb_buffer_writef(qbBuffer_* buf, ptrdiff_t* pos, float n);
-
-QB_API size_t qb_buffer_readstr(const qbBuffer_* buf, ptrdiff_t* pos, size_t* len, char** s);
-QB_API size_t qb_buffer_readll(const qbBuffer_* buf, ptrdiff_t* pos, int64_t* n);
-QB_API size_t qb_buffer_readl(const qbBuffer_* buf, ptrdiff_t* pos, int32_t* n);
-QB_API size_t qb_buffer_reads(const qbBuffer_* buf, ptrdiff_t* pos, int16_t* n);
-QB_API size_t qb_buffer_readd(const qbBuffer_* buf, ptrdiff_t* pos, double* n);
-QB_API size_t qb_buffer_readf(const qbBuffer_* buf, ptrdiff_t* pos, float* n);
-
-typedef struct {
-  qbTag tag;
-  size_t size;
-
-  union {
-    void* p;
-    utf8_t* s;
-    int64_t i;
-    uint64_t u;
-    double d;
-
-    char bytes[8];
-  };
-} qbVar;
-
-typedef qbVar* qbRef;
-typedef struct qbSchema_* qbSchema;
-typedef struct qbSchemaField_* qbSchemaField;
-
-// Convenience functions for creating a qbVar. 
-QB_API qbVar       qbPtr(void* p);
-QB_API qbVar       qbInt(int64_t i);
-QB_API qbVar       qbUint(uint64_t u);
-QB_API qbVar       qbDouble(double d);
-QB_API qbVar       qbStruct(qbSchema schema, void* buf);
-QB_API qbVar       qbArray(qbTag v_type);
-QB_API qbVar       qbMap(qbTag k_type, qbTag v_type);
-QB_API qbVar       qbString(const utf8_t* s);
-QB_API qbVar       qbCString(utf8_t* s);
-QB_API qbVar       qbBytes(const char* bytes, size_t size);
-
-QB_API qbRef       qb_ref_at(qbVar v, qbVar key);
-QB_API qbVar       qb_var_at(qbVar v, qbVar key);
-
-QB_API qbVar*      qb_array_at(qbVar array, int32_t i);
-QB_API qbVar*      qb_array_append(qbVar array, qbVar v);
-QB_API void        qb_array_insert(qbVar array, qbVar v, int32_t i);
-QB_API void        qb_array_erase(qbVar array, int32_t i);
-QB_API void        qb_array_swap(qbVar array, int32_t i, int32_t j);
-QB_API void        qb_array_resize(qbVar array, size_t size);
-QB_API size_t      qb_array_count(qbVar array);
-QB_API qbTag       qb_array_type(qbVar array);
-QB_API qbVar*      qb_array_raw(qbVar array);
-QB_API bool        qb_array_iterate(qbVar array, bool(*it)(qbVar* k, qbVar state), qbVar state);
-
-QB_API qbVar*      qb_map_at(qbVar map, qbVar k);
-QB_API qbVar*      qb_map_insert(qbVar map, qbVar k, qbVar v);
-QB_API void        qb_map_erase(qbVar map, qbVar k);
-QB_API void        qb_map_swap(qbVar map, qbVar a, qbVar b);
-QB_API size_t      qb_map_count(qbVar map);
-QB_API bool        qb_map_has(qbVar map, qbVar k);
-QB_API qbTag       qb_map_keytype(qbVar map);
-QB_API qbTag       qb_map_valtype(qbVar map);
-QB_API bool        qb_map_iterate(qbVar map, bool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state);
-
-QB_API size_t      qb_var_pack(qbVar v, qbBuffer_* buf, ptrdiff_t* pos);
-QB_API size_t      qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos);
-QB_API void        qb_var_copy(const qbVar* from, qbVar* to);
-QB_API void        qb_var_move(qbVar* from, qbVar* to);
-QB_API void        qb_var_destroy(qbVar* v);
-QB_API qbVar       qb_var_tostring(qbVar v);
-
-// Represents a non-value.
-QB_API extern const qbVar qbNil;
-
-// Represents a qbVar that is not yet set. Used to represent a value that will
-// be set in the future.
-QB_API extern const qbVar qbFuture;
+#include <cubez/common.h>
+#include <cubez/buffer.h>
+#include <cubez/var.h>
 
 ///////////////////////////////////////////////////////////
 //////////////////////  Flow Control  /////////////////////
@@ -200,7 +88,7 @@ typedef struct {
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
-QB_API bool qb_running();
+QB_API qbBool qb_running();
 QB_API const qbResourceAttr_* qb_resources();
 
 typedef struct qbLoopCallbacks_ {
@@ -344,7 +232,7 @@ QB_API qbResult      qb_componentattr_setschema(qbComponentAttr attr,
 
 // Sets the component to be shared across programs with a reader/writer lock.
 // By default a component is "shared", i.e. is_shared=true.
-QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr, bool is_shared);
+QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr, qbBool is_shared);
 
 // Unimplemented.
 QB_API qbResult      qb_componentattr_onpack(qbComponentAttr attr,
@@ -443,7 +331,7 @@ QB_API qbResult     qb_instance_component(qbInstance instance,
 
 // Returns true if the entity containing the instance also contains a specified
 // component.
-QB_API bool        qb_instance_hascomponent(qbInstance instance,
+QB_API qbBool       qb_instance_hascomponent(qbInstance instance,
                                             qbComponent component);
 
 // Returns a qbRef to the memory pointed at by key in the struct. Assumes that
@@ -523,7 +411,7 @@ QB_API qbResult      qb_entity_removecomponent(qbEntity entity,
 // Returns true if the specified entity contains an instance for the component.
 // This is only thread-safe if the component is a "shared" component, created
 // with the `qb_componentattr_setshared` method.
-QB_API bool          qb_entity_hascomponent(qbEntity entity,
+QB_API qbBool        qb_entity_hascomponent(qbEntity entity,
                                             qbComponent component);
 
 // Returns the specified component.
@@ -579,6 +467,7 @@ typedef enum qbComponentJoin {
   QB_JOIN_INNER = 0,
   QB_JOIN_LEFT,
   QB_JOIN_CROSS,
+  QB_JOIN_UNION,
 } qbComponentJoin;
 
 // Instructs the execution of the system to join together multiple components.
@@ -604,7 +493,7 @@ QB_API qbResult      qb_systemattr_setcallback(qbSystemAttr attr,
                                                qbCallbackFn callback);
 
 // Allows the system to execute if the specified condition returns true.
-typedef bool(*qbConditionFn)(qbFrame* frame);
+typedef qbBool(*qbConditionFn)(qbFrame* frame);
 QB_API qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
                                                 qbConditionFn condition);
 
@@ -655,25 +544,37 @@ QB_API qbResult      qb_system_enable(qbSystem system);
 QB_API qbResult      qb_system_disable(qbSystem system);
 
 // Runs the given system. Not thread-safe when run concurrently with qb_loop().
-// Unimplemented.
 QB_API qbResult      qb_system_run(qbSystem system);
 
+QB_API qbResult      qb_system_foreach(qbComponent* components, size_t component_count,
+                                       qbVar state, void(*fn)(qbInstance*, qbVar));
 
 typedef enum qbQueryResult {
   QB_QUERY_RESULT_DONE,
   QB_QUERY_RESULT_CONTINUE,
 } qbQueryResult;
 
+typedef struct qbQueryComponent_ {
+  qbComponent component;
+  qbBool is_mutable;
+} qbQueryComponent_, *qbQueryComponent;
+
 typedef struct qbQuery_ {
-  qbComponent primary;
+  qbQueryResult(*fn)(qbEntity entity, qbVar state, qbVar arg);
 
-  qbQueryResult(*fn)(struct qbQuery_* query, qbVar* args);
+  size_t all_count;
+  qbQueryComponent_* all;
 
-  size_t secondary_count;
-  qbComponent* secondary;
+  size_t any_count;
+  qbQueryComponent_* any;
 
+  size_t none_count;
+  qbQueryComponent_* none;
+
+  qbVar state;
 } qbQuery_, *qbQuery;
-QB_API qbResult      qb_query(qbQuery query, size_t arg_count, qbVar* args);
+
+QB_API qbResult      qb_query(qbQuery query, qbVar arg);
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
@@ -873,7 +774,7 @@ QB_API qbVar       qb_coro_await(qbCoro coro);
 QB_API qbVar      qb_coro_peek(qbCoro coro);
 
 // Returns true if Coroutine is finished running.
-QB_API bool       qb_coro_done(qbCoro coro);
+QB_API qbBool     qb_coro_done(qbCoro coro);
 
 
 #endif  // #ifndef CUBEZ__H

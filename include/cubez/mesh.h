@@ -82,11 +82,13 @@ typedef struct qbMaterial_ {
 typedef struct qbCollider_ {
   vec3s* vertices;
   uint8_t vertex_count;
+  vec3s center;
 
   vec3s max;
-  vec3s min;
-  vec3s center;
+  vec3s min;  
   float r;
+
+  vec3s(*support)(const qbCollider_* self, const vec3s* dir, const qbTransform_* transform);
 } qbCollider_, *qbCollider;
 
 typedef struct qbMesh_ {
@@ -167,22 +169,47 @@ QB_API struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size
 QB_API struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider);
 QB_API struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider);
 
-QB_API bool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
+QB_API qbBool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
                               const qbTransform_* a_t, const qbTransform_* b_t);
 
-QB_API bool qb_collider_checkaabb(const qbCollider_* a, const qbCollider_* b,
+QB_API qbBool qb_collider_checkaabb(const qbCollider_* a, const qbCollider_* b,
                                   const qbTransform_* a_t, const qbTransform_* b_t);
 
-QB_API bool qb_collider_checkmesh(const qbCollider_* a, const qbCollider_* b,
+QB_API qbBool qb_collider_checkmesh(const qbCollider_* a, const qbCollider_* b,
                                   const qbTransform_* a_t, const qbTransform_* b_t);
 
-QB_API bool qb_collider_checkray(const qbCollider_* collider, const qbTransform_* transform, const qbRay_* r, float* t);
+QB_API qbBool qb_collider_checkray(const qbCollider_* collider, const qbTransform_* transform, const qbRay_* r, float* t);
 
 QB_API vec3s qb_collider_support(const qbCollider_* collider, const qbTransform_* transform, vec3s dir);
 
-QB_API bool qb_ray_checktri(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
-                            vec3s* intersection_point, float* dis);
+// Unimplemented.
+QB_API void qb_collider_sphere(qbCollider collider, float r);
 
-QB_API bool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t);
+// Unimplemented.
+QB_API void qb_collider_aabb(qbCollider collider, vec3s max, vec3s min, vec3s center);
+
+// Unimplemented.
+QB_API void qb_collider_obb(qbCollider collider, vec3s max, vec3s min, vec3s center);
+
+// Unimplemented.
+QB_API void qb_collider_pill(qbCollider collider, float r, float h);
+
+// Unimplemented.
+QB_API void qb_collider_cylinder(qbCollider collider, float r, float h);
+
+// Unimplemented.
+QB_API void qb_collider_cone(qbCollider collider, float r, float h);
+
+QB_API qbBool qb_ray_checkaabb(const qbCollider_* c, const qbTransform_* t, const qbRay_* r,
+                             float* tmin, float* tmax);
+
+// Unimplemented.
+QB_API qbBool qb_ray_checkobb(const qbCollider_* c, const qbTransform_* t, const qbRay_* r,
+                            float* tmin, float* tmax);
+
+QB_API qbBool qb_ray_checktri(const qbRay_* ray, const vec3s* v0, const vec3s* v1, const vec3s* v2,
+                            vec3s* intersection_point, float* t);
+
+QB_API qbBool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t);
 
 #endif   // MESH__H

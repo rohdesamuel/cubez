@@ -196,7 +196,7 @@ int guielement_create(lua_State* L) {
   }
 
   if (lua_getfield(L, OPT_ARG, "textsize") != LUA_TNIL) {
-    attr.text_size = lua_tointeger(L, -1);
+    attr.text_size = (int)lua_tointeger(L, -1);
     lua_pop(L, 1);
   }
 
@@ -218,7 +218,7 @@ int guielement_create(lua_State* L) {
     }
 
     int element = lua_gettop(L);
-    bool ret = false;
+    qbBool ret = QB_FALSE;
     if (lua_getfield(L, element, "onfocus") != LUA_TNIL) {
       lua_pushvalue(L, element);
       lua_call(L, 1, 1);
@@ -240,7 +240,7 @@ int guielement_create(lua_State* L) {
     }
 
     int element = lua_gettop(L);
-    bool ret = false;
+    qbBool ret = QB_FALSE;
     if (lua_getfield(L, element, "onclick") != LUA_TNIL) {
       lua_pushvalue(L, element);
       lua_call(L, 1, 1);
@@ -262,7 +262,7 @@ int guielement_create(lua_State* L) {
     }
 
     int element = lua_gettop(L);
-    bool ret = false;
+    qbBool ret = QB_FALSE;
     if (lua_getfield(L, element, "onscroll") != LUA_TNIL) {
       lua_pushvalue(L, element);
       lua_call(L, 1, 1);
@@ -284,7 +284,7 @@ int guielement_create(lua_State* L) {
     }
 
     int element = lua_gettop(L);
-    bool ret = false;
+    qbBool ret = QB_FALSE;
     if (lua_getfield(L, element, "onmove") != LUA_TNIL) {
       lua_pushvalue(L, element);
       lua_pushinteger(L, start_x);
@@ -308,7 +308,7 @@ int guielement_create(lua_State* L) {
     }
 
     int element = lua_gettop(L);
-    bool ret = false;
+    qbBool ret = QB_FALSE;
     if (lua_getfield(L, element, "onkey") != LUA_TNIL) {
       lua_pushvalue(L, element);
       lua_call(L, 1, 1);
@@ -773,7 +773,7 @@ int guielement_settextscale(lua_State* L) {
 
 int guielement_settextsize(lua_State* L) {
   qbGuiElement el = (qbGuiElement)lua_touserdata(L, 1);
-  qb_guielement_settextsize(el, lua_tointeger(L, 2));
+  qb_guielement_settextsize(el, (uint32_t)lua_tointeger(L, 2));
   return 0;
 }
 

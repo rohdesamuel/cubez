@@ -675,8 +675,8 @@ enum qbInputEventType {
 };
 
 typedef struct {
-  bool was_pressed;
-  bool is_pressed;
+  qbBool was_pressed;
+  qbBool is_pressed;
   qbKey key;
   qbScanCode scane_code;
 } qbKeyEvent_, *qbKeyEvent;
@@ -738,10 +738,10 @@ QB_API void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVa
 QB_API qbResult qb_on_key_event(qbSystem system);
 QB_API qbResult qb_on_mouse_event(qbSystem system);
 
-QB_API bool qb_scancode_ispressed(qbScanCode scan_code);
-QB_API bool qb_key_ispressed(qbKey key);
-QB_API bool qb_mouse_ispressed(qbButton mouse_button);
-QB_API bool qb_mouse_waspressed(qbButton mouse_button);
+QB_API qbBool qb_scancode_ispressed(qbScanCode scan_code);
+QB_API qbBool qb_key_ispressed(qbKey key);
+QB_API qbBool qb_mouse_ispressed(qbButton mouse_button);
+QB_API qbBool qb_mouse_waspressed(qbButton mouse_button);
 
 QB_API void qb_mouse_getposition(int* x, int* y);
 QB_API void qb_mouse_getrelposition(int* relx, int* rely);

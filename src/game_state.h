@@ -42,6 +42,7 @@ public:
   qbResult EntityAddComponent(qbEntity entity, qbComponent component,
                                void* instance_data);
   qbResult EntityRemoveComponent(qbEntity entity, qbComponent component);
+  EntityRegistry& Entities();
 
   // Component manipulation.
   qbResult ComponentSubscribeToOnCreate(qbSystem system, qbComponent component);

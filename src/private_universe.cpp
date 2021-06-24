@@ -19,6 +19,7 @@
 #include "private_universe.h"
 #include "system_impl.h"
 #include "snapshot.h"
+#include "query.h"
 
 #ifdef __COMPILE_AS_WINDOWS__
 #undef CreateEvent
@@ -219,6 +220,12 @@ qbResult PrivateUniverse::disable_system(qbSystem system) {
   return ProgramImpl::FromRaw(p)->DisableSystem(system);
 }
 
+qbResult PrivateUniverse::run_system(qbSystem system) {
+  auto s = SystemImpl::FromRaw(system);
+  s->Run(WorkingScene());
+  return QB_OK;
+}
+
 qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t component_count,
                                          qbVar var, void(*fn)(qbInstance*, qbVar)) {
   qbSystemAttr_ attr = {};
@@ -250,6 +257,10 @@ qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t compone
   s.Run(active_->state);
 
   return QB_OK;
+}
+
+qbResult PrivateUniverse::do_query(qbQuery query, qbVar arg) {
+  return Query(query, WorkingScene())(arg);
 }
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
@@ -381,7 +392,7 @@ qbResult PrivateUniverse::instance_oncreate(qbComponent component,
       (qbInstanceOnCreateEvent_*)frame->event;
     qbInstanceOnCreateState* fn_state = (qbInstanceOnCreateState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
-      event->entity, event->component, event->state);
+      event->entity, event->component);
     fn_state->on_create(&instance, fn_state->state);
   });
   qbSystem system;
@@ -413,7 +424,7 @@ qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
       (qbInstanceOnDestroyEvent_*)frame->event;
     qbInstanceOnDestroyState* fn_state = (qbInstanceOnDestroyState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
-      event->entity, event->component, event->state);
+      event->entity, event->component);
     fn_state->on_destroy(&instance, fn_state->state);
   });
   qbSystem system;

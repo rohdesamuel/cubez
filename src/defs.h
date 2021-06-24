@@ -144,11 +144,9 @@ struct qbInstance_ {
     is_mutable(is_mutable),
     has_schema(has_schema) {};
 
-  qbSystem system;
   Component* component;
   qbEntity entity;
   void* data;
-  class GameState* state;
 
   const bool is_mutable;
   const bool has_schema;

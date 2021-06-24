@@ -501,7 +501,7 @@ void gui_initialize() {
 void gui_shutdown() {
 }
 
-bool gui_handle_input(qbInputEvent input_event) {
+qbBool gui_handle_input(qbInputEvent input_event) {
   int x, y;
   qb_mouse_getposition(&x, &y);
 
@@ -528,7 +528,7 @@ bool gui_handle_input(qbInputEvent input_event) {
     if (old_focused != focused) {
       // Only send OnFocus when we change.
       if (focused->callbacks.onfocus) {
-        event_handled |= focused->callbacks.onfocus(focused);
+        event_handled |= focused->callbacks.onfocus(focused) == QB_TRUE;
       }
 
       if (focused->constraints_[QB_GUI_X][QB_CONSTRAINT_RELATIVE].c) {
@@ -566,12 +566,12 @@ bool gui_handle_input(qbInputEvent input_event) {
 
       if (focused && focused->callbacks.onclick) {
         qbMouseEvent e = &input_event->mouse_event;
-        event_handled |= focused->callbacks.onclick(focused, &e->button);
+        event_handled |= focused->callbacks.onclick(focused, &e->button) == QB_TRUE;
       }
     } else if (input_event->mouse_event.type == QB_MOUSE_EVENT_SCROLL) {
       qbMouseEvent e = &input_event->mouse_event;
       if (closest && closest->callbacks.onscroll) {
-        event_handled |= closest->callbacks.onscroll(closest, &e->scroll);
+        event_handled |= closest->callbacks.onscroll(closest, &e->scroll) == QB_TRUE;
       }
     }
 
@@ -589,7 +589,7 @@ bool gui_handle_input(qbInputEvent input_event) {
         qb_mouse_getposition(&e.x, &e.y);
         qb_mouse_getrelposition(&e.xrel, &e.yrel);
         if (e.xrel != 0 || e.yrel != 0) {
-          event_handled |= focused->callbacks.onmove(focused, &e, start_x, start_y);
+          event_handled |= focused->callbacks.onmove(focused, &e, start_x, start_y) == QB_TRUE;
         }
       }
     }
@@ -835,8 +835,8 @@ void qb_guielement_create(qbGuiElement* el, const char* id, qbGuiElementAttr att
     qb_meshbuffer_create(&dbo, &buffer_attr);
 
     qbGpuBuffer vertex_buffers[] = { default_vbo };
-    qb_meshbuffer_attachvertices(dbo, vertex_buffers);
-    qb_meshbuffer_attachindices(dbo, default_ebo);
+    qb_meshbuffer_attachvertices(dbo, vertex_buffers, 4);
+    qb_meshbuffer_attachindices(dbo, default_ebo, 6);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { ubo };
@@ -1020,8 +1020,8 @@ void qb_guielement_settext(qbGuiElement el, const utf8_t* text) {
     qb_meshbuffer_create(&el->text_dbo, &attr);
 
     qbGpuBuffer vertex_buffers[] = { vbo };
-    qb_meshbuffer_attachvertices(el->text_dbo, vertex_buffers);
-    qb_meshbuffer_attachindices(el->text_dbo, ebo);
+    qb_meshbuffer_attachvertices(el->text_dbo, vertex_buffers, 4);
+    qb_meshbuffer_attachindices(el->text_dbo, ebo, 6);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { ubo };

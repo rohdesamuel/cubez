@@ -40,7 +40,10 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   1 + 
 
   // Texture Id
-  1;
+  1 +
+  
+  // Entity Id
+  4;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
 
 fs::path sprite_path;
@@ -688,8 +691,8 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     qb_meshbuffer_create(&sprite_quads, &attr);
 
     qbGpuBuffer vertex_buffers[] = { batch_vbo };
-    qb_meshbuffer_attachvertices(sprite_quads, vertex_buffers);
-    qb_meshbuffer_attachindices(sprite_quads, batch_ebo);
+    qb_meshbuffer_attachvertices(sprite_quads, vertex_buffers, 0);
+    qb_meshbuffer_attachindices(sprite_quads, batch_ebo, 0);
 
     qb_rendergroup_append(batched_sprites, sprite_quads);
   }
@@ -794,8 +797,8 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
       float offset_y = queued.animator ? queued.animator_sprite->offset.y : queued.sprite->offset.y;
 
       for (uint32_t i = 0; i < 4; ++i) {
-        float x = i & 0x1;
-        float y = (i & 0x2) >> 1;
+        float x = (float)(i & 0x1);
+        float y = (float)((i & 0x2) >> 1);
         // Position
         attributes[0] = queued.w * x - offset_x;
         attributes[1] = queued.h * y - offset_y;
@@ -822,7 +825,7 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         attributes[12] = queued.rot;
 
         // Texture Id
-        attributes[13] = texture_to_ids[queued.sprite->img];
+        attributes[13] = (float)texture_to_ids[queued.sprite->img];
 
         std::copy(attributes, attributes + SPRITE_VERTEX_ATTRIBUTE_SIZE, std::back_inserter(vertices));        
       }
@@ -840,8 +843,9 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
     qb_meshbuffer_indices(sprite_quads, &index_buffer);
     qb_gpubuffer_resize(index_buffer, indices.size() * sizeof(uint32_t));
     qb_gpubuffer_update(index_buffer, 0, indices.size() * sizeof(uint32_t), indices.data());
+    qb_meshbuffer_setcount(sprite_quads, indices.size());
 
-    qb_meshbuffer_updateimages(sprite_quads, textures.size(), texture_bindings.data(), textures.data());
+    qb_meshbuffer_updateimages(sprite_quads, textures.size(), texture_bindings.data(), textures.data());  
     
     qb_renderpass_drawto(sprite_render_pass, frame, 1, &batched_sprites);
   }

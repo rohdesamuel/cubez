@@ -106,10 +106,26 @@ double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iteration
     qb_system_create(&system, attr);
     qb_systemattr_destroy(&attr);
   }
+  qbQueryComponent_ all[] = { {position_component} };
+
+  qbQuery_ query
+  {
+    [](qbEntity entity, qbVar, qbVar) {
+      PositionComponent p;
+      qb_instance_find(position_component, entity, &p);
+      *Count() += (uint64_t)p.p.x ^ 0x12983;
+      return QB_QUERY_RESULT_CONTINUE;
+    },
+
+    sizeof(all) / sizeof(all[0]),
+    all
+  };
+
   qb_loop(0, 0);
   qb_timer_start(timer);
   for (uint64_t i = 0; i < iterations; ++i) {
     qb_loop(0, 0);
+    //qb_query(&query, qbNil);
   }
   qb_timer_stop(timer);
   std::cout << "Count = " << *Count() << std::endl;
@@ -170,6 +186,9 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
   std::cout << "Elapsed per iteration: " << elapsed / test_iterations << "ns\n";
   std::cout << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
   std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / test_iterations << "s\n";
+  if (count) {
+    std::cout << "Elapsed per iteration per obj: " << ((double)elapsed) / test_iterations / count << "ns\n";
+  }
 }
 
 qbSchema pos_schema;
@@ -214,7 +233,7 @@ int main() {
     qb_component_create(&comflabulation_component, "Comfabulation", attr);
     qb_componentattr_destroy(&attr);
   }
-  uint64_t count = 100000;
+  uint64_t count = 1000000;
   uint64_t iterations = 500;
   uint64_t test_iterations = 1;
 #if 0
@@ -266,10 +285,10 @@ int main() {
   std::cout << "Elapsed per object: " << ((double)elapsed) / iterations / count << "ns\n";
   qb_timer_destroy(&timer);
 #endif  
-  do_benchmark("Create entities benchmark",
-               create_entities_benchmark, count, iterations, 1);
-  //do_benchmark("Unpack one component benchmark",
-  //  iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
+  //do_benchmark("Create entities benchmark",
+  //             create_entities_benchmark, count, iterations, 1);
+  do_benchmark("Unpack one component benchmark",
+    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
   /*do_benchmark("coroutine_overhead_benchmark",
                coroutine_overhead_benchmark, 1, 1000000, 1);*/
   qb_stop();

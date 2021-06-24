@@ -112,8 +112,11 @@ class PrivateUniverse {
   qbResult enable_system(qbSystem system);
   qbResult disable_system(qbSystem system);
   
+  qbResult run_system(qbSystem system);
+
   qbResult foreach_system(qbComponent* components, size_t component_count,
                           qbVar state, void(*fn)(qbInstance*, qbVar));
+  qbResult do_query(qbQuery query, qbVar arg);
 
   // Events.
   qbResult event_create(qbEvent* event, qbEventAttr attr);

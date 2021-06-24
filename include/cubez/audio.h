@@ -46,29 +46,20 @@ typedef struct qbAudioAttr_ {
 } qbAudioAttr_, *qbAudioAttr;
 
 typedef struct qbAudioBuffer_ *qbAudioBuffer;
-typedef struct qbAudioPlaying_ *qbAudioPlaying;
-
-typedef enum qbAudoLoop {
-  QB_AUDIO_LOOP_DISABLE = 0,
-  QB_AUDIO_LOOP_ENABLE = 1
-} qbAudoLoop;
 
 // Loads the WAV file in the resources directory.
 QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
 
-QB_API qbAudioPlaying qb_audio_upload(qbAudioBuffer loaded);
-QB_API qbAudioBuffer qb_audio_buffer(qbAudioPlaying playing);
-
 QB_API void qb_audio_free(qbAudioBuffer loaded);
-QB_API int qb_audio_getsize(qbAudioBuffer loaded);
+QB_API size_t qb_audio_getsize(qbAudioBuffer loaded);
 
-QB_API int qb_audio_isplaying(qbAudioPlaying playing);
-QB_API void qb_audio_play(qbAudioPlaying playing);
-QB_API void qb_audio_stop(qbAudioPlaying playing);
-QB_API void qb_audio_loop(qbAudioPlaying playing, qbAudoLoop enable_loop);
-QB_API void qb_audio_pause(qbAudioPlaying playing);
-QB_API void qb_audio_setpan(qbAudioPlaying playing, float pan);
-QB_API void qb_audio_setvolume(qbAudioPlaying playing, float left, float right);
+QB_API qbHandle qb_audio_play(qbAudioBuffer loaded);
+QB_API void qb_audio_stop(qbHandle playing);
+QB_API void qb_audio_loop(qbHandle playing, int enable_looping);
+QB_API void qb_audio_pause(qbHandle playing);
+QB_API void qb_audio_setpan(qbHandle playing, float pan);
+QB_API void qb_audio_setvolume(qbHandle playing, float left, float right);
+QB_API qbBool qb_audio_isplaying(qbHandle playing);
 
 QB_API void qb_audio_stopall();
 

@@ -24,7 +24,7 @@
 void gui_initialize();
 void gui_shutdown();
 
-bool gui_handle_input(qbInputEvent input);
+qbBool gui_handle_input(qbInputEvent input);
 qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height);
 void gui_element_updateuniforms();
 

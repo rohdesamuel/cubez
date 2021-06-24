@@ -3,7 +3,7 @@
 // the constructor just launches some amount of workers
 TaskThreadPool::TaskThreadPool(size_t threads)
   : stop_(false), max_inputs_(QB_TASK_MAX_NUM_INPUTS) {
-  for (qbId task_id = 0; task_id < threads; ++task_id) {
+  for (qbId task_id = 0; task_id < (qbId)threads; ++task_id) {
     tasks_cvs_.push_back(new std::condition_variable);
 
     task_inputs_.push_back({});
@@ -14,7 +14,7 @@ TaskThreadPool::TaskThreadPool(size_t threads)
     }
   }
 
-  for (qbId task_id = 0; task_id < threads; ++task_id) {
+  for (qbId task_id = 0; task_id < (qbId)threads; ++task_id) {
     workers_.emplace_back(
       [this, task_id] {
       for (;;) {
@@ -55,7 +55,7 @@ qbVar TaskThreadPool::join(qbTask task) {
 }
 
 qbChannel TaskThreadPool::input(qbId task_id, uint8_t input) {
-  if (task_id >= workers_.size()) {
+  if (task_id >= (qbId)workers_.size()) {
     return nullptr;
   }
 

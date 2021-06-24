@@ -287,7 +287,7 @@ int animation_create(lua_State *L) {
   }
 
   double frame_speed = lua_tonumber(L, 2);
-  bool repeat = lua_toboolean(L, 3);
+  bool repeat = lua_toboolean(L, 3) == 1;
   int64_t keyframe = lua_tointeger(L, 4);
 
   qbAnimationAttr_ attr{};
@@ -316,7 +316,7 @@ int animation_fromsheet(lua_State* L) {
   int64_t index_end = lua_tointeger(L, 3);
 
   double frame_speed = lua_tonumber(L, 4);
-  bool repeat = lua_toboolean(L, 5);
+  bool repeat = lua_toboolean(L, 5) == 1;
   int64_t keyframe = lua_tointeger(L, 6);
 
   qbAnimationAttr_ attr{};
@@ -338,7 +338,7 @@ int animation_loaddir(lua_State* L) {
 
   const char* dir = lua_tostring(L, 1);
   double frame_speed = lua_tonumber(L, 2);
-  bool repeat = lua_toboolean(L, 3);
+  bool repeat = lua_toboolean(L, 3) == 1;
   int64_t keyframe = lua_tointeger(L, 4);
 
   qbAnimationAttr_ attr{};

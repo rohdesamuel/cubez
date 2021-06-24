@@ -31,11 +31,11 @@ typedef struct qbGuiElement_* qbGuiElement;
 typedef struct qbGuiConstraint_* qbGuiConstraint;
 
 typedef struct {
-  bool(*onfocus)(qbGuiElement el);
-  bool(*onclick)(qbGuiElement el, qbMouseButtonEvent e);
-  bool(*onscroll)(qbGuiElement el, qbMouseScrollEvent e);
-  bool(*onmove)(qbGuiElement el, qbMouseMotionEvent e, int start_x, int start_y);
-  bool(*onkey)(qbGuiElement el, qbKeyEvent e);
+  qbBool(*onfocus)(qbGuiElement el);
+  qbBool(*onclick)(qbGuiElement el, qbMouseButtonEvent e);
+  qbBool(*onscroll)(qbGuiElement el, qbMouseScrollEvent e);
+  qbBool(*onmove)(qbGuiElement el, qbMouseMotionEvent e, int start_x, int start_y);
+  qbBool(*onkey)(qbGuiElement el, qbKeyEvent e);
 
   void(*onrender)(qbGuiElement el);
   void(*onopen)(qbGuiElement el);

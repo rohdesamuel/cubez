@@ -228,7 +228,7 @@ function qb.update()
   end
 
   if qb.keyboard.ispressed('space') then
-    sound:play()
+    --sound:play()
     --sound:setvolume(1)
     qb.entity.create(
       Position:create{ x=0, y=0 },

@@ -25,8 +25,6 @@
 #include <cglm/struct/vec3.h>
 #include <assert.h>
 
-#include <reactphysics3d/reactphysics3d.h>
-
 #if 0
 namespace {
 

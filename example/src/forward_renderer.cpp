@@ -326,7 +326,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
       args.horizontal = 1;
       qb_gpubuffer_update(r->blur_ubo, 0, sizeof(qbBlurArgs), &args);
 
-      qbImage read[] = { qb_framebuffer_target(camera_fbo, 1) };
+      qbImage read[] = { qb_framebuffer_gettarget(camera_fbo, 1) };
       qbFrameBuffer write = qb_surface_target(r->blur_surface, 0);
       qb_surface_draw(r->blur_surface, read, write);
     }
@@ -336,7 +336,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
       args.horizontal = i % 2;
       qb_gpubuffer_update(r->blur_ubo, 0, sizeof(qbBlurArgs), &args);
 
-      qbImage read[] = { qb_framebuffer_target(qb_surface_target(r->blur_surface, i % 2), 0) };
+      qbImage read[] = { qb_framebuffer_gettarget(qb_surface_target(r->blur_surface, i % 2), 0) };
       qbFrameBuffer write = qb_surface_target(r->blur_surface, (i + 1) % 2);
       qb_surface_draw(r->blur_surface, read, write);
     }
@@ -346,8 +346,8 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
   {
     qbFrameBuffer blur_frame = qb_surface_target(r->blur_surface, 0);
     qbImage read[] = {
-      qb_framebuffer_target(blur_frame, 0),
-      qb_framebuffer_target(camera_fbo, 0)
+      qb_framebuffer_gettarget(blur_frame, 0),
+      qb_framebuffer_gettarget(camera_fbo, 0)
     };
     qbFrameBuffer write = qb_surface_target(r->merge_surface, 0);
 
@@ -438,8 +438,8 @@ qbMeshBuffer meshbuffer_create(qbRenderer self, qbMesh mesh) {
   qb_meshbuffer_create(&ret, &attr);
 
   qbGpuBuffer buffers[] = { verts, normals, uvs };
-  qb_meshbuffer_attachvertices(ret, buffers);
-  qb_meshbuffer_attachindices(ret, indices);
+  qb_meshbuffer_attachvertices(ret, buffers, mesh->vertex_count);
+  qb_meshbuffer_attachindices(ret, indices, mesh->index_count);
   return ret;
 }
 
@@ -712,7 +712,7 @@ void init_supported_geometry(qbForwardRenderer forward_renderer) {
 
     attr->count = 3;
     attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-    attr->name = QB_VERTEX_ATTRIB_NAME_VERTEX;
+    attr->name = QB_VERTEX_ATTRIB_NAME_POSITION;
     attr->normalized = false;
     attr->offset = (void*)0;
   }

@@ -452,7 +452,7 @@ int system_create(lua_State* L) {
 
           switch (field.type.tag) {
             case QB_TAG_LUA_BOOLEAN:
-              lua_pushboolean(f->l, vars[i].i);
+              lua_pushboolean(f->l, (int32_t)vars[i].i);
               break;
 
             case QB_TAG_DOUBLE:
@@ -684,7 +684,7 @@ qbVar* lua_mapat(lua_State* L, qbVar map, int idx) {
     case QB_TAG_INT:
     case QB_TAG_UINT:
     {
-      int key = lua_tointeger(L, idx);
+      int64_t key = lua_tointeger(L, idx);
       found = qb_map_at(map, qbInt(key));
       break;
     }
@@ -756,7 +756,7 @@ int array_get(lua_State* L) {
   }
 
   qbVar* v = (qbVar*)lua_touserdata(L, 1);
-  int key = lua_tointeger(L, 2) - 1;
+  size_t key = (size_t)lua_tointeger(L, 2) - 1;
 
   if (key >= qb_array_count(*v)) {
     qb_array_resize(*v, key + 1);
@@ -764,7 +764,7 @@ int array_get(lua_State* L) {
     return 1;
   }
 
-  qbRef r = qb_array_at(*v, key);
+  qbRef r = qb_array_at(*v, (int32_t)key);
   push_var_to_lua(L, *r);
 
   return 1;
@@ -782,13 +782,13 @@ int array_set(lua_State* L) {
     return 0;
   }
 
-  int key = lua_tointeger(L, 2) - 1;
+  size_t key = (size_t)lua_tointeger(L, 2) - 1;
 
   if (key >= qb_array_count(*v)) {
     qb_array_resize(*v, key + 1);
   }
 
-  *qb_array_at(*v, key) = val;
+  *qb_array_at(*v, (int32_t)key) = val;
 
   return 0;
 }

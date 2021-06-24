@@ -30,9 +30,9 @@
 
 qbEvent keyboard_event;
 qbEvent mouse_event;
-std::unordered_map<int, bool> key_states;
-std::unordered_map<int, bool> scan_states;
-std::unordered_map<int, bool> mouse_states;
+std::unordered_map<int, qbBool> key_states;
+std::unordered_map<int, qbBool> scan_states;
+std::unordered_map<int, qbBool> mouse_states;
 int mouse_x;
 int mouse_y;
 int mouse_dx;
@@ -97,7 +97,7 @@ void input_initialize() {
   }
 }
 
-void save_key_state(qbKey key, qbScanCode scan_code, bool state) {
+void save_key_state(qbKey key, qbScanCode scan_code, qbBool state) {
   qbKeyEvent_ input;
   input.was_pressed = key_states[(int)key];
   input.is_pressed = state;
@@ -172,7 +172,7 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
       return;
     }
 
-    bool handled_by_gui = gui_handle_input(&input_event);
+    bool handled_by_gui = gui_handle_input(&input_event) == QB_TRUE;
     if (handled_by_gui) {
       input_focus = QB_FOCUS_GUI;
     } else {
@@ -231,16 +231,16 @@ qbResult qb_on_mouse_event(qbSystem system) {
   return qb_event_subscribe(mouse_event, system);
 }
 
-bool qb_scancode_ispressed(qbScanCode scan_code) {
+qbBool qb_scancode_ispressed(qbScanCode scan_code) {
   return scan_states[(int)scan_code];
 }
 
-bool qb_key_ispressed(qbKey key) {
+qbBool qb_key_ispressed(qbKey key) {
   return key_states[(int)key];
 }
 
-bool qb_mouse_ispressed(qbButton mouse_button) {
-  return (SDL_GetMouseState(nullptr, nullptr) & (1 << (button_to_sdl(mouse_button) - 1))) != 0;
+qbBool qb_mouse_ispressed(qbButton mouse_button) {
+  return SDL_GetMouseState(nullptr, nullptr) & (1 << (button_to_sdl(mouse_button) - 1));
 }
 
 void qb_mouse_getposition(int* x, int* y) {

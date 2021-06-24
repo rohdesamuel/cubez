@@ -87,6 +87,10 @@ qbResult GameState::EntityAddComponent(qbEntity entity, qbComponent component,
   return instances_->CreateInstanceFor(entity, component, instance_data, this);
 }
 
+EntityRegistry& GameState::Entities() {
+  return *entities_;
+}
+
 qbResult GameState::EntityRemoveComponent(qbEntity entity, qbComponent component) {
   removed_components_.resize(std::max(removed_components_.size(), (size_t)PrivateUniverse::program_id + 1));
   removed_components_[PrivateUniverse::program_id].emplace_back(entity, component);

@@ -16,8 +16,8 @@
 * limitations under the License.
 */
 
-#ifndef CUBEZ_CHANNEL__H
-#define CUBEZ_CHANNEL__H
+#ifndef CUBEZ_ASYNC__H
+#define CUBEZ_ASYNC__H
 
 #include <cubez/cubez.h>
 
@@ -51,7 +51,7 @@ QB_API qbVar qb_channel_select(qbChannel* channels, uint8_t len);
 QB_API void qb_queue_create(qbQueue* queue);
 QB_API void qb_queue_destroy(qbQueue* queue);
 QB_API void qb_queue_write(qbQueue queue, qbVar v);
-QB_API bool qb_queue_tryread(qbQueue queue, qbVar* v);
+QB_API qbBool qb_queue_tryread(qbQueue queue, qbVar* v);
 
 QB_API qbTask   qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var);
 
@@ -59,4 +59,4 @@ QB_API qbChannel  qb_task_input(qbTask task, uint8_t input);
 
 QB_API qbVar      qb_task_join(qbTask task);
 
-#endif  // CUBEZ_CHANNEL__H
+#endif  // CUBEZ_ASYNC__H

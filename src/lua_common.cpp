@@ -115,7 +115,7 @@ void push_var_to_lua(lua_State* L, qbVar v) {
       break;
 
     case QB_TAG_LUA_BOOLEAN:
-      lua_pushboolean(L, v.i);
+      lua_pushboolean(L, (int32_t)v.i);
       break;
 
     case QB_TAG_DOUBLE:
