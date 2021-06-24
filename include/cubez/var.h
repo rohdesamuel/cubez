@@ -87,17 +87,17 @@ QB_API void        qb_array_resize(qbVar array, size_t size);
 QB_API size_t      qb_array_count(qbVar array);
 QB_API qbTag       qb_array_type(qbVar array);
 QB_API qbVar*      qb_array_raw(qbVar array);
-QB_API qbBool        qb_array_iterate(qbVar array, qbBool(*it)(qbVar* k, qbVar state), qbVar state);
+QB_API qbBool      qb_array_iterate(qbVar array, qbBool(*it)(qbVar* k, qbVar state), qbVar state);
 
 QB_API qbVar*      qb_map_at(qbVar map, qbVar k);
 QB_API qbVar*      qb_map_insert(qbVar map, qbVar k, qbVar v);
 QB_API void        qb_map_erase(qbVar map, qbVar k);
 QB_API void        qb_map_swap(qbVar map, qbVar a, qbVar b);
 QB_API size_t      qb_map_count(qbVar map);
-QB_API qbBool        qb_map_has(qbVar map, qbVar k);
+QB_API qbBool      qb_map_has(qbVar map, qbVar k);
 QB_API qbTag       qb_map_keytype(qbVar map);
 QB_API qbTag       qb_map_valtype(qbVar map);
-QB_API qbBool        qb_map_iterate(qbVar map, qbBool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state);
+QB_API qbBool      qb_map_iterate(qbVar map, qbBool(*it)(qbVar k, qbVar* v, qbVar state), qbVar state);
 
 QB_API size_t      qb_var_pack(qbVar v, struct qbBuffer_* buf, ptrdiff_t* pos);
 QB_API size_t      qb_var_unpack(qbVar* v, const struct qbBuffer_* buf, ptrdiff_t* pos);
