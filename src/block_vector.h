@@ -19,7 +19,6 @@
 #ifndef BLOCK_VECTOR__H
 #define BLOCK_VECTOR__H
 
-#include "apex_memmove.h"
 #include <cubez/cubez.h>
 
 #include <algorithm>
@@ -193,7 +192,7 @@ public:
     ++count_;
     resize_capacity(count_ + 1);
     if (data) {
-      apex::memmove((*this)[count_ - 1], data, elem_size_);
+      memmove((*this)[count_ - 1], data, elem_size_);
     } else {
       memset((*this)[count_ - 1], 0, elem_size_);
     }
@@ -205,7 +204,7 @@ public:
       resize_capacity(count_ + 1);
     }
     if (data) {
-      apex::memcpy((*this)[count_ - 1], data, elem_size_);
+      memcpy((*this)[count_ - 1], data, elem_size_);
     } else {
       memset((*this)[count_ - 1], 0, elem_size_);
     }
@@ -252,7 +251,7 @@ private:
     *(size_t*)(&page_size_) = other.page_size_;
     for (void* e : other.elems_) {
       void* copy = alloc_block();
-      apex::memmove(copy, e, page_size_);
+      memmove(copy, e, page_size_);
       elems_.push_back(copy);
     }
   }

@@ -19,7 +19,6 @@
 #ifndef BYTE_VECTOR__H
 #define BYTE_VECTOR__H
 
-#include "apex_memmove.h"
 #include <cubez/cubez.h>
 #include <algorithm>
 #include <cstring>
@@ -215,7 +214,7 @@ class ByteVector {
       resize_capacity(capacity_ + 1);
     }
     if (data) {
-      apex::memmove((*this)[count_], data, elem_size_);
+      memmove((*this)[count_], data, elem_size_);
     }
     ++count_;
   }
@@ -225,7 +224,7 @@ class ByteVector {
       resize_capacity(capacity_ + 1);
     }
     if (data) {
-      apex::memmove((*this)[count_], data, elem_size_);
+      memmove((*this)[count_], data, elem_size_);
     }
     ++count_;
   }
@@ -269,9 +268,9 @@ class ByteVector {
 
     uint8_t* new_elems = (uint8_t*)ALIGNED_ALLOC(new_capacity * elem_size_, 4096);
     if (new_capacity > capacity_) {
-      apex::memmove(new_elems, elems_, capacity_ * elem_size_);
+      memmove(new_elems, elems_, capacity_ * elem_size_);
     } else {
-      apex::memmove(new_elems, elems_, new_capacity * elem_size_);
+      memmove(new_elems, elems_, new_capacity * elem_size_);
     }
     ALIGNED_FREE(elems_);
     elems_ = new_elems;
@@ -281,7 +280,7 @@ class ByteVector {
   void copy(const ByteVector& other) {
     count_ = other.count_;
     reserve(count_);
-    apex::memmove(elems_, other.elems_, other.size() * other.element_size());
+    memmove(elems_, other.elems_, other.size() * other.element_size());
     *(size_t*)(&elem_size_) = other.elem_size_;
   }
 

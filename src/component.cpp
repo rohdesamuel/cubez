@@ -16,7 +16,6 @@
 * limitations under the License.
 */
 
-#include "apex_memmove.h"
 #include "component.h"
 #include "defs.h"
 
