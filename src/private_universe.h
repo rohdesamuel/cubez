@@ -136,6 +136,7 @@ class PrivateUniverse {
   qbResult entity_destroy(qbEntity entity);
   qbResult entity_find(qbEntity* entity, qbId entity_id);
   bool entity_hascomponent(qbEntity entity, qbComponent component);
+  void* entity_getcomponent(qbEntity entity, qbComponent component);
   qbResult entity_addcomponent(qbEntity entity, qbComponent component,
                                void* instance_data);
   qbResult entity_removecomponent(qbEntity entity, qbComponent component);

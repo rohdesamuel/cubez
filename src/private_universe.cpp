@@ -324,6 +324,10 @@ bool PrivateUniverse::entity_hascomponent(qbEntity entity,
   return WorkingScene()->EntityHasComponent(entity, component);
 }
 
+void* PrivateUniverse::entity_getcomponent(qbEntity entity, qbComponent component) {
+  return WorkingScene()->EntityGetComponent(entity, component);
+}
+
 qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
                                               qbComponent component,
                                               void* instance_data) {

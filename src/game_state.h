@@ -39,6 +39,7 @@ public:
   qbResult EntityDestroy(qbEntity entity);
   qbResult EntityFind(qbEntity* entity, qbId entity_id);
   bool EntityHasComponent(qbEntity entity, qbComponent component);
+  void* EntityGetComponent(qbEntity entity, qbComponent component);
   qbResult EntityAddComponent(qbEntity entity, qbComponent component,
                                void* instance_data);
   qbResult EntityRemoveComponent(qbEntity entity, qbComponent component);
