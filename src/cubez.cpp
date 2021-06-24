@@ -394,7 +394,7 @@ qbResult qb_componentattr_settype(qbComponentAttr attr, qbComponentType type) {
 }
 
 qbResult qb_componentattr_setshared(qbComponentAttr attr, qbBool is_shared) {
-  attr->is_shared = is_shared == 1;
+  attr->is_shared = is_shared == QB_TRUE;
   return qbResult::QB_OK;
 }
 
@@ -566,6 +566,10 @@ qbResult qb_entity_destroy(qbEntity entity) {
 
 qbBool qb_entity_hascomponent(qbEntity entity, qbComponent component) {
   return AS_PRIVATE(entity_hascomponent(entity, component));
+}
+
+void* qb_entity_getcomponent(qbEntity entity, qbComponent component) {
+  return AS_PRIVATE(entity_getcomponent(entity, component));
 }
 
 qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
