@@ -210,9 +210,6 @@
     <ClInclude Include="..\..\..\src\cglm\config.h">
       <Filter>Source Files\cglm</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\apex_memmove.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\network_impl.h">
       <Filter>Header Files</Filter>
     </ClInclude>

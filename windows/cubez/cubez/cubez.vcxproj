@@ -281,7 +281,6 @@
     <ClInclude Include="..\..\..\include\cubez\struct.h" />
     <ClInclude Include="..\..\..\include\cubez\utils.h" />
     <ClInclude Include="..\..\..\include\cubez\var.h" />
-    <ClInclude Include="..\..\..\src\apex_memmove.h" />
     <ClInclude Include="..\..\..\src\async_internal.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
