@@ -315,10 +315,6 @@ qbResult PrivateUniverse::entity_destroy(qbEntity entity) {
   return WorkingScene()->EntityDestroy(entity);
 }
 
-qbResult PrivateUniverse::entity_find(qbEntity* entity, qbId entity_id) {
-  return WorkingScene()->EntityFind(entity, entity_id);
-}
-
 bool PrivateUniverse::entity_hascomponent(qbEntity entity,
                                           qbComponent component) {
   return WorkingScene()->EntityHasComponent(entity, component);

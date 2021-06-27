@@ -65,29 +65,8 @@ qbResult EntityRegistry::DestroyEntity(qbEntity entity) {
   return QB_OK;
 }
 
-qbResult EntityRegistry::Find(qbEntity entity, qbEntity* found) {
-  if (!entities_.has(entity)) {
-    return QB_ERROR_NOT_FOUND;
-  }
-  *found = entity;
-  return QB_OK;
-}
-
 bool EntityRegistry::Has(qbEntity entity) {
   return entities_.has(entity);
-}
-
-void EntityRegistry::Resolve(const std::vector<qbEntity>& created,
-                             const std::vector<qbEntity>& destroyed) {
-  for (qbEntity entity : destroyed) {
-    if (entities_.has(entity)) {
-      entities_.erase(entity);
-      free_entity_ids_.push_back(entity);
-    }
-  }
-  for (qbEntity entity : created) {
-    entities_.insert(entity);
-  }
 }
 
 qbId EntityRegistry::AllocEntity() {

@@ -74,10 +74,6 @@ qbResult GameState::EntityDestroyInternal(qbEntity entity) {
   return result;
 }
 
-qbResult GameState::EntityFind(qbEntity* entity, qbId entity_id) {
-  return entities_->Find(entity_id, entity);
-}
-
 bool GameState::EntityHasComponent(qbEntity entity, qbComponent component) {
   return instances_->InstanceHas(entity, component);  
 }

@@ -49,8 +49,6 @@ class EntityRegistry {
   // removed. Frees entity memory after all components have been destroyed.
   qbResult DestroyEntity(qbEntity entity);
 
-  qbResult Find(qbEntity entity, qbEntity* found);
-
   iterator begin() {
     return entities_.begin();
   }
@@ -68,23 +66,6 @@ class EntityRegistry {
   }
 
   bool Has(qbEntity entity);
-
-  void Resolve(const std::vector<qbEntity>& created,
-               const std::vector<qbEntity>& destroyed);
-
-  template<template<class Ty_> class Container_>
-  void Resolve(const Container_<qbEntity>& created,
-               const Container_<qbEntity>& destroyed) {
-    for (qbEntity entity : destroyed) {
-      if (entities_.has(entity)) {
-        entities_.erase(entity);
-        free_entity_ids_.push_back(entity);
-      }
-    }
-    for (qbEntity entity : created) {
-      entities_.insert(entity);
-    }
-  }
 
  private:
   qbId AllocEntity();
