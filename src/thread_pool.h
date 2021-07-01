@@ -99,52 +99,37 @@ inline CoroThreadPool::~CoroThreadPool()
 }
 
 class TaskThreadPool {
-public:
-  TaskThreadPool(size_t threads);
+public:  
+  TaskThreadPool(size_t threads, size_t max_queue_size);
   ~TaskThreadPool();
 
-  template<class F>
-  qbTask enqueue(F&& f);
-
+  qbTask enqueue(std::function<qbVar()>&& f);
   qbVar join(qbTask task);
-  qbChannel input(qbId task_id, uint8_t input);
-
+  
 private:
+  struct Task {
+    std::function<qbVar()> fn;
+    std::promise<qbVar> output;
+    uint32_t generation;
+  };
+
+  qbTask alloc_task();
+
   // need to keep track of threads so we can join them
   std::vector< std::thread > workers_;
-  // the task queue
-  std::queue< std::function<void(qbId)> > tasks_;
-  std::vector<std::condition_variable*> tasks_cvs_;
 
-  std::vector<std::vector<qbChannel>> task_inputs_;
+  std::mutex available_tasks_mu_;
+  std::queue<qbHandle> available_tasks_;
+
+  std::vector<Task> tasks_;
 
   // synchronization
-  std::mutex queue_mutex_;
-  std::condition_variable condition_;
+  std::mutex queue_mu_;
+  std::queue<Task*> tasks_queue_;
+  std::condition_variable task_available_;
   bool stop_;
-  size_t max_inputs_;
+  
+  const size_t max_queue_size_;
 };
 
-// add new work item to the pool
-template<class F>
-qbTask TaskThreadPool::enqueue(F&& f) {
-  qbTask ret = new qbTask_{};
-  ret->id_future = ret->id_promise.get_future();
-  ret->output_future = ret->output_promise.get_future();
-
-  {
-    std::unique_lock<std::mutex> lock(queue_mutex_);
-    tasks_.emplace([this, f, ret](qbId task_id) {      
-      ret->id_promise.set_value(task_id);
-      ret->output_promise.set_value(f());
-    });
-  }
-  condition_.notify_one();
-
-  ret->task_id = ret->id_future.get();
-
-  return ret;
-}
-
 #endif
-

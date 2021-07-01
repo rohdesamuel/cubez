@@ -55,7 +55,8 @@ SystemImpl* SystemImpl::FromRaw(qbSystem system) {
   return (SystemImpl*)(((char*)system) + sizeof(qbSystem_));
 }
 
-void SystemImpl::Run(GameState* game_state, void* event) {
+qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
+  qbVar ret = qbNil;
   size_t source_size = components_.size();
   qbFrame frame;
   frame.system = system_;
@@ -63,7 +64,7 @@ void SystemImpl::Run(GameState* game_state, void* event) {
   frame.state = system_ ? system_->user_state : user_state_;
 
   if (condition_ && !condition_(&frame)) {
-    return;
+    return ret;
   }
 
   if (transform_) {
@@ -101,10 +102,11 @@ void SystemImpl::Run(GameState* game_state, void* event) {
       t->unlock();
     }
   }
-
+  
   if (callback_) {
-    callback_(&frame);
+    ret = callback_(&frame, var);
   }
+  return ret;
 }
 
 qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component) {

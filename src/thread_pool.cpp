@@ -1,36 +1,30 @@
 #include "thread_pool.h"
 
 // the constructor just launches some amount of workers
-TaskThreadPool::TaskThreadPool(size_t threads)
-  : stop_(false), max_inputs_(QB_TASK_MAX_NUM_INPUTS) {
-  for (qbId task_id = 0; task_id < (qbId)threads; ++task_id) {
-    tasks_cvs_.push_back(new std::condition_variable);
+TaskThreadPool::TaskThreadPool(size_t threads, size_t max_queue_size)
+  : stop_(false), max_queue_size_(max_queue_size) {
 
-    task_inputs_.push_back({});
-    for (uint8_t i = 0; i < max_inputs_; ++i) {
-      qbChannel channel;
-      qb_channel_create(&channel);
-      task_inputs_[task_id].push_back(channel);
-    }
+  for (size_t i = 0; i < max_queue_size_; ++i) {
+    available_tasks_.push((qbHandle)i);
+    tasks_.push_back({});
   }
 
   for (qbId task_id = 0; task_id < (qbId)threads; ++task_id) {
     workers_.emplace_back(
       [this, task_id] {
       for (;;) {
-        std::function<void(qbId)> task;
+        Task* task;
 
         {
-          std::unique_lock<std::mutex> lock(this->queue_mutex_);
-          this->condition_.wait(lock,
-                                [this] { return this->stop_ || !this->tasks_.empty(); });
-          if (this->stop_ && this->tasks_.empty())
+          std::unique_lock<std::mutex> lock(queue_mu_);
+          task_available_.wait(lock, [this] { return stop_ || !tasks_queue_.empty(); });
+          if (stop_)
             return;
-          task = std::move(this->tasks_.front());
-          this->tasks_.pop();
+          task = tasks_queue_.front();
+          tasks_queue_.pop();
         }
 
-        task(task_id);
+        task->output.set_value(task->fn());
       }
     });
   }
@@ -39,10 +33,10 @@ TaskThreadPool::TaskThreadPool(size_t threads)
 // the destructor joins all threads
 TaskThreadPool::~TaskThreadPool() {
   {
-    std::unique_lock<std::mutex> lock(queue_mutex_);
+    std::unique_lock<std::mutex> lock(queue_mu_);
     stop_ = true;
   }
-  condition_.notify_all();
+  task_available_.notify_all();
   for (std::thread &worker : workers_) {
     if (worker.joinable()) {
       worker.join();
@@ -50,18 +44,51 @@ TaskThreadPool::~TaskThreadPool() {
   }
 }
 
-qbVar TaskThreadPool::join(qbTask task) {
-  return task->output_future.get();
+qbTask TaskThreadPool::alloc_task() {
+  qbHandle ret = qbInvalidHandle;
+  while (!stop_) {
+    available_tasks_mu_.lock();
+    if (available_tasks_.empty()) {
+      available_tasks_mu_.unlock();
+      std::this_thread::yield();
+      continue;
+    }
+
+    ret = available_tasks_.front();
+    available_tasks_.pop();
+    available_tasks_mu_.unlock();
+    break;
+  }
+  return ret;
 }
 
-qbChannel TaskThreadPool::input(qbId task_id, uint8_t input) {
-  if (task_id >= (qbId)workers_.size()) {
-    return nullptr;
+qbTask TaskThreadPool::enqueue(std::function<qbVar()>&& f) {
+  qbTask ret = alloc_task();
+
+  if (ret == qbInvalidHandle) {
+    return ret;
   }
 
-  if (input >= QB_TASK_MAX_NUM_INPUTS) {
-    return nullptr;
+  {
+    std::unique_lock<std::mutex> lock(queue_mu_);
+    tasks_queue_.emplace(&tasks_[ret]);
+    tasks_[ret].fn = f;
+    tasks_[ret].output = std::promise<qbVar>();
+  }
+  task_available_.notify_one();
+
+  return ret;
+}
+
+qbVar TaskThreadPool::join(qbTask task) {
+  if (task >= max_queue_size_) {
+    return qbNil;
   }
 
-  return task_inputs_[task_id][input];
+  qbVar ret = tasks_[task].output.get_future().get();
+  {
+    std::unique_lock<std::mutex> lock(available_tasks_mu_);
+    available_tasks_.push(task);
+  }
+  return ret;
 }

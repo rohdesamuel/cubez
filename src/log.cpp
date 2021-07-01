@@ -54,7 +54,7 @@ void log_initialize() {
     qb_systemattr_create(&attr);
     qb_systemattr_setprogram(attr, program_id);
     qb_systemattr_setcallback(attr,
-        [](qbFrame* f) {
+        [](qbFrame* f, qbVar) {
           std::unique_lock<decltype(log_lock)> lock(log_lock);
           flush_logs.wait(lock, [] {return flush; });
 
@@ -63,6 +63,7 @@ void log_initialize() {
             std::cout << "[INFO] "; std::cout << s.c_str() << std::endl;
           }
           flush = false;
+          return qbNil;
         });
     qb_system_create(&system_out, attr);
     qb_systemattr_destroy(&attr);

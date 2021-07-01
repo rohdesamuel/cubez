@@ -54,8 +54,14 @@ typedef struct qbScriptAttr_ {
 } qbScriptAttr_;
 
 typedef struct qbSchedulerAttr_ {
+  // Default is 16.
   size_t max_async_coros;
+
+  // Default is number of CPU cores.
   size_t max_async_tasks;
+
+  // Default is 1024.
+  size_t max_async_tasks_queue_size;
 } qbSchedulerAttr_;
 
 typedef struct qbResourceAttr_ {
@@ -488,7 +494,7 @@ QB_API qbResult      qb_systemattr_setfunction(qbSystemAttr attr,
 
 // Sets the callback to run after the system finishes executing its transform
 // over all of its components.
-typedef void(*qbCallbackFn)(qbFrame* frame);
+typedef qbVar(*qbCallbackFn)(qbFrame* frame, qbVar arg);
 QB_API qbResult      qb_systemattr_setcallback(qbSystemAttr attr,
                                                qbCallbackFn callback);
 
@@ -544,7 +550,7 @@ QB_API qbResult      qb_system_enable(qbSystem system);
 QB_API qbResult      qb_system_disable(qbSystem system);
 
 // Runs the given system. Not thread-safe when run concurrently with qb_loop().
-QB_API qbResult      qb_system_run(qbSystem system);
+QB_API qbVar         qb_system_run(qbSystem system, qbVar arg);
 
 QB_API qbResult      qb_system_foreach(qbComponent* components, size_t component_count,
                                        qbVar state, void(*fn)(qbInstance*, qbVar));

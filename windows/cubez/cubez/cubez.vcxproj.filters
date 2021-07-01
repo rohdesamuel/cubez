@@ -473,9 +473,6 @@
     <ClCompile Include="..\..\..\src\cglm\vec4.c">
       <Filter>Source Files\cglm</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\apex_memmove.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\network.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -51,6 +51,7 @@ namespace fs = std::experimental::filesystem;
 const qbVar qbNil = { QB_TAG_NIL, 0, 0 };
 const qbVar qbFuture = { QB_TAG_FUTURE, 0, 0 };
 const qbEntity qbInvalidEntity = -1;
+const qbHandle qbInvalidHandle = -1;
 
 static qbUniverse* universe_ = nullptr;
 qbTiming_ timing_info;
@@ -118,7 +119,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   }
 
   universe_->self = new PrivateUniverse();
-  coro_scheduler = new CoroScheduler(attr->scheduler_args ? attr->scheduler_args->max_async_coros : 4);
+  coro_scheduler = new CoroScheduler(attr->scheduler_args ? attr->scheduler_args->max_async_coros : 16);
   async_initialize(attr->scheduler_args);  
 
   qbResult ret = AS_PRIVATE(init());
@@ -365,8 +366,8 @@ qbResult qb_system_disable(qbSystem system) {
   return AS_PRIVATE(disable_system(system));
 }
 
-qbResult qb_system_run(qbSystem system) {
-  return AS_PRIVATE(run_system(system));
+qbVar qb_system_run(qbSystem system, qbVar arg) {
+  return AS_PRIVATE(run_system(system, arg));
 }
 
 qbResult qb_componentattr_create(qbComponentAttr* attr) {

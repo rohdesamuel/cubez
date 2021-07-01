@@ -220,10 +220,9 @@ qbResult PrivateUniverse::disable_system(qbSystem system) {
   return ProgramImpl::FromRaw(p)->DisableSystem(system);
 }
 
-qbResult PrivateUniverse::run_system(qbSystem system) {
+qbVar PrivateUniverse::run_system(qbSystem system, qbVar arg) {
   auto s = SystemImpl::FromRaw(system);
-  s->Run(WorkingScene());
-  return QB_OK;
+  return s->Run(WorkingScene(), nullptr, arg);
 }
 
 qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t component_count,
@@ -387,13 +386,14 @@ qbResult PrivateUniverse::instance_oncreate(qbComponent component,
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, fn_state);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+  qb_systemattr_setcallback(attr, [](qbFrame* frame, qbVar) {
     qbInstanceOnCreateEvent_* event =
       (qbInstanceOnCreateEvent_*)frame->event;
     qbInstanceOnCreateState* fn_state = (qbInstanceOnCreateState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
       event->entity, event->component);
     fn_state->on_create(&instance, fn_state->state);
+    return qbNil;
   });
   qbSystem system;
   qb_system_create(&system, attr);
@@ -419,13 +419,14 @@ qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
   qb_systemattr_create(&attr);
   qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
   qb_systemattr_setuserstate(attr, fn_state);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame) {
+  qb_systemattr_setcallback(attr, [](qbFrame* frame, qbVar) {
     qbInstanceOnDestroyEvent_* event =
       (qbInstanceOnDestroyEvent_*)frame->event;
     qbInstanceOnDestroyState* fn_state = (qbInstanceOnDestroyState*)frame->state;
     qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
       event->entity, event->component);
     fn_state->on_destroy(&instance, fn_state->state);
+    return qbNil;
   });
   qbSystem system;
   qb_system_create(&system, attr);

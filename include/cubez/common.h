@@ -130,6 +130,7 @@ typedef char utf8_t;
 // handle.
 typedef qbId qbHandle;
 
+QB_API extern const qbHandle qbInvalidHandle;
 
 #define QB_MAX_NAME_LENGTH 128
 

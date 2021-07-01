@@ -32,7 +32,7 @@ public:
   ByteQueue(const ByteQueue& other) = default;
   ByteQueue(ByteQueue&& other) = default;
 
-  // Returns the addres to the first element.
+  // Returns the address to the first element.
   void* front() {
     if (length_ > 0) {
       return ring_[begin_];

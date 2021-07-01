@@ -21,11 +21,11 @@
 
 #include <cubez/cubez.h>
 
-#define QB_TASK_MAX_NUM_INPUTS 8
-
 typedef struct qbChannel_* qbChannel;
 typedef struct qbQueue_* qbQueue;
-typedef struct qbTask_* qbTask;
+typedef qbHandle qbTask;
+typedef struct qbTaskBundle_* qbTaskBundle;
+
 
 // Creates a multi-publisher single-subscriber thread-safe channel.
 // Has strong sequential consistency guarantee, e.g. two writes from two
@@ -54,9 +54,32 @@ QB_API void qb_queue_write(qbQueue queue, qbVar v);
 QB_API qbBool qb_queue_tryread(qbQueue queue, qbVar* v);
 
 QB_API qbTask   qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var);
+QB_API qbVar    qb_task_join(qbTask task);
 
-QB_API qbChannel  qb_task_input(qbTask task, uint8_t input);
+typedef struct qbTaskBundleAttr_ {
+  uint64_t reserved;
+} qbTaskBundleAttr_, *qbTaskBundleAttr;
 
-QB_API qbVar      qb_task_join(qbTask task);
+typedef struct qbTaskBundleBeginInfo_ {
+  uint64_t reserved;
+} qbTaskBundleBeginInfo_, *qbTaskBundleBeginInfo;
+
+typedef struct qbTaskBundleAddInfo_ {
+  uint64_t reserved;
+} qbTaskBundleAddTaskInfo_, *qbTaskBundleAddTaskInfo;
+
+typedef struct qbTaskBundleSubmitInfo_ {
+  uint64_t reserved;
+} qbTaskBundleSubmitInfo_, *qbTaskBundleSubmitInfo;
+
+QB_API qbTaskBundle qb_taskbundle_create(qbTaskBundleAttr attr);
+QB_API void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info);
+QB_API void qb_taskbundle_end(qbTaskBundle bundle);
+QB_API void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info);
+QB_API void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info);
+QB_API void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
+                                    qbTaskBundleAddTaskInfo add_info,
+                                    qbTaskBundleSubmitInfo submit_info);
+QB_API qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
 
 #endif  // CUBEZ_ASYNC__H

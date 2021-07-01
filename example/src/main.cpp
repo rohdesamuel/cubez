@@ -918,6 +918,8 @@ int main(int, char* []) {
   qb_start();
   create_game();
 
+  qbTaskBundle tasks = qb_taskbundle_create({});
+
   struct TestInner {
     int val;
   };
@@ -1128,6 +1130,18 @@ int main(int, char* []) {
     qb_timing(uni, &timing_info);
     //qb_sprite_drawpart(sheet, { 0, 0 }, (uint32_t)x, 0, (uint32_t)w, (uint32_t)h);
     
+    qb_taskbundle_begin(tasks, {});
+      qb_taskbundle_addtask(tasks, [](qbTask, qbVar var) {
+        auto s = qb_var_tostring(var);
+        std::cout << s.s << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        qb_var_destroy(&s);
+        return qbNil;
+      }, {});
+    qb_taskbundle_end(tasks);
+    qb_task_join(qb_taskbundle_submit(tasks, qbInt(10), {}));
+
     if (1) {
       static qbQueryComponent_ all[] = {
         { qb_component_find("Position", nullptr) }

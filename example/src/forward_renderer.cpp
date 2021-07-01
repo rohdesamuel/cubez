@@ -380,14 +380,15 @@ void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
   qb_renderpass_resize(r->scene_3d_pass_wireframe, { 0, 0, (float)width, (float)height });
 }
 
-void render_callback(qbFrame* f) {
+qbVar render_callback(qbFrame* f, qbVar) {
   qbRenderEvent event = (qbRenderEvent)f->event;
 
   if (!event->camera) {
-    return;
+    return qbNil;
   }
 
   render(event->renderer, event->camera, event);
+  return qbNil;
 }
 
 qbMeshBuffer meshbuffer_create(qbRenderer self, qbMesh mesh) {

@@ -85,6 +85,11 @@ struct qbQueue_ {
   moodycamel::ConcurrentQueue<qbVar> queue_;
 };
 
+struct qbTaskBundle_ {
+  qbTaskBundleBeginInfo_ begin_info;
+  std::vector<std::function<qbVar(qbTask, qbVar)>> tasks_;
+};
+
 void qb_channel_create(qbChannel* channel) {
   *channel = new qbChannel_{};
 }
@@ -160,7 +165,9 @@ qbBool qb_queue_tryread(qbQueue queue, qbVar* v) {
 }
 
 void async_initialize(qbSchedulerAttr_* attr) {
-  thread_pool = new TaskThreadPool(attr ? attr->max_async_tasks : 8);
+  size_t max_async_tasks = attr ? attr->max_async_tasks : std::thread::hardware_concurrency();
+  size_t max_async_tasks_queue_size = attr ? attr->max_async_tasks : 1024;
+  thread_pool = new TaskThreadPool(max_async_tasks, max_async_tasks_queue_size);
 }
 
 void async_stop() {
@@ -175,10 +182,53 @@ qbTask qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var) {
   return task;
 }
 
-qbChannel qb_task_input(qbTask task, uint8_t input) {
-  return thread_pool->input(task->task_id, input);
-}
-
 qbVar qb_task_join(qbTask task) {
   return thread_pool->join(task);
+}
+
+qbTaskBundle qb_taskbundle_create(qbTaskBundleAttr attr) {
+  return new qbTaskBundle_;
+}
+
+void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info) {
+  if (info) {
+    bundle->begin_info = *info;
+  }
+}
+
+void qb_taskbundle_end(qbTaskBundle bundle) {
+}
+
+void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info) {
+  bundle->tasks_.push_back([entry](qbTask task, qbVar var) {
+    return entry(task, var);
+  });
+}
+
+void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info) {
+  bundle->tasks_.push_back([system](qbTask, qbVar var) {
+    return qb_system_run(system, var);
+  });
+}
+
+void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
+                             qbTaskBundleAddTaskInfo add_info,
+                             qbTaskBundleSubmitInfo submit_info) {
+  qbTaskBundleSubmitInfo_ info_copy = *submit_info;
+  bundle->tasks_.push_back([bundle, info_copy](qbTask, qbVar var) {
+    return qb_task_join(qb_taskbundle_submit(bundle, var, (qbTaskBundleSubmitInfo)&info_copy));
+  });
+}
+
+qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
+  decltype(qbTaskBundle_::tasks_) tasks = std::move(bundle->tasks_);
+
+  qbTask task = thread_pool->enqueue([tasks, task, arg]() {
+    qbVar varg = arg;
+    for (auto& entry : tasks) {
+      varg = entry(task, varg);
+    }
+    return varg;
+  });
+  return task;
 }
