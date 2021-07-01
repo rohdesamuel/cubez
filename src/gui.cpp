@@ -45,7 +45,7 @@
 #include <filesystem>
 #include "inline_shaders.h"
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 // std140 layout
 struct GuiUniformCamera {
@@ -277,7 +277,7 @@ public:
     Erase(el);
 
     // Call the destroy callback in reverse topological order.
-    for (auto& it = to_destroy.rbegin(); it != to_destroy.rend(); ++it) {
+    for (auto it = to_destroy.rbegin(); it != to_destroy.rend(); ++it) {
       if ((*it)->callbacks.ondestroy) {
         (*it)->callbacks.ondestroy(*it);        
       }

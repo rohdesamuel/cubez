@@ -1169,7 +1169,7 @@ void qb_renderpass_prepend(qbRenderPass render_pass, qbRenderGroup group) {
 }
 
 size_t qb_renderpass_remove(qbRenderPass render_pass, qbRenderGroup group) {
-  auto& it = std::find(render_pass->groups.begin(), render_pass->groups.end(), group);
+  auto it = std::find(render_pass->groups.begin(), render_pass->groups.end(), group);
   if (it != render_pass->groups.end()) {
     render_pass->groups.erase(it);
     return 1;
@@ -2026,7 +2026,7 @@ qbImage qb_rendergroup_findimage_bybinding(qbRenderGroup buffer, uint32_t bindin
 }
 
 size_t qb_rendergroup_removeimage(qbRenderGroup buffer, qbImage image) {
-  auto& it = std::find(buffer->images.begin(), buffer->images.end(), image);
+  auto it = std::find(buffer->images.begin(), buffer->images.end(), image);
   if (it != buffer->images.end()) {
     auto diff = it - buffer->images.begin();
     buffer->images.erase(it);
@@ -2057,7 +2057,7 @@ size_t qb_rendergroup_removeimage_byname(qbRenderGroup buffer, const char* name)
 }
 
 size_t qb_rendergroup_removeimage_bybinding(qbRenderGroup buffer, uint32_t binding) {
-  auto& it = std::find(buffer->sampler_bindings.begin(), buffer->sampler_bindings.end(), binding);
+  auto it = std::find(buffer->sampler_bindings.begin(), buffer->sampler_bindings.end(), binding);
   if (it != buffer->sampler_bindings.end()) {
     auto diff = it - buffer->sampler_bindings.begin();
     buffer->sampler_bindings.erase(it);
@@ -2096,7 +2096,7 @@ qbGpuBuffer qb_rendergroup_finduniform_bybinding(qbRenderGroup buffer, uint32_t 
 }
 
 size_t qb_rendergroup_removeuniform(qbRenderGroup buffer, qbGpuBuffer uniform) {
-  auto& it = std::find(buffer->uniforms.begin(), buffer->uniforms.end(), uniform);
+  auto it = std::find(buffer->uniforms.begin(), buffer->uniforms.end(), uniform);
   if (it != buffer->uniforms.end()) {
     auto diff = it - buffer->uniforms.begin();
     buffer->uniforms.erase(it);
@@ -2127,7 +2127,7 @@ size_t qb_rendergroup_removeuniform_byname(qbRenderGroup buffer, const char* nam
 }
 
 size_t qb_rendergroup_removeuniform_bybinding(qbRenderGroup buffer, uint32_t binding) {
-  auto& it = std::find(buffer->uniform_bindings.begin(), buffer->uniform_bindings.end(), binding);
+  auto it = std::find(buffer->uniform_bindings.begin(), buffer->uniform_bindings.end(), binding);
   if (it != buffer->uniform_bindings.end()) {
     auto diff = it - buffer->uniform_bindings.begin();
     buffer->uniform_bindings.erase(it);

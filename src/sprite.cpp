@@ -17,8 +17,6 @@
 #include "sprite_internal.h"
 #include "inline_shaders.h"
 
-namespace fs = std::experimental::filesystem;
-
 constexpr int MAX_BATCH_TEXTURE_UNITS = 31;
 constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   // Vertex
@@ -46,12 +44,12 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   4;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
 
-fs::path sprite_path;
+std::filesystem::path sprite_path;
 
 namespace
 {
 
-std::string get_stem(const fs::path &p) {
+std::string get_stem(const std::filesystem::path &p) {
   return (p.stem().string());
 }
 
@@ -195,7 +193,7 @@ qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy) {
 }
 
 qbSprite qb_sprite_load(const char* filename) {
-  fs::path path = fs::path(qb_resources()->dir) / fs::path(qb_resources()->sprites) / filename;
+  std::filesystem::path path = std::filesystem::path(qb_resources()->dir) / std::filesystem::path(qb_resources()->sprites) / filename;
 
   qbImage img{};
   qbImageAttr_ attr{};
@@ -244,11 +242,11 @@ qbSprite qb_sprite_fromimage(qbImage image) {
 qbAnimation qb_animation_loaddir(const char* dir, qbAnimationAttr attr) {
   thread_local static char buf[512];
 
-  const fs::path path{ dir };
+  const std::filesystem::path path = std::filesystem::path(qb_resources()->dir) / std::filesystem::path(qb_resources()->sprites) / dir;
 
   std::vector<qbSprite> frames;
-  for (const auto& entry : fs::directory_iterator(path)) {    
-    size_t written = wcstombs(buf, entry.path().c_str(), sizeof(buf));
+  for (const auto& entry : std::filesystem::directory_iterator(path)) {    
+    size_t written = wcstombs(buf, (std::filesystem::path(dir) / entry.path().filename()).c_str(), sizeof(buf));
     if (written == sizeof(buf)) {
       buf[sizeof(buf) - 1] = '\0';
     }
@@ -711,7 +709,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
 void sprite_initialize(uint32_t width, uint32_t height) {
   sprite_render_pass = sprite_create_renderpass(width, height);
-  sprite_path = fs::path(qb_resources()->dir) / qb_resources()->sprites;
+  sprite_path = std::filesystem::path(qb_resources()->dir) / qb_resources()->sprites;
 
   {
     qbComponentAttr attr;

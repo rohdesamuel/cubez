@@ -20,7 +20,6 @@ bool operator==(const Vertex& lhs, const Vertex& rhs) {
 
 namespace std
 {
-namespace filesystem = experimental::filesystem;
 
 size_t hash_combine(size_t seed, size_t hash) {
   hash += 0x9e3779b9 + (seed << 6) + (seed >> 2);

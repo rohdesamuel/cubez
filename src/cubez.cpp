@@ -44,7 +44,7 @@
 #include "async_internal.h"
 #include "sprite_internal.h"
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 #define AS_PRIVATE(expr) ((PrivateUniverse*)(universe_->self))->expr
 
@@ -1112,7 +1112,7 @@ qbVar* qb_map_at(qbVar map, qbVar k) {
     return nullptr;
   }
 
-  auto& it = m->map.insert({ { k }, qbVar{} }).first;
+  auto it = m->map.insert({ { k }, qbVar{} }).first;
   return &it->second;
 }
 

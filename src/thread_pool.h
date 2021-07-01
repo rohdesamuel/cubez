@@ -6,6 +6,7 @@
 
 #include <cubez/async.h>
 
+#include <type_traits>
 #include <vector>
 #include <queue>
 #include <memory>
@@ -22,8 +23,7 @@ class CoroThreadPool {
 public:
   CoroThreadPool(size_t);
   template<class F, class... Args>
-  auto enqueue(F&& f, Args&&... args) 
-    -> std::future<typename std::result_of<F(Args...)>::type>;
+  void enqueue(F&& f, Args&&... args);
   ~CoroThreadPool();
 private:
   // need to keep track of threads so we can join them
@@ -65,22 +65,17 @@ inline CoroThreadPool::CoroThreadPool(size_t threads)
 
 // add new work item to the pool
 template<class F, class... Args>
-auto CoroThreadPool::enqueue(F&& f, Args&&... args)
-  -> std::future<typename std::result_of<F(Args...)>::type>
+void CoroThreadPool::enqueue(F&& f, Args&&... args)
 {
-  using return_type = typename std::result_of<F(Args...)>::type;
-
-  auto task = std::make_shared< std::packaged_task<return_type()> >(
+  auto task = std::make_shared< std::packaged_task<void()> >(
       std::bind(std::forward<F>(f), std::forward<Args>(args)...)
     );
     
-  std::future<return_type> res = task->get_future();
   {
     std::unique_lock<std::mutex> lock(queue_mutex);
     tasks.emplace([task](){ (*task)(); });
   }
   condition.notify_one();
-  return res;
 }
 
 // the destructor joins all threads
@@ -104,16 +99,26 @@ public:
   ~TaskThreadPool();
 
   qbTask enqueue(std::function<qbVar()>&& f);
+  qbTask dispatch(std::function<qbVar(qbTask)>&& f);
   qbVar join(qbTask task);
-  
+  qbBool is_active(qbTask task);
 private:
   struct Task {
     std::function<qbVar()> fn;
     std::promise<qbVar> output;
     uint32_t generation;
+
+    static uint32_t get_generation(qbTask task) {
+      return task >> 32;
+    }
+
+    static uint32_t get_task_id(qbTask task) {
+      return (uint64_t)task & 0x00000000FFFFFFFF;
+    }
   };
 
   qbTask alloc_task();
+  void return_task(qbTask task);
 
   // need to keep track of threads so we can join them
   std::vector< std::thread > workers_;

@@ -20,6 +20,7 @@
 #define CUBEZ_LUA_COMMON__H
 
 #include <cubez/cubez.h>
+#include <string>
 #include <vector>
 
 extern "C" {

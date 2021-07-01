@@ -44,10 +44,6 @@ extern "C" {
 #include <algorithm>
 
 #include <filesystem>
-namespace std
-{
-namespace filesystem = experimental::filesystem;
-}
 
 static const luaL_Reg qb_lib[] = {
   { "component_create", component_create },

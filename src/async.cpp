@@ -8,12 +8,15 @@
 #include <mutex>
 #include <ctime>
 #include <unordered_map>
+#include <random>
 
 #include "concurrentqueue.h"
 #include "defs.h"
 #include "thread_pool.h"
 
 TaskThreadPool* thread_pool;
+
+thread_local std::random_device* rd;
 
 struct qbChannel_ {
 public:
@@ -117,11 +120,13 @@ qbVar qb_channel_select(qbChannel* channels, uint8_t len) {
     channel_indices[i] = i;
   }
 
+  if (!rd) rd = new std::random_device;
+
   // To ensure no starvation when reading, iterate through in a random order.
-  std::random_shuffle(channel_indices, channel_indices + len);
+  std::shuffle(channel_indices, channel_indices + len, std::mt19937{});
 
   qbVar ret = qbNil;
-  qbChannel selected;
+  qbChannel selected = nullptr;
   {
     std::unique_lock<std::mutex> l(mx);
     cv.wait(l, [&]() {
@@ -186,14 +191,19 @@ qbVar qb_task_join(qbTask task) {
   return thread_pool->join(task);
 }
 
+qbBool qb_task_isactive(qbTask task) {
+  return thread_pool->is_active(task);
+}
+
 qbTaskBundle qb_taskbundle_create(qbTaskBundleAttr attr) {
   return new qbTaskBundle_;
 }
 
 void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info) {
   if (info) {
-    bundle->begin_info = *info;
+    bundle->begin_info = *info;    
   }
+  bundle->tasks_.clear();
 }
 
 void qb_taskbundle_end(qbTaskBundle bundle) {
@@ -208,6 +218,13 @@ void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qb
 void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info) {
   bundle->tasks_.push_back([system](qbTask, qbVar var) {
     return qb_system_run(system, var);
+  });
+}
+
+void qb_taskbundle_addquery(qbTaskBundle bundle, qbQuery query, qbTaskBundleAddTaskInfo info) {
+  bundle->tasks_.push_back([query](qbTask, qbVar var) {
+    qb_query(query, var);
+    return var;
   });
 }
 
@@ -231,4 +248,16 @@ qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitIn
     return varg;
   });
   return task;
+}
+
+qbTask qb_taskbundle_dispatch(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
+  decltype(qbTaskBundle_::tasks_) tasks = std::move(bundle->tasks_);
+
+  return thread_pool->dispatch([tasks, arg](qbTask task) {
+    qbVar varg = arg;
+    for (auto& entry : tasks) {
+      varg = entry(task, varg);
+    }
+    return varg;
+  });
 }

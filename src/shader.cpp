@@ -19,13 +19,6 @@
 #include "shader.h"
 #include <filesystem>
 
-#ifdef __COMPILE_AS_WINDOWS__
-namespace std
-{
-namespace filesystem = std::experimental::filesystem;
-}
-#endif  // __COMPILE_AS_WINDOWS__
-
 inline char const* glErrorString(GLenum const err) noexcept {
   switch (err) {
     // OpenGL 2.0+ Errors:

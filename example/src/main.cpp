@@ -764,7 +764,7 @@ void initialize_universe(qbUniverse* uni) {
   uni_attr.audio_args = &audio_attr;
 
   qbScriptAttr_ script_attr = {};
-  char* entrypoint = "main.lua";
+  const char* entrypoint = "main.lua";
   script_attr.entrypoint = entrypoint;
   uni_attr.script_args = &script_attr;
 
@@ -1126,35 +1126,42 @@ int main(int, char* []) {
   qbLoopCallbacks_ loop_callbacks = {};
   qbLoopArgs_ loop_args = {};
 
+  qbTask bundle_task = qbInvalidHandle;
   while (qb_loop(&loop_callbacks, &loop_args) != QB_DONE) {
     qb_timing(uni, &timing_info);
     //qb_sprite_drawpart(sheet, { 0, 0 }, (uint32_t)x, 0, (uint32_t)w, (uint32_t)h);
-    
+
     qb_taskbundle_begin(tasks, {});
       qb_taskbundle_addtask(tasks, [](qbTask, qbVar var) {
-        auto s = qb_var_tostring(var);
-        std::cout << s.s << std::endl;
-
         std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        auto s = qb_var_tostring(var);
+        std::cout << s.s << std::endl;        
         qb_var_destroy(&s);
         return qbNil;
       }, {});
+
+      qb_taskbundle_addtask(tasks, [](qbTask, qbVar) {
+        static qbQueryComponent_ all[] = {
+          { qb_component_find("Position", nullptr) }
+        };
+
+        qbQuery_ q{};
+        q.fn = [](qbEntity entity, qbVar, qbVar) {
+          std::cout << "Position[" << entity << "]" << std::endl;
+          return QB_QUERY_RESULT_DONE;
+        };
+        q.all = all;
+        q.all_count = sizeof(all) / sizeof(all[0]);
+
+        qb_query(&q, qbNil);
+
+        return qbNil;
+      }, {});
     qb_taskbundle_end(tasks);
-    qb_task_join(qb_taskbundle_submit(tasks, qbInt(10), {}));
 
-    if (1) {
-      static qbQueryComponent_ all[] = {
-        { qb_component_find("Position", nullptr) }
-      };
-
-      qbQuery_ q{};
-      q.fn = [](qbEntity entity, qbVar, qbVar) {
-        return QB_QUERY_RESULT_CONTINUE;
-      };
-      q.all = all;
-      q.all_count = sizeof(all) / sizeof(all[0]);
-      
-      qb_query(&q, qbNil);
+    if (!qb_task_isactive(bundle_task)) {
+      bundle_task = qb_taskbundle_dispatch(tasks, qbInt(10), {});
     }
   }
   return 0;

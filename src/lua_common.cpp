@@ -44,7 +44,8 @@ qbTag string_to_tag(const std::string& s) {
 
 qbSchemaFieldType_ parse_type_string(const std::string& type_string) {
   std::string s = type_string;
-  std::remove_if(s.begin(), s.end(), std::isspace);
+  s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+
 
   qbSchema maybe_found;
 

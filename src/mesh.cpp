@@ -33,6 +33,7 @@
 #include <vector>
 #include <cubez/cubez.h>
 #include <assert.h>
+#include <algorithm>
 
 #include "render_defs.h"
 #include <cglm/struct.h>

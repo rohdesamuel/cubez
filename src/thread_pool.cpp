@@ -9,9 +9,9 @@ TaskThreadPool::TaskThreadPool(size_t threads, size_t max_queue_size)
     tasks_.push_back({});
   }
 
-  for (qbId task_id = 0; task_id < (qbId)threads; ++task_id) {
+  for (size_t i = 0; i < threads; ++i) {
     workers_.emplace_back(
-      [this, task_id] {
+      [this] {
       for (;;) {
         Task* task;
 
@@ -24,7 +24,8 @@ TaskThreadPool::TaskThreadPool(size_t threads, size_t max_queue_size)
           tasks_queue_.pop();
         }
 
-        task->output.set_value(task->fn());
+        
+        task->output.set_value(task->fn());        
       }
     });
   }
@@ -59,36 +60,85 @@ qbTask TaskThreadPool::alloc_task() {
     available_tasks_mu_.unlock();
     break;
   }
+  if (ret == qbInvalidHandle) {
+    return ret;
+  }
+
+  ret |= (uint64_t)tasks_[ret].generation << 32;
   return ret;
 }
 
+void TaskThreadPool::return_task(qbTask task) {
+  uint32_t id = Task::get_task_id(task);
+  std::unique_lock<std::mutex> lock(available_tasks_mu_);
+  available_tasks_.push(id);
+  ++tasks_[id].generation;
+  if (tasks_[id].generation == qbInvalidHandle) {
+    tasks_[id].generation = 0;
+  }
+}
+
 qbTask TaskThreadPool::enqueue(std::function<qbVar()>&& f) {
-  qbTask ret = alloc_task();
+  const qbTask ret = alloc_task();
 
   if (ret == qbInvalidHandle) {
     return ret;
   }
 
+  uint32_t id = Task::get_task_id(ret);
+
   {
     std::unique_lock<std::mutex> lock(queue_mu_);
-    tasks_queue_.emplace(&tasks_[ret]);
-    tasks_[ret].fn = f;
-    tasks_[ret].output = std::promise<qbVar>();
+    tasks_queue_.emplace(&tasks_[id]);
+    tasks_[id].fn = f;
+    tasks_[id].output = std::promise<qbVar>();
   }
   task_available_.notify_one();
 
   return ret;
 }
 
+qbTask TaskThreadPool::dispatch(std::function<qbVar(qbTask)>&& f) {
+  const qbTask task = alloc_task();
+
+  if (task == qbInvalidHandle) {
+    return task;
+  }
+
+  uint32_t id = Task::get_task_id(task);
+  {
+    std::unique_lock<std::mutex> lock(queue_mu_);
+    tasks_queue_.emplace(&tasks_[id]);
+    tasks_[id].fn = [f, task, this]() {
+      qbVar ret = f(task);
+      return_task(task);
+      return ret;
+    };
+    tasks_[id].output = std::promise<qbVar>();
+  }
+  task_available_.notify_one();
+  return task;
+}
+
 qbVar TaskThreadPool::join(qbTask task) {
-  if (task >= max_queue_size_) {
+  uint32_t id = Task::get_task_id(task);
+
+  if (id >= max_queue_size_) {
     return qbNil;
   }
 
-  qbVar ret = tasks_[task].output.get_future().get();
-  {
-    std::unique_lock<std::mutex> lock(available_tasks_mu_);
-    available_tasks_.push(task);
-  }
+  qbVar ret = tasks_[id].output.get_future().get();
+  return_task(task);
   return ret;
+}
+
+qbBool TaskThreadPool::is_active(qbTask task) {
+  uint32_t id = Task::get_task_id(task);
+  uint32_t generation = Task::get_generation(task);
+
+  if (task == qbInvalidHandle || generation == qbInvalidHandle) {
+    return QB_FALSE;
+  }
+
+  return tasks_[id].generation == generation;
 }

@@ -75,21 +75,21 @@ qbProgram* ProgramRegistry::GetProgram(qbId id) {
 }
 
 void ProgramRegistry::Run(GameState* state) {
-  for (auto& task : program_threads_) {
+  for (auto task : program_threads_) {
     task.second->Ready();
   }
 
-  for (auto& task : program_threads_) {
+  for (auto task : program_threads_) {
     task.second->Run(state, program_lua_states_[task.first]);
   }
 
   RunProgram(main_program_->id, state);
 
-  for (auto& task : program_threads_) {
+  for (auto task : program_threads_) {
     task.second->Wait();
   }
 
-  for (auto& task : program_threads_) {
+  for (auto task : program_threads_) {
     task.second->Done();
   }
 }
