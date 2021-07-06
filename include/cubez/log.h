@@ -31,7 +31,9 @@ typedef enum {
 QB_API extern const char* QB_STD_OUT;
 QB_API extern const char* QB_STD_ERR;
 
-QB_API void qb_log(qbLogLevel level, const char* format, ...);
-QB_API void qb_out(qbLogLevel level, const char* dst, const char* format, ...);
+#define qb_log(level, format, ...) \
+  qb_log_ex(level, __FILE__, __LINE__, format, __VA_ARGS__)
+
+QB_API void qb_log_ex(qbLogLevel level, const char* filename, uint64_t fileline, const char* format, ...);
 
 #endif  // CUBEZ_LOG__H
