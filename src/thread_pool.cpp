@@ -12,21 +12,25 @@ TaskThreadPool::TaskThreadPool(size_t threads, size_t max_queue_size)
   for (size_t i = 0; i < threads; ++i) {
     workers_.emplace_back(
       [this] {
-      for (;;) {
-        Task* task;
-
-        {
-          std::unique_lock<std::mutex> lock(queue_mu_);
-          task_available_.wait(lock, [this] { return stop_ || !tasks_queue_.empty(); });
-          if (stop_)
-            return;
-          task = tasks_queue_.front();
-          tasks_queue_.pop();
+        while (!qb_running()) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
+        for (;;) {
+          Task* task;
+
+          {
+            std::unique_lock<std::mutex> lock(queue_mu_);
+            task_available_.wait(lock, [this] { return stop_ || !tasks_queue_.empty(); });
+            if (stop_)
+              return;
+            task = tasks_queue_.front();
+            tasks_queue_.pop();
+          }
+
         
-        task->output.set_value(task->fn());        
-      }
+          task->output.set_value(task->fn());        
+        }
     });
   }
 }
