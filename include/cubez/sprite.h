@@ -57,8 +57,8 @@ QB_API uint32_t qb_sprite_height(qbSprite sprite);
 QB_API void     qb_sprite_setdepth(qbSprite sprite, float depth);
 QB_API float    qb_sprite_getdepth(qbSprite sprite);
 
-QB_API int32_t qb_sprite_framecount(qbSprite sprite);
-QB_API int32_t qb_sprite_getframe(qbSprite sprite);
+QB_API int32_t  qb_sprite_framecount(qbSprite sprite);
+QB_API int32_t  qb_sprite_getframe(qbSprite sprite);
 QB_API void     qb_sprite_setframe(qbSprite sprite, int32_t frame_index);
 QB_API qbImage  qb_sprite_subimg(qbSprite sprite, int32_t frame);
 
