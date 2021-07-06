@@ -315,6 +315,16 @@ qbResult loop(qbLoopCallbacks callbacks,
 
 qbResult qb_loop(qbLoopCallbacks callbacks,
                  qbLoopArgs args) {
+  qbLoopCallbacks_ empty_callbacks{};
+  qbLoopArgs_ empty_args{};
+  if (!callbacks) {
+    callbacks = &empty_callbacks;
+  }
+
+  if (!args) {
+    args = &empty_args;
+  }
+
   if (!game_loop.is_running) {
     return QB_DONE;
   }
