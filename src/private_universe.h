@@ -210,8 +210,6 @@ class PrivateUniverse {
   qbScene baseline_;
   qbScene active_;
   qbScene working_;
-
-  std::vector<qbBarrier> barriers_;
 };
 
 #endif  // PRIVATE_UNIVERSE__H

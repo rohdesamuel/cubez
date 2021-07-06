@@ -486,7 +486,6 @@ qbBarrier PrivateUniverse::barrier_create() {
 }
 
 void PrivateUniverse::barrier_destroy(qbBarrier barrier) {
-  barriers_.erase(std::find(barriers_.begin(), barriers_.end(), barrier));
   delete (Barrier*)(barrier)->impl;
   delete barrier;
 }
