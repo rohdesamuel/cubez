@@ -76,7 +76,7 @@ struct qbAnimator_ {
   double elapsed;
 };
 
-struct qbSprite_ {  
+struct qbSprite_ {
   qbImage img;
 
   vec2s offset;
@@ -655,7 +655,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     attr.viewport_scale = 1.0f;
     attr.cull = QB_CULL_NONE;
 
-    qbClearValue_ clear;
+    qbClearValue_ clear{};
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
     clear.color = { 1.0f, 0.0f, 1.0f, 1.0f };
     clear.depth = 1.0f;
@@ -721,7 +721,7 @@ void sprite_initialize(uint32_t width, uint32_t height) {
 
 void qb_sprite_onresize(uint32_t width, uint32_t height) {
   {
-    UniformCamera camera;
+    UniformCamera camera{};
     camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
     qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
   }
