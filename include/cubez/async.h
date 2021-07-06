@@ -76,12 +76,15 @@ typedef struct qbTaskBundleSubmitInfo_ {
 QB_API qbTaskBundle qb_taskbundle_create(qbTaskBundleAttr attr);
 QB_API void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info);
 QB_API void qb_taskbundle_end(qbTaskBundle bundle);
+
 QB_API void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info);
 QB_API void qb_taskbundle_addquery(qbTaskBundle bundle, qbQuery query, qbTaskBundleAddTaskInfo info);
 QB_API void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info);
 QB_API void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
                                     qbTaskBundleAddTaskInfo add_info,
                                     qbTaskBundleSubmitInfo submit_info);
+QB_API void qb_taskbundle_addsleep(qbTaskBundle bundle, uint64_t duration_ms, qbTaskBundleAddTaskInfo info);
+
 QB_API qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
 QB_API qbTask qb_taskbundle_dispatch(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
 

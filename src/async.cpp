@@ -18,6 +18,10 @@ TaskThreadPool* thread_pool;
 
 thread_local std::random_device* rd;
 
+// Reserved threads:
+// 1. log.cpp
+constexpr uint64_t QB_RESERVED_SYSTEM_THREADS = 1;
+
 struct qbChannel_ {
 public:
   std::atomic_bool data_avail = false;
@@ -172,6 +176,7 @@ qbBool qb_queue_tryread(qbQueue queue, qbVar* v) {
 void async_initialize(qbSchedulerAttr_* attr) {
   size_t max_async_tasks = attr ? attr->max_async_tasks : std::thread::hardware_concurrency();
   size_t max_async_tasks_queue_size = attr ? attr->max_async_tasks : 1024;
+  max_async_tasks += QB_RESERVED_SYSTEM_THREADS;
   thread_pool = new TaskThreadPool(max_async_tasks, max_async_tasks_queue_size);
 }
 
@@ -234,6 +239,13 @@ void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
   qbTaskBundleSubmitInfo_ info_copy = *submit_info;
   bundle->tasks_.push_back([bundle, info_copy](qbTask, qbVar var) {
     return qb_task_join(qb_taskbundle_submit(bundle, var, (qbTaskBundleSubmitInfo)&info_copy));
+  });
+}
+
+void qb_taskbundle_addsleep(qbTaskBundle bundle, uint64_t duration_ms, qbTaskBundleAddTaskInfo info) {
+  bundle->tasks_.push_back([duration_ms](qbTask, qbVar var) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(duration_ms));
+    return var;
   });
 }
 
