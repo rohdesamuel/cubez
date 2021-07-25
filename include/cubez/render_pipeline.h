@@ -20,6 +20,7 @@
 #define CUBEZ_RENDER_PIPELINE__H
 
 #include <cubez/cubez.h>
+#include <cubez/async.h>
 #include <cglm/cglm.h>
 #include <cglm/types-struct.h>
 
@@ -31,6 +32,7 @@ typedef struct qbFrameBuffer_* qbFrameBuffer;
 typedef struct qbImageSampler_* qbImageSampler;
 typedef struct qbPixelMap_* qbPixelMap;
 typedef struct qbImage_* qbImage;
+typedef struct qbImageView_* qbImageView;
 typedef struct qbGpuBuffer_* qbGpuBuffer;
 typedef struct qbMeshBuffer_* qbMeshBuffer;
 typedef struct qbRenderEvent_* qbRenderEvent;
@@ -75,33 +77,50 @@ typedef enum {
   QB_VERTEX_INPUT_RATE_INSTANCE,
 } qbVertexInputRate;
 
-#define QB_COLOR_ATTACHMENT 0x0001
-#define QB_DEPTH_ATTACHMENT 0x0002
-#define QB_STENCIL_ATTACHMENT 0x0004
-#define QB_DEPTH_STENCIL_ATTACHMENT 0x0008
-typedef uint32_t qbFrameBufferAttachment;
+#define QB_COLOR_ASPECT_BIT 0x0001
+#define QB_DEPTH_ASPECT_BIT 0x0002
+#define QB_STENCIL_ASPECT_BIT 0x0004
+#define QB_DEPTH_STENCIL_ASPECT_BIT 0x0008
+
+typedef enum {
+  QB_COLOR_ASPECT,
+  QB_DEPTH_ASPECT,
+  QB_STENCIL_ASPECT,
+  QB_DEPTH_STENCIL_ASPECT
+} qbImageAspect;
 
 typedef struct {
-  qbFrameBufferAttachment attachments;
+  union {
+    float float32[4];
+    int32_t int32[4];
+    uint32_t uint32[4];
+  } color;
 
-  vec4s color;
   float depth;
   uint32_t stencil;
 } qbClearValue_, *qbClearValue;
 
-typedef struct {
-  uint32_t width;
-  uint32_t height;
+typedef struct qbFramebufferAttachment_ {
+  qbImage image;
+  qbImageAspect aspect;
+} qbFramebufferAttachment_, *qbFramebufferAttachment;
 
-  qbFrameBufferAttachment* attachments;
-  uint32_t* color_binding;
+#define QB_UNUSED_FRAMEBUFFER_ATTACHMENT (~0U)
+
+typedef struct qbFramebufferAttachmentRef_ {
+  // Index into the `attachments` array when creating the qbFrameBuffer.
+  uint32_t attachment;
+  qbImageAspect aspect;
+} qbFramebufferAttachmentRef_, *qbFramebufferAttachmentRef;
+
+typedef struct {
+  qbRenderPass render_pass;
+
+  qbFramebufferAttachment_* attachments;
   size_t attachments_count;
 
-  // Optional images to give as targets for each attachment. Should have length
-  // of attachments_count if used.
-  qbImage* opt_targets;
-
-  qbClearValue_ clear_value;
+  uint32_t width, height;
+  uint32_t layers;
 } qbFrameBufferAttr_;
 typedef const qbFrameBufferAttr_* qbFrameBufferAttr;
 
@@ -214,7 +233,7 @@ typedef struct qbVertexAttribute_ {
   // this attribute.
   uint32_t binding;
 
-  // The shader binding location fir this attribute.
+  // The shader binding location for this attribute.
   uint32_t location;
 
   // The number of components in this attribute.
@@ -241,8 +260,10 @@ typedef struct {
 
   uint32_t binding;
   qbShaderResourceType resource_type;
+  uint32_t resource_count;
+
   qbShaderStage stages;
-} qbShaderResourceInfo_, *qbShaderResourceInfo;
+} qbShaderResourceBinding_, *qbShaderResourceBinding;
 
 typedef enum {
   QB_DRAW_MODE_POINT_LIST,
@@ -257,6 +278,61 @@ typedef enum {
   QB_DRAW_MODE_LINES = QB_DRAW_MODE_LINE_LIST,
   QB_DRAW_MODE_TRIANGLES = QB_DRAW_MODE_TRIANGLE_LIST,
 } qbDrawMode;
+
+typedef enum {
+  QB_POLYGON_MODE_POINT,
+  QB_POLYGON_MODE_LINE,
+  QB_POLYGON_MODE_FILL,
+} qbPolygonMode;
+
+typedef enum {
+  QB_FRONT_FACE_CW,
+  QB_FRONT_FACE_CCW,
+} qbFrontFace;
+
+typedef enum {
+  QB_FACE_NONE,
+  QB_FACE_FRONT,
+  QB_FACE_BACK,
+  QB_FACE_FRONT_AND_BACK,
+} qbRenderFace;
+
+typedef enum {
+  QB_RENDER_TEST_FUNC_NEVER,
+  QB_RENDER_TEST_FUNC_LESS,
+  QB_RENDER_TEST_FUNC_EQUAL,
+  QB_RENDER_TEST_FUNC_LEQUAL,
+  QB_RENDER_TEST_FUNC_GREATER,
+  QB_RENDER_TEST_FUNC_NOTEQUAL,
+  QB_RENDER_TEST_FUNC_GEQUAL,
+  QB_RENDER_TEST_FUNC_ALWAYS,
+} qbRenderTestFunc;
+
+typedef struct qbDepthStencilState_ {
+  qbBool depth_test_enable;
+  qbBool depth_write_enable;
+  qbRenderTestFunc depth_compare_op;
+
+  qbBool stencil_test_enable;
+  qbRenderTestFunc stencil_compare_op;
+  uint32_t stencil_ref_value;
+  uint32_t stencil_mask;
+
+} qbDepthStencilState_, * qbDepthStencilState;
+
+typedef struct qbRasterizationInfo_ {
+  qbPolygonMode raster_mode;
+  qbRenderFace raster_face;
+  qbFrontFace front_face;
+  qbRenderFace cull_face;  
+  qbBool enable_depth_clamp;
+
+  float point_size;
+  float line_width;
+
+  qbDepthStencilState depth_stencil_state;
+
+} qbRasterizationInfo_, *qbRasterizationInfo;
 
 typedef struct {
   qbBufferBinding bindings;
@@ -278,62 +354,128 @@ typedef struct {
   qbRenderExt ext;
 } qbMeshBufferAttr_, *qbMeshBufferAttr;
 
-typedef enum {
-  QB_CULL_NONE,
-  QB_CULL_FRONT,
-  QB_CULL_BACK,
-  QB_CULL_FRONT_BACK,
-} qbCullFace;
-
-typedef enum {
-  QB_FRONT_FACE_CW,
-  QB_FRONT_FACE_CCW,
-} qbFrontFace;
-
-typedef enum {
-  QB_DEPTH_FUNC_NEVER,
-  QB_DEPTH_FUNC_LESS,
-  QB_DEPTH_FUNC_EQUAL,
-  QB_DEPTH_FUNC_LEQUAL,
-  QB_DEPTH_FUNC_GREATER,
-  QB_DEPTH_FUNC_NOTEQUAL,
-  QB_DEPTH_FUNC_GEQUAL,
-  QB_DEPTH_FUNC_ALWAYS,
-} qbDepthFunc;
-
-typedef struct {
-  qbBool depth_test_enable;
-  qbBool depth_write_enable;
-  qbDepthFunc depth_compare_op;
-
-  qbBool stencil_test_enable;
-} qbDepthStencilState;
-
-typedef struct {
+typedef struct qbRenderPassAttr_ {
   const char* name;
 
-  qbGeometryDescriptor_ supported_geometry;
-
-  qbShaderModule shader;
-
-  qbClearValue_ clear;
-  qbCullFace cull;
-  float line_width;
-
-  vec4s viewport;
-  float viewport_scale;
+  qbFramebufferAttachmentRef_* attachments;
+  uint32_t attachments_count;
 
   qbRenderExt ext;
-} qbRenderPassAttr_;
-typedef const qbRenderPassAttr_* qbRenderPassAttr;
+} qbRenderPassAttr_, *qbRenderPassAttr;
 
-typedef struct {
+typedef enum {
+  QB_BLEND_FACTOR_ZERO,
+  QB_BLEND_FACTOR_ONE,
+  QB_BLEND_FACTOR_SRC_COLOR,
+  QB_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
+  QB_BLEND_FACTOR_DST_COLOR,
+  QB_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
+  QB_BLEND_FACTOR_SRC_ALPHA,
+  QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+  QB_BLEND_FACTOR_DST_ALPHA,
+  QB_BLEND_FACTOR_ONE_MINUS_DST_ALPHA,
+  QB_BLEND_FACTOR_CONSTANT_COLOR,
+  QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR,
+  QB_BLEND_FACTOR_CONSTANT_ALPHA,
+  QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA,
+  QB_BLEND_FACTOR_SRC_ALPHA_SATURATE,
+} qbBlendFactor;
+
+typedef enum {
+  QB_BLEND_EQUATION_ADD,
+  QB_BLEND_EQUATION_SUBTRACT,
+  QB_BLEND_EQUATION_REVERSE_SUBTRACT,
+  QB_BLEND_EQUATION_MIN,
+  QB_BLEND_EQUATION_MAX,
+} qbBlendEquation;
+
+typedef struct qbColorBlend_ {
+  qbBlendEquation op;
+  qbBlendFactor src;
+  qbBlendFactor dst;
+} qbColorBlend_, *qbColorBlend;
+
+typedef struct qbColorBlendState_ {
+  qbBool blend_enable;
+
+  qbColorBlend_ rgb_blend;
+  qbColorBlend_ alpha_blend;
+
+  // Accessed when blend factor is:
+  //  - QB_BLEND_FACTOR_CONSTANT_COLOR
+  //  - QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR
+  //  - QB_BLEND_FACTOR_CONSTANT_ALPHA
+  //  - QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA
+  vec4s blend_color;
+
+} qbColorBlendState_, *qbColorBlendState;
+
+typedef struct qbViewport_ {
+  float x, y;
+  float w, h;
+  float min_depth, max_depth;
+} qbViewport_, *qbViewport;
+
+typedef struct qbRect_ {
+  float x, y;
+  float w, h;
+} qbRect_, *qbRect;
+
+typedef struct qbExtent_ {
+  float w, h;
+} qbExtent_, *qbExtent;
+
+typedef struct qbViewportState_ {
+  qbViewport_ viewport;
+  qbRect_ scissor;
+} qbViewportState_, *qbViewportState;
+
+typedef struct qbShaderResourceLayoutAttr_ {
+  uint32_t binding_count;
+  qbShaderResourceBinding bindings;
+} qbShaderResourceLayoutAttr_, *qbShaderResourceLayoutAttr;
+
+typedef struct qbShaderResourceLayout_* qbShaderResourceLayout;
+QB_API void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_layout, qbShaderResourceLayoutAttr attr);
+
+typedef struct qbShaderResourcePipelineLayoutAttr_ {
+  uint32_t layout_count;
+  qbShaderResourceLayout* layouts;
+} qbShaderResourcePipelineLayoutAttr_, *qbShaderResourcePipelineLayoutAttr;
+
+typedef struct qbShaderResourcePipelineLayout_* qbShaderResourcePipelineLayout;
+QB_API void qb_shaderresourcepipelinelayout_create(qbShaderResourcePipelineLayout* layout, qbShaderResourcePipelineLayoutAttr attr);
+
+typedef struct qbShaderResourceSetAttr_ {
+  uint32_t create_count;
+  qbShaderResourceLayout layout;
+} qbShaderResourceSetAttr_, *qbShaderResourceSetAttr;
+
+typedef struct qbShaderResourceSet_* qbShaderResourceSet;
+QB_API void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderResourceSetAttr attr);
+
+typedef struct qbWriteShaderResource_ {
+  qbShaderResourceSet dst_set;
+  uint32_t dst_binding;
+  uint32_t dst_array_element;
+} qbWriteShaderResource_, *qbWriteShaderResource;
+QB_API void qb_shaderresourceset_write(qbShaderResourceSet resource_set, uint32_t write_count, qbWriteShaderResource writes);
+QB_API void qb_shaderresourceset_writeuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer);
+QB_API void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage image, qbImageSampler sampler);
+
+typedef struct qbRenderPipelineAttr_ {
   const char* name;
 
-  vec4s viewport;
-  float viewport_scale;
+  qbShaderModule shader;
+  qbGeometryDescriptor geometry;  
+  qbRenderPass render_pass;
+  qbColorBlendState blend_state;
+  qbViewportState viewport_state;
+  qbRasterizationInfo rasterization_info;
+  qbShaderResourcePipelineLayout resource_layout;
 
-  vec4s clear_color;
+  qbShaderResourceBinding resources;
+  size_t resources_count;
 
   qbRenderExt ext;
 } qbRenderPipelineAttr_, *qbRenderPipelineAttr;
@@ -345,9 +487,6 @@ typedef struct {
 
   // If true, interprets vs, fs, gs as literal shader strings.
   qbBool interpret_as_strings;
-
-  qbShaderResourceInfo resources;
-  size_t resources_count;
 } qbShaderModuleAttr_, *qbShaderModuleAttr;
 
 typedef struct qbSurfaceAttr_ {
@@ -357,7 +496,7 @@ typedef struct qbSurfaceAttr_ {
   const char* vs;
   const char* fs;
 
-  qbShaderResourceInfo resources;
+  qbShaderResourceBinding resources;
   size_t resources_count;
 
   qbImageSampler* samplers;
@@ -371,11 +510,6 @@ typedef struct qbSurfaceAttr_ {
   qbPixelFormat pixel_format;
   size_t target_count;
 } qbSurfaceAttr_, *qbSurfaceAttr;
-
-typedef struct qbViewport_ {
-  float x, y;
-  float w, h;
-} qbViewport_;
 
 // TODO: Should this be recursive to allow for hierarchical models?
 // TODO: Should there be a transform (position+orientation) for Render Groups?
@@ -426,7 +560,6 @@ QB_API size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass p
 
 QB_API void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
 QB_API void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer);
-QB_API void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value);
 QB_API qbImage qb_framebuffer_gettarget(qbFrameBuffer frame_buffer, size_t i);
 QB_API void qb_framebuffer_settarget(qbFrameBuffer frame_buffer, size_t i, qbImage image);
 
@@ -438,10 +571,10 @@ QB_API void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, ui
 QB_API uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer);
 QB_API uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer);
 QB_API uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t attachment_binding, int32_t x, int32_t y);
-QB_API void qb_framebuffer_blit(qbFrameBuffer src, qbFrameBuffer dest,
+/*QB_API void qb_framebuffer_blit(qbFrameBuffer src, qbFrameBuffer dest,
                                 qbViewport_ src_viewport,
                                 qbViewport_ dest_viewport,
-                                qbFrameBufferAttachment mask, qbFilterType filter);
+                                qbFrameBufferAttachment mask, qbFilterType filter);*/
 
 QB_API void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr);
 QB_API void qb_renderpass_destroy(qbRenderPass* render_pass);
@@ -454,12 +587,10 @@ QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
 QB_API qbGeometryDescriptor qb_renderpass_geometry(qbRenderPass render_pass);
 QB_API size_t qb_renderpass_bindings(qbRenderPass render_pass, qbBufferBinding* bindings);
 QB_API size_t qb_renderpass_groups(qbRenderPass render_pass, qbRenderGroup** groups);
-QB_API size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceInfo* resources);
+QB_API size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceBinding* resources);
 QB_API size_t qb_renderpass_attributes(qbRenderPass render_pass, qbVertexAttribute* attributes);
 QB_API size_t qb_renderpass_uniforms(qbRenderPass render_pass, uint32_t** bindings, qbGpuBuffer** uniforms);
 QB_API size_t qb_renderpass_samplers(qbRenderPass render_pass, uint32_t** bindings, qbImageSampler** samplers);
-QB_API void qb_renderpass_append(qbRenderPass render_pass, qbRenderGroup group);
-QB_API void qb_renderpass_prepend(qbRenderPass render_pass, qbRenderGroup group);
 QB_API size_t qb_renderpass_remove(qbRenderPass render_pass, qbRenderGroup group);
 QB_API void qb_renderpass_update(qbRenderPass render_pass, size_t count, qbRenderGroup* groups);
 
@@ -475,6 +606,7 @@ QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const char* file);
 QB_API void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data);
 QB_API int qb_image_width(qbImage image);
 QB_API int qb_image_height(qbImage image);
+QB_API qbImageView qb_image_view(qbImage image);
 
 QB_API void qb_gpubuffer_create(qbGpuBuffer* buffer, qbGpuBufferAttr attr);
 QB_API void qb_gpubuffer_destroy(qbGpuBuffer* buffer);
@@ -544,5 +676,53 @@ QB_API void qb_surface_resize(qbSurface surface, uint32_t width, uint32_t height
 QB_API void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output);
 QB_API qbFrameBuffer qb_surface_target(qbSurface surface, size_t i);
 QB_API qbImage qb_surface_image(qbSurface surface, size_t i);
+
+typedef struct qbSwapchainAttr_ {
+  qbExtent_ extent;
+} qbSwapchainAttr_, *qbSwapchainAttr;
+
+typedef struct qbSwapchain_* qbSwapchain;
+QB_API void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr);
+QB_API void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images);
+QB_API uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain);
+
+typedef struct qbBeginRenderPassInfo_ {
+  qbRenderPass render_pass;
+  qbFrameBuffer framebuffer;
+  qbClearValue clear_values;
+  uint32_t clear_values_count;
+} qbBeginRenderPassInfo_, *qbBeginRenderPassInfo;
+
+typedef struct qbDrawCommandBufferAttr_ {
+  uint64_t count;
+  struct qbMemoryAllocator_* allocator;
+} qbDrawCommandBufferAttr_, *qbDrawCommandBufferAttr;
+
+
+typedef struct qbDrawCommandBuffer_* qbDrawCommandBuffer;
+
+QB_API void qb_drawcmd_create(qbDrawCommandBuffer* cmd_buf, qbDrawCommandBufferAttr attr);
+QB_API void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count);
+QB_API void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf);
+QB_API void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info);
+QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
+QB_API void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport);
+QB_API void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect);
+QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
+QB_API void qb_drawcmd_bindshaderresourceset(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, uint32_t resource_set_count, qbShaderResourceSet* resource_sets);
+QB_API void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t binding_count, qbGpuBuffer* buffers);
+QB_API void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer);
+QB_API void qb_drawcmd_draw(qbDrawCommandBuffer cmd_buf, uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance);
+QB_API void qb_drawcmd_drawindexed(qbDrawCommandBuffer cmd_buf, uint32_t index_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t first_instance);
+QB_API void qb_drawcmd_drawfunc(qbDrawCommandBuffer cmd_buf, void(*func)(qbDrawCommandBuffer, qbVar), qbVar arg);
+QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
+QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
+
+typedef struct qbDrawPresentInfo_ {
+  qbSwapchain swapchain;
+  uint32_t image_index;
+} qbDrawPresentInfo_, *qbDrawPresentInfo;
+
+QB_API qbTask qb_drawcmd_present(qbDrawCommandBuffer cmd_buf, qbDrawPresentInfo present_info);
 
 #endif  // CUBEZ_RENDER_PIPELINE__H

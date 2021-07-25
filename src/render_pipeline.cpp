@@ -15,6 +15,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+// https://sopyer.github.io/Blog/post/minimal-vulkan-sample/
+// #define OLD_API
 
 #define GLM_GTC_matrix_transform
 #include <cubez/cubez.h>
@@ -26,19 +28,23 @@
 #include <SDL2/SDL_opengl.h>
 
 #include <cubez/render_pipeline.h>
+#include <cubez/memory.h>
 #include <cubez/common.h>
 #include <algorithm>
+#include <mutex>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <cubez/render.h>
-#include "shader.h"
 #include <cubez/utils.h>
 #include <vector>
 #include <assert.h>
-#include "stb_image.h"
 
+#include "async_internal.h"
 #include "inline_shaders.h"
+#include "render_internal.h"
+#include "shader.h"
+#include "stb_image.h"
 
 //#ifdef _DEBUG
 #define CHECK_GL()  {GLenum err = glGetError(); if (err) FATAL(err) }
@@ -48,22 +54,34 @@
 
 #define WITH_MODULE(module, fn, ...) (module)->render_interface.fn((module)->impl, __VA_ARGS__)
 
+constexpr std::vector<std::string> shader_extensions() {
+  return { "GL_ARB_shading_language_420pack" };
+}
+
 typedef struct qbRenderPipeline_ {
-  std::vector<qbRenderPass> render_passes;
-  qbRenderPass present_pass;
+  qbShaderModule shader_module;
+  qbGeometryDescriptor geometry;
+  qbRenderPass render_pass;
+  qbColorBlendState blend_state;
+  qbViewportState viewport_state;
+  qbRasterizationInfo rasterization_info;
+  qbShaderResourcePipelineLayout pipeline_layout;
+
+  GLuint render_vao;
 
   qbRenderExt ext;
 } qbRenderPipeline_;
 
 typedef struct qbFrameBuffer_ {
   uint32_t id;
+  std::vector<qbFramebufferAttachment_> attachments;
+  std::vector<GLenum> draw_buffers;
   std::vector<qbImage> render_targets;
 
   qbImage depth_target;
   qbImage stencil_target;
   qbImage depthstencil_target;
 
-  qbFrameBufferAttr_ attr;
 } qbFrameBuffer_;
 
 typedef struct qbImageSampler_ {
@@ -138,7 +156,7 @@ typedef struct qbMeshBuffer_ {
 typedef struct qbShaderModule_ {
   ShaderProgram* shader;
 
-  qbShaderResourceInfo resources;
+  qbShaderResourceBinding resources;
   size_t resources_count;
 
   uint32_t* uniform_bindings;
@@ -155,6 +173,8 @@ typedef struct qbRenderPass_ {
   const char* name;
   qbRenderExt ext;
 
+  std::vector<qbFramebufferAttachmentRef_> attachments;
+
   uint32_t id;
   std::vector<qbRenderGroup> groups;
 
@@ -166,7 +186,7 @@ typedef struct qbRenderPass_ {
   float viewport_scale;
 
   qbClearValue_ clear;
-  qbCullFace cull;
+  qbRenderFace cull;
   float line_width;
 } qbRenderPass_;
 
@@ -189,25 +209,55 @@ typedef struct qbSurface_ {
   qbMeshBuffer dbo;
 } qbSurface_, *qbSurface;
 
+typedef struct qbDrawCommandBuffer_ {
+  qbTaskBundle task_bundle;
+  qbBeginRenderPassInfo begin_info;
+
+  qbRenderPipeline current_pipeline;
+  qbMemoryAllocator allocator;
+  qbMemoryAllocator stack_allocator;
+} qbDrawCommandBuffer_, *qbDrawCommandBuffer;
+
+typedef struct qbSwapchain_ {
+  std::vector<qbImage> images;
+  uint32_t front_image;
+  uint32_t back_image;
+
+  std::vector<qbTask> tasks;
+  qbTask front_task;
+  qbTask back_task;
+
+  qbRenderPipeline present;
+  qbExtent_ extent;
+  qbShaderModule shader_module;
+
+  GLuint present_vao;
+  GLuint present_vbo;
+
+  qbImageSampler swapchain_imager_sampler;
+
+  std::mutex image_swap_mu;
+} qbSwapchain_, *qbSwapchain;
+
+typedef struct qbShaderResourceLayout_ {
+  std::vector<qbShaderResourceBinding_> bindings;
+
+} qbShaderResourceLayout_, * qbShaderResourceLayout;
+
+typedef struct qbShaderResourcePipelineLayout_ {
+  std::vector<qbShaderResourceLayout> layouts;
+
+} qbShaderResourcePipelineLayout_, * qbShaderResourcePipelineLayout;
+
+typedef struct qbShaderResourceSet_ {
+  std::vector<qbShaderResourceBinding> bindings;
+  std::vector<qbGpuBuffer> uniforms;
+  std::vector<qbImage> images;
+  std::vector<qbImageSampler> samplers;
+} qbShaderResourceSet_, * qbShaderResourceSet;
+
 namespace
 {
-
-GLenum TranslateQbFrameBufferAttachmentToOpenGl(qbFrameBufferAttachment attachment) {
-  GLenum ret = 0;
-  if (attachment & QB_COLOR_ATTACHMENT) {
-    ret |= GL_COLOR_BUFFER_BIT;
-  }
-
-  if (attachment & QB_DEPTH_ATTACHMENT) {
-    ret |= GL_DEPTH_BUFFER_BIT;
-  }
-
-  if (attachment & QB_STENCIL_ATTACHMENT) {
-    ret |= GL_STENCIL_ATTACHMENT;
-  }
-
-  return ret;
-}
 
 GLenum TranslateQbVertexAttribTypeToOpenGl(qbVertexAttribType type) {
   switch (type) {
@@ -222,6 +272,7 @@ GLenum TranslateQbVertexAttribTypeToOpenGl(qbVertexAttribType type) {
     case QB_VERTEX_ATTRIB_TYPE_DOUBLE: return GL_DOUBLE;
     case QB_VERTEX_ATTRIB_TYPE_FIXED: return GL_FIXED;
   }
+  assert(false && "Invalid qbVertexAttribType");
   return 0;
 }
 
@@ -231,6 +282,7 @@ GLenum TranslateQbGpuBufferTypeToOpenGl(qbGpuBufferType type) {
     case QB_GPU_BUFFER_TYPE_INDEX: return GL_ELEMENT_ARRAY_BUFFER;
     case QB_GPU_BUFFER_TYPE_UNIFORM: return GL_UNIFORM_BUFFER;
   }
+  assert(false && "Invalid qbGpuBufferType");
   return 0;
 }
 
@@ -243,6 +295,7 @@ GLenum TranslateQbFilterTypeToOpenGl(qbFilterType type) {
     case QB_FILTER_TYPE_NEAREST_MIPMAP_LINEAR: return GL_NEAREST_MIPMAP_LINEAR;
     case QB_FILTER_TYPE_LIENAR_MIPMAP_LINEAR: return GL_LINEAR_MIPMAP_LINEAR;
   }
+  assert(false && "Invalid qbFilterType");
   return 0;
 }
 GLenum TranslateQbImageWrapTypeToOpenGl(qbImageWrapType type) {
@@ -252,6 +305,7 @@ GLenum TranslateQbImageWrapTypeToOpenGl(qbImageWrapType type) {
     case QB_IMAGE_WRAP_TYPE_CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
     case QB_IMAGE_WRAP_TYPE_CLAMP_TO_BORDER: return GL_CLAMP_TO_BORDER;
   }
+  assert(false && "Invalid qbImageWrapType");
   return 0;
 }
 
@@ -265,6 +319,7 @@ GLenum TranslateQbImageTypeToOpenGl(qbImageType type) {
     case QB_IMAGE_TYPE_2D_ARRAY: return GL_TEXTURE_2D_ARRAY;
     case QB_IMAGE_TYPE_CUBE_ARRAY: return GL_TEXTURE_CUBE_MAP_ARRAY;
   }
+  assert(false && "Invalid qbImageType");
   return 0;
 }
 
@@ -286,6 +341,7 @@ GLenum TranslateQbPixelFormatToInternalOpenGl(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_D24_S8: return GL_DEPTH24_STENCIL8;
     case QB_PIXEL_FORMAT_S8: return GL_STENCIL_INDEX;
   }
+  assert(false && "Invalid qbPixelFormat");
   return 0;
 }
 
@@ -307,6 +363,7 @@ GLenum TranslateQbPixelFormatToOpenGl(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_D24_S8: return GL_DEPTH_STENCIL;
     case QB_PIXEL_FORMAT_S8: return GL_STENCIL_INDEX;
   }
+  assert(false && "Invalid qbPixelFormat");
   return 0;
 }
 
@@ -328,6 +385,7 @@ GLenum TranslateQbPixelFormatToOpenGlSize(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_D24_S8: return GL_UNSIGNED_INT_24_8;
     case QB_PIXEL_FORMAT_S8: return GL_UNSIGNED_BYTE;
   }
+  assert(false && "Invalid qbPixelFormat");
   return 0;
 }
 
@@ -349,6 +407,7 @@ size_t TranslateQbPixelFormatToPixelSize(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_D24_S8: return 4;
     case QB_PIXEL_FORMAT_S8: return 1;
   }
+  assert(false && "Invalid qbPixelFormat");
   return 0;
 }
 
@@ -361,6 +420,86 @@ GLenum TranslateQbDrawModeToOpenGlMode(qbDrawMode mode) {
     case QB_DRAW_MODE_TRIANGLE_STRIP: return GL_TRIANGLE_STRIP;
     case QB_DRAW_MODE_TRIANGLE_FAN: return GL_TRIANGLE_FAN;
   }
+  assert(false && "Invalid qbDrawMode");
+  return 0;
+}
+
+GLenum TranslateQbFrontFaceToOpenGl(qbFrontFace face) {
+  switch(face) {
+    case QB_FRONT_FACE_CW: return GL_CW;
+    case QB_FRONT_FACE_CCW: return GL_CCW;
+  };
+  assert(false && "Invalid qbFrontFace");
+  return 0;
+}
+
+GLenum TranslateQbCullFaceToOpenGl(qbRenderFace face) {
+  switch (face) {
+    case QB_FACE_NONE: return GL_NONE;
+    case QB_FACE_FRONT: return GL_FRONT;
+    case QB_FACE_BACK:  return GL_BACK;
+    case QB_FACE_FRONT_AND_BACK: return GL_FRONT_AND_BACK;
+  }
+  assert(false && "Invalid qbRenderFace");
+  return GL_NONE;
+}
+
+GLenum TranslateQbRenderTestFuncToOpenGl(qbRenderTestFunc func) {
+  switch (func) {
+    case QB_RENDER_TEST_FUNC_NEVER: return GL_NEVER;
+    case QB_RENDER_TEST_FUNC_LESS: return GL_LESS;
+    case QB_RENDER_TEST_FUNC_EQUAL: return GL_EQUAL;
+    case QB_RENDER_TEST_FUNC_LEQUAL: return GL_LEQUAL;
+    case QB_RENDER_TEST_FUNC_GREATER: return GL_GREATER;
+    case QB_RENDER_TEST_FUNC_NOTEQUAL: return GL_NOTEQUAL;
+    case QB_RENDER_TEST_FUNC_GEQUAL: return GL_GEQUAL;
+    case QB_RENDER_TEST_FUNC_ALWAYS: return GL_ALWAYS;
+  }
+  assert(false && "Invalid qbRenderTestFunc");
+  return GL_NEVER;
+}
+
+GLenum TranslateQbBlendEquationToOpenGl(qbBlendEquation eq) {
+  switch (eq) {
+    case QB_BLEND_EQUATION_ADD: return GL_FUNC_ADD;
+    case QB_BLEND_EQUATION_SUBTRACT: return GL_FUNC_SUBTRACT;
+    case QB_BLEND_EQUATION_REVERSE_SUBTRACT: return GL_FUNC_REVERSE_SUBTRACT;
+    case QB_BLEND_EQUATION_MIN: return GL_MIN;
+    case QB_BLEND_EQUATION_MAX: return GL_MAX;
+  }
+  assert(false && "Invalid qbBlendEquation");
+  return 0;
+}
+
+GLenum TranslateQbBlendFactorToOpenGl(qbBlendFactor factor) {
+  switch (factor) {
+    case QB_BLEND_FACTOR_ZERO: return GL_ZERO;
+    case QB_BLEND_FACTOR_ONE: return GL_ONE;
+    case QB_BLEND_FACTOR_SRC_COLOR: return GL_SRC_COLOR;
+    case QB_BLEND_FACTOR_ONE_MINUS_SRC_COLOR: return GL_ONE_MINUS_SRC_COLOR;
+    case QB_BLEND_FACTOR_DST_COLOR: return GL_DST_COLOR;
+    case QB_BLEND_FACTOR_ONE_MINUS_DST_COLOR: return GL_ONE_MINUS_DST_COLOR;
+    case QB_BLEND_FACTOR_SRC_ALPHA: return GL_SRC_ALPHA;
+    case QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA: return GL_ONE_MINUS_SRC1_ALPHA;
+    case QB_BLEND_FACTOR_DST_ALPHA: return GL_DST_ALPHA;
+    case QB_BLEND_FACTOR_ONE_MINUS_DST_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
+    case QB_BLEND_FACTOR_CONSTANT_COLOR: return GL_CONSTANT_COLOR;
+    case QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR: return GL_ONE_MINUS_CONSTANT_COLOR;
+    case QB_BLEND_FACTOR_CONSTANT_ALPHA: return GL_CONSTANT_ALPHA;
+    case QB_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA: return GL_ONE_MINUS_CONSTANT_ALPHA;
+    case QB_BLEND_FACTOR_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
+  }
+  assert(false && "Invalid qbBlendFactor");
+  return GL_ZERO;
+}
+
+GLenum TranslateQbPolygonModeToOpenGl(qbPolygonMode mode) {
+  switch (mode) {
+    case QB_POLYGON_MODE_POINT: return GL_POINT;
+    case QB_POLYGON_MODE_LINE: return GL_LINE;
+    case QB_POLYGON_MODE_FILL: return GL_FILL;
+  }
+  assert(false && "Invalid qbPolygonMode");
   return 0;
 }
 
@@ -509,150 +648,60 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
   *pipeline = new qbRenderPipeline_;
   (*pipeline)->ext = pipeline_attr->ext;
 
-  // Create the presentation pass.
+  (*pipeline)->shader_module = pipeline_attr->shader;
+  (*pipeline)->render_pass = pipeline_attr->render_pass;
+  (*pipeline)->blend_state = new qbColorBlendState_(*pipeline_attr->blend_state);
+  
   {
-    qbVertexAttribute_ attributes[2] = {};
-    {
-      qbVertexAttribute_* attr = attributes;
-      attr->binding = 0;
-      attr->location = 0;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)0;
-    }
-    {
-      qbVertexAttribute_* attr = attributes + 1;
-      attr->binding = 0;
-      attr->location = 1;
-
-      attr->count = 2;
-      attr->type = QB_VERTEX_ATTRIB_TYPE_FLOAT;
-      attr->normalized = false;
-      attr->offset = (void*)(2 * sizeof(float));
+    qbRasterizationInfo copy = new qbRasterizationInfo_;
+    *copy = *pipeline_attr->rasterization_info;
+    copy->depth_stencil_state = new qbDepthStencilState_;
+    *copy->depth_stencil_state = *pipeline_attr->rasterization_info->depth_stencil_state;
+    
+    if (copy->line_width == 0.f) {
+      copy->line_width = 1.f;
     }
 
-    qbShaderModule shader_module;
-    {
-      qbShaderResourceInfo_ sampler_attr = {};
-      sampler_attr.binding = 0;
-      sampler_attr.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-      sampler_attr.stages = QB_SHADER_STAGE_FRAGMENT;
-      sampler_attr.name = "tex_sampler";
-
-      qbShaderModuleAttr_ attr = {};
-      attr.vs = get_presentpass_vs();
-      attr.fs = get_presentpass_fs();
-      attr.interpret_as_strings = true;
-
-      attr.resources = &sampler_attr;
-      attr.resources_count = 1;
-
-      qb_shadermodule_create(&shader_module, &attr);
-
-      qbImageSampler sampler;
-      {
-        qbImageSamplerAttr_ attr = {};
-        attr.image_type = QB_IMAGE_TYPE_2D;
-        attr.min_filter = QB_FILTER_TYPE_LINEAR;
-        attr.mag_filter = QB_FILTER_TYPE_LINEAR;
-        qb_imagesampler_create(&sampler, &attr);
-      }
-
-      uint32_t bindings[] = { 0 };
-      qbImageSampler samplers[] = { sampler };
-      qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
+    if (copy->point_size == 0.f) {
+      copy->point_size = 1.f;
     }
 
-    qbBufferBinding_ binding = {};
-    binding.binding = 0;
-    binding.stride = 4 * sizeof(float);
-    binding.input_rate = QB_VERTEX_INPUT_RATE_VERTEX;
-    {
-      qbRenderPassAttr_ attr = {};
-      attr.supported_geometry.bindings = &binding;
-      attr.supported_geometry.bindings_count = 1;
-      attr.supported_geometry.attributes = attributes;
-      attr.supported_geometry.attributes_count = 2;
-      attr.supported_geometry.mode = QB_DRAW_MODE_TRIANGLES;
-
-      attr.shader = shader_module;
-
-      attr.viewport = pipeline_attr->viewport;
-      attr.viewport_scale = pipeline_attr->viewport_scale;
-
-      qbClearValue_ clear = {};
-      clear.color = pipeline_attr->clear_color;
-      clear.attachments = QB_COLOR_ATTACHMENT;
-
-      attr.clear = clear;
-      attr.cull = QB_CULL_BACK;
-
-      qb_renderpass_create(&(*pipeline)->present_pass, &attr);
-    }
-
-    qbGpuBuffer gpu_buffers[2];
-    {
-      qbGpuBufferAttr_ attr = {};
-      float vertices[] = {
-        // Positions   // UVs
-        -1.0, -1.0,    0.0, 0.0,
-        -1.0,  1.0,    0.0, 1.0,
-         1.0,  1.0,    1.0, 1.0,
-         1.0, -1.0,    1.0, 0.0
-      };
-
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
-      attr.data = vertices;
-      attr.size = sizeof(vertices);
-      attr.elem_size = sizeof(float);
-      qb_gpubuffer_create(gpu_buffers, &attr);
-    }
-    {
-      qbGpuBufferAttr_ attr = {};
-      int indices[] = {
-        0, 1, 2,
-        0, 2, 3,
-      };
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
-      attr.data = indices;
-      attr.size = sizeof(indices);
-      attr.elem_size = sizeof(int);
-      qb_gpubuffer_create(gpu_buffers + 1, &attr);
-    }
-
-    qbMeshBuffer draw_buff;
-    {
-      qbMeshBufferAttr_ attr = {};
-      attr.descriptor = (*pipeline)->present_pass->supported_geometry;
-
-      qb_meshbuffer_create(&draw_buff, &attr);
-    }
-
-    qbGpuBuffer vertices[] = { gpu_buffers[0] };
-    qb_meshbuffer_attachvertices(draw_buff, vertices, 4);
-    qb_meshbuffer_attachindices(draw_buff, gpu_buffers[1], 6);
-
-    uint32_t image_bindings[] = { 0 };
-    qbImage images[] = { nullptr };
-    qb_meshbuffer_attachimages(draw_buff, 1, image_bindings, images);
-
-    qbRenderGroup group;
-    {
-      qbRenderGroupAttr_ attr = {};
-      qbMeshBuffer meshes[] = { draw_buff };
-      attr.mesh_count = 1;
-      attr.meshes = meshes;
-      attr.mode = QB_DRAW_MODE_TRIANGLES;
-      qb_rendergroup_create(&group, &attr);
-    }
-    qb_renderpass_append((*pipeline)->present_pass, group);
+    (*pipeline)->rasterization_info = copy;
   }
+
+  {
+    qbGeometryDescriptor copy = new qbGeometryDescriptor_;
+    copy->attributes_count = pipeline_attr->geometry->attributes_count;
+    copy->attributes = new qbVertexAttribute_[copy->attributes_count];
+    std::copy(pipeline_attr->geometry->attributes,
+              pipeline_attr->geometry->attributes + copy->attributes_count,
+              copy->attributes);
+
+    copy->bindings_count = pipeline_attr->geometry->bindings_count;
+    copy->bindings = new qbBufferBinding_[copy->bindings_count];
+    std::copy(pipeline_attr->geometry->bindings,
+              pipeline_attr->geometry->bindings + copy->bindings_count,
+              copy->bindings);
+
+    copy->mode = pipeline_attr->geometry->mode;
+
+    (*pipeline)->geometry = copy;
+  }
+
+  {
+    qbViewportState copy = new qbViewportState_;
+    copy->viewport = pipeline_attr->viewport_state->viewport;
+    copy->scissor = pipeline_attr->viewport_state->scissor;
+    (*pipeline)->viewport_state = copy;
+  }
+
+  (*pipeline)->pipeline_layout = pipeline_attr->resource_layout;
+
+  glGenVertexArrays(1, &(*pipeline)->render_vao);
 }
 
 void qb_renderpipeline_resize(qbRenderPipeline render_pipeline, qbViewport_ viewport) {
-  qb_renderpass_resize(render_pipeline->present_pass, viewport);
+  //qb_renderpass_resize(render_pipeline->present_pass, viewport);
 }
 
 void qb_renderpipeline_destroy(qbRenderPipeline* pipeline) {
@@ -663,38 +712,38 @@ void qb_renderpipeline_destroy(qbRenderPipeline* pipeline) {
 
 void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
                                qbRenderEvent event) {
-  render_pipeline->present_pass->groups[0]->meshes[0]->images[0] = frame_buffer->render_targets[0];
+  //render_pipeline->present_pass->groups[0]->meshes[0]->images[0] = frame_buffer->render_targets[0];
 
-  qb_framebuffer_clear(0, &render_pipeline->present_pass->clear);
-  qb_renderpass_draw(render_pipeline->present_pass, 0);
+  //qb_framebuffer_clear(0, &render_pipeline->present_pass->clear);
+  //qb_renderpass_draw(render_pipeline->present_pass, 0);
 }
 
 void qb_renderpipeline_append(qbRenderPipeline pipeline, qbRenderPass pass) {
-  pipeline->render_passes.push_back(pass);
+  //pipeline->render_passes.push_back(pass);
 }
 
 void qb_renderpipeline_prepend(qbRenderPipeline pipeline, qbRenderPass pass) {
-  pipeline->render_passes.insert(pipeline->render_passes.begin(), pass);
+  //pipeline->render_passes.insert(pipeline->render_passes.begin(), pass);
 }
 
 size_t qb_renderpipeline_passes(qbRenderPipeline pipeline, qbRenderPass** passes) {
-  *passes = pipeline->render_passes.data();
-  return pipeline->render_passes.size();
+  //*passes = pipeline->render_passes.data();
+  return 0;//pipeline->render_passes.size();
 }
 
 void qb_renderpipeline_update(qbRenderPipeline pipeline, size_t count, qbRenderPass* pass) {
-  pipeline->render_passes.resize(count);
+  /*pipeline->render_passes.resize(count);
   for (size_t i = 0; i < count; ++i) {
     pipeline->render_passes[i] = pass[i];
-  }
+  }*/
 }
 
 size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass pass) {
-  auto found = std::find(pipeline->render_passes.begin(), pipeline->render_passes.end(), pass);
+  /*auto found = std::find(pipeline->render_passes.begin(), pipeline->render_passes.end(), pass);
   if (found != pipeline->render_passes.end()) {
     pipeline->render_passes.erase(found);
     return 1;
-  }
+  }*/
   return 0;
 }
 
@@ -706,22 +755,22 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
 
   if (attr->interpret_as_strings) {
     if (gs.empty()) {
-      module->shader = new ShaderProgram(vs, fs);
+      module->shader = new ShaderProgram(vs, fs, shader_extensions());
     } else {
-      module->shader = new ShaderProgram(vs, fs, gs);
+      module->shader = new ShaderProgram(vs, fs, gs, shader_extensions());
     }
   } else {
-    module->shader = new ShaderProgram(ShaderProgram::load_from_file(vs, fs, gs));
+    module->shader = new ShaderProgram(ShaderProgram::load_from_file(vs, fs, gs, shader_extensions()));
   }
-
+#if 0
   module->resources_count = attr->resources_count;
-  module->resources = new qbShaderResourceInfo_[module->resources_count];
-  memcpy(module->resources, attr->resources, module->resources_count * sizeof(qbShaderResourceInfo_));
+  module->resources = new qbShaderResourceBinding_[module->resources_count];
+  memcpy(module->resources, attr->resources, module->resources_count * sizeof(qbShaderResourceBinding_));
 
   uint32_t program = (uint32_t)module->shader->id();
 
   for (auto i = 0; i < module->resources_count; ++i) {
-    qbShaderResourceInfo info = module->resources + i;
+    qbShaderResourceBinding info = module->resources + i;
     info->name = STRDUP(attr->resources[i].name);
     if (info->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
       int32_t block_index = glGetUniformBlockIndex(program, info->name);
@@ -729,6 +778,12 @@ void qb_shadermodule_create(qbShaderModule* shader_ref, qbShaderModuleAttr attr)
       CHECK_GL();
     }
   }
+#else
+  module->resources_count = 0;
+  module->resources = nullptr;
+#endif
+
+  CHECK_GL();
 }
 
 void qb_shadermodule_destroy(qbShaderModule* shader) {
@@ -764,14 +819,15 @@ void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count, uint32_
     qbImageSampler sampler = module->samplers[i];
     uint32_t binding = module->sampler_bindings[i];
 
-    qbShaderResourceInfo resource = nullptr;
+    qbShaderResourceBinding resource = nullptr;
     for (size_t j = 0; j < module->resources_count; ++j) {
       if (module->resources[j].binding == binding &&
-          module->resources[j].resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
+        module->resources[j].resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
         resource = module->resources + j;
         break;
       }
     }
+    GL_ARB_shading_language_420pack;
 
     if (!sampler->name) {
       sampler->name = STRDUP(resource->name);
@@ -794,6 +850,7 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   if (attr->data) {
     memcpy(buffer->data, attr->data, buffer->size);
   }
+  GLEW_ARB_shading_language_420pack;
 
   // TODO: consider glMapBuffer, glMapBufferRange, glSubBufferData
   // https://stackoverflow.com/questions/32222574/is-it-better-glbuffersubdata-or-glmapbuffer
@@ -1082,6 +1139,12 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   *render_pass_ref = new qbRenderPass_;
   qbRenderPass render_pass = *render_pass_ref;
 
+  render_pass->attachments.reserve(attr->attachments_count);
+  for (size_t i = 0; i < attr->attachments_count; ++i) {
+    render_pass->attachments.push_back(attr->attachments[i]);
+  }
+
+#ifdef OLD_API
   render_pass->viewport_scale = attr->viewport_scale;
   render_pass->shader_program = attr->shader;
   render_pass->clear = attr->clear;
@@ -1102,6 +1165,7 @@ void qb_renderpass_create(qbRenderPass* render_pass_ref, qbRenderPassAttr attr) 
   memcpy(descriptor->bindings, attr->supported_geometry.bindings,
          descriptor->bindings_count * sizeof(qbBufferBinding_));
   descriptor->mode = attr->supported_geometry.mode;
+#endif
 }
 
 void qb_renderpass_resize(qbRenderPass render_pass, qbViewport_ viewport) {
@@ -1137,7 +1201,7 @@ size_t qb_renderpass_groups(qbRenderPass render_pass, qbRenderGroup** groups) {
   return render_pass->groups.size();
 }
 
-size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceInfo* resources) {
+size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceBinding* resources) {
   *resources = render_pass->shader_program->resources;
   return render_pass->shader_program->resources_count;
 }
@@ -1158,14 +1222,6 @@ const char* qb_renderpass_name(qbRenderPass render_pass) {
 
 qbRenderExt qb_renderpass_ext(qbRenderPass render_pass) {
   return render_pass->ext;
-}
-
-void qb_renderpass_append(qbRenderPass render_pass, qbRenderGroup group) {
-  render_pass->groups.push_back(group);
-}
-
-void qb_renderpass_prepend(qbRenderPass render_pass, qbRenderGroup group) {
-  render_pass->groups.insert(render_pass->groups.begin(), group);
 }
 
 size_t qb_renderpass_remove(qbRenderPass render_pass, qbRenderGroup group) {
@@ -1194,19 +1250,19 @@ void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, 
     glFrontFace(GL_CCW);
 
     switch (render_pass->cull) {
-      case QB_CULL_NONE:
+      case QB_FACE_NONE:
         glDisable(GL_CULL_FACE);
         break;
 
-      case QB_CULL_BACK:
+      case QB_FACE_BACK:
         glCullFace(GL_BACK);
         break;
 
-      case QB_CULL_FRONT:
+      case QB_FACE_FRONT:
         glCullFace(GL_BACK);
         break;
 
-      case QB_CULL_FRONT_BACK:
+      case QB_FACE_FRONT_AND_BACK:
         glCullFace(GL_FRONT_AND_BACK);
         break;
     }
@@ -1241,7 +1297,7 @@ void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, 
   module->shader->use();
   uint32_t program = (uint32_t)module->shader->id();
   for (size_t i = 0; i < module->resources_count; ++i) {
-    qbShaderResourceInfo attr = module->resources + i;
+    qbShaderResourceBinding attr = module->resources + i;
     if (attr->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
       int32_t block_index = glGetUniformBlockIndex(program, attr->name);
       glUniformBlockBinding(program, block_index, attr->binding);
@@ -1379,7 +1435,7 @@ void qb_image_create(qbImage* image_ref, qbImageAttr attr, qbPixelMap pixel_map)
 
   image->width = pixel_map->width;
   image->height = pixel_map->height;
-
+  
   glPixelStorei(GL_UNPACK_ALIGNMENT, stored_alignment);
   CHECK_GL();
 }
@@ -1429,6 +1485,7 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
 
 void qb_image_destroy(qbImage* image) {
   free((void*)(*image)->name);
+  glDeleteTextures(1, &(*image)->id);
   qb_renderext_destroy(&(*image)->ext);
   delete *image;
   *image = nullptr;
@@ -1450,13 +1507,13 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
   int w, h, n;
   unsigned char* pixels = stbi_load(file, &w, &h, &n, 0);
 
-  image->width = w;
-  image->height = h;
-
   if (!pixels) {
     std::cout << "Could not load texture " << file << ": " << stbi_failure_reason() << std::endl;
     return;
   }
+
+  image->width = w;
+  image->height = h;
 
   GLenum image_type = TranslateQbImageTypeToOpenGl(attr->type);
   
@@ -1534,53 +1591,29 @@ qbImage qb_framebuffer_createdrawbuffer(uint32_t color_binding, uint32_t width, 
   return ret;
 }
 
-qbImage qb_framebuffer_createbuffer(qbFrameBufferAttachment attachment, uint32_t width, uint32_t height) {
-  qbImage ret = nullptr;  
-  if (attachment & QB_DEPTH_STENCIL_ATTACHMENT) {
-    qbImageAttr_ image_attr = {};
-    image_attr.type = QB_IMAGE_TYPE_2D;
-    qb_image_raw(&ret, &image_attr,
-                 qbPixelFormat::QB_PIXEL_FORMAT_D24_S8, width, height, nullptr);
-  } else {
-    if (attachment & QB_DEPTH_ATTACHMENT) {
-      qbImageAttr_ image_attr = {};
-      image_attr.type = QB_IMAGE_TYPE_2D;
-      qb_image_raw(&ret, &image_attr,
-                   qbPixelFormat::QB_PIXEL_FORMAT_D32, width, height, nullptr);
-    }
-    if (attachment & QB_STENCIL_ATTACHMENT) {
-      qbImageAttr_ image_attr = {};
-      image_attr.type = QB_IMAGE_TYPE_2D;
-      qb_image_raw(&ret, &image_attr,
-                   qbPixelFormat::QB_PIXEL_FORMAT_S8, width, height, nullptr);
-    }
-  }
-
-  return ret;
-}
-
-void qb_framebuffer_bindbuffer(qbImage image, uint32_t color_binding, qbFrameBufferAttachment attachment) {
-  if (!image) {
+void qb_framebuffer_bindbuffer(qbFramebufferAttachment attachment, uint32_t color_binding) {
+  if (!attachment->image) {
     return;
   }
 
-  switch (attachment) {
-    case QB_COLOR_ATTACHMENT:
+  qbImage image = attachment->image;
+  switch (attachment->aspect) {
+    case QB_COLOR_ASPECT:
       glBindTexture(GL_TEXTURE_2D, image->id);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + color_binding, GL_TEXTURE_2D, image->id, 0);
       CHECK_GL();
       return;
-    case QB_DEPTH_ATTACHMENT:
+    case QB_DEPTH_ASPECT:
       glBindTexture(GL_TEXTURE_2D, image->id);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, image->id, 0);
       CHECK_GL();
       return;
-    case QB_STENCIL_ATTACHMENT:
+    case QB_STENCIL_ASPECT:
       glBindTexture(GL_TEXTURE_2D, image->id);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, image->id, 0);
       CHECK_GL();
       return;
-    case QB_DEPTH_STENCIL_ATTACHMENT:
+    case QB_DEPTH_STENCIL_ASPECT:
       glBindTexture(GL_TEXTURE_2D, image->id);
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, image->id, 0);
       CHECK_GL();
@@ -1593,65 +1626,33 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   glGenFramebuffers(1, &frame_buffer_id);
   frame_buffer->id = frame_buffer_id;
 
-  if (attr != &frame_buffer->attr) {
-    frame_buffer->attr = *attr;
-    if (attr->color_binding) {
-      frame_buffer->attr.color_binding = new uint32_t[frame_buffer->attr.attachments_count];
-      memcpy(frame_buffer->attr.color_binding, attr->color_binding,
-             frame_buffer->attr.attachments_count * sizeof(uint32_t));
-    }
-
-    frame_buffer->attr.attachments = new qbFrameBufferAttachment[frame_buffer->attr.attachments_count];
-    memcpy(frame_buffer->attr.attachments, attr->attachments,
-           frame_buffer->attr.attachments_count * sizeof(qbFrameBufferAttachment));
+  frame_buffer->attachments.reserve(attr->attachments_count);
+  for (size_t i = 0; i < attr->attachments_count; ++i) {
+    frame_buffer->attachments.push_back(attr->attachments[i]);
   }
 
   CHECK_GL();
   glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer_id);
   CHECK_GL();
 
+  uint32_t color_binding = 0;
+
   std::vector<qbImage> draw_buffers;
-
-  uint32_t color_binding_idx = 0;
   for (size_t i = 0; i < attr->attachments_count; ++i) {
-    qbFrameBufferAttachment attachment = attr->attachments[i];
-    if (attachment & QB_COLOR_ATTACHMENT) {
-      qbImage draw_target = nullptr;
-      if (attr->opt_targets && attr->opt_targets[i]) {
-        draw_target = attr->opt_targets[i];
-      } else {
-        draw_target = qb_framebuffer_createdrawbuffer(attr->color_binding[color_binding_idx], attr->width, attr->height);
-      }
-      qb_framebuffer_bindbuffer(draw_target, attr->color_binding[color_binding_idx], attachment);
-      draw_buffers.push_back(draw_target);
-      ++color_binding_idx;
-    }
-
-    qbImage maybe_buffer = nullptr;
-    if (attr->opt_targets && attr->opt_targets[i]) {
-      maybe_buffer = attr->opt_targets[i];
-    } else {
-      maybe_buffer = qb_framebuffer_createbuffer(attachment, attr->width, attr->height);
-    }        
-    if (maybe_buffer) {
-      qb_framebuffer_bindbuffer(maybe_buffer, 0, attachment);
-      if (attachment & QB_DEPTH_STENCIL_ATTACHMENT && !frame_buffer->depthstencil_target) {
-        frame_buffer->depthstencil_target = maybe_buffer;
-      } else {
-        if (attachment & QB_DEPTH_ATTACHMENT && !frame_buffer->depth_target) {
-          frame_buffer->depth_target = maybe_buffer;
-        }
-        if (attachment & QB_STENCIL_ATTACHMENT && !frame_buffer->stencil_target) {
-          frame_buffer->stencil_target = maybe_buffer;
-        }
-      }
+    qbFramebufferAttachment attachment = &attr->attachments[i];
+    
+    qb_framebuffer_bindbuffer(attachment, color_binding);
+    if (attachment->aspect == QB_COLOR_ASPECT) {
+      draw_buffers.push_back(attachment->image);
+      ++color_binding;
     }
   }
 
   if (!draw_buffers.empty()) {
     GLenum draw_buffers_bindings[16] = {};
-    for (size_t i = 0; i < attr->attachments_count; ++i) {
-      draw_buffers_bindings[i] = GL_COLOR_ATTACHMENT0 + attr->color_binding[i];
+    for (size_t i = 0; i < draw_buffers.size(); ++i) {
+      draw_buffers_bindings[i] = GL_COLOR_ATTACHMENT0 + i;
+      frame_buffer->draw_buffers.push_back(GL_COLOR_ATTACHMENT0 + i);
     }
     glDrawBuffers((GLsizei)attr->attachments_count, draw_buffers_bindings);
     CHECK_GL();
@@ -1691,57 +1692,8 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
 }
 
 void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer) {
-  for (qbImage& img : (*frame_buffer)->render_targets) {
-    qb_image_destroy(&img);
-  }
-
-  if ((*frame_buffer)->depth_target) {
-    qb_image_destroy(&(*frame_buffer)->depth_target);
-  }
-
-  if ((*frame_buffer)->stencil_target) {
-    qb_image_destroy(&(*frame_buffer)->stencil_target);
-  }
-  
-  if ((*frame_buffer)->depthstencil_target) {
-    qb_image_destroy(&(*frame_buffer)->depthstencil_target);
-  }
-
-  (*frame_buffer)->render_targets = {};
-  (*frame_buffer)->depth_target = nullptr;
-  (*frame_buffer)->stencil_target = nullptr;
-  (*frame_buffer)->depthstencil_target = nullptr;
-  delete[](*frame_buffer)->attr.color_binding;
-  delete[](*frame_buffer)->attr.attachments;
   delete *frame_buffer;
   *frame_buffer = nullptr;
-}
-
-void qb_framebuffer_clear(qbFrameBuffer frame_buffer, qbClearValue clear_value) {
-  if (frame_buffer) {
-    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
-  } else {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  }
-
-  GLenum clear = 0;
-  if (clear_value->attachments & QB_COLOR_ATTACHMENT) {
-    glClearColor(clear_value->color.x,
-                 clear_value->color.y,
-                 clear_value->color.z,
-                 clear_value->color.w);
-    clear |= GL_COLOR_BUFFER_BIT;
-  }
-  if (clear_value->attachments & QB_DEPTH_ATTACHMENT) {
-    glClearDepth(clear_value->depth);
-    clear |= GL_DEPTH_BUFFER_BIT;
-  }
-  if (clear_value->attachments & QB_STENCIL_ATTACHMENT) {
-    glClearStencil(clear_value->stencil);
-    clear |= GL_STENCIL_BUFFER_BIT;
-  }
-  glClear(clear);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 qbImage qb_framebuffer_gettarget(qbFrameBuffer frame_buffer, size_t i) {
@@ -1800,17 +1752,17 @@ void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, uint32_t 
   frame_buffer->stencil_target = nullptr;
   frame_buffer->depthstencil_target = nullptr;
 
-  frame_buffer->attr.width = width;
-  frame_buffer->attr.height = height;
-  qb_framebuffer_init(frame_buffer, &frame_buffer->attr);
+  //frame_buffer->attr.width = width;
+  //frame_buffer->attr.height = height;
+  //qb_framebuffer_init(frame_buffer, &frame_buffer->attr);
 }
 
 uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer) {
-  return frame_buffer->attr.width;
+  return 0;//frame_buffer->attr.width;
 }
 
 uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer) {
-  return frame_buffer->attr.height;
+  return 0;//frame_buffer->attr.height;
 }
 
 uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t attachment_binding, int32_t x, int32_t y) {
@@ -1828,6 +1780,7 @@ uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t attachmen
   return pixel;
 }
 
+#if OLD_API
 void qb_framebuffer_blit(qbFrameBuffer src, qbFrameBuffer dest,
                          qbViewport_ src_viewport,
                          qbViewport_ dest_viewport,
@@ -1849,6 +1802,7 @@ void qb_framebuffer_blit(qbFrameBuffer src, qbFrameBuffer dest,
   glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
+#endif
 
 qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name) {
   while (extensions && extensions->name && strcmp(extensions->name, ext_name) != 0) {
@@ -2145,6 +2099,7 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
   qbSurface surface = *surface_ref = new qbSurface_;
 
   qbGeometryDescriptor_ descriptor = {};
+#ifdef OLD_API
   {
     qbVertexAttribute_ attributes[2] = {};
     {
@@ -2200,7 +2155,7 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
       attr.shader = shader_module;
       attr.viewport = { 0.0f, 0.0f, (float)surface_attr->width, (float)surface_attr->height };
       attr.viewport_scale = 1.0f;
-      attr.cull = QB_CULL_BACK;
+      attr.cull = QB_FACE_BACK;
 
       qbClearValue_ clear;
       clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT);
@@ -2284,6 +2239,7 @@ void qb_surface_create(qbSurface* surface_ref, qbSurfaceAttr surface_attr) {
     qb_framebuffer_create(&fbo, &attr);
     surface->targets.push_back(fbo);
   }
+#endif
 }
 
 void qb_surface_destroy(qbSurface* surface_ref) {
@@ -2318,4 +2274,575 @@ qbFrameBuffer qb_surface_target(qbSurface surface, size_t i) {
 qbImage qb_surface_image(qbSurface surface, size_t i) {
   assert(i < surface->targets.size());
   return surface->targets[i]->render_targets[0];
+}
+
+void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr) {
+  *swapchain = new qbSwapchain_{};
+  (*swapchain)->images.resize(2);
+  (*swapchain)->tasks.resize(2);
+  (*swapchain)->extent = attr->extent;
+
+  qbImageAttr_ image_attr{
+      .type = qbImageType::QB_IMAGE_TYPE_2D
+  };
+  qb_image_raw(&(*swapchain)->images[0], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGB8, attr->extent.w, attr->extent.h, nullptr);
+  qb_image_raw(&(*swapchain)->images[1], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGB8, attr->extent.w, attr->extent.h, nullptr);
+  (*swapchain)->front_image = 0;
+  (*swapchain)->back_image = 1;
+  (*swapchain)->front_task = qbInvalidHandle;
+  (*swapchain)->back_task = qbInvalidHandle;
+
+  glGenVertexArrays(1, &(*swapchain)->present_vao);
+  glGenBuffers(1, &(*swapchain)->present_vbo);
+
+  glBindVertexArray((*swapchain)->present_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, (*swapchain)->present_vbo);
+
+  float vertices[] = {
+    // Positions   // UVs
+    -1.0, -1.0,    0.0, 0.0,
+     1.0, -1.0,    1.0, 0.0,
+     1.0,  1.0,    1.0, 1.0,
+    -1.0,  1.0,    0.0, 1.0
+  };
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+  {
+    qbShaderModuleAttr_ attr = {};
+    attr.vs = get_presentpass_vs();
+    attr.fs = get_presentpass_fs();
+    attr.interpret_as_strings = true;
+
+    qb_shadermodule_create(&(*swapchain)->shader_module, &attr);
+  }
+  {
+    qbImageSamplerAttr_ attr = {};
+    attr.image_type = QB_IMAGE_TYPE_2D;
+    attr.min_filter = QB_FILTER_TYPE_LINEAR;
+    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+    qb_imagesampler_create(&(*swapchain)->swapchain_imager_sampler, &attr);
+  }
+  CHECK_GL();
+}
+
+void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images) {
+  if (count) {
+    *count = swapchain->images.size();
+  }
+
+  if (images) {
+    for (size_t i = 0; i < swapchain->images.size(); ++i) {
+      images[i] = swapchain->images[i];
+    }    
+  }
+}
+
+void qb_swapchain_swap(qbSwapchain swapchain) {
+  qb_task_join(swapchain->front_task);
+
+  std::unique_lock<std::mutex> l(swapchain->image_swap_mu);
+  std::swap(swapchain->back_image, swapchain->front_image);
+  std::swap(swapchain->back_task, swapchain->front_task);
+}
+
+uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain) {
+  qb_task_join(swapchain->back_task);
+
+  std::unique_lock<std::mutex> l(swapchain->image_swap_mu);
+  return swapchain->back_image;
+}
+
+void qb_swapchain_present(qbSwapchain swapchain, qbDrawPresentInfo present_info) {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClearColor(1.f, 0.f, 0.f, 1.f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_STENCIL_TEST);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_BLEND);
+
+  glFrontFace(GL_CCW);
+
+  CHECK_GL();
+  qbShaderModule module = swapchain->shader_module;
+  glViewport(0, 0, (GLsizei)swapchain->extent.w, (GLsizei)swapchain->extent.h);
+
+  glBindVertexArray(swapchain->present_vao);
+  module->shader->use();
+  uint32_t program = (uint32_t)module->shader->id();
+
+  glActiveTexture(GL_TEXTURE0);
+  glUniform1i(glGetUniformLocation(program, "tex_sampler"), 0);
+  glBindSampler(0, (GLuint)swapchain->swapchain_imager_sampler->id);
+  CHECK_GL();
+
+  qbImage present_image = swapchain->images[present_info->image_index];
+  glBindTexture(
+    TranslateQbImageTypeToOpenGl(present_image->type),
+    (GLuint)present_image->id);
+  CHECK_GL();
+
+  // Render elements  
+  glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+  CHECK_GL();
+}
+
+void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_set, qbShaderResourceLayoutAttr attr) {
+  (*resource_set) = new qbShaderResourceLayout_();
+  for (auto i = 0; i < attr->binding_count; ++i) {
+    (*resource_set)->bindings.push_back(attr->bindings[i]);
+  }
+}
+
+void qb_shaderresourceset_writeuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
+  for (auto i = 0; i < resource_set->bindings.size(); ++i) {
+    if (resource_set->bindings[i]->binding == binding) {
+      resource_set->uniforms[i] = buffer;
+    }
+  }
+}
+
+void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage image, qbImageSampler sampler) {
+  for (auto i = 0; i < resource_set->bindings.size(); ++i) {
+    if (resource_set->bindings[i]->binding == binding) {
+      resource_set->images[i] = image;
+      resource_set->samplers[i] = sampler;
+    }
+  }
+}
+
+void qb_shaderresourcepipelinelayout_create(qbShaderResourcePipelineLayout* layout, qbShaderResourcePipelineLayoutAttr attr) {
+  (*layout) = new qbShaderResourcePipelineLayout_();
+  for (auto i = 0; i < attr->layout_count; ++i) {
+    (*layout)->layouts.push_back(attr->layouts[i]);
+  }
+}
+
+void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderResourceSetAttr attr) {
+  (*resource_set) = new qbShaderResourceSet_();
+  qbShaderResourceLayout layout = attr->layout;
+  for (auto i = 0; i < attr->create_count; ++i) {
+    resource_set[i] = new qbShaderResourceSet_();
+    for (auto& binding : layout->bindings) {
+      resource_set[i]->bindings.push_back(&binding);
+      resource_set[i]->uniforms.push_back({});
+      resource_set[i]->images.push_back({});
+      resource_set[i]->samplers.push_back({});
+    }
+  }
+}
+
+void qb_shaderresourceset_updateuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
+
+}
+
+void qb_shaderresourceset_updatesampler(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
+
+}
+
+void qb_drawcmd_create(qbDrawCommandBuffer* cmd_buf, qbDrawCommandBufferAttr attr) {
+  for (uint32_t i = 0; i < attr->count; ++i) {
+    cmd_buf[i] = new qbDrawCommandBuffer_;
+    cmd_buf[i]->task_bundle = qb_taskbundle_create({});
+    cmd_buf[i]->begin_info = nullptr;    
+    cmd_buf[i]->current_pipeline = nullptr;
+    cmd_buf[i]->allocator = attr->allocator;
+  }
+}
+
+void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count) {
+  for (uint32_t i = 0; i < count; ++i) {
+    delete cmd_buf[i];
+  }
+}
+
+void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf) {
+  qb_taskbundle_clear(cmd_buf->task_bundle);
+}
+
+void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info) {
+  assert(begin_info->render_pass->attachments.size() >= begin_info->clear_values_count);
+
+  
+  cmd_buf->begin_info = (qbBeginRenderPassInfo)qb_alloc(cmd_buf->allocator, sizeof(qbBeginRenderPassInfo_));
+  new (cmd_buf->begin_info) qbBeginRenderPassInfo_{};
+
+  *cmd_buf->begin_info = *begin_info;
+  cmd_buf->begin_info->clear_values_count = begin_info->clear_values_count;
+
+  cmd_buf->begin_info->clear_values = (qbClearValue)qb_alloc(cmd_buf->allocator, sizeof(qbClearValue_) * cmd_buf->begin_info->clear_values_count);
+  std::copy(
+    begin_info->clear_values,
+    begin_info->clear_values + cmd_buf->begin_info->clear_values_count,
+    cmd_buf->begin_info->clear_values);  
+
+  qb_taskbundle_begin(cmd_buf->task_bundle, {});
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [begin_info = cmd_buf->begin_info](qbTask, qbVar var) {
+    qbFrameBuffer framebuffer = begin_info->framebuffer;
+    qbRenderPass render_pass = begin_info->render_pass;
+
+    if (!framebuffer) {
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      return var;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->id);
+    for (size_t i = 0; i < render_pass->attachments.size(); ++i) {
+      qbFramebufferAttachmentRef ref = &render_pass->attachments[i];
+      if (ref->attachment == QB_UNUSED_FRAMEBUFFER_ATTACHMENT) continue;
+
+      qbFramebufferAttachment attachment = &framebuffer->attachments[i];
+      qbClearValue clear_value = &begin_info->clear_values[i];
+
+      switch (ref->aspect) {
+        case QB_COLOR_ASPECT:
+          if (TranslateQbPixelFormatToOpenGlSize(attachment->image->format) == GL_UNSIGNED_BYTE) {
+            glClearBufferuiv(GL_COLOR, ref->attachment, clear_value->color.uint32);
+          } else {
+            glClearBufferfv(GL_COLOR, ref->attachment, clear_value->color.float32);
+          }
+          CHECK_GL();
+          break;
+        case QB_DEPTH_ASPECT:
+          glClearBufferfv(GL_DEPTH, 0, &clear_value->depth);
+          CHECK_GL();
+          break;
+        case QB_STENCIL_ASPECT:
+          glClearBufferiv(GL_DEPTH, 0, (int32_t*)&clear_value->stencil);
+          CHECK_GL();
+          break;
+        case QB_DEPTH_STENCIL_ASPECT:
+          glClearBufferfi(GL_DEPTH_STENCIL, 0, clear_value->depth, (int32_t)clear_value->stencil);
+          CHECK_GL();
+          break;
+      }
+    }
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [cmd_buf](qbTask, qbVar var) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_CLAMP);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+
+    qb_dealloc(cmd_buf->allocator, cmd_buf->begin_info->clear_values);
+    qb_dealloc(cmd_buf->allocator, cmd_buf->begin_info);    
+
+    if (cmd_buf->allocator->clear) {
+      cmd_buf->allocator->clear(cmd_buf->allocator);
+    }
+
+    CHECK_GL();
+    return var;
+  }, {});
+
+  qb_taskbundle_end(cmd_buf->task_bundle);
+}
+
+void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport) {
+  qbViewport_ view = *viewport;
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [view](qbTask, qbVar var) {
+    glViewport(view.x, view.y, view.w, view.h);
+    glDepthRange((float)view.min_depth, (float)view.max_depth);
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect) {
+  qbRect_ r = *rect;
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [r](qbTask, qbVar var) {
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(r.x, r.y, r.w, r.h);
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [cmd_buf, pipeline](qbTask, qbVar var) {
+    cmd_buf->current_pipeline = pipeline;
+
+    qbRasterizationInfo raster_info = pipeline->rasterization_info;
+    
+    qbViewportState view = pipeline->viewport_state;
+    glViewport(view->viewport.x, view->viewport.y, view->viewport.w, view->viewport.h);
+
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_CLAMP);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(view->scissor.x, view->scissor.y, view->scissor.w, view->scissor.h);
+
+    glFrontFace(TranslateQbFrontFaceToOpenGl(raster_info->front_face));
+
+    if (raster_info->cull_face != QB_FACE_NONE) {
+      glEnable(GL_CULL_FACE);
+      glCullFace(TranslateQbCullFaceToOpenGl(raster_info->cull_face));
+    }
+
+    qbDepthStencilState depth_stencil_state = raster_info->depth_stencil_state;
+    if (depth_stencil_state->depth_test_enable) {
+      glEnable(GL_DEPTH_TEST);
+      if (raster_info->enable_depth_clamp) {
+        glEnable(GL_DEPTH_CLAMP);
+      }
+
+      glDepthRange(
+        (float)pipeline->viewport_state->viewport.min_depth,
+        (float)pipeline->viewport_state->viewport.max_depth);
+      glDepthFunc(TranslateQbRenderTestFuncToOpenGl(depth_stencil_state->depth_compare_op));
+      glDepthMask(depth_stencil_state->depth_write_enable);
+    }
+
+    if (depth_stencil_state->stencil_test_enable) {
+      glEnable(GL_STENCIL_TEST);
+      glStencilFunc(TranslateQbRenderTestFuncToOpenGl(depth_stencil_state->stencil_compare_op),
+                    depth_stencil_state->stencil_ref_value,
+                    depth_stencil_state->stencil_mask);
+    }
+
+    qbColorBlendState blend_state = pipeline->blend_state;
+    if (blend_state->blend_enable) {
+      glEnable(GL_BLEND);
+
+      glBlendEquationSeparate(
+        TranslateQbBlendEquationToOpenGl(blend_state->rgb_blend.op),
+        TranslateQbBlendEquationToOpenGl(blend_state->alpha_blend.op));
+
+      glBlendFuncSeparate(
+        TranslateQbBlendFactorToOpenGl(blend_state->rgb_blend.src),
+        TranslateQbBlendFactorToOpenGl(blend_state->rgb_blend.dst),
+        TranslateQbBlendFactorToOpenGl(blend_state->alpha_blend.src),
+        TranslateQbBlendFactorToOpenGl(blend_state->alpha_blend.dst));
+
+      glBlendColor(blend_state->blend_color.x,
+                   blend_state->blend_color.y,
+                   blend_state->blend_color.z,
+                   blend_state->blend_color.w);
+    }
+
+    glPolygonMode(TranslateQbCullFaceToOpenGl(raster_info->raster_face),
+                  TranslateQbPolygonModeToOpenGl(raster_info->raster_mode));
+    glPointSize(raster_info->point_size);
+    glLineWidth(raster_info->line_width);
+
+    {
+      glBindVertexArray(pipeline->render_vao);
+      qbGeometryDescriptor geometry = pipeline->geometry;
+      for (size_t i = 0; i < geometry->attributes_count; ++i) {
+        glEnableVertexAttribArray(geometry->attributes[i].location);
+      }
+    }
+
+    pipeline->shader_module->shader->use();
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_bindshaderresourceset(
+  qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout,
+  uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
+
+  qbShaderResourceSet* resource_sets_copy = (qbShaderResourceSet*)qb_alloc(cmd_buf->allocator, sizeof(qbShaderResourceSet) * resource_set_count);
+  for (size_t i = 0; i < resource_set_count; ++i) {
+    resource_sets_copy[i] = resource_sets[i];
+  }
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qbRenderPipeline pipeline = cmd_buf->current_pipeline;
+    ShaderProgram& shader = *pipeline->shader_module->shader;
+
+    uint32_t program = (uint32_t)shader.id();
+    
+    for (size_t i = 0; i < resource_set_count; ++i) {
+      qbShaderResourceSet resource_set = resource_sets_copy[i];
+
+      for (size_t j = 0; j < resource_set->bindings.size(); ++j) {
+        qbShaderResourceBinding binding = resource_set->bindings[j];
+        
+
+        switch (binding->resource_type) {
+          case QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER: {
+            if (binding->name && !GLEW_ARB_shading_language_420pack) {
+              int32_t block_index = glGetUniformBlockIndex(program, binding->name);
+              glUniformBlockBinding(program, block_index, binding->binding);
+            }
+            glBindBufferBase(GL_UNIFORM_BUFFER, binding->binding, resource_set->uniforms[j]->id);
+            CHECK_GL();
+            break;
+          }
+
+          case QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER: {
+            qbImage image = resource_set->images[j];
+            qbImageSampler sampler = resource_set->samplers[j];
+            uint32_t texture_slot = shader.texture_slot(binding->name);
+
+            glActiveTexture((GLenum)(GL_TEXTURE0 + texture_slot));
+            
+            if (binding->name && !GLEW_ARB_shading_language_420pack) {
+              glUniform1i(glGetUniformLocation(program, binding->name), (GLint)texture_slot);
+            }
+            
+            glBindSampler((GLuint)texture_slot, (GLuint)sampler->id);
+            glBindTexture(TranslateQbImageTypeToOpenGl(image->type), (GLuint)image->id);
+
+            CHECK_GL();
+            break;
+          }
+        }
+      }
+    }
+
+    qb_dealloc(cmd_buf->allocator, resource_sets_copy);
+
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t binding_count, qbGpuBuffer* buffers) {
+  qbGpuBuffer* buffers_copy = (qbGpuBuffer*)qb_alloc(cmd_buf->allocator, sizeof(qbGpuBuffer) * binding_count);
+  for (size_t i = 0; i < binding_count; ++i) {
+    buffers_copy[i] = buffers[i];
+  }
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qbGeometryDescriptor geometry = cmd_buf->current_pipeline->geometry;
+
+    for (uint32_t count = 0; count < binding_count; ++count) {
+      uint32_t binding = first_binding + count;
+      qbGpuBuffer buffer = buffers_copy[count];
+
+      GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
+      glBindBuffer(target, buffer->id);
+
+      qbBufferBinding buffer_binding = nullptr;
+      for (size_t j = 0; j < geometry->bindings_count; ++j) {
+        buffer_binding = geometry->bindings + j;
+        if (geometry->bindings[j].binding == binding) {
+          break;
+        }
+      }
+      assert(buffer_binding && "Could not find a qbBufferBinding.");
+
+      qbVertexAttribute vertex_attribute = nullptr;
+      for (size_t j = 0; j < geometry->attributes_count; ++j) {
+        vertex_attribute = geometry->attributes + j;
+        if (vertex_attribute->binding == binding) {
+          glVertexAttribPointer(vertex_attribute->location,
+            (GLint)vertex_attribute->count,
+            TranslateQbVertexAttribTypeToOpenGl(vertex_attribute->type),
+            vertex_attribute->normalized,
+            buffer_binding->stride,
+            vertex_attribute->offset);
+        }
+      }
+    }
+
+    qb_dealloc(cmd_buf->allocator, buffers_copy);
+
+    CHECK_GL();
+    return var;
+  }, {});  
+}
+
+
+void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->id);
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_draw(qbDrawCommandBuffer cmd_buf, uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    GLenum draw_mode = TranslateQbDrawModeToOpenGlMode(cmd_buf->current_pipeline->geometry->mode);
+
+    if (instance_count == 0) {
+      glDrawArrays(draw_mode, first_vertex, (GLsizei)vertex_count);
+    } else {
+      glDrawArraysInstanced(draw_mode, first_instance, (GLsizei)vertex_count, instance_count);
+    }
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_drawindexed(qbDrawCommandBuffer cmd_buf, uint32_t index_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t first_instance) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    GLenum draw_mode = TranslateQbDrawModeToOpenGlMode(cmd_buf->current_pipeline->geometry->mode);
+    if (instance_count == 0) {
+      glDrawElementsBaseVertex(draw_mode, (GLsizei)index_count, GL_UNSIGNED_INT, nullptr, vertex_offset);
+    } else {
+      glDrawElementsInstancedBaseVertex(draw_mode, (GLsizei)index_count, GL_UNSIGNED_INT, nullptr, (GLsizei)instance_count, first_instance);
+    }
+
+    CHECK_GL();
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_drawfunc(qbDrawCommandBuffer cmd_buf, void(*func)(qbDrawCommandBuffer, qbVar), qbVar arg) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    func(cmd_buf, arg);
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qb_gpubuffer_update(buffer, offset, size, data);
+    return var;
+  }, {});
+}
+
+void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data) {
+  void* data_copy = qb_alloc(cmd_buf->allocator, size);
+  memcpy(data_copy, data, size);
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qb_gpubuffer_update(buffer, offset, size, data_copy);
+    qb_dealloc(cmd_buf->allocator, data_copy);
+    return var;
+    }, {});
+}
+
+void qb_drawcmd_dealloc(qbDrawCommandBuffer cmd_buf, struct qbMemoryAllocator_* allocator, void* data) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qb_dealloc(allocator, data);
+    return var;
+  }, {});
+}
+
+qbTask qb_drawcmd_present(qbDrawCommandBuffer cmd_buf, qbDrawPresentInfo present_info) {
+  qb_taskbundle_run(cmd_buf->task_bundle, qbNil);
+  qb_swapchain_present(present_info->swapchain, present_info);
+  qb_swapchain_swap(present_info->swapchain);
+  return qbInvalidHandle;
 }
