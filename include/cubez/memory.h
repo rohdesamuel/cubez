@@ -32,9 +32,13 @@ typedef struct qbMemoryAllocator_ {
   void (*dealloc)(qbMemoryAllocator_* self, void* ptr);
 
   // Optional.
-  // Called once per fixed update  (once per frame) that implementations can
+  // Called once per fixed update (once per frame) that implementations can
   // use to do janitorial work.
   void (*flush)(qbMemoryAllocator_* self, int64_t frame);
+
+  // Optional.
+  // Invalidates all currently allocated memory without deleting the buffer.
+  void (*clear)(qbMemoryAllocator_* self);
 } *qbMemoryAllocator, qbMemoryAllocator_;
 
 #define qb_alloc(allocator, size) (allocator)->alloc((allocator), (size))
@@ -50,5 +54,22 @@ QB_API qbMemoryAllocator qb_memallocator_default();
 
 // Creates a thread-safe memory pool allocator.
 QB_API qbMemoryAllocator qb_memallocator_pool();
+
+// Creates a thread-safe linear allocator.
+// Behavior:
+//   - alloc(size): Allocates a block of memory of size `size`. Returns nullptr
+//                  if size + total allocated is greater than max size.
+//   - dealloc(ptr): noop
+QB_API qbMemoryAllocator qb_memallocator_linear(size_t max_size);
+
+// Creates a thread-safe stack allocator.
+// Behavior:
+//   - alloc(size): Allocates a block of memory of size `size` on top of the
+//                  stack. Returns nullptr if size + total allocated is
+//                  greater than max size.
+//   - dealloc(ptr): Deallocates the given pointer. Assumes that the pointer
+//                   is at the top of the stack. The stack becomes corrupted if
+//                   trying to deallocate a pointer not at the top.
+QB_API qbMemoryAllocator qb_memallocator_stack(size_t max_size);
 
 #endif  // CUBEZ_MEMORY__H
