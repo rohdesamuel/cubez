@@ -43,11 +43,6 @@
 
 #include <cglm/struct.h>
 
-typedef struct qbCameraInternal_ {
-  qbCamera_ camera;
-  qbFrameBuffer fbo;
-} qbCameraInternal_, *qbCameraInternal;
-
 // Channels
 qbEvent render_event;
 
@@ -63,7 +58,17 @@ SDL_GLContext context;
 qbRenderer renderer_ = nullptr;
 void(*destroy_renderer)(struct qbRenderer_* renderer) = nullptr;
 
-qbCameraInternal active_camera = nullptr;
+typedef enum class qbCameraType {
+  ORTHO,
+  PERSPECTIVE
+};
+
+typedef struct qbCameraInternal_ {
+  qbCamera_ camera;
+
+  qbCameraType type;
+} qbCameraInternal_, *qbCameraInternal;
+
 std::vector<qbCameraInternal> cameras;
 
 qbId light_id;
@@ -129,6 +134,7 @@ qbResult qb_render(qbRenderEvent event,
     if (on_render) {
       on_render(event, on_render_arg);
     }
+    qb_renderer()->render(qb_renderer(), event);
     qb_event_sendsync(render_event, event);
 
     if (on_postrender) {
@@ -314,42 +320,53 @@ int qb_window_bordered() {
   return SDL_GetWindowFlags(win) & SDL_WINDOW_BORDERLESS ? 0 : 1;
 }
 
-void qb_camera_create(qbCamera* camera_ref, qbCameraAttr attr) {
-  if (!camera_ref) {
-    return;
-  }
+qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye) {
+  float width = right - left;
+  float height = bottom - top;
 
-  qbCameraInternal cam = new qbCameraInternal_;
-  *camera_ref = (qbCamera)cam;
-  qbCamera_* camera = (qbCamera_*)*camera_ref;
-  memset(camera, 0, sizeof(qbCamera_));
+  mat4s projection_mat = glms_ortho(left, right, bottom, top, -1.f, 1.f);
+  mat4s view_mat = glms_mat4_inv(glms_translate(glms_mat4_identity(), { eye.x, eye.y, 0.f }));
+  qbCameraInternal ret = new qbCameraInternal_{
+    .camera = {
+      .aspect = width / height,
+      .near = -1.f,
+      .far = 1.f,
+      .fov = 1.f,
 
-  camera->width = attr->width;
-  camera->height = attr->height;
-  camera->ratio = (float)attr->width / (float)attr->height;
-  camera->fov = attr->fov;
-  camera->znear = attr->znear;
-  camera->zfar = attr->zfar;
-  
-  camera->view_mat = glms_lookat(
-    vec3s{ 0.0f, 0.0f, 0.0f },
-    vec3s{ -1.0f, 0.0f, 0.0f },
-    vec3s{ 0.0f, 0.0f, 1.0f }
-  );
+      .eye = {width / 2, height / 2, 0.f},
+      .view_mat = view_mat,
+      .projection_mat = projection_mat
+    },
+    .type = qbCameraType::ORTHO
+  };
 
-  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
-  camera->rotation_mat= attr->rotation_mat;
-  camera->origin = attr->origin;
+  cameras.push_back(ret);
+  return (qbCamera)ret;
+}
 
-  vec3s forward = glms_mat4_mulv3(camera->rotation_mat, { -1.0f, 0.0f, 0.0f }, 1.0f);
-  vec3s up = glms_mat4_mulv3(camera->rotation_mat, { 0.0f, 0.0f, 1.0f }, 1.0f);
-  camera->view_mat = glms_look(camera->origin, forward, up);
-  camera->forward = forward;
-  camera->up = up;
+qbCamera qb_camera_perspective(
+  float fov, float aspect, float near, float far,
+  vec3s eye, vec3s center, vec3s up) {
 
-  auto r = qb_renderer();
-  cam->fbo = r->camera_framebuffer_create(r, camera->width, camera->height);
-  cameras.push_back(cam);
+  mat4s view = glms_lookat(eye, center, up);
+  mat4s proj = glms_perspective(fov, aspect, near, far);
+
+  qbCameraInternal ret = new qbCameraInternal_{
+    .camera = {
+      .aspect = aspect,
+      .near = near,
+      .far = far,
+      .fov = fov,
+
+      .eye = eye,
+      .view_mat = view,
+      .projection_mat = proj
+    },
+    .type = qbCameraType::PERSPECTIVE
+  };
+
+  cameras.push_back(ret);
+  return (qbCamera)ret;
 }
 
 void qb_camera_destroy(qbCamera* camera) {
@@ -357,24 +374,10 @@ void qb_camera_destroy(qbCamera* camera) {
     return;
   }
 
+  cameras.erase(std::find(cameras.begin(), cameras.end(), (qbCameraInternal)(*camera)));
+
   delete *camera;
   *camera = nullptr;
-}
-
-void qb_camera_activate(qbCamera camera) {
-  if (!camera) {
-    return;
-  }
-
-  active_camera = (qbCameraInternal)camera;
-}
-
-void qb_camera_deactivate(qbCamera camera) {
-  active_camera = nullptr;
-}
-
-qbCamera qb_camera_getactive() {
-  return (qbCamera)active_camera;
 }
 
 void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
@@ -382,74 +385,17 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
     return;
   }
 
-  qbCamera_* camera = (qbCamera_*)camera_ref;
+  qbCamera camera = &((qbCameraInternal)camera_ref)->camera;
 
-  if (camera->width == width && camera->height == height) {
-    return;
-  }
+  float aspect = (float)width / (float)height;
+  camera->aspect = aspect;
+  if (((qbCameraInternal)camera_ref)->type == qbCameraType::ORTHO) {
+    float fov = camera->fov;
+    camera->projection_mat = glms_ortho(-aspect * fov, aspect * fov, -fov, fov, -1.f, 1.f);
 
-  camera->width = width;
-  camera->height = height;
-  camera->ratio = (float)width / (float)height;
-  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
-  
-  qbCameraInternal internal = (qbCameraInternal)camera_ref;
-  qb_framebuffer_resize(internal->fbo, width, height);
-}
-
-void qb_camera_setfov(qbCamera camera_ref, float fov) {
-  if (!camera_ref) {
-    return;
-  }
-
-  qbCamera_* camera = (qbCamera_*)camera_ref;
-  camera->fov = fov;
-  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
-}
-
-void qb_camera_setclip(qbCamera camera_ref, float znear, float zfar) {
-  if (!camera_ref) {
-    return;
-  }
-
-  qbCamera_* camera = (qbCamera_*)camera_ref;
-  if (camera->znear == znear && camera->zfar == zfar) {
-    return;
-  }
-
-  camera->zfar = zfar;
-  camera->znear = znear;
-  camera->projection_mat = glms_perspective(camera->fov, camera->ratio, camera->znear, camera->zfar);
-}
-
-void qb_camera_setrotation(qbCamera camera_ref, mat4s rotation) {
-  if (!camera_ref) {
-    return;
-  }
-
-  qbCamera_* camera = (qbCamera_*)camera_ref;
-  camera->rotation_mat = rotation;
-
-  static vec4s forward = { -1.0f, 0.0f, 0.0f, 1.0f };
-  static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
-  camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
-  camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
-  camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
-}
-
-void qb_camera_setorigin(qbCamera camera_ref, vec3s origin) {
-  if (!camera_ref) {
-    return;
-  }
-
-  qbCamera_* camera = (qbCamera_*)camera_ref;
-  camera->origin = origin;
-
-  static vec4s forward = { -1.0f, 0.0f, 0.0f, 1.0f };
-  static vec4s up = { 0.0f, 0.0f, 1.0f, 1.0f };
-  camera->forward = glms_vec3(glms_mat4_mulv(camera->rotation_mat, forward));
-  camera->up = glms_vec3(glms_mat4_mulv(camera->rotation_mat, up));
-  camera->view_mat = glms_look(camera->origin, camera->forward, camera->up);
+  } else {
+    camera->projection_mat = glms_perspective(camera->fov, camera->aspect, camera->near, camera->far);
+  }  
 }
 
 vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
@@ -466,8 +412,7 @@ vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen) {
   vec4s far_plane = vec4s{ x, y, 1, 1.0 };
 
   // Projection/Eye Space
-  mat4s view = glms_look(glms_vec3_zero(), camera->forward, camera->up);
-  mat4s project_view = glms_mat4_mul(camera->projection_mat, view);
+  mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
   mat4s view_projection_inverse = glms_mat4_inv(project_view);
 
   vec4s near = glms_mat4_mulv(view_projection_inverse, near_plane);
@@ -485,14 +430,6 @@ vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
 
   mat4s project_view = glms_mat4_mul(camera->projection_mat, camera->view_mat);
   return glms_vec2(glms_mat4_mulv3(project_view, world, 1.0f));
-}
-
-qbFrameBuffer qb_camera_getfbo(qbCamera camera) {
-  if (!camera) {
-    return nullptr;
-  }
-
-  return ((qbCameraInternal)camera)->fbo;
 }
 
 qbResult qb_render_makecurrent() {
@@ -557,9 +494,9 @@ void qb_light_directional(qbId id, vec3s  rgb, vec3s  dir, float brightness) {
   r->light_directional(r, id, rgb, dir, brightness);
 }
 
-void qb_light_point(qbId id, vec3s  rgb, vec3s  pos, float brightness, float range) {
+void qb_light_point(qbId id, vec3s  rgb, vec3s  pos, float linear, float quadratic, float range) {
   auto r = qb_renderer();
-  r->light_point(r, id, rgb, pos, brightness, range);
+  r->light_point(r, id, rgb, pos, linear, quadratic, range);
 }
 
 void qb_light_spotlight(qbId id, vec3s  rgb, vec3s  pos, vec3s  dir, float brightness, float range, float angle_deg) {
