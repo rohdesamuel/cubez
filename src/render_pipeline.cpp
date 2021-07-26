@@ -46,11 +46,11 @@
 #include "shader.h"
 #include "stb_image.h"
 
-//#ifdef _DEBUG
+#ifdef _DEBUG
 #define CHECK_GL()  {GLenum err = glGetError(); if (err) FATAL(err) }
-//#else
-//#define CHECK_GL()
-//#endif   
+#else
+#define CHECK_GL()
+#endif   
 
 #define WITH_MODULE(module, fn, ...) (module)->render_interface.fn((module)->impl, __VA_ARGS__)
 
@@ -210,12 +210,28 @@ typedef struct qbSurface_ {
 } qbSurface_, *qbSurface;
 
 typedef struct qbDrawCommandBuffer_ {
+  std::vector<qbTaskBundle> queued_bundles;
+  std::vector<qbTaskBundle> allocated_bundles;
   qbTaskBundle task_bundle;
-  qbBeginRenderPassInfo begin_info;
 
   qbRenderPipeline current_pipeline;
   qbMemoryAllocator allocator;
   qbMemoryAllocator stack_allocator;
+
+  qbTaskBundle allocate_bundle() {
+    if (allocated_bundles.empty()) {
+      return qb_taskbundle_create({});
+    }
+    qbTaskBundle ret = allocated_bundles.back();
+    allocated_bundles.pop_back();
+
+    return ret;
+  }
+
+  void return_bundle(qbTaskBundle task_bundle) {
+    allocated_bundles.push_back(task_bundle);
+  }
+
 } qbDrawCommandBuffer_, *qbDrawCommandBuffer;
 
 typedef struct qbSwapchain_ {
@@ -850,7 +866,6 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   if (attr->data) {
     memcpy(buffer->data, attr->data, buffer->size);
   }
-  GLEW_ARB_shading_language_420pack;
 
   // TODO: consider glMapBuffer, glMapBufferRange, glSubBufferData
   // https://stackoverflow.com/questions/32222574/is-it-better-glbuffersubdata-or-glmapbuffer
@@ -1465,7 +1480,7 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
   }
 
   GLenum pixel_format = TranslateQbPixelFormatToOpenGl(image->format);
-  GLenum internal_format = TranslateQbPixelFormatToOpenGl(image->format);
+  GLenum internal_format = TranslateQbPixelFormatToInternalOpenGl(image->format);
   GLenum type = TranslateQbPixelFormatToOpenGlSize(image->format);
   if (image_type == GL_TEXTURE_1D) {
     glTexImage1D(image_type, 0, internal_format,
@@ -2402,17 +2417,21 @@ void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_set, qbShad
 
 void qb_shaderresourceset_writeuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
   for (auto i = 0; i < resource_set->bindings.size(); ++i) {
-    if (resource_set->bindings[i]->binding == binding) {
+    qbShaderResourceBinding resource_binding = resource_set->bindings[i];
+    if (resource_binding->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
       resource_set->uniforms[i] = buffer;
+      break;
     }
   }
 }
 
 void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage image, qbImageSampler sampler) {
   for (auto i = 0; i < resource_set->bindings.size(); ++i) {
-    if (resource_set->bindings[i]->binding == binding) {
+    qbShaderResourceBinding resource_binding = resource_set->bindings[i];
+    if (resource_set->bindings[i]->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
       resource_set->images[i] = image;
       resource_set->samplers[i] = sampler;
+      break;
     }
   }
 }
@@ -2448,10 +2467,7 @@ void qb_shaderresourceset_updatesampler(qbShaderResourceSet resource_set, uint32
 
 void qb_drawcmd_create(qbDrawCommandBuffer* cmd_buf, qbDrawCommandBufferAttr attr) {
   for (uint32_t i = 0; i < attr->count; ++i) {
-    cmd_buf[i] = new qbDrawCommandBuffer_;
-    cmd_buf[i]->task_bundle = qb_taskbundle_create({});
-    cmd_buf[i]->begin_info = nullptr;    
-    cmd_buf[i]->current_pipeline = nullptr;
+    cmd_buf[i] = new qbDrawCommandBuffer_{};    
     cmd_buf[i]->allocator = attr->allocator;
   }
 }
@@ -2470,23 +2486,22 @@ void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo beg
   assert(begin_info->render_pass->attachments.size() >= begin_info->clear_values_count);
 
   
-  cmd_buf->begin_info = (qbBeginRenderPassInfo)qb_alloc(cmd_buf->allocator, sizeof(qbBeginRenderPassInfo_));
-  new (cmd_buf->begin_info) qbBeginRenderPassInfo_{};
+  qbBeginRenderPassInfo begin_info_copy = (qbBeginRenderPassInfo)qb_alloc(cmd_buf->allocator, sizeof(qbBeginRenderPassInfo_));
+  *begin_info_copy = *begin_info;
+  begin_info_copy->clear_values_count = begin_info->clear_values_count;
 
-  *cmd_buf->begin_info = *begin_info;
-  cmd_buf->begin_info->clear_values_count = begin_info->clear_values_count;
-
-  cmd_buf->begin_info->clear_values = (qbClearValue)qb_alloc(cmd_buf->allocator, sizeof(qbClearValue_) * cmd_buf->begin_info->clear_values_count);
+  begin_info_copy->clear_values = (qbClearValue)qb_alloc(cmd_buf->allocator, sizeof(qbClearValue_) * begin_info_copy->clear_values_count);
   std::copy(
     begin_info->clear_values,
-    begin_info->clear_values + cmd_buf->begin_info->clear_values_count,
-    cmd_buf->begin_info->clear_values);  
+    begin_info->clear_values + begin_info_copy->clear_values_count,
+    begin_info_copy->clear_values);
+
+  cmd_buf->task_bundle = cmd_buf->allocate_bundle();
 
   qb_taskbundle_begin(cmd_buf->task_bundle, {});
-
-  qb_taskbundle_addtask(cmd_buf->task_bundle, [begin_info = cmd_buf->begin_info](qbTask, qbVar var) {
-    qbFrameBuffer framebuffer = begin_info->framebuffer;
-    qbRenderPass render_pass = begin_info->render_pass;
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qbFrameBuffer framebuffer = begin_info_copy->framebuffer;
+    qbRenderPass render_pass = begin_info_copy->render_pass;
 
     if (!framebuffer) {
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2499,7 +2514,7 @@ void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo beg
       if (ref->attachment == QB_UNUSED_FRAMEBUFFER_ATTACHMENT) continue;
 
       qbFramebufferAttachment attachment = &framebuffer->attachments[i];
-      qbClearValue clear_value = &begin_info->clear_values[i];
+      qbClearValue clear_value = &begin_info_copy->clear_values[i];
 
       switch (ref->aspect) {
         case QB_COLOR_ASPECT:
@@ -2525,6 +2540,9 @@ void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo beg
       }
     }
 
+    qb_dealloc(cmd_buf->allocator, begin_info_copy->clear_values);
+    qb_dealloc(cmd_buf->allocator, begin_info_copy);
+
     CHECK_GL();
     return var;
   }, {});
@@ -2540,18 +2558,14 @@ void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf) {
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
 
-    qb_dealloc(cmd_buf->allocator, cmd_buf->begin_info->clear_values);
-    qb_dealloc(cmd_buf->allocator, cmd_buf->begin_info);    
-
-    if (cmd_buf->allocator->clear) {
-      cmd_buf->allocator->clear(cmd_buf->allocator);
-    }
-
     CHECK_GL();
     return var;
   }, {});
 
   qb_taskbundle_end(cmd_buf->task_bundle);
+
+  cmd_buf->queued_bundles.push_back(cmd_buf->task_bundle);
+  cmd_buf->task_bundle = nullptr;
 }
 
 void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport) {
@@ -2699,13 +2713,13 @@ void qb_drawcmd_bindshaderresourceset(
           case QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER: {
             qbImage image = resource_set->images[j];
             qbImageSampler sampler = resource_set->samplers[j];
-            uint32_t texture_slot = shader.texture_slot(binding->name);
+            uint32_t texture_slot = binding->binding;//shader.texture_slot(binding->name);
 
             glActiveTexture((GLenum)(GL_TEXTURE0 + texture_slot));
             
-            if (binding->name && !GLEW_ARB_shading_language_420pack) {
-              glUniform1i(glGetUniformLocation(program, binding->name), (GLint)texture_slot);
-            }
+            //if (binding->name && !GLEW_ARB_shading_language_420pack) {
+            glUniform1i(glGetUniformLocation(program, binding->name), (GLint)texture_slot);
+            //}
             
             glBindSampler((GLuint)texture_slot, (GLuint)sampler->id);
             glBindTexture(TranslateQbImageTypeToOpenGl(image->type), (GLuint)image->id);
@@ -2830,18 +2844,20 @@ void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intp
     qb_gpubuffer_update(buffer, offset, size, data_copy);
     qb_dealloc(cmd_buf->allocator, data_copy);
     return var;
-    }, {});
-}
-
-void qb_drawcmd_dealloc(qbDrawCommandBuffer cmd_buf, struct qbMemoryAllocator_* allocator, void* data) {
-  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
-    qb_dealloc(allocator, data);
-    return var;
   }, {});
 }
 
 qbTask qb_drawcmd_present(qbDrawCommandBuffer cmd_buf, qbDrawPresentInfo present_info) {
-  qb_taskbundle_run(cmd_buf->task_bundle, qbNil);
+  for (qbTaskBundle task_bundle : cmd_buf->queued_bundles) {
+    qb_taskbundle_run(task_bundle, qbNil);
+    qb_taskbundle_clear(task_bundle);
+    cmd_buf->return_bundle(task_bundle);
+  }
+  cmd_buf->queued_bundles.clear();
+  cmd_buf->task_bundle = nullptr;
+  if (cmd_buf->allocator->clear) {
+    cmd_buf->allocator->clear(cmd_buf->allocator);
+  }
   qb_swapchain_present(present_info->swapchain, present_info);
   qb_swapchain_swap(present_info->swapchain);
   return qbInvalidHandle;
