@@ -136,18 +136,6 @@ qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const cha
   m->roughness = attr->roughness;
   m->emission = attr->emission;
 
-  m->image_count = attr->image_count;
-  m->images = new qbImage[m->image_count];
-  m->image_units = new uint32_t[m->image_count];
-  memcpy(m->images, attr->images, m->image_count * sizeof(qbImage));
-  memcpy(m->image_units, attr->image_units, m->image_count * sizeof(uint32_t));
-
-  m->uniform_count = attr->uniform_count;
-  m->uniforms = new qbGpuBuffer[m->uniform_count];
-  m->uniform_bindings = new uint32_t[m->uniform_count];
-  memcpy(m->uniforms, attr->uniforms, m->uniform_count * sizeof(qbGpuBuffer));
-  memcpy(m->uniform_bindings, attr->uniform_bindings, m->uniform_count * sizeof(uint32_t));
-
   return QB_OK;
 }
 
@@ -155,10 +143,6 @@ qbResult qb_material_destroy(qbMaterial* material) {
   qbMaterial m = *material;
   qb_renderext_destroy(&(*material)->ext);
 
-  delete[] m->images;
-  delete[] m->image_units;
-  delete[] m->uniforms;
-  delete[] m->uniform_bindings;
   delete m;
   *material = nullptr;
 

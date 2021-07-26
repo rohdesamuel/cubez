@@ -172,12 +172,12 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
       return;
     }
 
-    bool handled_by_gui = gui_handle_input(&input_event) == QB_TRUE;
-    if (handled_by_gui) {
+    bool handled_by_gui = QB_FOCUS_APP;//gui_handle_input(&input_event) == QB_TRUE;
+    /*if (handled_by_gui) {
       input_focus = QB_FOCUS_GUI;
     } else {
       input_focus = QB_FOCUS_APP;
-    }
+    }*/
 
     if (qb_user_focus() == QB_FOCUS_APP) {
       if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {

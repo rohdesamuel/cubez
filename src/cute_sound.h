@@ -2095,10 +2095,16 @@ static void cs_sdl_audio_callback(void* udata, Uint8* stream, int len) {
 void cs_mix(cs_context_t* ctx) {
   cs_lock(ctx);
 
+  __m128i* samples = NULL;
+  __m128* floatA = NULL;
+  __m128* floatB = NULL;
+  cs_playing_sound_t** ptr = NULL;
+  int wide_count = 0;
+  int bytes_to_write = 0;
+
 #if CUTE_SOUND_PLATFORM == CUTE_SOUND_WINDOWS
 
-  int byte_to_lock;
-  int bytes_to_write;
+  int byte_to_lock;  
   cs_position(ctx, &byte_to_lock, &bytes_to_write);
 
   if (!bytes_to_write) goto unlock;
@@ -2108,7 +2114,7 @@ void cs_mix(cs_context_t* ctx) {
 
   int samples_to_write = cs_samples_to_mix(ctx);
   if (!samples_to_write) goto unlock;
-  int bytes_to_write = samples_to_write * ctx->bps;
+  bytes_to_write = samples_to_write * ctx->bps;
 
 #elif CUTE_SOUND_PLATFORM == CUTE_SOUND_LINUX
 
@@ -2122,11 +2128,11 @@ void cs_mix(cs_context_t* ctx) {
 #endif
 
   // clear mixer buffers
-  int wide_count = samples_to_write / 4;
+  wide_count = samples_to_write / 4;
   CUTE_SOUND_ASSERT(!(samples_to_write & 3));
 
-  __m128* floatA = ctx->floatA;
-  __m128* floatB = ctx->floatB;
+  floatA = ctx->floatA;
+  floatB = ctx->floatB;
   __m128 zero = _mm_set1_ps(0.0f);
 
   for (int i = 0; i < wide_count; ++i) {
@@ -2135,7 +2141,7 @@ void cs_mix(cs_context_t* ctx) {
   }
 
   // mix all playing sounds into the mixer buffers
-  cs_playing_sound_t** ptr = &ctx->playing;
+  ptr = &ctx->playing;
   while (*ptr) {
     cs_playing_sound_t* playing = *ptr;
     cs_loaded_sound_t* loaded = playing->loaded_sound;
@@ -2287,7 +2293,7 @@ void cs_mix(cs_context_t* ctx) {
   // load all floats into 16 bit packed interleaved samples
 #if CUTE_SOUND_PLATFORM == CUTE_SOUND_WINDOWS
 
-  __m128i* samples = ctx->samples;
+  samples = ctx->samples;
   for (int i = 0; i < wide_count; ++i) {
     __m128i a = _mm_cvtps_epi32(floatA[i]);
     __m128i b = _mm_cvtps_epi32(floatB[i]);
@@ -2303,7 +2309,7 @@ void cs_mix(cs_context_t* ctx) {
   // reusing floatA to store output is a good way to temporarly store
   // the final samples. Then a single ring buffer push can be used
   // afterwards. Pretty hacky, but whatever :)
-  __m128i* samples = (__m128i*)floatA;
+  samples = (__m128i*)floatA;
   for (int i = 0; i < wide_count; ++i) {
     __m128i a = _mm_cvtps_epi32(floatA[i]);
     __m128i b = _mm_cvtps_epi32(floatB[i]);

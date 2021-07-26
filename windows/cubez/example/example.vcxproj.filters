@@ -19,11 +19,11 @@
     <Filter Include="Source Files\modules">
       <UniqueIdentifier>{d812ce4b-2933-4419-8631-91227cdb52ea}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\modules">
-      <UniqueIdentifier>{ba915a3f-533f-414a-be5e-a5eb7fb3b148}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Scripts">
       <UniqueIdentifier>{4e8d358b-352e-4470-a632-396ad5b563bd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\modules">
+      <UniqueIdentifier>{ba915a3f-533f-414a-be5e-a5eb7fb3b148}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -47,6 +47,12 @@
     <ClCompile Include="..\..\..\example\src\forward_renderer.cpp">
       <Filter>Source Files\modules</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\example\src\renderer.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\deferred_pipeline.cpp">
+      <Filter>Source Files\modules</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\cubez\common.h">
@@ -63,6 +69,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\gui.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\renderer.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\deferred_pipeline.h">
+      <Filter>Header Files\modules</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -140,6 +152,9 @@
     </None>
     <None Include="..\..\..\example\resources\scripts\main.lua">
       <Filter>Scripts</Filter>
+    </None>
+    <None Include="..\..\..\example\src\planet-generator.js">
+      <Filter>Source Files</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -168,6 +168,7 @@
       <CallingConvention>StdCall</CallingConvention>
       <ExceptionHandling>Async</ExceptionHandling>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -243,6 +244,7 @@
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <ExceptionHandling>Async</ExceptionHandling>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -260,13 +262,17 @@
     <Image Include="..\..\..\example\resources\transporter.png" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\example\src\deferred_pipeline.cpp" />
     <ClCompile Include="..\..\..\example\src\forward_renderer.cpp" />
     <ClCompile Include="..\..\..\example\src\main.cpp" />
     <ClCompile Include="..\..\..\example\src\pong.cpp" />
+    <ClCompile Include="..\..\..\example\src\renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\example\src\deferred_pipeline.h" />
     <ClInclude Include="..\..\..\example\src\forward_renderer.h" />
     <ClInclude Include="..\..\..\example\src\pong.h" />
+    <ClInclude Include="..\..\..\example\src\renderer.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
@@ -297,6 +303,7 @@
     <None Include="..\..\..\example\resources\sprite.vs" />
     <None Include="..\..\..\example\resources\texture.fs" />
     <None Include="..\..\..\example\resources\texture.vs" />
+    <None Include="..\..\..\example\src\planet-generator.js" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

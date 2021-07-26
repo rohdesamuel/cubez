@@ -33,7 +33,7 @@ typedef struct qbForwardRendererAttr_ {
   // A list of any new uniforms to be used in the shader. The bindings should
   // start at 0. These should not include any texture sampler uniforms. For
   // those, use the image_samplers value.
-  qbShaderResourceInfo shader_resources;
+  qbShaderResourceBinding shader_resources;
   size_t shader_resource_count;
 
   // The bindings should start at 0. These should not include any texture

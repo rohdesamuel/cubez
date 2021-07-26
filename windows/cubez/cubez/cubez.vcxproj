@@ -109,6 +109,7 @@
     <IncludePath>$(ProjectRoot)\include;$(IncludePath)</IncludePath>
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>false</RunCodeAnalysis>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>C:\Users\Sam\Source\Repos\cubez\inc;$(IncludePath)</IncludePath>
@@ -124,11 +125,13 @@
     <IncludePath>$(ProjectRoot)\include;$(IncludePath)</IncludePath>
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>false</RunCodeAnalysis>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Optimized Debug|x64'">
     <IncludePath>$(ProjectRoot)\include;$(IncludePath)</IncludePath>
     <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <RunCodeAnalysis>false</RunCodeAnalysis>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -176,7 +179,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;CGLM_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;__BUILDING_DLL__;_CRT_SECURE_NO_WARNINGS;CGLM_DLL;__ENGINE_DEBUG__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
@@ -186,6 +189,9 @@
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <ExceptionHandling>false</ExceptionHandling>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;freetype.lib;lua53.lib;freetype.lib;Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -211,6 +217,7 @@
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;freetype.lib;lua53.lib;Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -262,6 +269,8 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -276,6 +285,7 @@
     <ClInclude Include="..\..\..\include\cubez\buffer.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
+    <ClInclude Include="..\..\..\include\cubez\draw.h" />
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
     <ClInclude Include="..\..\..\include\cubez\input.h" />
     <ClInclude Include="..\..\..\include\cubez\log.h" />
@@ -283,6 +293,7 @@
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
     <ClInclude Include="..\..\..\include\cubez\network.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
+    <ClInclude Include="..\..\..\include\cubez\renderer.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
     <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\sprite.h" />
@@ -388,6 +399,7 @@
     <ClCompile Include="..\..\..\src\coro_scheduler.cpp" />
     <ClCompile Include="..\..\..\src\cubez.cpp" />
     <ClCompile Include="..\..\..\src\cute_sound.cpp" />
+    <ClCompile Include="..\..\..\src\draw.cpp" />
     <ClCompile Include="..\..\..\src\entity_registry.cpp" />
     <ClCompile Include="..\..\..\src\event.cpp" />
     <ClCompile Include="..\..\..\src\event_registry.cpp" />

@@ -44,6 +44,20 @@ class Runner {
     PAUSED = 70,
   };
 
+  static std::string state_to_string(State state) {
+    switch (state) {
+      case State::ERROR: return "ERROR";
+      case State::UNKNOWN: return "UNKNOWN";
+      case State::INITIALIZED: return "INITIALIZED";
+      case State::STARTED: return "STARTED";
+      case State::RUNNING: return "RUNNING";
+      case State::LOOPING: return "LOOPING";
+      case State::STOPPED: return "STOPPED";
+      case State::WAITING: return "WAITING";
+      case State::PAUSED: return "PAUSED";
+    }
+  }
+
   class TransitionGuard {
    public:
     TransitionGuard(Runner* runner, std::vector<State>&& allowed, State next):

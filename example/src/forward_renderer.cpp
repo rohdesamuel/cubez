@@ -15,7 +15,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
+#if 0
 #include "forward_renderer.h"
 
 #include <cubez/render.h>
@@ -363,7 +363,7 @@ void render(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEv
     
   qb_sprite_flush(final, event);
 
-  qb_renderpass_draw(r->gui_pass, final);  
+  qb_renderpass_draw(r->gui_pass, final);
 
   qb_renderpipeline_present(self->render_pipeline, final, event);
 }
@@ -778,16 +778,16 @@ qbSurface create_blur_surface(qbForwardRenderer r, uint32_t width, uint32_t heig
   attr.vs = "resources/blur.vs";
   attr.fs = "resources/blur.fs";
 
-  qbShaderResourceInfo_ resources[2] = {};
+  qbShaderResourceBinding_ resources[2] = {};
   {
-    qbShaderResourceInfo info = resources;
+    qbShaderResourceBinding info = resources;
     info->binding = 0;
     info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info->stages = QB_SHADER_STAGE_FRAGMENT;
     info->name = "qb_blur_args";
   }
   {
-    qbShaderResourceInfo info = resources + 1;
+    qbShaderResourceBinding info = resources + 1;
     info->binding = 1;
     info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info->stages = QB_SHADER_STAGE_FRAGMENT;
@@ -864,23 +864,23 @@ qbSurface create_merge_surface(qbForwardRenderer r, uint32_t width, uint32_t hei
   attr.vs = "resources/merge.vs";
   attr.fs = "resources/merge.fs";
 
-  qbShaderResourceInfo_ resources[3] = {};
+  qbShaderResourceBinding_ resources[3] = {};
   {
-    qbShaderResourceInfo info = resources;
+    qbShaderResourceBinding info = resources;
     info->binding = 0;
     info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info->stages = QB_SHADER_STAGE_FRAGMENT;
     info->name = "qb_merge_args";
   }
   {
-    qbShaderResourceInfo info = resources + 1;
+    qbShaderResourceBinding info = resources + 1;
     info->binding = 1;
     info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info->stages = QB_SHADER_STAGE_FRAGMENT;
     info->name = "qb_merge_sampler";
   }
   {
-    qbShaderResourceInfo info = resources + 2;
+    qbShaderResourceBinding info = resources + 2;
     info->binding = 2;
     info->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info->stages = QB_SHADER_STAGE_FRAGMENT;
@@ -1000,11 +1000,11 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
 
   qbShaderModule shader_module;
   
-  std::vector<qbShaderResourceInfo_> resources;
+  std::vector<qbShaderResourceBinding_> resources;
   std::vector<uint32_t> uniform_bindings;
-  std::vector<std::pair<qbShaderResourceInfo_, qbGpuBuffer>> resource_uniforms;
+  std::vector<std::pair<qbShaderResourceBinding_, qbGpuBuffer>> resource_uniforms;
   std::vector<uint32_t> sampler_bindings;
-  std::vector<std::pair<qbShaderResourceInfo_, qbImageSampler>> resource_samplers;
+  std::vector<std::pair<qbShaderResourceBinding_, qbImageSampler>> resource_samplers;
 
   uint32_t native_uniform_count;
   uint32_t native_sampler_count;
@@ -1021,7 +1021,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   ret->light_uniform_name = "qb_lights";
 
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info.stages = QB_SHADER_STAGE_VERTEX;
     info.name = ret->camera_uniform_name.data();
@@ -1035,7 +1035,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     resource_uniforms.push_back({ info, ret->camera_ubo });
   }
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info.stages = QB_SHADER_STAGE_VERTEX;
     info.name = ret->model_uniform_name.data();
@@ -1043,7 +1043,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     resource_uniforms.push_back({ info, nullptr });
   }
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info.stages = QB_SHADER_STAGE_FRAGMENT;
     info.name = ret->material_uniform_name.data();
@@ -1051,7 +1051,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     resource_uniforms.push_back({ info, nullptr });
   }
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
     info.stages = QB_SHADER_STAGE_FRAGMENT;
     info.name = ret->light_uniform_name.data();
@@ -1066,7 +1066,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     resource_uniforms.push_back({ info, ret->light_ubo });
   }
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info.stages = QB_SHADER_STAGE_FRAGMENT;
     info.name = "qb_texture_unit_1";
@@ -1082,7 +1082,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     //resource_samplers.push_back({ info, sampler });
   }
   {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info.stages = QB_SHADER_STAGE_FRAGMENT;
     info.name = "qb_texture_unit_2";
@@ -1107,7 +1107,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     "qb_material_emission_map",
   };
   for (auto& sampler_name : material_sampler_names) {
-    qbShaderResourceInfo_ info = {};
+    qbShaderResourceBinding_ info = {};
     info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
     info.stages = QB_SHADER_STAGE_FRAGMENT;
     info.name = sampler_name.data();
@@ -1126,10 +1126,10 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
   native_uniform_count = (uint32_t)resource_uniforms.size();
   native_sampler_count = (uint32_t)resource_samplers.size();
   {
-    std::vector<std::pair<qbShaderResourceInfo_, qbGpuBuffer>> user_uniforms;
+    std::vector<std::pair<qbShaderResourceBinding_, qbGpuBuffer>> user_uniforms;
     user_uniforms.resize(args->shader_resource_count);
     for (size_t i = 0; i < args->shader_resource_count; ++i) {
-      qbShaderResourceInfo info = args->shader_resources + i;
+      qbShaderResourceBinding info = args->shader_resources + i;
       uint32_t binding = info->binding;
       user_uniforms[binding].first = *info;
     }
@@ -1142,12 +1142,12 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
       resource_uniforms.push_back(e);
     }
 
-    std::vector<std::pair<qbShaderResourceInfo_, qbImageSampler>> user_samplers;
+    std::vector<std::pair<qbShaderResourceBinding_, qbImageSampler>> user_samplers;
     user_samplers.resize(args->image_sampler_count);
     for (size_t i = 0; i < args->image_sampler_count; ++i) {
       qbImageSampler sampler = args->image_samplers[i];
 
-      qbShaderResourceInfo_ info;
+      qbShaderResourceBinding_ info;
       info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
       info.stages = QB_SHADER_STAGE_FRAGMENT;
       info.name = qb_imagesampler_name(sampler);
@@ -1252,7 +1252,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     attr.shader = shader_module;
     attr.viewport_scale = 1.0f;
     attr.clear = clear;
-    attr.cull = QB_CULL_BACK;
+    attr.cull = QB_FACE_BACK;
 
     qb_renderpass_create(&ret->scene_3d_pass, &attr);
   }
@@ -1269,7 +1269,7 @@ struct qbRenderer_* qb_forwardrenderer_create(uint32_t width, uint32_t height, s
     attr.shader = shader_module;
     attr.viewport_scale = 1.0f;
     attr.clear = clear;
-    attr.cull = QB_CULL_BACK;
+    attr.cull = QB_FACE_BACK;
     attr.line_width = 2.f;
 
     qb_renderpass_create(&ret->scene_3d_pass_wireframe, &attr);
@@ -1337,3 +1337,4 @@ void qb_forwardrenderer_destroy(qbRenderer renderer) {
   qb_event_unsubscribe(qb_render_event(), r->render_system);
   qb_system_destroy(&r->render_system);
 }
+#endif

@@ -747,7 +747,7 @@ void lua_resize(lua_State* L, uint32_t width, uint32_t height) {
     return;
   }
 
-  // Call qb.draw()
+  // Call qb.resize()
   lua_getglobal(L, "qb");
   lua_getfield(L, -1, "resize");
   if (!lua_isnil(L, -1)) {

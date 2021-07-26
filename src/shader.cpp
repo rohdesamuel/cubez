@@ -51,12 +51,51 @@ inline std::string GetProgramLog(GLuint program_id) {
   return str;
 }
 
-GLuint ShaderProgram::create_shader(const char* shader, GLenum shader_type) {
+std::string extensions_to_string(const std::vector<std::string>& extensions) {
+  std::string out;
+  for (auto& extension : extensions) {
+    out += "#extension " + extension + " : enable\n";
+  }
+  return out;
+}
+
+std::string add_extensions(std::string shader, const std::vector<std::string>& extensions) {
+  std::string extension_str = extensions_to_string(extensions);
+
+  auto version_loc = shader.find_first_of("#version");
+  if (version_loc == std::string::npos) {
+    return shader;
+  }
+
+  auto end_of_line = shader.find('\n', version_loc);
+  if (end_of_line == std::string::npos) {
+    return shader;
+  }
+
+  return shader.insert(end_of_line + 1, extension_str);
+}
+
+bool is_sampler_uniform(int type) {
+  return
+    type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW ||
+    type >= GL_SAMPLER_1D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW ||
+    type >= GL_INT_SAMPLER_1D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY ||
+    type >= GL_SAMPLER_2D_MULTISAMPLE && type <= GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY ||
+    type >= GL_SAMPLER_BUFFER && type <= GL_UNSIGNED_INT_SAMPLER_BUFFER;
+}
+
+GLuint ShaderProgram::create_shader(std::string& shader, GLenum shader_type, const std::vector<std::string>& extensions) {
   GLuint s = glCreateShader(shader_type);
-  glShaderSource(s, 1, &shader, nullptr);
-  glCompileShader(s);
+  
+  shader = add_extensions(shader, extensions);
+
+  const char* shader_src = shader.c_str();
+  glShaderSource(s, 1, &shader_src, nullptr);
+  glCompileShader(s);  
+
   GLint success = 0;
   glGetShaderiv(s, GL_COMPILE_STATUS, &success);
+  
   if (success == GL_FALSE) {
     GLint log_size = 0;
     glGetShaderiv(s, GL_INFO_LOG_LENGTH, &log_size);
@@ -69,10 +108,12 @@ GLuint ShaderProgram::create_shader(const char* shader, GLenum shader_type) {
   return s;
 }
 
-ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
+ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const std::vector<std::string>& extensions) {
   program_ = glCreateProgram();
-  GLuint v = create_shader(vs.c_str(), GL_VERTEX_SHADER);
-  GLuint f = create_shader(fs.c_str(), GL_FRAGMENT_SHADER);
+  std::string vs_mut = vs;
+  std::string fs_mut = fs;
+  GLuint v = create_shader(vs_mut, GL_VERTEX_SHADER, extensions);
+  GLuint f = create_shader(fs_mut, GL_FRAGMENT_SHADER, extensions);
   
   glAttachShader(program_, f);
   glAttachShader(program_, v);
@@ -130,17 +171,24 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs) {
     }
   }
 
+  glUseProgram(program_);
+  register_texture_slots();
+  glUseProgram(0);
+
   glDetachShader(program_, f);
   glDetachShader(program_, v);
   glDeleteShader(v);
   glDeleteShader(f);
 }
 
-ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const std::string& gs) {
+ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const std::string& gs, const std::vector<std::string>& extensions) {
   program_ = glCreateProgram();
-  GLuint v = create_shader(vs.c_str(), GL_VERTEX_SHADER);
-  GLuint f = create_shader(fs.c_str(), GL_FRAGMENT_SHADER);
-  GLuint g = create_shader(gs.c_str(), GL_GEOMETRY_SHADER);
+  std::string vs_mut = vs;
+  std::string fs_mut = fs;
+  std::string gs_mut = gs;
+  GLuint v = create_shader(vs_mut, GL_VERTEX_SHADER, extensions);
+  GLuint f = create_shader(fs_mut, GL_FRAGMENT_SHADER, extensions);
+  GLuint g = create_shader(gs_mut, GL_GEOMETRY_SHADER, extensions);
 
   glAttachShader(program_, f);
   glAttachShader(program_, v);
@@ -205,6 +253,10 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const
   glDeleteShader(v);
   glDeleteShader(f);
   glDeleteShader(g);
+
+  glUseProgram(program_);
+  register_texture_slots();
+  glUseProgram(0);
 }
 
 
@@ -212,7 +264,8 @@ ShaderProgram::ShaderProgram(GLuint program) : program_(program) {}
 
 ShaderProgram ShaderProgram::load_from_file(const std::string& vs_file,
                                             const std::string& fs_file,
-                                            const std::string& gs_file) {
+                                            const std::string& gs_file,
+                                            const std::vector<std::string>& extensions) {
   
   auto cwd = std::filesystem::current_path();
   
@@ -252,9 +305,9 @@ ShaderProgram ShaderProgram::load_from_file(const std::string& vs_file,
   }
 
   if (gs.empty()) {
-    return ShaderProgram(vs, fs);
+    return ShaderProgram(vs, fs, extensions);
   }
-  return ShaderProgram(vs, fs, gs);
+  return ShaderProgram(vs, fs, gs, extensions);
 }
 
 void ShaderProgram::use() {
@@ -263,5 +316,32 @@ void ShaderProgram::use() {
 
 GLuint ShaderProgram::id() {
   return program_;
+}
+
+void ShaderProgram::register_texture_slots() {
+  int max_length;
+  glGetProgramiv(program_, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_length);
+  auto name = std::unique_ptr<char[]>(new char[max_length]);
+
+  int uniform_count;
+  glGetProgramiv(program_, GL_ACTIVE_UNIFORMS, &uniform_count);
+
+  int texture_slot = 0;
+  for (int i = 0; i < uniform_count; i++) {
+    GLint size;
+    GLenum type;
+    glGetActiveUniform(program_, i, max_length, NULL, &size, &type, name.get());
+    if (is_sampler_uniform(type)) {
+      GLint location = glGetUniformLocation(program_, name.get());
+      glUniform1i(location, texture_slot);
+      sampler_name_to_texture_slot_[std::string(name.get())] = texture_slot;
+      ++texture_slot;
+    }
+  }
+}
+
+GLuint ShaderProgram::texture_slot(const std::string& name)
+{
+  return sampler_name_to_texture_slot_[name];
 }
 

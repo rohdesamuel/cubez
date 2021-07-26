@@ -90,10 +90,10 @@
     end)
 --]]
 
-  focused_el = qb.gui.getfocus()
+  --focused_el = qb.gui.getfocus()
 
   x, y = qb.mouse.getposition()
-  focused_at = qb.gui.getfocusat(x, y)
+  --focused_at = qb.gui.getfocusat(x, y)
 
   --[[
   el = qb.gui.element.create('something', {
@@ -246,7 +246,7 @@ function qb.draw()
 
   local scale_x = 4 * facing
   if current_animation then
-    current_animation:draw_ext(pos.x, pos.y, scale_x, 4, 0, {})
+    --current_animation:draw_ext(pos.x, pos.y, scale_x, 4, 0, {})
   end
 
   --adventurer_sheet:drawpart(0, 0, pos.x, pos.y, qb.window.width(), qb.window.height())

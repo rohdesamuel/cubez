@@ -495,6 +495,7 @@ void gui_initialize() {
   } else {
     std::cerr << "Could not load default font file: \"" << default_font_file << "\"\n";
   }
+  return;
   scene = std::make_unique<GuiTree>();
 }
 
@@ -603,6 +604,7 @@ qbBool gui_handle_input(qbInputEvent input_event) {
 }
 
 qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
+  return nullptr;
   qbBufferBinding_ binding = {};
   binding.binding = 0;
   binding.stride = 8 * sizeof(float);
@@ -645,23 +647,23 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
   qbShaderModule shader_module;
   {
-    qbShaderResourceInfo_ resources[3] = {};
+    qbShaderResourceBinding_ resources[3] = {};
     {
-      qbShaderResourceInfo info = resources;
+      qbShaderResourceBinding info = resources;
       info->binding = GuiUniformCamera::Binding();
       info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
       info->stages = QB_SHADER_STAGE_VERTEX;
       info->name = "Camera";
     }
     {
-      qbShaderResourceInfo info = resources + 1;
+      qbShaderResourceBinding info = resources + 1;
       info->binding = GuiUniformModel::Binding();
       info->resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
       info->stages = QB_SHADER_STAGE_VERTEX;
       info->name = "Model";
     }
     {
-      qbShaderResourceInfo attr = resources + 2;
+      qbShaderResourceBinding attr = resources + 2;
       attr->binding = 2;
       attr->resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
       attr->stages = QB_SHADER_STAGE_FRAGMENT;
@@ -673,8 +675,8 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.fs = get_gui_fs();
     attr.interpret_as_strings = true;
 
-    attr.resources = resources;
-    attr.resources_count = sizeof(resources) / sizeof(resources[0]);
+    //attr.resources = resources;
+    //attr.resources_count = sizeof(resources) / sizeof(resources[0]);
 
     qb_shadermodule_create(&shader_module, &attr);
   }
@@ -718,6 +720,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
   {
     qbRenderPassAttr_ attr = {};
     attr.name = "Gui Render Pass";
+    /*
     attr.supported_geometry.bindings = &binding;
     attr.supported_geometry.bindings_count = 1;
     attr.supported_geometry.attributes = attributes;
@@ -726,13 +729,13 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     attr.shader = shader_module;
     attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
-    attr.cull = QB_CULL_BACK;
+    attr.cull = QB_FACE_BACK;
 
     qbClearValue_ clear;
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
     clear.color = { 0.0f, 0.0f, 0.0f, 1.0f };
     clear.depth = 1.0f;
-    attr.clear = clear;
+    attr.clear = clear;*/
 
     qb_renderpass_create(&gui_render_pass, &attr);
   }
@@ -770,7 +773,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
   {
     qbRenderGroupAttr_ attr = {};
     qb_rendergroup_create(&gui_render_group, &attr);
-    qb_renderpass_append(gui_render_pass, gui_render_group);
+    //qb_renderpass_append(gui_render_pass, gui_render_group);
   }
 
   return gui_render_pass;

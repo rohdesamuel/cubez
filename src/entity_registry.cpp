@@ -24,7 +24,7 @@
 #include "game_state.h"
 EntityRegistry::EntityRegistry()
     : id_(0) {
-  entities_.reserve(100000);
+  entities_.reserve(128);
   free_entity_ids_.reserve(10000);
 }
 
@@ -47,7 +47,6 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity,
   qbId new_id = AllocEntity();
   entities_.insert(new_id);
 
-  INFO("CreateEntity " << new_id << "\n");
   *entity = new_id;
 
   return qbResult::QB_OK;

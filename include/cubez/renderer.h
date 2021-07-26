@@ -16,29 +16,22 @@
 * limitations under the License.
 */
 
-#ifndef RENDER_INTERNAL__H
-#define RENDER_INTERNAL__H
+#ifndef RENDERER__H
+#define RENDERER__H
 
+#include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
+#include <cubez/mesh.h>
+#include <cubez/render.h>
 
-struct RenderSettings {
-  const char* title;
-  int width;
-  int height;
+typedef struct qbDefaultRenderer_* qbDefaultRenderer;
 
-  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
-  void(*destroy_renderer)(struct qbRenderer_* renderer);
-  qbRendererAttr_* opt_renderer_args;
-};
+typedef struct qbDefaultRendererAttr_ {
+  uint32_t width;
+  uint32_t height;
+} qbDefaultRendererAttr_, * qbDefaultRendererAttr;
 
-struct RenderPresentInfo_ {
-  qbDrawPresentInfo_ info;
-  qbTaskBundle tasks;
-};
+qbRenderer qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+void qb_defaultrenderer_destroy(qbRenderer renderer);
 
-void render_initialize(RenderSettings* settings);
-void render_shutdown();
-
-qbTask render_submit(RenderPresentInfo_ info);
-
-#endif  // RENDER_INTERNAL__H
+#endif

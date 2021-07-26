@@ -90,7 +90,8 @@ out vec4 outFragColor;
 uniform sampler2D tex_sampler;
 
 void main() {
-  outFragColor = texture2D(tex_sampler, TexCoord);
+    vec3 col = texture(tex_sampler, TexCoord).rgb;
+    outFragColor = vec4(col, 1.0);
 })";
 
 static const char* gui_vs = R"(

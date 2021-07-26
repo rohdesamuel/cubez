@@ -31,9 +31,6 @@
     <Filter Include="Header Files\audio">
       <UniqueIdentifier>{50725ab3-ffb7-447c-882d-70e45e6b0d28}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\audio">
-      <UniqueIdentifier>{a3738078-1c1d-4248-9ae1-b3a3e4e8d0c5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\cglm">
       <UniqueIdentifier>{c6cac696-7183-438c-af09-3696673f7c90}</UniqueIdentifier>
     </Filter>
@@ -54,6 +51,9 @@
     </Filter>
     <Filter Include="Header Files\mempool">
       <UniqueIdentifier>{ede01714-5c68-47dd-9dc3-d267d98c63a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\lua\audio">
+      <UniqueIdentifier>{a3738078-1c1d-4248-9ae1-b3a3e4e8d0c5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -195,9 +195,6 @@
     <ClInclude Include="..\..\..\src\render_defs.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\render.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\audio.h">
       <Filter>Header Files\audio</Filter>
     </ClInclude>
@@ -297,9 +294,6 @@
     <ClInclude Include="..\..\..\src\memory_internal.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\render_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\query.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -314,6 +308,18 @@
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\common.h">
       <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\draw.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\renderer.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\render.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\render_internal.h">
+      <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -411,10 +417,10 @@
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\cute_sound.cpp">
-      <Filter>Source Files\audio</Filter>
+      <Filter>Source Files\lua\audio</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\audio.cpp">
-      <Filter>Source Files\audio</Filter>
+      <Filter>Source Files\lua\audio</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\cglm\affine.c">
       <Filter>Source Files\cglm</Filter>
@@ -562,6 +568,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\query.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\draw.cpp">
+      <Filter>Source Files\rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

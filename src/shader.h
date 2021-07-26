@@ -27,25 +27,32 @@
 #include <fstream>
 #include <iostream>
 #include <streambuf>
+#include <unordered_map>
+#include <vector>
+#include <string>
 
 class ShaderProgram {
- private:
-  GLuint create_shader(const char* shader, GLenum shader_type);
-
-  GLuint program_;
-
  public:
-  ShaderProgram(const std::string& vs, const std::string& fs);
-  ShaderProgram(const std::string& vs, const std::string& fs, const std::string& gs);
+  ShaderProgram(const std::string& vs, const std::string& fs, const std::vector<std::string>& extensions);
+  ShaderProgram(const std::string& vs, const std::string& fs, const std::string& gs, const std::vector<std::string>& extensions);
   ShaderProgram(GLuint program);
 
   static ShaderProgram load_from_file(const std::string& vs_file,
                                       const std::string& fs_file,
-                                      const std::string& gs_file);
+                                      const std::string& gs_file,
+                                      const std::vector<std::string>& extensions);
 
   void use();
-
   GLuint id();
+  GLuint texture_slot(const std::string& name);
+
+private:
+  GLuint create_shader(std::string& shader, GLenum shader_type, const std::vector<std::string>& extensions);
+  void register_texture_slots();
+
+  GLuint program_;
+  
+  std::unordered_map<std::string, GLuint> sampler_name_to_texture_slot_;
 };
 
 #endif  // SHADER__H

@@ -272,11 +272,10 @@ qbResult loop(qbLoopCallbacks callbacks,
   e.frame = universe_->frame;
   e.alpha = game_loop.accumulator / game_loop.dt;
   e.dt = frame_time;
-  e.camera = qb_camera_getactive();
   e.renderer = qb_renderer();
 
   if (universe_->enabled & QB_FEATURE_GRAPHICS) {
-    gui_element_updateuniforms();
+    //gui_element_updateuniforms();
   }
 
   lua_draw(AS_PRIVATE(main_lua_state()));

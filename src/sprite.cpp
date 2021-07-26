@@ -479,7 +479,7 @@ void qb_animation_setoffset(qbAnimation animation, vec2s offset) {
 }
 
 qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
-  qbRenderPass render_pass;
+  qbRenderPass render_pass{};
 
   qbBufferBinding_ binding = {};
   binding.binding = 0;
@@ -567,9 +567,9 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
   qbShaderModule shader_module;
   {
-    std::vector<qbShaderResourceInfo_> resources{};
+    std::vector<qbShaderResourceBinding_> resources{};
     {      
-      qbShaderResourceInfo_ info;
+      qbShaderResourceBinding_ info;
       info.binding = UniformCamera::Binding();
       info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
       info.stages = QB_SHADER_STAGE_VERTEX;
@@ -582,7 +582,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     resource_names.reserve(MAX_BATCH_TEXTURE_UNITS + 1);
     for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
       resource_names.push_back(std::string("tex_sampler[") + std::to_string(i) + "]");
-      qbShaderResourceInfo_ info;
+      qbShaderResourceBinding_ info;
       info.binding = 1 + i;
       info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
       info.stages = QB_SHADER_STAGE_FRAGMENT;
@@ -596,8 +596,8 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     attr.fs = get_sprite_fs();
     attr.interpret_as_strings = true;
 
-    attr.resources = resources.data();
-    attr.resources_count = resources.size();
+    //attr.resources = resources.data();
+    //attr.resources_count = resources.size();
 
     qb_shadermodule_create(&shader_module, &attr);
   }
@@ -641,7 +641,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
     qb_shadermodule_attachsamplers(shader_module, bindings.size(), bindings.data(), image_samplers.data());
   }
-
+  /*
   {
     qbRenderPassAttr_ attr = {};
     attr.name = "Sprite Render Pass";
@@ -653,7 +653,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     attr.shader = shader_module;
     attr.viewport = { 0.0, 0.0, (float)width, (float)height };
     attr.viewport_scale = 1.0f;
-    attr.cull = QB_CULL_NONE;
+    attr.cull = QB_FACE_NONE;
 
     qbClearValue_ clear{};
     clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
@@ -663,7 +663,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
     qb_renderpass_create(&render_pass, &attr);
   }
-
+  */
   {
     qbGpuBufferAttr_ attr = {};
     attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
@@ -708,6 +708,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 }
 
 void sprite_initialize(uint32_t width, uint32_t height) {
+  return;
   sprite_render_pass = sprite_create_renderpass(width, height);
   sprite_path = std::filesystem::path(qb_resources()->dir) / qb_resources()->sprites;
 

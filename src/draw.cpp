@@ -107,7 +107,7 @@ void qb_draw_alpha(qbDrawCommands cmds, float alpha) {
 }
 
 void qb_draw_material(qbDrawCommands cmds, struct qbMaterial_* material) {
-  assert(false && "unimplemented");
+  cmds->cur.args.material = material;
 }
 
 void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh) {
@@ -153,7 +153,7 @@ void qb_draw_circle(qbDrawCommands cmds, float r) {
 }
 
 void qb_draw_sphere(qbDrawCommands cmds, float r) {
-  qb_draw_scalev(cmds, { r, r, 1.f });
+  qb_draw_scalev(cmds, { r, r, r });
 
   cmds->cur.command.sphere = { r };
   cmds->cur.type = QB_DRAW_SPHERE;
