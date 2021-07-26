@@ -54,7 +54,10 @@ typedef struct qbMaterialAttr_ {
 } qbMaterialAttr_, *qbMaterialAttr;
 
 typedef struct qbMaterial_ {
-  const char* name;
+  vec3s albedo;
+  float metallic;
+  vec3s emission;
+  float roughness;  
 
   qbImage albedo_map;
   qbImage normal_map;
@@ -63,18 +66,7 @@ typedef struct qbMaterial_ {
   qbImage ao_map;
   qbImage emission_map;
 
-  vec3s albedo;
-  float metallic;
-  float roughness;
-  vec3s emission;
-
-  qbImage* images;
-  uint32_t* image_units;
-  uint32_t image_count;
-
-  qbGpuBuffer* uniforms;
-  uint32_t* uniform_bindings;
-  uint32_t uniform_count;
+  const char* name;
 
   qbRenderExt ext;
 } qbMaterial_, *qbMaterial;
@@ -165,9 +157,9 @@ QB_API qbResult qb_collider_destroy(qbCollider* collider);
 QB_API qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_name);
 QB_API qbResult qb_material_destroy(qbMaterial* material);
 
-QB_API struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider);
-QB_API struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider);
-QB_API struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider);
+//QB_API struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider);
+//QB_API struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider);
+//QB_API struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider);
 
 QB_API qbBool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
                               const qbTransform_* a_t, const qbTransform_* b_t);

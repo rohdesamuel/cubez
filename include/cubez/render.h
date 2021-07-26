@@ -27,9 +27,23 @@
 typedef struct qbModelGroup_* qbModelGroup;
 
 typedef struct qbRenderer_ {
-  void(*render)(struct qbRenderer_* self, const struct qbCamera_* camera, qbRenderEvent event);
+  void(*render)(struct qbRenderer_* self, qbRenderEvent event);
   void(*resize)(struct qbRenderer_* self, uint32_t width, uint32_t height);
+  qbResult(*drawcommands_submit)(struct qbRenderer_* self, struct qbDrawCommands_* cmds);
   
+  size_t(*max_lights)(struct qbRenderer_* self);
+  void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_directional)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s dir, float brightness);
+  void(*light_point)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s pos, float linear, float quadratic, float radius);
+  void(*light_spot)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s pos, vec3s dir, float brightness,
+    float radius, float angle_deg);
+  size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
+
   void(*modelgroup_create)(struct qbRenderer_* self, qbModelGroup* modelgroup);
   void(*modelgroup_destroy)(struct qbRenderer_* self, qbModelGroup* modelgroup);
   void(*modelgroup_upload)(struct qbRenderer_* self, qbModelGroup modelgroup,
@@ -37,8 +51,7 @@ typedef struct qbRenderer_ {
   qbRenderGroup(*modelgroup_rendergroup)(struct qbRenderer_* self, qbModelGroup modelgroup);
 
   size_t(*max_texture_units)(struct qbRenderer_* self);
-  size_t(*max_uniform_units)(struct qbRenderer_* self);
-  size_t(*max_lights)(struct qbRenderer_* self);
+  size_t(*max_uniform_units)(struct qbRenderer_* self);  
 
   qbMeshBuffer(*meshbuffer_create)(struct qbRenderer_* self, struct qbMesh_* mesh);
   void(*meshbuffer_attach_material)(struct qbRenderer_* self, qbMeshBuffer buffer,
@@ -62,18 +75,6 @@ typedef struct qbRenderer_ {
                                      uint32_t uniform_bindings[],
                                      qbGpuBuffer uniforms[]);
 
-  void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
-  void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
-  bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
-  void(*light_directional)(struct qbRenderer_* self, qbId id, vec3s rgb,
-                           vec3s dir, float brightness);
-  void(*light_point)(struct qbRenderer_* self, qbId id, vec3s rgb,
-                     vec3s pos, float brightness, float range);
-  void(*light_spot)(struct qbRenderer_* self, qbId id, vec3s rgb,
-                    vec3s pos, vec3s dir, float brightness,
-                    float range, float angle_deg);
-  size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
-
   qbFrameBuffer(*camera_framebuffer_create)(struct qbRenderer_* self, uint32_t width, uint32_t height);
 
   const char* title;
@@ -89,7 +90,7 @@ typedef struct qbRendererAttr_ {
   // A list of any new uniforms to be used in the shader. The bindings should
   // start at 0. These should not include any texture sampler uniforms. For
   // those, use the image_samplers value.
-  qbShaderResourceInfo shader_resources;
+  qbShaderResourceBinding shader_resources;
   uint32_t shader_resource_count;
 
   // The bindings should start at 0. These should not include any texture
@@ -116,33 +117,16 @@ typedef struct qbRendererAttr_ {
 
 } qbRendererAttr_, *qbRendererAttr;
 
-typedef struct qbCameraAttr_ {
-  uint32_t width;
-  uint32_t height;
-  float fov;
-  float znear;
-  float zfar;
-
-  mat4s rotation_mat;
-  vec3s origin;
-} qbCameraAttr_, *qbCameraAttr;
-
 typedef struct qbCamera_ {
-  uint32_t width;
-  uint32_t height;
-  float ratio;
+  float aspect;
+  float near;
+  float far;
   float fov;
-  float znear;
-  float zfar;
 
+  vec3s eye;
   mat4s view_mat;
   mat4s projection_mat;
-  mat4s rotation_mat;
-  vec3s origin;
-  vec3s up;
-  vec3s forward;
-} qbCamera_;
-typedef const qbCamera_* qbCamera;
+} qbCamera_, *qbCamera;
 
 typedef struct qbRenderEvent_ {
   double alpha;
@@ -150,7 +134,6 @@ typedef struct qbRenderEvent_ {
   uint64_t frame;
 
   qbRenderer renderer;
-  qbCamera camera;
 } qbRenderEvent_, *qbRenderEvent;
 
 enum qbLightType {
@@ -165,7 +148,6 @@ enum qbFullscreenType {
   QB_WINDOW_FULLSCREEN_DESKTOP
 };
 
-
 QB_API uint32_t qb_window_width();
 QB_API uint32_t qb_window_height();
 
@@ -175,18 +157,11 @@ QB_API qbFullscreenType  qb_window_fullscreen();
 QB_API void qb_window_setbordered(int bordered);
 QB_API int qb_window_bordered();
 
-QB_API void qb_camera_create(qbCamera* camera, qbCameraAttr attr);
-QB_API void qb_camera_destroy(qbCamera* camera);
-QB_API void qb_camera_activate(qbCamera camera);
-QB_API void qb_camera_deactivate(qbCamera camera);
-QB_API qbCamera qb_camera_getactive();
-
+QB_API qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye);
+QB_API qbCamera qb_camera_perspective(float fov, float aspect, float near, float far, vec3s eye, vec3s center, vec3s up);
 QB_API void qb_camera_resize(qbCamera camera, uint32_t width, uint32_t height);
-QB_API void qb_camera_setfov(qbCamera camera, float fov);
-QB_API void qb_camera_setclip(qbCamera camera, float znear, float zfar);
-QB_API void qb_camera_setrotation(qbCamera camera, mat4s rotation);
-QB_API void qb_camera_setorigin(qbCamera camera, vec3s origin);
-QB_API qbFrameBuffer qb_camera_getfbo(qbCamera camera);
+QB_API void qb_camera_destroy(qbCamera* camera);
+
 
 QB_API vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen);
 QB_API vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world);
@@ -196,7 +171,7 @@ QB_API void qb_light_disable(qbId id, qbLightType light_type);
 QB_API bool qb_light_isenabled(qbId id, qbLightType light_type);
 
 QB_API void qb_light_directional(qbId id, vec3s rgb, vec3s dir, float brightness);
-QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float brightness, float range);
+QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float linear, float quadratic, float radius);
 
 QB_API size_t qb_light_getmax(qbLightType light_type);
 
@@ -226,6 +201,7 @@ QB_API void qb_modelgroup_upload(qbModelGroup modelgroup, struct qbModel_* model
                                  struct qbMaterial_* material);
 
 QB_API qbRenderGroup qb_modelgroup_rendergroup(qbModelGroup modelgroup);
+
 
 // Component type: tag
 QB_API qbComponent qb_renderable();
