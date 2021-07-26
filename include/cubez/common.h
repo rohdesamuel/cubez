@@ -97,7 +97,6 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define QB_API extern "C" __declspec(dllexport)
 #else 
 #define QB_API extern "C" __declspec(dllimport)
-#define CPP_API 
 #endif  // _EXPORT_BUILD
 #define STRCPY strcpy_s
 #define STRDUP _strdup
@@ -105,7 +104,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define ALIGNED_ALLOC _aligned_malloc
 #define ALIGNED_FREE _aligned_free
 #else
-#define API extern "C"
+#define QB_API extern "C"
 #define STRCPY strcpy
 #define STRDUP strdup
 #define SSCANF sscanf
