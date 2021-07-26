@@ -741,7 +741,6 @@ QB_API qbResult qb_on_mouse_event(qbSystem system);
 QB_API qbBool qb_scancode_ispressed(qbScanCode scan_code);
 QB_API qbBool qb_key_ispressed(qbKey key);
 QB_API qbBool qb_mouse_ispressed(qbButton mouse_button);
-QB_API qbBool qb_mouse_waspressed(qbButton mouse_button);
 
 QB_API void qb_mouse_getposition(int* x, int* y);
 QB_API void qb_mouse_getrelposition(int* relx, int* rely);
