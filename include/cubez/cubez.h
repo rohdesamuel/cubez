@@ -75,6 +75,9 @@ typedef struct qbResourceAttr_ {
   const char* fonts;
   const char* sounds;
   const char* sprites;
+  const char* textures;
+  const char* meshes;
+
 } qbResourceAttr_, *qbResourceAttr;
 
 typedef struct {
