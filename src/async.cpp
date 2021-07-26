@@ -13,6 +13,7 @@
 #include "concurrentqueue.h"
 #include "defs.h"
 #include "thread_pool.h"
+#include "async_internal.h"
 
 TaskThreadPool* thread_pool;
 
@@ -211,13 +212,20 @@ void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info) {
   bundle->tasks_.clear();
 }
 
-void qb_taskbundle_end(qbTaskBundle bundle) {
+void qb_taskbundle_end(qbTaskBundle bundle) {}
+
+void qb_taskbundle_clear(qbTaskBundle bundle) {
+  bundle->tasks_.clear();
 }
 
 void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info) {
   bundle->tasks_.push_back([entry](qbTask task, qbVar var) {
     return entry(task, var);
   });
+}
+
+void qb_taskbundle_addtask(qbTaskBundle bundle, std::function<qbVar(qbTask, qbVar)>&& entry, qbTaskBundleAddTaskInfo info) {
+  bundle->tasks_.push_back(entry);
 }
 
 void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info) {
@@ -250,9 +258,9 @@ void qb_taskbundle_addsleep(qbTaskBundle bundle, uint64_t duration_ms, qbTaskBun
 }
 
 qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
-  decltype(qbTaskBundle_::tasks_) tasks = std::move(bundle->tasks_);
+  decltype(qbTaskBundle_::tasks_) tasks = bundle->tasks_;
 
-  qbTask task = thread_pool->enqueue([tasks, task, arg]() {
+  qbTask task = thread_pool->enqueue([tasks = std::move(tasks), task, arg]() {
     qbVar varg = arg;
     for (auto& entry : tasks) {
       varg = entry(task, varg);
@@ -263,13 +271,20 @@ qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitIn
 }
 
 qbTask qb_taskbundle_dispatch(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
-  decltype(qbTaskBundle_::tasks_) tasks = std::move(bundle->tasks_);
+  decltype(qbTaskBundle_::tasks_) tasks = bundle->tasks_;
 
-  return thread_pool->dispatch([tasks, arg](qbTask task) {
+  return thread_pool->dispatch([tasks = std::move(tasks), arg](qbTask task) {
     qbVar varg = arg;
     for (auto& entry : tasks) {
       varg = entry(task, varg);
     }
     return varg;
   });
+}
+
+qbVar qb_taskbundle_run(qbTaskBundle bundle, qbVar arg) {
+  for (auto& entry : bundle->tasks_) {
+    arg = entry(qbInvalidHandle, arg);
+  }
+  return arg;
 }
