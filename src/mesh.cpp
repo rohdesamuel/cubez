@@ -34,6 +34,7 @@
 #include <cubez/cubez.h>
 #include <assert.h>
 #include <algorithm>
+#include <filesystem>
 
 #include "render_defs.h"
 #include <cglm/struct.h>
@@ -47,8 +48,42 @@
 #define CHECK_GL()
 #endif
 
+qbMesh qb_mesh_load(const char* mesh_name, const char* filename) {
+  auto resources = qb_resources();
+  std::filesystem::path path{};
+  if (resources->meshes) {
+    path = std::filesystem::path(qb_resources()->dir) / qb_resources()->meshes;
+  }
+  else {
+    path = std::filesystem::path(qb_resources()->dir);
+  }
+
+  path = path / filename;
+
+  assert(std::filesystem::exists(path) && "Mesh does not exist.");
+
+  MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
+  qbMesh ret = builder.Mesh(QB_DRAW_MODE_TRIANGLES);
+
+  qbRenderer r = qb_renderer();
+  r->mesh_create(r, ret);
+
+  return ret;
+}
+
 qbModel qb_model_load(const char* model_name, const char* filename) {
-  MeshBuilder builder = MeshBuilder::FromFile(filename);
+  auto resources = qb_resources();
+  std::filesystem::path path{};
+  if (resources->meshes) {
+    path = std::filesystem::path(qb_resources()->dir) / qb_resources()->meshes;
+  }
+  else {
+    path = std::filesystem::path(qb_resources()->dir);
+  }
+
+  path = path / filename;
+
+  MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
   return builder.Model(QB_DRAW_MODE_TRIANGLES);
 }
 
@@ -104,8 +139,7 @@ bool qb_model_collides(vec3 a_origin, vec3 b_origin, qbModel a, qbModel b) {
 }
 
 qbResult qb_mesh_tobuffer(qbMesh mesh, qbMeshBuffer* buffer) {
-  qbRenderer renderer = qb_renderer();
-  *buffer = renderer->meshbuffer_create(renderer, mesh);
+  assert(false && "unimplemented");
   return QB_OK;
 }
 

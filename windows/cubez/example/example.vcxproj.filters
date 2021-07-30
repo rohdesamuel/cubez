@@ -50,9 +50,6 @@
     <ClCompile Include="..\..\..\example\src\renderer.cpp">
       <Filter>Source Files\modules</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\example\src\deferred_pipeline.cpp">
-      <Filter>Source Files\modules</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\cubez\common.h">
@@ -71,9 +68,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\example\src\renderer.h">
-      <Filter>Header Files\modules</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\example\src\deferred_pipeline.h">
       <Filter>Header Files\modules</Filter>
     </ClInclude>
   </ItemGroup>

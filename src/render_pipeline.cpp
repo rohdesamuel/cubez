@@ -186,7 +186,7 @@ typedef struct qbRenderPass_ {
   float viewport_scale;
 
   qbClearValue_ clear;
-  qbRenderFace cull;
+  qbFace cull;
   float line_width;
 } qbRenderPass_;
 
@@ -229,6 +229,7 @@ typedef struct qbDrawCommandBuffer_ {
   }
 
   void return_bundle(qbTaskBundle task_bundle) {
+    qb_taskbundle_clear(task_bundle);
     allocated_bundles.push_back(task_bundle);
   }
 
@@ -449,14 +450,14 @@ GLenum TranslateQbFrontFaceToOpenGl(qbFrontFace face) {
   return 0;
 }
 
-GLenum TranslateQbCullFaceToOpenGl(qbRenderFace face) {
+GLenum TranslateQbCullFaceToOpenGl(qbFace face) {
   switch (face) {
     case QB_FACE_NONE: return GL_NONE;
     case QB_FACE_FRONT: return GL_FRONT;
     case QB_FACE_BACK:  return GL_BACK;
     case QB_FACE_FRONT_AND_BACK: return GL_FRONT_AND_BACK;
   }
-  assert(false && "Invalid qbRenderFace");
+  assert(false && "Invalid qbFace");
   return GL_NONE;
 }
 
@@ -2480,6 +2481,19 @@ void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count) {
 
 void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf) {
   qb_taskbundle_clear(cmd_buf->task_bundle);
+}
+
+void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face) {
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    if (cull_face == QB_FACE_NONE) {
+      glDisable(GL_CULL_FACE);
+    } else {
+      glEnable(GL_CULL_FACE);
+      glCullFace(TranslateQbCullFaceToOpenGl(cull_face));
+    }
+
+    return var;
+  }, {});
 }
 
 void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info) {

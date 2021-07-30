@@ -90,6 +90,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     resource_attr.scripts = "";
     resource_attr.sounds = "";
     resource_attr.sprites = "";
+    resource_attr.meshes = "";
 
     if (attr->resource_args) {
       resource_attr.dir = attr->resource_args->dir ?
@@ -106,6 +107,9 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 
       resource_attr.sprites = attr->resource_args->sprites ?
         STRDUP(attr->resource_args->sprites) : resource_attr.sprites;
+
+      resource_attr.meshes = attr->resource_args->meshes ?
+        STRDUP(attr->resource_args->meshes) : resource_attr.meshes;
     }
 
     resource_dir = fs::path(resource_attr.dir);

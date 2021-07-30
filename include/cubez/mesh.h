@@ -84,16 +84,15 @@ typedef struct qbCollider_ {
 } qbCollider_, *qbCollider;
 
 typedef struct qbMesh_ {
+  qbGpuBuffer vbo;
+  qbGpuBuffer ibo;
+
   vec3s* vertices;
-  uint32_t vertex_count;
-
   vec3s* normals;
-  uint32_t normal_count;
-
   vec2s* uvs;
-  uint32_t uv_count;
-
   uint32_t* indices;
+
+  uint32_t vertex_count;
   uint32_t index_count;
 
   qbDrawMode mode;
@@ -143,6 +142,12 @@ QB_API int qb_meshbuilder_addvt(qbMeshBuilder builder, vec2s vt);
 QB_API int qb_meshbuilder_addvn(qbMeshBuilder builder, vec3s vn);
 QB_API int qb_meshbuilder_addline(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]);
 QB_API int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]);
+
+QB_API qbMesh qb_mesh_load(const char* mesh_name, const char* filename);
+
+
+// Old-API
+// TODO: remove unused
 
 QB_API qbModel qb_model_load(const char* model_name, const char* filename);
 QB_API struct qbModelGroup_* qb_model_upload(qbModel model);

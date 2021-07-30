@@ -19,7 +19,15 @@ struct qbDrawCommands_ {
 static qbMemoryAllocator allocator = nullptr;
 static qbMemoryAllocator cmd_allocator = nullptr;
 
-void qb_draw_init(qbDrawCommands cmds, const qbCamera_* camera);
+void qb_draw_init(qbDrawCommands cmds, const qbCamera_* camera) {
+  cmds->commands[cmds->commands_count++] = {
+    .type = QB_DRAW_CAMERA,
+    .command = qbDrawCommandInit_ {
+      .camera = camera
+    }
+  };
+}
+
 qbDrawCommands qb_draw_begin(const struct qbCamera_* camera) {
   if (!allocator) {
     allocator = qb_memallocator_pool();
@@ -41,15 +49,6 @@ qbDrawCommands qb_draw_begin(const struct qbCamera_* camera) {
   qb_draw_init(ret, &ret->camera);
 
   return ret;
-}
-
-void qb_draw_init(qbDrawCommands cmds, const qbCamera_* camera) {
-  cmds->commands[cmds->commands_count++] = {
-    .type = QB_DRAW_CAMERA,
-    .command = qbDrawCommandInit_ {
-      .camera = camera
-    }
-  };
 }
 
 void qb_draw_settransform(qbDrawCommands cmds, mat4s transform) {
@@ -110,10 +109,6 @@ void qb_draw_material(qbDrawCommands cmds, struct qbMaterial_* material) {
   cmds->cur.args.material = material;
 }
 
-void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh) {
-  assert(false && "unimplemented");
-}
-
 void qb_draw_tri(qbDrawCommands cmds, float x0, float y0, float x1, float y1, float x2, float y2) {
   cmds->cur.command.tri = { { {x0, y0}, {x1, y1}, {x2, y2} } };
   cmds->cur.type = QB_DRAW_TRI;
@@ -158,6 +153,20 @@ void qb_draw_sphere(qbDrawCommands cmds, float r) {
   cmds->cur.command.sphere = { r };
   cmds->cur.type = QB_DRAW_SPHERE;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
+}
+
+void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh) {
+  cmds->cur.command.mesh = { mesh };
+  cmds->cur.type = QB_DRAW_MESH;
+  cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
+}
+
+void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model) {
+  assert(false && "unimplemented");
+}
+
+void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms) {
+  assert(false && "unimplemented");
 }
 
 qbResult qb_draw_end(qbDrawCommands cmds) {

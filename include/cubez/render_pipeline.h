@@ -244,11 +244,10 @@ typedef struct qbVertexAttribute_ {
   const void* offset;
 } qbVertexAttribute_;
 
-typedef enum {
-  QB_SHADER_STAGE_VERTEX = 0x0001,
-  QB_SHADER_STAGE_FRAGMENT = 0x0002,
-  QB_SHADER_STAGE_GEOMETRY = 0x0004,
-} qbShaderStage;
+#define QB_SHADER_STAGE_VERTEX 0x0001
+#define QB_SHADER_STAGE_FRAGMENT 0x0002
+#define QB_SHADER_STAGE_GEOMETRY 0x0004
+typedef int32_t qbShaderStage;
 
 typedef enum {
   QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
@@ -295,7 +294,7 @@ typedef enum {
   QB_FACE_FRONT,
   QB_FACE_BACK,
   QB_FACE_FRONT_AND_BACK,
-} qbRenderFace;
+} qbFace;
 
 typedef enum {
   QB_RENDER_TEST_FUNC_NEVER,
@@ -322,9 +321,9 @@ typedef struct qbDepthStencilState_ {
 
 typedef struct qbRasterizationInfo_ {
   qbPolygonMode raster_mode;
-  qbRenderFace raster_face;
+  qbFace raster_face;
   qbFrontFace front_face;
-  qbRenderFace cull_face;  
+  qbFace cull_face;  
   qbBool enable_depth_clamp;
 
   float point_size;
@@ -704,6 +703,8 @@ typedef struct qbDrawCommandBuffer_* qbDrawCommandBuffer;
 QB_API void qb_drawcmd_create(qbDrawCommandBuffer* cmd_buf, qbDrawCommandBufferAttr attr);
 QB_API void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count);
 QB_API void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf);
+
+QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
 QB_API void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info);
 QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
 QB_API void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport);

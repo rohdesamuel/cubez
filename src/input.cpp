@@ -265,6 +265,13 @@ void qb_mouse_getwheel(int* scroll_x, int* scroll_y) {
   *scroll_y = wheel_y;
 }
  
+qbBool qb_mouse_setshow(qbBool enable) {
+  return SDL_ShowCursor(enable);
+}
+
+qbBool qb_mouse_getshow(qbBool enable) {
+  return SDL_ShowCursor(SDL_QUERY);
+}
 
 qbInputFocus qb_user_focus() {
   return input_focus;

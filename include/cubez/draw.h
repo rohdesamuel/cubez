@@ -24,7 +24,6 @@ QB_API void qb_draw_colorf(qbDrawCommands cmds, float r, float g, float b);
 QB_API void qb_draw_colorv(qbDrawCommands cmds, vec3s c);
 QB_API void qb_draw_alpha(qbDrawCommands cmds, float alpha);
 QB_API void qb_draw_material(qbDrawCommands cmds, struct qbMaterial_* material);
-QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
 
 QB_API void qb_draw_tri(qbDrawCommands cmds, float x0, float y0, float x1, float y1, float x2, float y2);
 QB_API void qb_draw_quad(qbDrawCommands cmds, float w, float h);
@@ -34,6 +33,9 @@ QB_API void qb_draw_square(qbDrawCommands cmds, float size);
 QB_API void qb_draw_cube(qbDrawCommands cmds, float size);
 QB_API void qb_draw_box(qbDrawCommands cmds, float w, float h, float d);
 QB_API void qb_draw_sphere(qbDrawCommands cmds, float r);
+QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
+QB_API void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model);
+QB_API void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms);
 QB_API qbResult qb_draw_end(qbDrawCommands cmds);
 
 
@@ -78,6 +80,12 @@ typedef struct qbDrawCommandSphere_ {
 
 typedef struct qbDrawCommandMesh_ {
   struct qbMesh_* mesh;
+};
+
+typedef struct qbDrawCommandInstanced_ {
+  struct qbMesh_* mesh;
+  mat4s* transforms;
+  size_t instance_count;
 };
 
 typedef struct qbDrawCommandArgs_ {

@@ -128,7 +128,7 @@ qbResult process_line(MeshBuilder* builder, const std::string& token,
       builder->AddNormal(std::move(vn));
     }
   } else if (token == "f") {
-    MeshBuilder::Face face;
+    MeshBuilder::Face face{};
     if (SSCANF(line.c_str(),
                "%d/%d/%d %d/%d/%d %d/%d/%d",
                &face.v[0], &face.vt[0], &face.vn[0],
@@ -166,7 +166,7 @@ qbResult process_line(MeshBuilder* builder, const std::string& token,
       face.vn[0] = face.vn[1] = face.vn[2] = -1;
       builder->AddFace(std::move(face));
     }
-  } else if (token != "#" && token != "mtllib" && token != "o") {
+  } else if (token != "#" && token != "mtllib" && token != "o" && token != "usemtl" && token != "s") {
     // Bad format
     return QB_UNKNOWN;
   }
@@ -199,6 +199,22 @@ MeshBuilder MeshBuilder::FromFile(const std::string& filename) {
   if (file.is_open()) {
     std::string line;
     while (getline(file, line)) {
+      bool comment = false;
+      for (auto c : line) {
+        if (c == ' ') {
+          continue;
+        }
+        else if (c == '#') {
+          comment = true;
+          break;
+        }
+
+        comment = false;
+        break;
+      }
+
+      if (comment) continue;
+
       if (process_line(&builder, line) != qbResult::QB_OK) {
         goto cleanup;
       }
@@ -746,6 +762,9 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   assert(normals.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max normal count.");
   assert(uvs.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max uv count.");
 
+  assert((vertices.size() == normals.size() || normals.empty()) && "Normal count must match vertex count.");
+  assert((vertices.size() == uvs.size() || uvs.empty()) && "Normal count must match vertex count.");
+
   qbMesh mesh = new qbMesh_;
   mesh->vertex_count = (uint32_t)vertices.size();
   mesh->vertices = new vec3s[mesh->vertex_count];
@@ -755,18 +774,20 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   mesh->indices = new uint32_t[mesh->index_count];
   memcpy(mesh->indices, indices.data(), mesh->index_count * sizeof(uint32_t));
 
-  mesh->normal_count = (uint32_t)normals.size();
   mesh->normals = nullptr;
-  if (mesh->normal_count > 0) {    
-    mesh->normals = new vec3s[mesh->normal_count];
-    memcpy(mesh->normals, normals.data(), mesh->normal_count * sizeof(vec3));
+  if (!normals.empty()) {    
+    if (mesh->vertex_count > 0) {
+      mesh->normals = new vec3s[mesh->vertex_count];
+      memcpy(mesh->normals, normals.data(), mesh->vertex_count * sizeof(vec3));
+    }
   }
 
-  mesh->uv_count = (uint32_t)uvs.size();
   mesh->uvs = nullptr;
-  if (mesh->uv_count > 0) {
-    mesh->uvs = new vec2s[mesh->uv_count];
-    memcpy(mesh->uvs, uvs.data(), mesh->uv_count * sizeof(vec2));
+  if (!uvs.empty()) {
+    if (mesh->vertex_count > 0) {
+      mesh->uvs = new vec2s[mesh->vertex_count];
+      memcpy(mesh->uvs, uvs.data(), mesh->vertex_count * sizeof(vec2));
+    }
   }
   mesh->mode = render_mode;
 
@@ -799,6 +820,8 @@ qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbDrawMode mode,
                               qbMesh* mesh, qbCollider* collider) {
   if (mesh) {
     *mesh = builder->builder.Mesh(mode);
+    qbRenderer r = qb_renderer();
+    r->mesh_create(r, *mesh);
   }
 
   if (collider) {

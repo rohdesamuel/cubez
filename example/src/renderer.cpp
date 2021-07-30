@@ -6,10 +6,12 @@
 #include <cubez/render.h>
 #include <cubez/draw.h>
 #include <cubez/memory.h>
+#include <cubez/log.h>
 
 #include <cglm/struct.h>
 #include <array>
 #include <unordered_map>
+#include <unordered_set>
 
 const size_t MAX_TRI_BATCH_COUNT = 100;
 
@@ -30,9 +32,9 @@ struct MaterialUbo {
 };
 
 struct Vertex {
-  vec3s pos[3];
-  vec3s norm[3];
-  vec2s tex[2];
+  vec3s pos;
+  vec3s norm;
+  vec2s tex;
 };
 
 struct LightPoint {
@@ -44,7 +46,7 @@ struct LightPoint {
   float radius;
 
   // The struct needs to be a multiple of the size of vec4 (std140).
-  float pad_[3];
+  float _pad[3];
 };
 
 struct LightDirectional {
@@ -66,16 +68,16 @@ struct LightSpot {
 };
 
 const int MAX_DIRECTIONAL_LIGHTS = 4;
-const int MAX_POINT_LIGHTS = 32;
+const int MAX_POINT_LIGHTS = 1024;
 const int MAX_SPOT_LIGHTS = 8;
 
 struct LightUbo {
   LightPoint point_lights[MAX_POINT_LIGHTS];
   LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
   vec3s view_pos;
-  float num_point_lights;
-  float num_dir_lights;
+  int32_t pass_id;
 
+  int32_t num_dir_lights;
   // The struct needs to be a multiple of the size of vec4 (std140).
   float _pad[3];
 };
@@ -107,15 +109,14 @@ struct qbDefaultRenderer_ {
   qbGpuBuffer quad_buffer;
   qbGpuBuffer camera_ubo;
   qbGpuBuffer material_ubo;
-  qbGpuBuffer model_ubo;
-  qbGpuBuffer light_ubo;
+  qbGpuBuffer model_ubo;  
 
   std::array<struct LightDirectional, MAX_DIRECTIONAL_LIGHTS> directional_lights;
-  std::array<bool, MAX_DIRECTIONAL_LIGHTS> enabled_directional_lights;
+  std::unordered_set<qbId> enabled_directional_lights;
   std::array<struct LightPoint, MAX_POINT_LIGHTS> point_lights;
-  std::array<bool, MAX_POINT_LIGHTS> enabled_point_lights;
+  std::unordered_set<qbId> enabled_point_lights;
   std::array<struct LightSpot, MAX_SPOT_LIGHTS> spot_lights;
-  std::array<bool, MAX_SPOT_LIGHTS> enabled_spot_lights;
+  std::unordered_set<qbId> enabled_spot_lights;
 
   // Render queue.
   std::vector<qbTask> render_tasks;
@@ -146,19 +147,25 @@ struct qbDefaultRenderer_ {
 
   std::vector<qbFrameBuffer> deferred_fbos;
 
+  // Light state.
+  LightUbo* light_ubo_buf;
+  qbGpuBuffer light_ubo;
 };
 
 qbGpuBuffer tri_verts;
 qbGpuBuffer quad_verts;
 qbGpuBuffer screenquad_verts;
+
 qbGpuBuffer circle_verts;
 size_t circle_verts_count;
 
 qbGpuBuffer box_verts;
 size_t box_verts_count;
 
+std::vector<Vertex> sphere_vertices;
 qbGpuBuffer sphere_verts;
 size_t sphere_verts_count;
+
 
 qbGeometryDescriptor create_geometry_descriptor() {
   qbGeometryDescriptor geometry = new qbGeometryDescriptor_;
@@ -230,11 +237,25 @@ qbShaderResourceLayout create_resource_layout() {
   qbShaderResourceLayout resource_layout;
   qbShaderResourceBinding_ bindings[] = {
     {
-      .name = "light_ubo",
+      .name = "camera_ubo",
       .binding = 0,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
-      .stages = QB_SHADER_STAGE_FRAGMENT,
+      .stages = QB_SHADER_STAGE_VERTEX,
+    },
+    {
+      .name = "light_ubo",
+      .binding = 1,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
+      .resource_count = 1,
+      .stages = QB_SHADER_STAGE_VERTEX | QB_SHADER_STAGE_FRAGMENT,
+    },
+    {
+      .name = "model_ubo",
+      .binding = 2,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
+      .resource_count = 1,
+      .stages = QB_SHADER_STAGE_VERTEX,
     },
     {
       .name = "gPosition",
@@ -319,16 +340,70 @@ qbShaderModule create_shader_module() {
   qbShaderModuleAttr_ attr{};
   attr.vs = R"(      
     #version 330 core
-    layout (location = 0) in vec3 aPos;
+    layout (location = 0) in vec3 in_pos;
     layout (location = 1) in vec3 aNorm;
     layout (location = 2) in vec2 aTexCoords;
 
+    layout(std140, binding = 0) uniform CameraUbo {
+        mat4 viewproj;
+        float frame;
+    } camera_ubo;
+
+    struct LightPoint {
+      vec3 pos;
+      float linear;
+      vec3 col;
+      float quadratic;
+      float radius;
+    };
+
+    struct LightDirectional {
+      vec3 col;
+      float brightness;
+      vec3 dir;
+    };
+
+    const int MAX_POINT_LIGHTS = 1024;
+    const int MAX_DIRECTIONAL_LIGHTS = 4;
+    const int MAX_SPOT_LIGHTS = 8;
+
+    layout(std140, binding = 1) uniform LightUbo {
+      LightPoint point_lights[MAX_POINT_LIGHTS];
+      LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
+      vec3 view_pos;
+
+      // pass_id = 0 --> directional lights
+      // pass_id = 1 --> point lights
+      int pass_id;
+      int num_dir_lights;
+    } light_ubo;
+
+    layout(std140, binding = 2) uniform ModelUbo {
+        mat4 model;
+    } model_ubo;
+
     out vec2 TexCoords;
+    out flat int light_id;
 
     void main()
     {
-        TexCoords = aTexCoords;
-        gl_Position = vec4(aPos, 1.0);
+      if (light_ubo.pass_id == 0) {
+        gl_Position = vec4(in_pos, 1.f);
+      } else if (light_ubo.pass_id == 1) {
+        vec3 scale = vec3(light_ubo.point_lights[gl_InstanceID].radius);
+        vec3 pos = light_ubo.point_lights[gl_InstanceID].pos;
+
+        mat4 model = mat4(
+          vec4(scale.x, 0.0,     0.0,     0.0),
+          vec4(0.0,     scale.y, 0.0,     0.0),
+          vec4(0.0,     0.0,     scale.z, 0.0),
+          vec4(pos.x,   pos.y,   pos.z,   1.0)
+        );
+
+        light_id = gl_InstanceID;
+        vec4 world_pos = model * vec4(in_pos, 1.0);
+        gl_Position = camera_ubo.viewproj * world_pos;
+      }
     })";
 
   attr.fs = R"(
@@ -337,6 +412,7 @@ qbShaderModule create_shader_module() {
     layout (location = 0) out vec4 out_color;
 
     in vec2 TexCoords;
+    in flat int light_id;
 
     uniform sampler2D gPosition;
     uniform sampler2D gNormal;
@@ -356,54 +432,64 @@ qbShaderModule create_shader_module() {
       vec3 dir;
     };
 
-    const int MAX_POINT_LIGHTS = 32;
+    const int MAX_POINT_LIGHTS = 1024;
     const int MAX_DIRECTIONAL_LIGHTS = 4;
     const int MAX_SPOT_LIGHTS = 8;
 
-    layout(std140, binding = 0) uniform LightUbo {
+    layout(std140, binding = 1) uniform LightUbo {
       LightPoint point_lights[MAX_POINT_LIGHTS];
       LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
       vec3 view_pos;
-      float num_point_lights;
+
+      // pass_id = 0 --> directional lights
+      // pass_id = 1 --> point lights
+      int pass_id;
+      int num_dir_lights;
     } light_ubo;
 
     void main()
     {   
-        // retrieve data from gbuffer
-        vec3 FragPos = texture(gPosition, TexCoords).rgb;
-        vec3 Normal = texture(gNormal, TexCoords).rgb;
-        vec3 Diffuse = texture(gAlbedoSpec, TexCoords).rgb;
+        vec2 tex_coords = vec2(gl_FragCoord.x / 1200.f, gl_FragCoord.y / 800.f);
 
-        // TODO: implement specular
-        float Specular = texture(gAlbedoSpec, TexCoords).a;
+        // retrieve data from gbuffer
+        vec3 FragPos = texture(gPosition, tex_coords).rgb;
+        vec3 Normal = texture(gNormal, tex_coords).rgb;
+        vec3 Diffuse = texture(gAlbedoSpec, tex_coords).rgb;
+
+        if (Normal == vec3(0.f, 0.f, 0.f)) {
+          discard;
+        }
+
+        float Specular = texture(gAlbedoSpec, tex_coords).a;
     
         // then calculate lighting as usual
-        vec3 lighting  = Diffuse * 0.1; // hard-coded ambient component
+        vec3 lighting  = vec3(0.f);//Diffuse * 0.1; // hard-coded ambient component
         vec3 viewDir  = normalize(light_ubo.view_pos - FragPos);
-        for(int i = 0; i < light_ubo.num_point_lights; ++i)
-        {
-            // calculate distance between light source and current fragment
-            float distance = length(light_ubo.point_lights[i].pos - FragPos);
-            
-            if(distance < light_ubo.point_lights[i].radius)
-            {
-                // diffuse
-                vec3 lightDir = normalize(light_ubo.point_lights[i].pos - FragPos);
-                vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light_ubo.point_lights[i].col;
-                // specular
-                vec3 halfwayDir = normalize(lightDir + viewDir);  
-                float spec = pow(max(dot(Normal, halfwayDir), 0.0), 16.0);
-                vec3 specular = light_ubo.point_lights[i].col * spec * Specular;
-                // attenuation
-                float attenuation = 1.0 / (1.0 + light_ubo.point_lights[i].linear * distance + light_ubo.point_lights[i].quadratic * distance * distance);
-                diffuse *= attenuation;
-                specular *= attenuation;
-                lighting += (diffuse + specular);
-            }
-        }    
 
-        // TODO: uncomment
-        out_color = vec4(lighting, 1.0);
+        if (light_ubo.pass_id == 0) {
+          for (int i = 0; i < light_ubo.num_dir_lights; ++i) {            
+            lighting += max(dot(Normal, -light_ubo.dir_lights[i].dir), 0.0) * light_ubo.dir_lights[i].brightness;
+          }
+          out_color = vec4(lighting, 1.f);
+        } else if (light_ubo.pass_id == 1) {
+          // calculate distance between light source and current fragment
+          float distance = length(light_ubo.point_lights[light_id].pos - FragPos);
+
+          // diffuse
+          vec3 lightDir = normalize(light_ubo.point_lights[light_id].pos - FragPos);
+          vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light_ubo.point_lights[light_id].col;
+          // specular
+          vec3 halfwayDir = normalize(lightDir + viewDir);  
+          float spec = pow(max(dot(Normal, halfwayDir), 0.0), 16.0);
+          vec3 specular = light_ubo.point_lights[light_id].col * spec * Specular;
+          // attenuation
+          float attenuation = 1.0 / (1.0 + light_ubo.point_lights[light_id].linear * distance + light_ubo.point_lights[light_id].quadratic * distance * distance);
+          diffuse *= attenuation;
+          specular *= attenuation;
+          lighting += (diffuse + specular);
+
+          out_color = vec4(lighting, 1.0);
+        }
     })";
 
   attr.interpret_as_strings = QB_TRUE;
@@ -559,7 +645,6 @@ void create_swapchain(uint32_t width, uint32_t height, qbRenderPass render_pass,
 
   r->deferred_fbos = std::vector<qbFrameBuffer>(swapchain_image_count, nullptr);
   for (size_t i = 0; i < swapchain_image_count; ++i) {
-    // TODO: replace with gposition_buffer
     qbFramebufferAttachment_ attachments[] = {
       { r->gposition_buffer, QB_COLOR_ASPECT },
       { r->gnormal_buffer, QB_COLOR_ASPECT },
@@ -637,38 +722,19 @@ qbRenderPipeline create_render_pipeline(
   qbShaderModule shader,
   qbGeometryDescriptor geometry,
   qbRenderPass render_pass,
-  qbShaderResourcePipelineLayout resource_pipeline_layout) {
+  qbShaderResourcePipelineLayout resource_pipeline_layout,
+  qbColorBlendState blend_state,
+  qbDepthStencilState depth_stencil_state) {
 
   qbRenderPipeline pipeline;
   {
-    qbDepthStencilState_ depth_stencil_state{
-      .depth_test_enable = QB_TRUE,
-      .depth_write_enable = QB_TRUE,
-      .depth_compare_op = QB_RENDER_TEST_FUNC_LESS,
-      .stencil_test_enable = QB_FALSE,
-    };
-
     qbRasterizationInfo_ raster_info{
       .raster_mode = QB_POLYGON_MODE_FILL,
       .raster_face = QB_FACE_FRONT_AND_BACK,
       .front_face = QB_FRONT_FACE_CCW,
-      .cull_face = QB_FACE_NONE,
+      .cull_face = QB_FACE_BACK,
       .enable_depth_clamp = QB_FALSE,
-      .depth_stencil_state = &depth_stencil_state
-    };
-
-    qbColorBlendState_ blend_state{
-      .blend_enable = QB_FALSE,
-      .rgb_blend = {
-        .op = QB_BLEND_EQUATION_ADD,
-        .src = QB_BLEND_FACTOR_SRC_ALPHA,
-        .dst = QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-      },
-      .alpha_blend = {
-        .op = QB_BLEND_EQUATION_ADD,
-        .src = QB_BLEND_FACTOR_SRC_ALPHA,
-        .dst = QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-      },
+      .depth_stencil_state = depth_stencil_state
     };
 
     qbViewport_ viewport{
@@ -696,7 +762,7 @@ qbRenderPipeline create_render_pipeline(
       .shader = shader,
       .geometry = geometry,
       .render_pass = render_pass,
-      .blend_state = &blend_state,
+      .blend_state = blend_state,
       .viewport_state = &viewport_state,
       .rasterization_info = &raster_info,
       .resource_layout = resource_pipeline_layout
@@ -732,7 +798,9 @@ void create_resourcesets(qbDefaultRenderer r) {
     qb_shaderresourceset_create(r->resource_sets.data(), &attr);
 
     for (size_t i = 0; i < swapchain_size; ++i) {
-      qb_shaderresourceset_writeuniform(r->resource_sets[i], 0, r->light_ubo);
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], 0, r->camera_ubo);
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], 1, r->light_ubo);
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], 2, r->model_ubo);
       for (size_t j = 0; j < r->gbuffer_samplers.size(); ++j) {
         qb_shaderresourceset_writeimage(r->resource_sets[i], j, r->gbuffers[j], r->gbuffer_samplers[j]);
       }
@@ -773,12 +841,12 @@ void create_vbos(qbDefaultRenderer r) {
 
   {
     Vertex vertex_data[] = {
-      {.pos = {0.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 0.f}},
-      {.pos = {1.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 1.f}},
-      {.pos = {1.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 0.f}},
-      {.pos = {0.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 0.f}},
-      {.pos = {0.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 1.f}},
-      {.pos = {1.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 1.f}},
+      {.pos = {0.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {0.f, 0.f}},
+      {.pos = {1.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {1.f, 1.f}},
+      {.pos = {1.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {1.f, 0.f}},
+      {.pos = {0.0f, 0.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {0.f, 0.f}},
+      {.pos = {0.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {0.f, 1.f}},
+      {.pos = {1.0f, 1.0f, 0.f}, .norm = {0.f, 0.f, -1.f}, .tex = {1.f, 1.f}},
     };
 
     qbGpuBufferAttr_ attr{
@@ -794,11 +862,11 @@ void create_vbos(qbDefaultRenderer r) {
   {
     Vertex vertex_data[] = {
       {.pos = {-1.0f, -1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 0.f}},
-      {.pos = { 1.0f,  1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 1.f}},
       {.pos = { 1.0f, -1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 0.f}},
-      {.pos = {-1.0f, -1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 0.f}},
-      {.pos = {-1.0f,  1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 1.f}},
       {.pos = { 1.0f,  1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 1.f}},
+      {.pos = {-1.0f, -1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 0.f}},
+      {.pos = { 1.0f,  1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {1.f, 1.f}},
+      {.pos = {-1.0f,  1.0f,  0.f}, .norm = {0.f, 0.f, 1.f}, .tex = {0.f, 1.f}},
     };
 
     qbGpuBufferAttr_ attr{
@@ -856,7 +924,6 @@ void create_vbos(qbDefaultRenderer r) {
   }
 
   {
-    std::vector<Vertex> vertex_data;
     float radius = .5f;
     float slices = 22.f;
     float zslices = 22.f;
@@ -914,38 +981,38 @@ void create_vbos(qbDefaultRenderer r) {
         p3 = glms_vec3_scale(p3, radius);
 
         if (zdir > 0) {
-          vertex_data.push_back(Vertex{
+          sphere_vertices.push_back(Vertex{
             .pos = p2,
             .norm = glms_vec3_scale(p2, 1.0f / radius),
             .tex = t2
           });
 
-          vertex_data.push_back(Vertex{
+          sphere_vertices.push_back(Vertex{
             .pos = p1,
             .norm = glms_vec3_scale(p1, 1.0f / radius),
             .tex = t1
           });
 
-          vertex_data.push_back(Vertex{
+          sphere_vertices.push_back(Vertex{
             .pos = p0,
             .norm = glms_vec3_scale(p0, 1.0f / radius),
             .tex = t0
           });
         }
 
-        vertex_data.push_back(Vertex{
+        sphere_vertices.push_back(Vertex{
           .pos = p2,
           .norm = glms_vec3_scale(p2, 1.0f / radius),
           .tex = t2
         });
 
-        vertex_data.push_back(Vertex{
+        sphere_vertices.push_back(Vertex{
           .pos = p0,
           .norm = glms_vec3_scale(p0, 1.0f / radius),
           .tex = t0
         });
 
-        vertex_data.push_back(Vertex{
+        sphere_vertices.push_back(Vertex{
           .pos = p3,
           .norm = glms_vec3_scale(p3, 1.0f / radius),
           .tex = t3
@@ -955,14 +1022,14 @@ void create_vbos(qbDefaultRenderer r) {
 
 
     qbGpuBufferAttr_ attr{
-      .data = vertex_data.data(),
-      .size = vertex_data.size() * sizeof(Vertex),
+      .data = sphere_vertices.data(),
+      .size = sphere_vertices.size() * sizeof(Vertex),
       .elem_size = sizeof(float),
       .buffer_type = QB_GPU_BUFFER_TYPE_VERTEX,
     };
 
     qb_gpubuffer_create(&sphere_verts, &attr);
-    sphere_verts_count = vertex_data.size();
+    sphere_verts_count = sphere_vertices.size();
   }
 
   {
@@ -1020,32 +1087,59 @@ void create_vbos(qbDefaultRenderer r) {
   }
 }
 
-void update_light_ubo(qbDefaultRenderer r, const struct qbCamera_* camera) {
-  LightUbo l = {};
-  for (size_t i = 0; i < r->directional_lights.size(); ++i) {
-    if (r->enabled_directional_lights[i]) {
-      l.dir_lights[i] = r->directional_lights[i];
-    }
-  }
+void update_directional_lights_ubo(qbDrawCommandBuffer draw_cmds, qbDefaultRenderer r, const struct qbCamera_* camera) {
+  LightUbo* l = r->light_ubo_buf;
 
   int enabled_index = 0;
-  for (size_t i = 0; i < r->point_lights.size(); ++i) {
-    if (r->enabled_point_lights[i]) {
-      l.point_lights[enabled_index] = r->point_lights[i];
+  for (qbId enabled : r->enabled_directional_lights) {
+    l->dir_lights[enabled_index] = r->directional_lights[enabled];
+    ++enabled_index;
+  }
+  l->num_dir_lights = enabled_index;
+
+  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, num_dir_lights), sizeof(int32_t), &l->num_dir_lights);
+  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, dir_lights), sizeof(LightDirectional) * enabled_index, &l->dir_lights);
+
+  l->pass_id = 0;
+  qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &l->pass_id);
+
+  l->view_pos = camera->eye;
+  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, view_pos), sizeof(vec3), &l->view_pos);
+}
+
+// TODO: consider using frustum culling to disregard spheres with influence not
+// seen by camera.
+int update_point_lights_ubo(qbDrawCommandBuffer draw_cmds, qbDefaultRenderer r, const struct qbCamera_* camera, qbFace cull_face) {
+  LightUbo* l = r->light_ubo_buf;
+
+  int enabled_index = 0;
+  for (qbId enabled : r->enabled_point_lights) {
+    float distance = glms_vec3_distance(camera->eye, r->point_lights[enabled].pos);
+    float radius = r->point_lights[enabled].radius;
+
+    if (distance <= radius && cull_face == QB_FACE_FRONT) {
+      l->point_lights[enabled_index] = r->point_lights[enabled];
+      ++enabled_index;
+    }
+
+    if (distance > radius && cull_face == QB_FACE_BACK) {
+      l->point_lights[enabled_index] = r->point_lights[enabled];
       ++enabled_index;
     }
   }
 
-  l.view_pos = camera->eye;
-  l.num_point_lights = (float)enabled_index;
+  qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, point_lights), sizeof(LightPoint) * enabled_index, &l->point_lights);
 
-  qb_gpubuffer_update(r->light_ubo, 0, sizeof(LightUbo), &l);
+  l->pass_id = 1;
+  qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &l->pass_id);
+  return enabled_index;
 }
 
 void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
   size_t swapchain_size = r->swapchain_images.size();
 
   qbDrawCommandBuffer draw_cmds = r->cmd_bufs[frame];
+  const qbCamera_* camera = nullptr;
 
   {
     qbClearValue_ clear_values[4] = {};
@@ -1064,7 +1158,7 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
 
     qb_drawcmd_beginpass(draw_cmds, &begin_info);
     qb_drawcmd_bindpipeline(draw_cmds, r->deferred_render_pipeline);
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, 1, &r->deferred_resource_sets[frame]);
+    qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, 1, &r->deferred_resource_sets[frame]);    
 
     for (auto& [material, cmds] : r->draw_commands.commands) {
       if (material) {
@@ -1081,10 +1175,9 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
         switch (draw_cmd.type) {
         case QB_DRAW_CAMERA:
         {
-          const qbCamera_* camera = draw_cmd.command.init.camera;
+          camera = draw_cmd.command.init.camera;
           r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
-          qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &r->camera_data[frame]);
-          update_light_ubo(r, camera);
+          qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &r->camera_data[frame]);          
           break;
         }
 
@@ -1116,6 +1209,19 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
           qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
           qb_drawcmd_draw(draw_cmds, sphere_verts_count, 1, 0, 0);
           break;
+
+        case QB_DRAW_MESH:
+          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &draw_cmd.command.mesh.mesh->vbo);
+
+          if (draw_cmd.command.mesh.mesh->ibo) {
+            qb_drawcmd_bindindexbuffer(draw_cmds, draw_cmd.command.mesh.mesh->ibo);
+            qb_drawcmd_drawindexed(draw_cmds, draw_cmd.command.mesh.mesh->index_count, 1, 0, 0);
+          }
+          else {
+            qb_drawcmd_draw(draw_cmds, draw_cmd.command.mesh.mesh->vertex_count, 1, 0, 0);
+          }
+          break;
         }
       }
     }
@@ -1123,7 +1229,7 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
     qb_drawcmd_endpass(draw_cmds);
   }
 
-  {
+  if (camera) {
     qbClearValue_ clear_values[2] = {};
     clear_values[0].color = { 0.f, 0.f, 0.f, 1.f };
     clear_values[1].depth = 1.f;
@@ -1137,9 +1243,23 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
 
     qb_drawcmd_beginpass(draw_cmds, &begin_info);
     qb_drawcmd_bindpipeline(draw_cmds, r->render_pipeline);
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->pipeline_layout, 1, &r->resource_sets[frame]);
+    qb_drawcmd_bindshaderresourceset(draw_cmds, r->pipeline_layout, 1, &r->resource_sets[frame]);    
+
+
+    qb_drawcmd_setcull(draw_cmds, QB_FACE_BACK);
+    update_directional_lights_ubo(draw_cmds, r, camera);
     qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &screenquad_verts);
     qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
+
+    int num_enabled = 0;
+    qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
+    num_enabled = update_point_lights_ubo(draw_cmds, r, camera, QB_FACE_BACK);
+    qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
+
+    qb_drawcmd_setcull(draw_cmds, QB_FACE_FRONT);
+    num_enabled = update_point_lights_ubo(draw_cmds, r, camera, QB_FACE_FRONT);
+    qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
+    
     qb_drawcmd_endpass(draw_cmds);
   }
 }
@@ -1181,17 +1301,17 @@ void light_enable(struct qbRenderer_* self, qbId id, qbLightType light_type) {
   switch (light_type) {
   case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
     if (id < MAX_DIRECTIONAL_LIGHTS) {
-      r->enabled_directional_lights[id] = true;
+      r->enabled_directional_lights.insert(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_POINT:
     if (id < MAX_POINT_LIGHTS) {
-      r->enabled_point_lights[id] = true;
+      r->enabled_point_lights.insert(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
     if (id < MAX_SPOT_LIGHTS) {
-      r->enabled_spot_lights[id] = true;
+      r->enabled_spot_lights.insert(id);
     }
     break;
   }
@@ -1202,17 +1322,17 @@ void light_disable(struct qbRenderer_* self, qbId id, qbLightType light_type) {
   switch (light_type) {
   case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
     if (id < MAX_DIRECTIONAL_LIGHTS) {
-      r->enabled_directional_lights[id] = false;
+      r->enabled_directional_lights.erase(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_POINT:
     if (id < MAX_POINT_LIGHTS) {
-      r->enabled_point_lights[id] = false;
+      r->enabled_point_lights.erase(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
     if (id < MAX_SPOT_LIGHTS) {
-      r->enabled_spot_lights[id] = false;
+      r->enabled_spot_lights.erase(id);
     }
     break;
   }
@@ -1223,17 +1343,17 @@ bool light_isenabled(struct qbRenderer_* self, qbId id, qbLightType light_type) 
   switch (light_type) {
   case qbLightType::QB_LIGHT_TYPE_DIRECTIONAL:
     if (id < MAX_DIRECTIONAL_LIGHTS) {
-      return r->enabled_directional_lights[id];
+      return r->enabled_directional_lights.contains(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_POINT:
     if (id < MAX_POINT_LIGHTS) {
-      return r->enabled_point_lights[id];
+      return r->enabled_point_lights.contains(id);
     }
     break;
   case qbLightType::QB_LIGHT_TYPE_SPOTLIGHT:
     if (id < MAX_SPOT_LIGHTS) {
-      return r->enabled_spot_lights[id];
+      return r->enabled_spot_lights.contains(id);
     }
     break;
   }
@@ -1283,6 +1403,66 @@ size_t light_max(struct qbRenderer_* self, qbLightType light_type) {
   return 0;
 }
 
+void mesh_create(struct qbRenderer_* self, struct qbMesh_* mesh) {
+  {
+    qbGpuBufferAttr_ attr{
+      .data = nullptr,
+      .size = sizeof(Vertex) * mesh->vertex_count,
+      .elem_size = sizeof(float),
+      .buffer_type = QB_GPU_BUFFER_TYPE_VERTEX,
+    };
+
+    std::vector<Vertex> vertices;
+    vertices.reserve(mesh->vertex_count);
+    
+    if (!mesh->normals && !mesh->uvs) {
+      for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
+        vertices.push_back(Vertex{
+          .pos = mesh->vertices[i],
+        });
+      }
+    } else if (!mesh->normals && mesh->uvs) {
+      for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
+        vertices.push_back(Vertex{
+          .pos = mesh->vertices[i],
+          .tex = mesh->uvs[i]
+          });
+      }
+    }
+    else if (mesh->normals && !mesh->uvs) {
+      for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
+        vertices.push_back(Vertex{
+          .pos = mesh->vertices[i],
+          .norm = mesh->normals[i],
+          });
+      }
+    }
+    else if (mesh->normals && mesh->uvs) {
+      for (uint32_t i = 0; i < mesh->vertex_count; ++i) {
+        vertices.push_back(Vertex{
+          .pos = mesh->vertices[i],
+          .norm = mesh->normals[i],
+          .tex = mesh->uvs[i]
+          });
+      }
+    }
+
+    attr.data = vertices.data();
+
+    qb_gpubuffer_create(&mesh->vbo, &attr);
+  }
+
+  if (mesh->indices) {
+    qbGpuBufferAttr_ attr{
+      .data = mesh->indices,
+      .size = sizeof(uint32_t) * mesh->index_count,
+      .elem_size = sizeof(uint32_t),
+      .buffer_type = QB_GPU_BUFFER_TYPE_INDEX,
+    };
+
+    qb_gpubuffer_create(&mesh->ibo, &attr);
+  }
+}
 
 struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbDefaultRenderer ret = new qbDefaultRenderer_{};
@@ -1295,12 +1475,14 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
   ret->renderer.light_point = light_point;
   ret->renderer.light_spot = light_spot;
   ret->renderer.light_max = light_max;
+  ret->renderer.mesh_create = mesh_create;
 
   ret->geometry = create_geometry_descriptor();
   ret->camera_ubo = create_uniform<CameraUbo>();
   ret->model_ubo = create_uniform<ModelUbo>();
   ret->material_ubo = create_uniform<MaterialUbo>();
   ret->light_ubo = create_uniform<LightUbo>();
+  ret->light_ubo_buf = new LightUbo{};
 
   ret->resource_layout = create_resource_layout();
   ret->pipeline_layout = create_resource_pipeline_layout(ret->resource_layout);
@@ -1314,11 +1496,43 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
 
   create_swapchain(width, height, ret->render_pass, ret);
 
-  ret->render_pipeline = create_render_pipeline(
-    ret->shader_module, ret->geometry, ret->render_pass, ret->pipeline_layout);
+  {
+    qbDepthStencilState_ depth_stencil_state{
+      .depth_test_enable = QB_TRUE,
+      .depth_write_enable = QB_FALSE,
+      .depth_compare_op = QB_RENDER_TEST_FUNC_LESS,
+      .stencil_test_enable = QB_FALSE,
+    };
 
-  ret->deferred_render_pipeline = create_render_pipeline(
-    ret->deferred_shader_module, ret->geometry, ret->deferred_render_pass, ret->deferred_pipeline_layout);
+    qbColorBlendState_ blend_state{
+      .blend_enable = QB_TRUE,
+      .rgb_blend = {
+        .op = QB_BLEND_EQUATION_ADD,
+        .src = QB_BLEND_FACTOR_ONE,
+        .dst = QB_BLEND_FACTOR_ONE,
+      },
+      .alpha_blend = {
+        .op = QB_BLEND_EQUATION_ADD,
+        .src = QB_BLEND_FACTOR_SRC_ALPHA,
+        .dst = QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      },
+    };
+    ret->render_pipeline = create_render_pipeline(
+      ret->shader_module, ret->geometry, ret->render_pass, ret->pipeline_layout, &blend_state, &depth_stencil_state);
+  }
+
+  {
+    qbDepthStencilState_ depth_stencil_state{
+      .depth_test_enable = QB_TRUE,
+      .depth_write_enable = QB_TRUE,
+      .depth_compare_op = QB_RENDER_TEST_FUNC_LESS,
+      .stencil_test_enable = QB_FALSE,
+    };
+
+    qbColorBlendState_ blend_state{};
+    ret->deferred_render_pipeline = create_render_pipeline(
+      ret->deferred_shader_module, ret->geometry, ret->deferred_render_pass, ret->deferred_pipeline_layout, &blend_state, &depth_stencil_state);
+  }
 
   create_vbos(ret);
   create_resourcesets(ret);

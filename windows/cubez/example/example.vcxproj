@@ -262,14 +262,12 @@
     <Image Include="..\..\..\example\resources\transporter.png" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\example\src\deferred_pipeline.cpp" />
     <ClCompile Include="..\..\..\example\src\forward_renderer.cpp" />
     <ClCompile Include="..\..\..\example\src\main.cpp" />
     <ClCompile Include="..\..\..\example\src\pong.cpp" />
     <ClCompile Include="..\..\..\example\src\renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\example\src\deferred_pipeline.h" />
     <ClInclude Include="..\..\..\example\src\forward_renderer.h" />
     <ClInclude Include="..\..\..\example\src\pong.h" />
     <ClInclude Include="..\..\..\example\src\renderer.h" />

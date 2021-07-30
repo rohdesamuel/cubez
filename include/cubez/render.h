@@ -44,6 +44,8 @@ typedef struct qbRenderer_ {
     float radius, float angle_deg);
   size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
 
+  void(*mesh_create)(struct qbRenderer_* self, struct qbMesh_* mesh);
+
   void(*modelgroup_create)(struct qbRenderer_* self, qbModelGroup* modelgroup);
   void(*modelgroup_destroy)(struct qbRenderer_* self, qbModelGroup* modelgroup);
   void(*modelgroup_upload)(struct qbRenderer_* self, qbModelGroup modelgroup,
@@ -52,8 +54,7 @@ typedef struct qbRenderer_ {
 
   size_t(*max_texture_units)(struct qbRenderer_* self);
   size_t(*max_uniform_units)(struct qbRenderer_* self);  
-
-  qbMeshBuffer(*meshbuffer_create)(struct qbRenderer_* self, struct qbMesh_* mesh);
+  
   void(*meshbuffer_attach_material)(struct qbRenderer_* self, qbMeshBuffer buffer,
                                     struct qbMaterial_* material);
   void(*meshbuffer_attach_textures)(struct qbRenderer_* self, qbMeshBuffer buffer,

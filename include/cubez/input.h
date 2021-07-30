@@ -749,6 +749,9 @@ QB_API void qb_mouse_getwheel(int* scroll_x, int* scroll_y);
 QB_API int qb_mouse_setrelative(int enabled);
 QB_API int qb_mouse_getrelative();
 
+QB_API int qb_mouse_setshow(qbBool enable);
+QB_API int qb_mouse_getshow(qbBool enable);
+
 typedef enum qbInputFocus {
   QB_FOCUS_APP,
   QB_FOCUS_GUI,
