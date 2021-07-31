@@ -475,7 +475,9 @@ qbBool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t) {
   return QB_FALSE;
 }
 
-qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform, const qbRay_* r, float* t) {
+qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform, const qbRay_* r, float* t) {  
+  // Intersection of a Line and a Convex Hull of Points Cloud
+  // Author: R. P. Koptelov
   // http://www.m-hikari.com/ams/ams-2013/ams-101-104-2013/koptelovAMS101-104-2013.pdf
   if (!qb_ray_checkaabb(c, transform, r, nullptr, nullptr)) {
     return QB_FALSE;
