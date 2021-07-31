@@ -2691,7 +2691,62 @@ void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipel
   }, {});
 }
 
+void bind_shaderresourcesets(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
+  qbRenderPipeline pipeline = cmd_buf->current_pipeline;
+  ShaderProgram& shader = *pipeline->shader_module->shader;
+
+  uint32_t program = (uint32_t)shader.id();
+
+  for (size_t i = 0; i < resource_set_count; ++i) {
+    qbShaderResourceSet resource_set = resource_sets[i];
+
+    for (size_t j = 0; j < resource_set->bindings.size(); ++j) {
+      qbShaderResourceBinding binding = resource_set->bindings[j];
+
+      switch (binding->resource_type) {
+        case QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER: {
+          if (binding->name && !GLEW_ARB_shading_language_420pack) {
+            int32_t block_index = glGetUniformBlockIndex(program, binding->name);
+            glUniformBlockBinding(program, block_index, binding->binding);
+          }
+          glBindBufferBase(GL_UNIFORM_BUFFER, binding->binding, resource_set->uniforms[j]->id);
+          CHECK_GL();
+          break;
+        }
+
+        case QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER: {
+          qbImage image = resource_set->images[j];
+          qbImageSampler sampler = resource_set->samplers[j];
+          uint32_t texture_slot = binding->binding;//shader.texture_slot(binding->name);
+
+          glActiveTexture((GLenum)(GL_TEXTURE0 + texture_slot));
+
+          //if (binding->name && !GLEW_ARB_shading_language_420pack) {
+          glUniform1i(glGetUniformLocation(program, binding->name), (GLint)texture_slot);
+          //}
+
+          glBindSampler((GLuint)texture_slot, (GLuint)sampler->id);
+          glBindTexture(TranslateQbImageTypeToOpenGl(image->type), (GLuint)image->id);
+
+          CHECK_GL();
+          break;
+        }
+      }
+    }
+  }
+}
+
 void qb_drawcmd_bindshaderresourceset(
+  qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, qbShaderResourceSet resource_set) {
+
+  qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
+    qbShaderResourceSet* resource_sets = (qbShaderResourceSet*)&resource_set;
+    bind_shaderresourcesets(cmd_buf, layout, 1, resource_sets);
+    return var;
+    }, {});
+}
+
+void qb_drawcmd_bindshaderresourcesets(
   qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout,
   uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
 
@@ -2701,49 +2756,7 @@ void qb_drawcmd_bindshaderresourceset(
   }
 
   qb_taskbundle_addtask(cmd_buf->task_bundle, [=](qbTask, qbVar var) {
-    qbRenderPipeline pipeline = cmd_buf->current_pipeline;
-    ShaderProgram& shader = *pipeline->shader_module->shader;
-
-    uint32_t program = (uint32_t)shader.id();
-    
-    for (size_t i = 0; i < resource_set_count; ++i) {
-      qbShaderResourceSet resource_set = resource_sets_copy[i];
-
-      for (size_t j = 0; j < resource_set->bindings.size(); ++j) {
-        qbShaderResourceBinding binding = resource_set->bindings[j];
-        
-
-        switch (binding->resource_type) {
-          case QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER: {
-            if (binding->name && !GLEW_ARB_shading_language_420pack) {
-              int32_t block_index = glGetUniformBlockIndex(program, binding->name);
-              glUniformBlockBinding(program, block_index, binding->binding);
-            }
-            glBindBufferBase(GL_UNIFORM_BUFFER, binding->binding, resource_set->uniforms[j]->id);
-            CHECK_GL();
-            break;
-          }
-
-          case QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER: {
-            qbImage image = resource_set->images[j];
-            qbImageSampler sampler = resource_set->samplers[j];
-            uint32_t texture_slot = binding->binding;//shader.texture_slot(binding->name);
-
-            glActiveTexture((GLenum)(GL_TEXTURE0 + texture_slot));
-            
-            //if (binding->name && !GLEW_ARB_shading_language_420pack) {
-            glUniform1i(glGetUniformLocation(program, binding->name), (GLint)texture_slot);
-            //}
-            
-            glBindSampler((GLuint)texture_slot, (GLuint)sampler->id);
-            glBindTexture(TranslateQbImageTypeToOpenGl(image->type), (GLuint)image->id);
-
-            CHECK_GL();
-            break;
-          }
-        }
-      }
-    }
+    bind_shaderresourcesets(cmd_buf, layout, resource_set_count, resource_sets_copy);
 
     qb_dealloc(cmd_buf->allocator, resource_sets_copy);
 
