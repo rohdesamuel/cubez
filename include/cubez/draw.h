@@ -16,6 +16,8 @@ QB_API void qb_draw_poptransform(qbDrawCommands cmds);
 
 QB_API void qb_draw_rotatef(qbDrawCommands cmds, float angle, float x, float y, float z);
 QB_API void qb_draw_rotatev(qbDrawCommands cmds, float angle, vec3s axis);
+QB_API void qb_draw_rotateq(qbDrawCommands cmds, versors q);
+
 QB_API void qb_draw_translatef(qbDrawCommands cmds, float x, float y, float z);
 QB_API void qb_draw_translatev(qbDrawCommands cmds, vec3s pos);
 QB_API void qb_draw_scalef(qbDrawCommands cmds, float scale);
@@ -36,8 +38,9 @@ QB_API void qb_draw_sphere(qbDrawCommands cmds, float r);
 QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
 QB_API void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model);
 QB_API void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms);
-QB_API qbResult qb_draw_end(qbDrawCommands cmds);
+QB_API void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg);
 
+QB_API qbResult qb_draw_end(qbDrawCommands cmds);
 
 typedef enum qbDrawCommandType_ {
   QB_DRAW_NOOP,
@@ -48,7 +51,8 @@ typedef enum qbDrawCommandType_ {
   QB_DRAW_CIRCLE,
   QB_DRAW_SPHERE,
   QB_DRAW_MESH,
-  QB_DRAW_ENTITY,  
+  QB_DRAW_ENTITY,
+  QB_DRAW_CUSTOM
 } qbDrawCommandType_;
 
 typedef struct qbDrawCommandInit_ {
@@ -88,6 +92,11 @@ typedef struct qbDrawCommandInstanced_ {
   size_t instance_count;
 };
 
+typedef struct qbDrawCommandCustom_ {
+  int command_type;
+  qbVar data;
+};
+
 typedef struct qbDrawCommandArgs_ {
   vec4s color;
   mat4s transform;
@@ -105,6 +114,7 @@ typedef struct qbDrawCommand_ {
     qbDrawCommandCircle_ circle;
     qbDrawCommandSphere_ sphere;
     qbDrawCommandMesh_ mesh;
+    qbDrawCommandCustom_ custom;
   } command;
   qbDrawCommandArgs_ args;
 

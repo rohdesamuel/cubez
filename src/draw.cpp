@@ -73,6 +73,11 @@ void qb_draw_rotatev(qbDrawCommands cmds, float angle, vec3s axis) {
   t = glms_rotate(t, angle, axis);
 }
 
+void qb_draw_rotateq(qbDrawCommands cmds, versors q) {
+  mat4s& t = cmds->cur.args.transform;
+  t = glms_quat_rotate(t, q);
+}
+
 void qb_draw_translatef(qbDrawCommands cmds, float x, float y, float z) {
   mat4s& t = cmds->cur.args.transform;
   t = glms_translate(t, { x, y, z });
@@ -167,6 +172,12 @@ void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model) {
 
 void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms) {
   assert(false && "unimplemented");
+}
+
+void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
+  cmds->cur.command.custom = { command_type, arg };
+  cmds->cur.type = QB_DRAW_CUSTOM;
+  cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
 qbResult qb_draw_end(qbDrawCommands cmds) {
