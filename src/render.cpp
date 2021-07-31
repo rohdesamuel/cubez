@@ -58,7 +58,7 @@ SDL_GLContext context;
 qbRenderer renderer_ = nullptr;
 void(*destroy_renderer)(struct qbRenderer_* renderer) = nullptr;
 
-typedef enum class qbCameraType {
+enum class qbCameraType {
   ORTHO,
   PERSPECTIVE
 };
@@ -159,7 +159,6 @@ void initialize_context(const RenderSettings& settings) {
     SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
   win = SDL_CreateWindow(settings.title,
                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                          settings.width, settings.height,

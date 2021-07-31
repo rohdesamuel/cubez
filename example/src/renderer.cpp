@@ -118,6 +118,9 @@ struct qbDefaultRenderer_ {
   std::array<struct LightSpot, MAX_SPOT_LIGHTS> spot_lights;
   std::unordered_set<qbId> enabled_spot_lights;
 
+  std::unordered_map<qbMaterial, qbShaderResourceSet> material_resource_sets;
+  qbShaderResourceLayout material_resource_layout;
+
   // Render queue.
   std::vector<qbTask> render_tasks;
   std::vector<qbClearValue_> clear_values;
@@ -137,6 +140,8 @@ struct qbDefaultRenderer_ {
 
   std::vector<qbImage> gbuffers;
   std::vector<qbImageSampler> gbuffer_samplers;
+  std::vector<qbImage> default_textures;
+  std::vector<qbImageSampler> deferred_samplers;
 
   qbShaderResourceLayout deferred_resource_layout;
   qbShaderResourcePipelineLayout deferred_pipeline_layout;
@@ -166,6 +171,9 @@ std::vector<Vertex> sphere_vertices;
 qbGpuBuffer sphere_verts;
 size_t sphere_verts_count;
 
+qbImage white_tex;
+qbImage black_tex;
+qbImage zero_tex;
 
 qbGeometryDescriptor create_geometry_descriptor() {
   qbGeometryDescriptor geometry = new qbGeometryDescriptor_;
@@ -298,6 +306,28 @@ qbShaderResourceLayout create_deferred_resource_layout() {
       .stages = QB_SHADER_STAGE_VERTEX,
     },
     {
+      .name = "model_ubo",
+      .binding = 2,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
+      .resource_count = 1,
+      .stages = QB_SHADER_STAGE_VERTEX,
+    },
+  };
+
+  qbShaderResourceLayoutAttr_ attr{
+    .binding_count = sizeof(bindings) / sizeof(qbShaderResourceBinding_),
+    .bindings = bindings,
+  };
+
+  qb_shaderresourcelayout_create(&resource_layout, &attr);
+
+  return resource_layout;
+}
+
+qbShaderResourceLayout create_material_resource_layout() {
+  qbShaderResourceLayout resource_layout;
+  qbShaderResourceBinding_ bindings[] = {
+    {
       .name = "material_ubo",
       .binding = 1,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
@@ -305,11 +335,40 @@ qbShaderResourceLayout create_deferred_resource_layout() {
       .stages = QB_SHADER_STAGE_FRAGMENT,
     },
     {
-      .name = "model_ubo",
-      .binding = 2,
-      .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
+      .name = "albedo_map",
+      .binding = 0,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
-      .stages = QB_SHADER_STAGE_VERTEX,
+    },
+    {
+      .name = "normal_map",
+      .binding = 1,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
+      .resource_count = 1,
+    },
+    {
+      .name = "metallic_map",
+      .binding = 2,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
+      .resource_count = 1,
+    },
+      {
+      .name = "roughness_map",
+      .binding = 3,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
+      .resource_count = 1,
+    },
+    {
+      .name = "ao_map",
+      .binding = 4,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
+      .resource_count = 1,
+    },
+    {
+      .name = "emission_map",
+      .binding = 5,
+      .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
+      .resource_count = 1,
     },
   };
 
@@ -468,7 +527,7 @@ qbShaderModule create_shader_module() {
 
         if (light_ubo.pass_id == 0) {
           for (int i = 0; i < light_ubo.num_dir_lights; ++i) {            
-            lighting += max(dot(Normal, -light_ubo.dir_lights[i].dir), 0.0) * light_ubo.dir_lights[i].brightness;
+            lighting += Diffuse * light_ubo.dir_lights[i].col * max(dot(Normal, -light_ubo.dir_lights[i].dir), 0.0) * light_ubo.dir_lights[i].brightness;
           }
           out_color = vec4(lighting, 1.f);
         } else if (light_ubo.pass_id == 1) {
@@ -517,7 +576,7 @@ qbShaderModule create_deferred_shader_module() {
     layout(std140, binding = 2) uniform ModelUbo {
         mat4 model;
     } model_ubo;
-
+    
     out VertexData
     {
       vec3 pos;
@@ -543,6 +602,13 @@ qbShaderModule create_deferred_shader_module() {
     layout (location = 1) out vec3 g_normal;
     layout (location = 2) out vec4 g_albedospec;
 
+    uniform sampler2D albedo_map;
+    uniform sampler2D normal_map;
+    uniform sampler2D metallic_map;
+    uniform sampler2D roughness_map;
+    uniform sampler2D ao_map;
+    uniform sampler2D emission_map;
+
     layout (std140, binding = 1) uniform MaterialUbo {
       vec3 albedo;
       float metallic;
@@ -560,7 +626,8 @@ qbShaderModule create_deferred_shader_module() {
     void main() {
       g_position = o.pos;
       g_normal = normalize(o.norm);
-      g_albedospec = vec4(material_ubo.albedo, material_ubo.metallic);
+
+      g_albedospec = vec4(texture(albedo_map, o.tex).rgb, material_ubo.metallic); //vec4(material_ubo.albedo, material_ubo.metallic);
     })";
 
   attr.interpret_as_strings = QB_TRUE;
@@ -641,6 +708,14 @@ void create_swapchain(uint32_t width, uint32_t height, qbRenderPass render_pass,
     };
 
     qb_framebuffer_create(&r->fbos[i], &attr);
+  }
+
+  r->deferred_samplers = std::vector<qbImageSampler>(r->default_textures.size(), nullptr);
+  for (size_t i = 0; i < r->deferred_samplers.size(); ++i) {
+    qbImageSamplerAttr_ attr{};
+    attr.mag_filter = QB_FILTER_TYPE_LINEAR;
+    attr.min_filter = QB_FILTER_TYPE_NEAREST;
+    qb_imagesampler_create(&r->deferred_samplers[i], &attr);
   }
 
   r->deferred_fbos = std::vector<qbFrameBuffer>(swapchain_image_count, nullptr);
@@ -820,11 +895,44 @@ void create_deferred_resourcesets(qbDefaultRenderer r) {
     qb_shaderresourceset_create(r->deferred_resource_sets.data(), &attr);
 
     for (size_t i = 0; i < swapchain_size; ++i) {
-      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 0, r->camera_ubo);
-      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 1, r->material_ubo);
+      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 0, r->camera_ubo);      
       qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 2, r->model_ubo);
+
+      for (size_t j = 0; j < r->deferred_samplers.size(); ++j) {
+        qb_shaderresourceset_writeimage(r->deferred_resource_sets[i], j, r->default_textures[j], r->deferred_samplers[j]);
+      }
     }
   }
+}
+
+void create_material_resourceset(qbDefaultRenderer r, qbMaterial material) {
+  if (r->material_resource_sets.contains(material)) {
+    return;
+  }
+
+  qbShaderResourceSetAttr_ attr{
+    .create_count = (uint32_t)1,
+    .layout = r->material_resource_layout
+  };
+  qbShaderResourceSet resource_set;
+  qb_shaderresourceset_create(&resource_set, &attr);
+
+  std::vector<qbImage> textures;
+  textures.push_back(material->albedo_map ? material->albedo_map : white_tex);
+  textures.push_back(material->normal_map ? material->normal_map : zero_tex);
+  textures.push_back(material->metallic_map ? material->metallic_map : zero_tex);
+  textures.push_back(material->roughness_map ? material->roughness_map : zero_tex);
+  textures.push_back(material->ao_map ? material->ao_map : zero_tex);
+  textures.push_back(material->emission_map ? material->emission_map : zero_tex);
+
+  assert(textures.size() == r->deferred_samplers.size());
+
+  for (size_t j = 0; j < r->deferred_samplers.size(); ++j) {
+    qb_shaderresourceset_writeimage(resource_set, j, textures[j], r->deferred_samplers[j]);
+  }
+
+  qb_shaderresourceset_writeuniform(resource_set, 1, r->material_ubo);
+  r->material_resource_sets[material] = resource_set;
 }
 
 void create_vbos(qbDefaultRenderer r) {
@@ -895,21 +1003,21 @@ void create_vbos(qbDefaultRenderer r) {
 
       vertex_data.push_back({
         .pos = {center.x, center.y, 0.f},
-        .norm = {0.f, 0.f, 1.f},
+        .norm = {0.f, 0.f, -1.f},
         .tex = {}
-        });
+      });
 
       vertex_data.push_back({
         .pos = {center.x - x_next, center.y - y_next, 0.f},
-        .norm = {0.f, 0.f, 1.f},
+        .norm = {0.f, 0.f, -1.f},
         .tex = {}
-        });
+      });
 
       vertex_data.push_back({
         .pos = {center.x - x, center.y - y, 0.f},
-        .norm = {0.f, 0.f, 1.f},
+        .norm = {0.f, 0.f, -1.f},
         .tex = {}
-        });
+      });
     }
 
     qbGpuBufferAttr_ attr{
@@ -1147,7 +1255,6 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
     clear_values[1].color = { 0.f, 0.f, 0.f, 0.f };
     clear_values[2].color = { 0.f, 0.f, 0.f, 0.f };
     clear_values[3].depth = 1.f;
-
     
     qbBeginRenderPassInfo_ begin_info{
       .render_pass = r->deferred_render_pass,
@@ -1158,11 +1265,17 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
 
     qb_drawcmd_beginpass(draw_cmds, &begin_info);
     qb_drawcmd_bindpipeline(draw_cmds, r->deferred_render_pipeline);
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, 1, &r->deferred_resource_sets[frame]);    
+
+    // Bind CameraUbo
+    // Bind ModelUbo
+    qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, r->deferred_resource_sets[frame]);  
 
     for (auto& [material, cmds] : r->draw_commands.commands) {
       if (material) {
-        qb_drawcmd_updatebuffer(draw_cmds, r->material_ubo, 0, sizeof(MaterialUbo), material);
+        // Bind MaterialUbo
+        // Bind material samplers
+        qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, r->material_resource_sets[material]);
+        qb_drawcmd_updatebuffer(draw_cmds, r->material_ubo, 0, sizeof(MaterialUbo), material);        
       }
 
       for (auto& draw_cmd : cmds) {
@@ -1173,55 +1286,55 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
         }
 
         switch (draw_cmd.type) {
-        case QB_DRAW_CAMERA:
-        {
-          camera = draw_cmd.command.init.camera;
-          r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
-          qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &r->camera_data[frame]);          
-          break;
-        }
-
-        case QB_DRAW_TRI:
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &tri_verts);
-          qb_drawcmd_draw(draw_cmds, 3, 1, 0, 0);
-          break;
-
-        case QB_DRAW_QUAD:
-          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &quad_verts);
-          qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
-          break;
-
-        case QB_DRAW_CIRCLE:
-          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &circle_verts);
-          qb_drawcmd_draw(draw_cmds, circle_verts_count, 1, 0, 0);
-          break;
-
-        case QB_DRAW_BOX:
-          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &box_verts);
-          qb_drawcmd_draw(draw_cmds, box_verts_count, 1, 0, 0);
-          break;
-
-        case QB_DRAW_SPHERE:
-          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
-          qb_drawcmd_draw(draw_cmds, sphere_verts_count, 1, 0, 0);
-          break;
-
-        case QB_DRAW_MESH:
-          qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &draw_cmd.command.mesh.mesh->vbo);
-
-          if (draw_cmd.command.mesh.mesh->ibo) {
-            qb_drawcmd_bindindexbuffer(draw_cmds, draw_cmd.command.mesh.mesh->ibo);
-            qb_drawcmd_drawindexed(draw_cmds, draw_cmd.command.mesh.mesh->index_count, 1, 0, 0);
+          case QB_DRAW_CAMERA:
+          {
+            camera = draw_cmd.command.init.camera;
+            r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+            qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &r->camera_data[frame]);          
+            break;
           }
-          else {
-            qb_drawcmd_draw(draw_cmds, draw_cmd.command.mesh.mesh->vertex_count, 1, 0, 0);
-          }
-          break;
+
+          case QB_DRAW_TRI:
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &tri_verts);
+            qb_drawcmd_draw(draw_cmds, 3, 1, 0, 0);
+            break;
+
+          case QB_DRAW_QUAD:
+            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &quad_verts);
+            qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
+            break;
+
+          case QB_DRAW_CIRCLE:
+            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &circle_verts);
+            qb_drawcmd_draw(draw_cmds, circle_verts_count, 1, 0, 0);
+            break;
+
+          case QB_DRAW_BOX:
+            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &box_verts);
+            qb_drawcmd_draw(draw_cmds, box_verts_count, 1, 0, 0);
+            break;
+
+          case QB_DRAW_SPHERE:
+            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
+            qb_drawcmd_draw(draw_cmds, sphere_verts_count, 1, 0, 0);
+            break;
+
+          case QB_DRAW_MESH:
+            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
+            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &draw_cmd.command.mesh.mesh->vbo);
+
+            if (draw_cmd.command.mesh.mesh->ibo) {
+              qb_drawcmd_bindindexbuffer(draw_cmds, draw_cmd.command.mesh.mesh->ibo);
+              qb_drawcmd_drawindexed(draw_cmds, draw_cmd.command.mesh.mesh->index_count, 1, 0, 0);
+            }
+            else {
+              qb_drawcmd_draw(draw_cmds, draw_cmd.command.mesh.mesh->vertex_count, 1, 0, 0);
+            }
+            break;
         }
       }
     }
@@ -1243,7 +1356,7 @@ void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
 
     qb_drawcmd_beginpass(draw_cmds, &begin_info);
     qb_drawcmd_bindpipeline(draw_cmds, r->render_pipeline);
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->pipeline_layout, 1, &r->resource_sets[frame]);    
+    qb_drawcmd_bindshaderresourceset(draw_cmds, r->pipeline_layout, r->resource_sets[frame]);
 
 
     qb_drawcmd_setcull(draw_cmds, QB_FACE_BACK);
@@ -1290,6 +1403,9 @@ qbResult drawcommands_submit(struct qbRenderer_* self, struct qbDrawCommands_* c
 
   qb_draw_commands(cmd_buf, &cmd_count, &cmds);
   for (size_t i = 0; i < cmd_count; ++i) {
+    if (cmds[i].args.material) {
+      create_material_resourceset(((qbDefaultRenderer)self), cmds[i].args.material);
+    }
     ((qbDefaultRenderer)self)->draw_commands.push(std::move(cmds[i]));
   }
 
@@ -1464,6 +1580,33 @@ void mesh_create(struct qbRenderer_* self, struct qbMesh_* mesh) {
   }
 }
 
+void create_default_textures(qbDefaultRenderer r) {
+  qbImageAttr_ attr{};
+  attr.type = QB_IMAGE_TYPE_2D;
+
+  {
+    char pixel[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+    qb_image_raw(&white_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
+  }
+  {
+    char pixel[4] = { 0x00, 0x00, 0x00, 0xFF };
+    qb_image_raw(&black_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
+  }
+  {
+    char pixel[4] = { 0x00 };
+    qb_image_raw(&zero_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
+  }
+
+  r->default_textures = {
+    white_tex, /* albedo_map */
+    zero_tex, /* normal_map */
+    zero_tex, /* metallic_map */
+    zero_tex, /* roughness_map */
+    zero_tex, /* ao_map */
+    zero_tex, /* emission_map */
+  };
+}
+
 struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbDefaultRenderer ret = new qbDefaultRenderer_{};
   ret->renderer.drawcommands_submit = drawcommands_submit;
@@ -1494,6 +1637,9 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
   ret->deferred_shader_module = create_deferred_shader_module();
   ret->deferred_render_pass = create_deferred_renderpass();
 
+  ret->material_resource_layout = create_material_resource_layout();
+
+  create_default_textures(ret);
   create_swapchain(width, height, ret->render_pass, ret);
 
   {
@@ -1537,7 +1683,7 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
   create_vbos(ret);
   create_resourcesets(ret);
   create_deferred_resourcesets(ret);
-
+  
   return (qbRenderer)ret;
 }
 
