@@ -6,18 +6,22 @@
 #include <cubez/render.h>
 #include <vector>
 
-size_t MAX_DRAW_COMMANDS = 128;
+size_t MAX_DRAW_COMMANDS = 1024;
+size_t MAX_STACK_TRANSFORM_COUNT = 1024;
 
 struct qbDrawCommands_ {
   qbDrawCommand_* commands;
   size_t commands_count;
+
+  mat4s* transform_stack;
+  int32_t push_count;
   qbCamera_ camera;
 
   qbDrawCommand_ cur;
 };
 
-static qbMemoryAllocator allocator = nullptr;
-static qbMemoryAllocator cmd_allocator = nullptr;
+static thread_local qbMemoryAllocator allocator = nullptr;
+static thread_local qbMemoryAllocator cmd_allocator = nullptr;
 
 void qb_draw_init(qbDrawCommands cmds, const qbCamera_* camera) {
   cmds->commands[cmds->commands_count++] = {
@@ -42,6 +46,7 @@ qbDrawCommands qb_draw_begin(const struct qbCamera_* camera) {
 
   ret->cur = {};
   ret->commands = (qbDrawCommand_*)qb_alloc(cmd_allocator, sizeof(qbDrawCommand_) * MAX_DRAW_COMMANDS);
+  ret->transform_stack = (mat4s*)qb_alloc(allocator, sizeof(mat4s) * MAX_STACK_TRANSFORM_COUNT);
   ret->camera = *camera;
   ret->cur.args.transform = GLMS_MAT4_IDENTITY_INIT;
   ret->cur.args.color = { 0.f, 0.f, 0.f, 1.f };
@@ -61,6 +66,21 @@ void qb_draw_gettransform(qbDrawCommands cmds, mat4s* transform) {
 
 void qb_draw_identity(qbDrawCommands cmds) {
   cmds->cur.args.transform = glms_mat4_identity();
+}
+
+void qb_draw_pushtransform(qbDrawCommands cmds) {
+  assert(cmds->push_count < MAX_STACK_TRANSFORM_COUNT);
+  cmds->transform_stack[cmds->push_count++] = cmds->cur.args.transform;
+}
+
+void qb_draw_poptransform(qbDrawCommands cmds) {
+  assert(cmds->push_count > 0);
+  cmds->cur.args.transform = cmds->transform_stack[cmds->push_count--];
+}
+
+void qb_draw_multransform(qbDrawCommands cmds, mat4s* transform) {
+  mat4s& t = cmds->cur.args.transform;
+  t = glms_mat4_mul(t, *transform);
 }
 
 void qb_draw_rotatef(qbDrawCommands cmds, float angle, float x, float y, float z) {
@@ -115,12 +135,16 @@ void qb_draw_material(qbDrawCommands cmds, struct qbMaterial_* material) {
 }
 
 void qb_draw_tri(qbDrawCommands cmds, float x0, float y0, float x1, float y1, float x2, float y2) {
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
+
   cmds->cur.command.tri = { { {x0, y0}, {x1, y1}, {x2, y2} } };
   cmds->cur.type = QB_DRAW_TRI;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
 void qb_draw_quad(qbDrawCommands cmds, float w, float h) {
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
+
   qb_draw_scalev(cmds, { w, h, 1.f });
 
   cmds->cur.command.quad = { w, h };
@@ -137,30 +161,35 @@ void qb_draw_cube(qbDrawCommands cmds, float size) {
 }
 
 void qb_draw_box(qbDrawCommands cmds, float w, float h, float d) {
-  qb_draw_scalev(cmds, { w, h, d });
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 
+  qb_draw_scalev(cmds, { w, h, d });
   cmds->cur.command.box = { w, h, d };
   cmds->cur.type = QB_DRAW_BOX;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
 void qb_draw_circle(qbDrawCommands cmds, float r) {
-  qb_draw_scalev(cmds, { r, r, 1.f });
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 
+  qb_draw_scalev(cmds, { r, r, 1.f });
   cmds->cur.command.circle = { r };
   cmds->cur.type = QB_DRAW_CIRCLE;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
 void qb_draw_sphere(qbDrawCommands cmds, float r) {
-  qb_draw_scalev(cmds, { r, r, r });
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 
+  qb_draw_scalev(cmds, { r, r, r });
   cmds->cur.command.sphere = { r };
   cmds->cur.type = QB_DRAW_SPHERE;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
 void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh) {
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
+
   cmds->cur.command.mesh = { mesh };
   cmds->cur.type = QB_DRAW_MESH;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
@@ -168,13 +197,16 @@ void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh) {
 
 void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model) {
   assert(false && "unimplemented");
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 }
 
 void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms) {
   assert(false && "unimplemented");
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 }
 
 void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
   cmds->cur.command.custom = { command_type, arg };
   cmds->cur.type = QB_DRAW_CUSTOM;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
@@ -184,7 +216,14 @@ qbResult qb_draw_end(qbDrawCommands cmds) {
   qbRenderer renderer = qb_renderer();
   qbResult result = renderer->drawcommands_submit(renderer, cmds);
   
+  if (cmds->push_count > 0)
+    assert(false && "Unpopped transforms exist.");
+
+  if (cmds->push_count < 0)
+    assert(false && "Too many transforms were popped.");
+
   qb_dealloc(cmd_allocator, cmds->commands);
+  qb_dealloc(allocator, cmds->transform_stack);
   qb_dealloc(allocator, cmds);
 
   return result;

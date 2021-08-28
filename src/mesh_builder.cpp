@@ -763,7 +763,7 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   assert(uvs.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max uv count.");
 
   assert((vertices.size() == normals.size() || normals.empty()) && "Normal count must match vertex count.");
-  assert((vertices.size() == uvs.size() || uvs.empty()) && "Normal count must match vertex count.");
+  assert((vertices.size() == uvs.size() || uvs.empty()) && "UV count must match vertex count.");
 
   qbMesh mesh = new qbMesh_;
   mesh->vertex_count = (uint32_t)vertices.size();

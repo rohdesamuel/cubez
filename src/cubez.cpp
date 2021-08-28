@@ -232,7 +232,6 @@ qbResult loop(qbLoopCallbacks callbacks,
 
     qb_handle_input([](qbVar) {
       qb_stop();
-      game_loop.is_running = false;
     }, [](qbVar arg, uint32_t width, uint32_t height) {      
       ResizeState* resize_state = (ResizeState*)arg.p;
       lua_resize(AS_PRIVATE(main_lua_state()), width, height);
@@ -248,7 +247,7 @@ qbResult loop(qbLoopCallbacks callbacks,
     }, qbNil, qbPtr(&resize_state));
 
     if (!game_loop.is_running) {
-      return QB_OK;
+      return QB_DONE;
     }
   }
 

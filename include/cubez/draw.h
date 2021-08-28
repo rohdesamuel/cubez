@@ -14,10 +14,10 @@ QB_API void qb_draw_identity(qbDrawCommands cmds);
 QB_API void qb_draw_pushtransform(qbDrawCommands cmds);
 QB_API void qb_draw_poptransform(qbDrawCommands cmds);
 
+QB_API void qb_draw_multransform(qbDrawCommands cmds, mat4s* transform);
 QB_API void qb_draw_rotatef(qbDrawCommands cmds, float angle, float x, float y, float z);
 QB_API void qb_draw_rotatev(qbDrawCommands cmds, float angle, vec3s axis);
 QB_API void qb_draw_rotateq(qbDrawCommands cmds, versors q);
-
 QB_API void qb_draw_translatef(qbDrawCommands cmds, float x, float y, float z);
 QB_API void qb_draw_translatev(qbDrawCommands cmds, vec3s pos);
 QB_API void qb_draw_scalef(qbDrawCommands cmds, float scale);
