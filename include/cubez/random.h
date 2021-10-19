@@ -19,7 +19,7 @@ typedef struct qbXoshiro256ss_ {
   uint64_t s[4];
 } qbXoshiro256ss_, *qbXoshiro256ss;
 
-QB_API uint64_t qb_seed(uint64_t s);
+QB_API void qb_seed(uint64_t s);
 QB_API uint64_t qb_rand();
 
 QB_API uint64_t qb_splitmix(qbSplitmix state);

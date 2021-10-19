@@ -6,7 +6,7 @@ uint64_t rol64(uint64_t x, int k) {
 
 thread_local uint64_t seed;
 
-QB_API uint64_t qb_seed(uint64_t s) {
+QB_API void qb_seed(uint64_t s) {
 	if (s == 0) {
 		seed = (uint64_t)(rand()) << 32ull | (uint64_t)(rand());
 	} else {
