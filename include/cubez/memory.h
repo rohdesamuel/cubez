@@ -48,21 +48,46 @@ QB_API qbResult qb_memallocator_register(const char* name, qbMemoryAllocator all
 QB_API qbMemoryAllocator qb_memallocator_find(const char* name);
 QB_API qbResult qb_memallocator_unregister(const char* name);
 
-// Returns the default memory allocator using malloc/free/realloc.
+// Returns the default memory allocator using malloc/free.
 // This is registered with the name "default".
 QB_API qbMemoryAllocator qb_memallocator_default();
 
 // Creates a thread-safe memory pool allocator.
+// 
+// Description: A memory pool allocator keeps track of slabs of memory in a
+//              linked list. Every allocation searches in the list of allocated
+//              blocks and finds the slab with the best fit. If not, allocates
+//              a new slab.
+// 
+// Behavior:
+//   - alloc(size): Allocates a block of memory of size `size`. Returns nullptr
+//                  if host is OOM.
+//   - dealloc(ptr): deallocates the given pointer.
+//   - flush(frame): noop
+//   - clear(): noop
 QB_API qbMemoryAllocator qb_memallocator_pool();
 
 // Creates a thread-safe linear allocator.
+// 
+// Description: A linear allocator is a simple stack allocator. The memory is
+//              pre-allocated and an offset is moved based on how much memory
+//              is `alloc`ed. Memory cannot be deallocated. 
+// 
 // Behavior:
 //   - alloc(size): Allocates a block of memory of size `size`. Returns nullptr
 //                  if size + total allocated is greater than max size.
 //   - dealloc(ptr): noop
+//   - flush(frame): noop
+//   - clear(): resets offset to zero.
 QB_API qbMemoryAllocator qb_memallocator_linear(size_t max_size);
 
 // Creates a thread-safe stack allocator.
+// 
+// Description: A stack allocator acts like a linear allocator that allows
+//              deallocation. This is implemented by tracking the size of each
+//              allocation in a header. Memory needs to be popped off in order
+//              of allocation.
+// 
 // Behavior:
 //   - alloc(size): Allocates a block of memory of size `size` on top of the
 //                  stack. Returns nullptr if size + total allocated is
@@ -70,6 +95,8 @@ QB_API qbMemoryAllocator qb_memallocator_linear(size_t max_size);
 //   - dealloc(ptr): Deallocates the given pointer. Assumes that the pointer
 //                   is at the top of the stack. The stack becomes corrupted if
 //                   trying to deallocate a pointer not at the top.
+//   - flush(frame): noop
+//   - clear(): resets offset to zero.
 QB_API qbMemoryAllocator qb_memallocator_stack(size_t max_size);
 
 #endif  // CUBEZ_MEMORY__H
