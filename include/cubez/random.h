@@ -1,7 +1,7 @@
 #ifndef CUBEZ_RANDOM__H
 #define CUBEZ_RANDOM__H
 
-#include "common.h"
+#include <cubez/common.h>
 
 typedef struct qbSplitmix_ {
   uint64_t s;
