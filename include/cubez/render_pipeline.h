@@ -473,9 +473,6 @@ typedef struct qbRenderPipelineAttr_ {
   qbRasterizationInfo rasterization_info;
   qbShaderResourcePipelineLayout resource_layout;
 
-  qbShaderResourceBinding resources;
-  size_t resources_count;
-
   qbRenderExt ext;
 } qbRenderPipelineAttr_, *qbRenderPipelineAttr;
 
@@ -487,48 +484,8 @@ typedef struct {
   // If true, interprets vs, fs, gs as literal shader strings.
   qbBool interpret_as_strings;
 } qbShaderModuleAttr_, *qbShaderModuleAttr;
-
-typedef struct qbSurfaceAttr_ {
-  uint32_t width;
-  uint32_t height;
-
-  const char* vs;
-  const char* fs;
-
-  qbShaderResourceBinding resources;
-  size_t resources_count;
-
-  qbImageSampler* samplers;
-  uint32_t* sampler_bindings;
-  size_t samplers_count;
-
-  qbGpuBuffer* uniforms;
-  uint32_t* uniform_bindings;
-  size_t uniforms_count;
-
-  qbPixelFormat pixel_format;
-  size_t target_count;
-} qbSurfaceAttr_, *qbSurfaceAttr;
-
-// TODO: Should this be recursive to allow for hierarchical models?
-// TODO: Should there be a transform (position+orientation) for Render Groups?
-typedef struct qbRenderGroupAttr_ {
-  qbMeshBuffer* meshes;
-  size_t mesh_count;
-  qbDrawMode mode;
-} qbRenderGroupAttr_, *qbRenderGroupAttr;
-
 QB_API void qb_shadermodule_create(qbShaderModule* shader, qbShaderModuleAttr attr);
 QB_API void qb_shadermodule_destroy(qbShaderModule* shader);
-QB_API void qb_shadermodule_attachuniforms(qbShaderModule module, size_t count,
-                                           uint32_t bindings[], qbGpuBuffer uniforms[]);
-
-// Attaches the samplers to the given module to inform the graphics driver how
-// to sample a given texture. The given samplers must have a corresponding
-// uniform already attached. If any given sampler does not have a name, it
-// will be taken from the associated uniform name.
-QB_API void qb_shadermodule_attachsamplers(qbShaderModule module, size_t count,
-                                    uint32_t bindings[], qbImageSampler samplers[]);
 
 QB_API qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth,
                                      qbPixelFormat format, void* pixels);
@@ -548,14 +505,6 @@ QB_API qbResult qb_pixelmap_drawto(qbPixelMap src, qbPixelMap dest, vec4s src_re
 
 QB_API void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr attr);
 QB_API void qb_renderpipeline_destroy(qbRenderPipeline* pipeline);
-QB_API void qb_renderpipeline_present(qbRenderPipeline render_pipeline, qbFrameBuffer frame_buffer,
-                                      qbRenderEvent event);
-QB_API void qb_renderpipeline_resize(qbRenderPipeline render_pipeline, qbViewport_ viewport);
-QB_API void qb_renderpipeline_append(qbRenderPipeline pipeline, qbRenderPass pass);
-QB_API void qb_renderpipeline_prepend(qbRenderPipeline pipeline, qbRenderPass pass);
-QB_API size_t qb_renderpipeline_passes(qbRenderPipeline pipeline, qbRenderPass** passes);
-QB_API void qb_renderpipeline_update(qbRenderPipeline pipeline, size_t count, qbRenderPass* pass);
-QB_API size_t qb_renderpipeline_remove(qbRenderPipeline pipeline, qbRenderPass pass);
 
 QB_API void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr);
 QB_API void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer);
@@ -577,21 +526,8 @@ QB_API uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t at
 
 QB_API void qb_renderpass_create(qbRenderPass* render_pass, qbRenderPassAttr attr);
 QB_API void qb_renderpass_destroy(qbRenderPass* render_pass);
-QB_API void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
-QB_API void qb_renderpass_drawto(qbRenderPass render_pass, qbFrameBuffer frame_buffer, size_t count, qbRenderGroup* groups);
-QB_API void qb_renderpass_resize(qbRenderPass render_pass, qbViewport_ viewport);
 QB_API const char* qb_renderpass_name(qbRenderPass render_pass);
 QB_API qbRenderExt qb_renderpass_ext(qbRenderPass render_pass);
-
-QB_API qbGeometryDescriptor qb_renderpass_geometry(qbRenderPass render_pass);
-QB_API size_t qb_renderpass_bindings(qbRenderPass render_pass, qbBufferBinding* bindings);
-QB_API size_t qb_renderpass_groups(qbRenderPass render_pass, qbRenderGroup** groups);
-QB_API size_t qb_renderpass_resources(qbRenderPass render_pass, qbShaderResourceBinding* resources);
-QB_API size_t qb_renderpass_attributes(qbRenderPass render_pass, qbVertexAttribute* attributes);
-QB_API size_t qb_renderpass_uniforms(qbRenderPass render_pass, uint32_t** bindings, qbGpuBuffer** uniforms);
-QB_API size_t qb_renderpass_samplers(qbRenderPass render_pass, uint32_t** bindings, qbImageSampler** samplers);
-QB_API size_t qb_renderpass_remove(qbRenderPass render_pass, qbRenderGroup group);
-QB_API void qb_renderpass_update(qbRenderPass render_pass, size_t count, qbRenderGroup* groups);
 
 QB_API void qb_imagesampler_create(qbImageSampler* sampler, qbImageSamplerAttr attr);
 QB_API void qb_imagesampler_destroy(qbImageSampler* sampler);
@@ -637,31 +573,6 @@ QB_API void qb_meshbuffer_updateimages(qbMeshBuffer buffer, size_t count, uint32
 QB_API void qb_meshbuffer_setcount(qbMeshBuffer buffer, size_t count);
 QB_API size_t qb_meshbuffer_getcount(qbMeshBuffer buffer);
 
-QB_API void qb_rendergroup_create(qbRenderGroup* group, qbRenderGroupAttr attr);
-QB_API void qb_rendergroup_destroy(qbRenderGroup* group);
-QB_API void qb_rendergroup_attachimages(qbRenderGroup buffer, size_t count, uint32_t bindings[], qbImage images[]);
-QB_API void qb_rendergroup_attachuniforms(qbRenderGroup buffer, size_t count, uint32_t bindings[], qbGpuBuffer uniforms[]);
-QB_API void qb_rendergroup_addimage(qbRenderGroup buffer, qbImage image, uint32_t binding);
-QB_API void qb_rendergroup_adduniform(qbRenderGroup buffer, qbGpuBuffer uniform, uint32_t binding);
-QB_API qbImage qb_rendergroup_findimage(qbRenderGroup buffer, qbImage image);
-QB_API qbGpuBuffer qb_rendergroup_finduniform(qbRenderGroup buffer, qbGpuBuffer uniform);
-QB_API qbGpuBuffer qb_rendergroup_finduniform_byname(qbRenderGroup buffer, const char* name);
-QB_API qbGpuBuffer qb_rendergroup_finduniform_bybinding(qbRenderGroup buffer, uint32_t binding);
-
-QB_API size_t qb_rendergroup_removeimage(qbRenderGroup buffer, qbImage image);
-QB_API size_t qb_rendergroup_removeuniform(qbRenderGroup buffer, qbGpuBuffer uniform);
-QB_API size_t qb_rendergroup_removeuniform_byname(qbRenderGroup buffer, const char* name);
-QB_API size_t qb_rendergroup_removeuniform_bybinding(qbRenderGroup buffer, uint32_t binding);
-
-QB_API size_t qb_rendergroup_meshes(qbRenderGroup group, qbMeshBuffer** buffers);
-QB_API void qb_rendergroup_append(qbRenderGroup group, qbMeshBuffer buffer);
-QB_API void qb_rendergroup_prepend(qbRenderGroup group, qbMeshBuffer buffer);
-QB_API size_t qb_rendergroup_remove(qbRenderGroup group, qbMeshBuffer buffer);
-QB_API void qb_rendergroup_update(qbRenderGroup group, size_t count, qbMeshBuffer* buffers);
-QB_API size_t qb_rendergroup_images(qbRenderGroup group, qbImage** images);
-QB_API size_t qb_rendergroup_uniforms(qbRenderGroup group, qbGpuBuffer** uniforms);
-QB_API qbDrawMode qb_rendergroup_drawmode(qbRenderGroup group);
-
 QB_API qbRenderExt qb_renderext_find(qbRenderExt extensions, const char* ext_name);
 QB_API void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void* data);
 
@@ -669,21 +580,23 @@ QB_API void qb_renderext_add(qbRenderExt* extensions, const char* ext_name, void
 // It is assumed that the extension data is statically defined.
 QB_API void qb_renderext_destroy(qbRenderExt* extensions);
 
-QB_API void qb_surface_create(qbSurface* surface, qbSurfaceAttr attr);
-QB_API void qb_surface_destroy(qbSurface* surface);
-QB_API void qb_surface_resize(qbSurface surface, uint32_t width, uint32_t height);
-QB_API void qb_surface_draw(qbSurface surface, qbImage* input, qbFrameBuffer output);
-QB_API qbFrameBuffer qb_surface_target(qbSurface surface, size_t i);
-QB_API qbImage qb_surface_image(qbSurface surface, size_t i);
-
 typedef struct qbSwapchainAttr_ {
   qbExtent_ extent;
 } qbSwapchainAttr_, *qbSwapchainAttr;
+
+typedef struct qbDrawPresentInfo_ {
+  // The current frame to draw to, retrieved from `qb_swapchain_waitforframe`.
+  uint32_t image_index;
+
+  qbSemaphoreWaitInfo_ unused_wait_;
+} qbDrawPresentInfo_, * qbDrawPresentInfo;
 
 typedef struct qbSwapchain_* qbSwapchain;
 QB_API void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr);
 QB_API void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images);
 QB_API uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain);
+QB_API void qb_swapchain_present(qbSwapchain swapchain, qbDrawPresentInfo present_info);
+QB_API void qb_swapchain_swap(qbSwapchain swapchain);
 
 typedef struct qbBeginRenderPassInfo_ {
   qbRenderPass render_pass;
@@ -697,16 +610,23 @@ typedef struct qbDrawCommandBufferAttr_ {
   struct qbMemoryAllocator_* allocator;
 } qbDrawCommandBufferAttr_, *qbDrawCommandBufferAttr;
 
-
 typedef struct qbDrawCommandBuffer_* qbDrawCommandBuffer;
 
+// Creates a command buffer. Does not take ownership of the given allocator. Any data
+// given to the command must be valid until after the buffer is presented
+// unless otherwise noted. For example, see `qb_drawcmd_pushbuffer`.
 QB_API void qb_drawcmd_create(qbDrawCommandBuffer* cmd_buf, qbDrawCommandBufferAttr attr);
+
+// Destroys the given command buffer and owned allocator.
 QB_API void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count);
+
+// Clears all commands from `cmd_buf` and clears the allocator.
 QB_API void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf);
 
-QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
 QB_API void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info);
 QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
+
+QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
 QB_API void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport);
 QB_API void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect);
 QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
@@ -716,15 +636,18 @@ QB_API void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t f
 QB_API void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer);
 QB_API void qb_drawcmd_draw(qbDrawCommandBuffer cmd_buf, uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance);
 QB_API void qb_drawcmd_drawindexed(qbDrawCommandBuffer cmd_buf, uint32_t index_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t first_instance);
-QB_API void qb_drawcmd_drawfunc(qbDrawCommandBuffer cmd_buf, void(*func)(qbDrawCommandBuffer, qbVar), qbVar arg);
+
+// Updates the contents of the buffer on the GPU with the given data.
 QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
+
+// Allocates `size` bytes and copies `data` with the buffer's allocator.
 QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 
-typedef struct qbDrawPresentInfo_ {
-  qbSwapchain swapchain;
-  uint32_t image_index;
-} qbDrawPresentInfo_, *qbDrawPresentInfo;
+typedef struct qbDrawCommandSubmitInfo_ {
 
-QB_API qbTask qb_drawcmd_present(qbDrawCommandBuffer cmd_buf, qbDrawPresentInfo present_info);
+} qbDrawCommandSubmitInfo_, *qbDrawCommandSubmitInfo;
+
+// Runs all commands in `cmd_buf`, clears the allocator, presents the image, and swaps with the back buffer.
+QB_API qbTask qb_drawcmd_submit(qbDrawCommandBuffer cmd_buf, qbDrawCommandSubmitInfo submit_info);
 
 #endif  // CUBEZ_RENDER_PIPELINE__H

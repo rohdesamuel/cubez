@@ -15,24 +15,39 @@ struct qbDrawCommands_ {
 
   mat4s* transform_stack;
   int32_t push_count;
-  qbCamera_ camera;
 
   qbDrawCommand_ cur;
+};
+
+struct qbDrawBatch_ {
+  qbDrawCommand_* commands;
+  size_t commands_count;
 };
 
 static thread_local qbMemoryAllocator allocator = nullptr;
 static thread_local qbMemoryAllocator cmd_allocator = nullptr;
 
-void qb_draw_init(qbDrawCommands cmds, const qbCamera_* camera) {
+void qb_draw_init(qbDrawCommands cmds) {
   cmds->commands[cmds->commands_count++] = {
-    .type = QB_DRAW_CAMERA,
-    .command = qbDrawCommandInit_ {
-      .camera = camera
-    }
+    .type = QB_DRAW_BEGIN,
+    .command = qbDrawCommandBegin_{}
   };
 }
 
-qbDrawCommands qb_draw_begin(const struct qbCamera_* camera) {
+qbResult qb_draw_beginframe(const struct qbCamera_* camera) {
+  qbRenderer renderer = qb_renderer();
+  return renderer->draw_beginframe(renderer, camera);
+}
+
+void qb_draw_dealloc(qbDrawCommands* cmds) {
+  qb_dealloc(cmd_allocator, (*cmds)->commands);
+  qb_dealloc(allocator, (*cmds)->transform_stack);
+  qb_dealloc(allocator, (*cmds));
+
+  *cmds = nullptr;
+}
+
+qbDrawCommands qb_draw_begin() {
   if (!allocator) {
     allocator = qb_memallocator_pool();
   }
@@ -47,13 +62,32 @@ qbDrawCommands qb_draw_begin(const struct qbCamera_* camera) {
   ret->cur = {};
   ret->commands = (qbDrawCommand_*)qb_alloc(cmd_allocator, sizeof(qbDrawCommand_) * MAX_DRAW_COMMANDS);
   ret->transform_stack = (mat4s*)qb_alloc(allocator, sizeof(mat4s) * MAX_STACK_TRANSFORM_COUNT);
-  ret->camera = *camera;
   ret->cur.args.transform = GLMS_MAT4_IDENTITY_INIT;
   ret->cur.args.color = { 0.f, 0.f, 0.f, 1.f };
 
-  qb_draw_init(ret, &ret->camera);
+  qb_draw_init(ret);
 
   return ret;
+}
+
+qbResult qb_draw_end(qbDrawCommands* cmds) {
+  qbRenderer renderer = qb_renderer();
+  (*cmds)->commands[(*cmds)->commands_count++] = {
+    .type = QB_DRAW_END,
+    .command = {}
+  };
+
+  qbResult result = renderer->drawcommands_submit(renderer, (*cmds)->commands_count, (*cmds)->commands);
+
+  if ((*cmds)->push_count > 0)
+    assert(false && "Unpopped transforms exist.");
+
+  if ((*cmds)->push_count < 0)
+    assert(false && "Too many transforms were popped.");
+
+  qb_draw_dealloc(cmds);
+
+  return result;
 }
 
 void qb_draw_settransform(qbDrawCommands cmds, mat4s transform) {
@@ -205,6 +239,14 @@ void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instanc
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 }
 
+void qb_draw_submitbuffer(qbDrawCommands cmds, qbDrawCommandBuffer buffer) {
+  assert(cmds->commands_count < MAX_DRAW_COMMANDS);
+
+  cmds->cur.command.submit_buffer = { buffer };
+  cmds->cur.type = QB_DRAW_SUBMITBUFFER;
+  cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
+}
+
 void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
   cmds->cur.command.custom = { command_type, arg };
@@ -212,29 +254,33 @@ void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
-qbResult qb_draw_end(qbDrawCommands cmds) {
-  qbRenderer renderer = qb_renderer();
-  qbResult result = renderer->drawcommands_submit(renderer, cmds);
-  
-  if (cmds->push_count > 0)
-    assert(false && "Unpopped transforms exist.");
+qbResult qb_drawbatch_create(qbDrawBatch* batch, qbDrawCommands cmds) {
+  qbDrawBatch ret = new qbDrawBatch_{};
+  ret->commands_count = cmds->commands_count;
+  ret->commands = new qbDrawCommand_[ret->commands_count];
 
-  if (cmds->push_count < 0)
-    assert(false && "Too many transforms were popped.");
+  for (size_t i = 0; i < ret->commands_count; ++i) {
+    ret->commands[i] = cmds->commands[i];
+  }
 
-  qb_dealloc(cmd_allocator, cmds->commands);
-  qb_dealloc(allocator, cmds->transform_stack);
-  qb_dealloc(allocator, cmds);
+  *batch = ret;
 
-  return result;
+  return QB_OK;
 }
 
-void qb_draw_commands(qbDrawCommands cmds, size_t* count, qbDrawCommand_** commands) {
-  if (count) {
-    *count = cmds->commands_count;
-  }
+qbResult qb_drawbatch_destroy(qbDrawBatch* batch) {
+  delete (*batch)->commands;
+  delete *batch;
 
-  if (commands) {
-    *commands = cmds->commands;
-  }
+  *batch = nullptr;
+
+  return QB_OK;
+}
+
+qbResult qb_draw_compile(qbDrawCommands* cmds, qbDrawCommandBuffer* buffer) {
+  qbRenderer renderer = qb_renderer();
+  qbResult result = renderer->drawcommands_compile(renderer, (*cmds)->commands_count, (*cmds)->commands, buffer);
+
+  qb_draw_dealloc(cmds);
+  return result;
 }

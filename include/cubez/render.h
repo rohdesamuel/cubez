@@ -29,7 +29,10 @@ typedef struct qbModelGroup_* qbModelGroup;
 typedef struct qbRenderer_ {
   void(*render)(struct qbRenderer_* self, qbRenderEvent event);
   void(*resize)(struct qbRenderer_* self, uint32_t width, uint32_t height);
-  qbResult(*drawcommands_submit)(struct qbRenderer_* self, struct qbDrawCommands_* cmds);
+
+  qbResult(*draw_beginframe)(struct qbRenderer_* self, const struct qbCamera_* camera);
+  qbResult(*drawcommands_submit)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds);
+  qbResult(*drawcommands_compile)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds, struct qbDrawCommandBuffer_** buf);
   
   size_t(*max_lights)(struct qbRenderer_* self);
   void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);

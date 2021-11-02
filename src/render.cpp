@@ -468,11 +468,6 @@ void qb_modelgroup_upload(qbModelGroup modelgroup,
   r->modelgroup_upload(r, modelgroup, model, material);
 }
 
-qbRenderGroup qb_modelgroup_rendergroup(qbModelGroup modelgroup) {
-  qbRenderer r = qb_renderer();
-  return r->modelgroup_rendergroup(r, modelgroup);
-}
-
 void qb_light_enable(qbId id, qbLightType type) {
   auto r = qb_renderer();
   r->light_enable(r, id, type);

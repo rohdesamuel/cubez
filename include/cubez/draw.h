@@ -5,8 +5,15 @@
 #include <cubez/render_pipeline.h>
 
 typedef struct qbDrawCommands_* qbDrawCommands;
+typedef struct qbDrawBatch_* qbDrawBatch;
 
-QB_API qbDrawCommands qb_draw_begin(const struct qbCamera_* camera);
+// Should be called once per frame.
+QB_API qbResult qb_draw_beginframe(const struct qbCamera_* camera);
+
+QB_API qbDrawCommands qb_draw_begin();
+QB_API qbResult qb_draw_end(qbDrawCommands* cmds);
+QB_API qbResult qb_draw_compile(qbDrawCommands* cmds, qbDrawCommandBuffer* buffer);
+
 QB_API void qb_draw_settransform(qbDrawCommands cmds, mat4s transform);
 QB_API void qb_draw_gettransform(qbDrawCommands cmds, mat4s* transform);
 QB_API void qb_draw_identity(qbDrawCommands cmds);
@@ -38,13 +45,13 @@ QB_API void qb_draw_sphere(qbDrawCommands cmds, float r);
 QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
 QB_API void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model);
 QB_API void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms);
+QB_API void qb_draw_submitbuffer(qbDrawCommands cmds, qbDrawCommandBuffer buffer);
 QB_API void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg);
-
-QB_API qbResult qb_draw_end(qbDrawCommands cmds);
 
 typedef enum qbDrawCommandType_ {
   QB_DRAW_NOOP,
-  QB_DRAW_CAMERA,
+  QB_DRAW_BEGIN,
+  QB_DRAW_END,
   QB_DRAW_TRI,
   QB_DRAW_QUAD,
   QB_DRAW_BOX,
@@ -52,12 +59,17 @@ typedef enum qbDrawCommandType_ {
   QB_DRAW_SPHERE,
   QB_DRAW_MESH,
   QB_DRAW_ENTITY,
+  QB_DRAW_SUBMITBUFFER,
   QB_DRAW_CUSTOM
 } qbDrawCommandType_;
 
-typedef struct qbDrawCommandInit_ {
-  const struct qbCamera_* camera;
-} qbDrawCommandInit_;
+typedef struct qbDrawCommandBegin_ {
+  uint64_t reserved;
+} qbDrawCommandBegin_;
+
+typedef struct qbDrawCommandEnd_ {
+  uint64_t reserved;
+} qbDrawCommandEnd_;
 
 typedef struct qbDrawCommandTri_ {
   vec2s points[3];
@@ -72,54 +84,58 @@ typedef struct qbDrawCommandBox_ {
   float w;
   float h;
   float d;
-};
+} qbDrawCommandBox_;
 
 typedef struct qbDrawCommandCircle_ {
   float r;
-};
+} qbDrawCommandCircle_;
 
 typedef struct qbDrawCommandSphere_ {
   float r;
-};
+} qbDrawCommandSphere_;
 
 typedef struct qbDrawCommandMesh_ {
   struct qbMesh_* mesh;
-};
+} qbDrawCommandMesh_;
 
 typedef struct qbDrawCommandInstanced_ {
   struct qbMesh_* mesh;
   mat4s* transforms;
   size_t instance_count;
-};
+} qbDrawCommandInstanced_;
 
 typedef struct qbDrawCommandCustom_ {
   int command_type;
   qbVar data;
-};
+} qbDrawCommandCustom_;
+
+typedef struct qbDrawSubmitBuffer_ {
+  qbDrawCommandBuffer cmds;
+} qbDrawSubmitBuffer_;
 
 typedef struct qbDrawCommandArgs_ {
   vec4s color;
   mat4s transform;
   struct qbMaterial_* material;
 
-} qbDrawCommandArgs_, * qbDrawCommandArgs;
+} qbDrawCommandArgs_, *qbDrawCommandArgs;
 
 typedef struct qbDrawCommand_ {
   qbDrawCommandType_ type;
   union {
-    qbDrawCommandInit_ init;
+    qbDrawCommandBegin_ begin;
+    qbDrawCommandEnd_ end;
     qbDrawCommandTri_ tri;
     qbDrawCommandQuad_ quad;
     qbDrawCommandBox_ box;
     qbDrawCommandCircle_ circle;
     qbDrawCommandSphere_ sphere;
     qbDrawCommandMesh_ mesh;
+    qbDrawSubmitBuffer_ submit_buffer;
     qbDrawCommandCustom_ custom;
   } command;
   qbDrawCommandArgs_ args;
 
-} qbDrawCommand_, * qbDrawCommand;
-
-QB_API void qb_draw_commands(qbDrawCommands cmds, size_t* count, struct qbDrawCommand_** commands);
+} qbDrawCommand_, *qbDrawCommand;
 
 #endif  // CUBEZ_DRAW__H
