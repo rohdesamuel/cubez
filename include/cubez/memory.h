@@ -81,6 +81,19 @@ QB_API qbMemoryAllocator qb_memallocator_pool();
 //   - clear(): resets offset to zero.
 QB_API qbMemoryAllocator qb_memallocator_linear(size_t max_size);
 
+// Creates a thread-safe paged allocator.
+// 
+// Description: A paged allocator is a linear allocator without a max size. The
+//              memory is allocated in `page_size` increments, OR `size` if the
+//              size is greater than the page size.
+// 
+// Behavior:
+//   - alloc(size): Allocates a block of memory of size `size`.
+//   - dealloc(ptr): noop
+//   - flush(frame): noop
+//   - clear(): Deallocates all memory.
+QB_API qbMemoryAllocator qb_memallocator_paged(size_t page_size);
+
 // Creates a thread-safe stack allocator.
 // 
 // Description: A stack allocator acts like a linear allocator that allows
@@ -98,5 +111,21 @@ QB_API qbMemoryAllocator qb_memallocator_linear(size_t max_size);
 //   - flush(frame): noop
 //   - clear(): resets offset to zero.
 QB_API qbMemoryAllocator qb_memallocator_stack(size_t max_size);
+
+// Creates a thread-safe object pool allocator.
+// 
+// Description: An object pool allocator holds a preallocated number of
+//              objects. Allocating from the object pool retrieves an object
+//              from the pool. The pool has a `pool_count` objects of size
+//              `object_size`.
+// 
+// Behavior:
+//   - alloc(unused): Returns an object if available. Returns nullptr if the
+//                    pool has allocated all objects already.
+//   - dealloc(ptr): Returns the object to the pool.
+//   - flush(frame): noop
+//   - clear(): Returns all allocated objects to the pool. Any reference to an
+//              allocated object becomes invalid.
+QB_API qbMemoryAllocator qb_memallocator_objectpool(size_t object_size, size_t pool_count);
 
 #endif  // CUBEZ_MEMORY__H

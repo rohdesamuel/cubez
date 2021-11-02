@@ -1,6 +1,7 @@
 #include <cubez/memory.h>
 
 #include "mem-pool/mem_pool.h"
+#include "paged_allocator.h"
 
 #include <iostream>
 #include <unordered_map>
@@ -42,17 +43,15 @@ qbResult qb_memallocator_unregister(const char* name) {
 }
 
 void memory_initialize() {
-  {
-    MallocAllocator* alloc = new MallocAllocator;
-    alloc->self.destroy = [](qbMemoryAllocator_*) {};
-    alloc->self.alloc = [](qbMemoryAllocator_*, size_t size) { return malloc(size); };
-    alloc->self.dealloc = [](qbMemoryAllocator_*, void* ptr) { free(ptr); };
-    alloc->self.flush = nullptr;
-    alloc->self.clear = nullptr;
+  MallocAllocator* alloc = new MallocAllocator;
+  alloc->self.destroy = [](qbMemoryAllocator_*) {};
+  alloc->self.alloc = [](qbMemoryAllocator_*, size_t size) { return malloc(size); };
+  alloc->self.dealloc = [](qbMemoryAllocator_*, void* ptr) { free(ptr); };
+  alloc->self.flush = nullptr;
+  alloc->self.clear = nullptr;
 
-    qb_memallocator_register("default", (qbMemoryAllocator_*)alloc);
-    default_alloc = (qbMemoryAllocator_*)alloc;
-  }
+  qb_memallocator_register("default", (qbMemoryAllocator_*)alloc);
+  default_alloc = (qbMemoryAllocator_*)alloc;
 }
 
 void memory_flush_all(int64_t frame) {
@@ -220,4 +219,45 @@ struct qbMemoryStackAllocator {
 
 qbMemoryAllocator qb_memallocator_stack(size_t max_size) {
   return (qbMemoryAllocator)(new qbMemoryStackAllocator(max_size));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+struct qbMemoryPagedAllocator {
+  qbMemoryAllocator_ self;
+  PagedAllocator* allocator;
+
+  qbMemoryPagedAllocator(size_t page_size) {
+    allocator = new PagedAllocator(page_size);
+
+    self.destroy = qbMemoryPagedAllocator::destroy;
+    self.alloc = qbMemoryPagedAllocator::alloc;
+    self.dealloc = qbMemoryPagedAllocator::dealloc;
+    self.clear = qbMemoryPagedAllocator::clear;
+    self.flush = nullptr;
+  }
+
+  static void destroy(qbMemoryAllocator_* allocator) {
+    qbMemoryPagedAllocator* self = (qbMemoryPagedAllocator*)allocator;
+
+    delete self->allocator;
+    delete self;
+  }
+
+  static void* alloc(qbMemoryAllocator_* allocator, size_t size) {
+    qbMemoryPagedAllocator* self = (qbMemoryPagedAllocator*)allocator;
+    return self->allocator->allocate(size);
+  }
+
+  static void dealloc(qbMemoryAllocator_* allocator, void* ptr) {
+    return;
+  }
+
+  static void clear(qbMemoryAllocator_* allocator) {
+    qbMemoryPagedAllocator* self = (qbMemoryPagedAllocator*)allocator;
+    self->allocator->clear();
+  }
+};
+
+qbMemoryAllocator qb_memallocator_paged(size_t page_size) {
+  return (qbMemoryAllocator)(new qbMemoryPagedAllocator(page_size));
 }
