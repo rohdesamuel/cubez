@@ -98,10 +98,23 @@ public:
   TaskThreadPool(size_t threads, size_t max_queue_size);
   ~TaskThreadPool();
 
+  // Queues the given function to run on a separate thread. Returns the 
+  // created task. Returned task must have "join" called on it, otherwise the
+  // task will be leaked.
   qbTask enqueue(std::function<qbVar()>&& f);
+
+  // Queues the given function to run on a separate thread. Returns the 
+  // created task. Join will automatically be called on the task; returned task
+  // does /not/ need to have "join" called on it.
   qbTask dispatch(std::function<qbVar(qbTask)>&& f);
+
+  // Waits until the task finishes running and returns the task's output.
   qbVar join(qbTask task);
+
+  // Returns QB_TRUE if the task is waiting to run or is running. Returns
+  // QB_FALSE after the task is joined.
   qbBool is_active(qbTask task);
+
 private:
   struct Task {
     std::function<qbVar()> fn;
@@ -113,7 +126,7 @@ private:
     }
 
     static uint32_t get_task_id(qbTask task) {
-      return (uint64_t)task & 0x00000000FFFFFFFF;
+      return (uint64_t)task & 0x00000000FFFFFFFFull;
     }
   };
 
