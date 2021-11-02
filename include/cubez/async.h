@@ -57,6 +57,13 @@ QB_API qbTask   qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var);
 QB_API qbVar    qb_task_join(qbTask task);
 QB_API qbBool   qb_task_isactive(qbTask task);
 
+typedef struct qbSemaphore_ *qbSemaphore;
+
+QB_API void qb_semaphore_create(qbSemaphore* sem);
+QB_API void qb_semaphore_destroy(qbSemaphore* sem);
+QB_API qbResult qb_semaphore_signal(qbSemaphore sem, uint64_t n);
+QB_API void qb_semaphore_wait(qbSemaphore sem, uint64_t n);
+
 typedef struct qbTaskBundleAttr_ {
   uint64_t reserved;
 } qbTaskBundleAttr_, *qbTaskBundleAttr;
@@ -69,25 +76,67 @@ typedef struct qbTaskBundleAddInfo_ {
   uint64_t reserved;
 } qbTaskBundleAddTaskInfo_, *qbTaskBundleAddTaskInfo;
 
+typedef struct qbSemaphoreWaitInfo_ {
+  qbSemaphore semaphore;
+  uint64_t wait_until;
+} qbSemaphoreWaitInfo_, *qbSemaphoreWaitInfo;
+
+
+typedef struct qbTaskBundleSemaphore_ {
+  qbTaskBundle task_bundle;
+  qbSemaphoreWaitInfo_ wait_info;
+} qbTaskBundleSemaphore_, *qbTaskBundleSemaphore;
+
 typedef struct qbTaskBundleSubmitInfo_ {
-  uint64_t reserved;
+  qbTaskBundleSemaphore* semaphores;
+  size_t semaphore_count;
 } qbTaskBundleSubmitInfo_, *qbTaskBundleSubmitInfo;
 
+// Creates and returns a new qbTaskBundle.
+// A qbTaskBundle is a list of tasks to run sequentially on a separate thread.
 QB_API qbTaskBundle qb_taskbundle_create(qbTaskBundleAttr attr);
+
+// Begins the task bundle and clears any tasks in the bundle.
 QB_API void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info);
+
+// Ends the task bundle.
 QB_API void qb_taskbundle_end(qbTaskBundle bundle);
+
+// Clears any tasks added to the bundle.
 QB_API void qb_taskbundle_clear(qbTaskBundle bundle);
 
+// Adds a function to the bundle to run synchronously with respect to all tasks
+// in the bundle.
 QB_API void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info);
+
+// Adds a qbQuery to the bundle to run synchronously with respect to all tasks
+// in the bundle.
 QB_API void qb_taskbundle_addquery(qbTaskBundle bundle, qbQuery query, qbTaskBundleAddTaskInfo info);
+
+// Adds a qbSystem to the bundle to run synchronously with respect to all tasks
+// in the bundle.
 QB_API void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info);
+
+// Adds a task bundle to run asynchronously. Can be joined within running the
+// task bundle by using `qb_taskbundle_joinbundle`.
 QB_API void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
                                     qbTaskBundleAddTaskInfo add_info,
                                     qbTaskBundleSubmitInfo submit_info);
+
+// Adds a task to join the given task bundle.
+QB_API void qb_taskbundle_joinbundle(qbTaskBundle bundle, qbTaskBundle tasks, qbTaskBundleAddTaskInfo add_info);
+
+// Adds a sleep to run.
 QB_API void qb_taskbundle_addsleep(qbTaskBundle bundle, uint64_t duration_ms, qbTaskBundleAddTaskInfo info);
 
+// Submits the given task bundle to run asynchronously on a new thread. Must be
+// joined with `qb_task_join`.
 QB_API qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
+
+// Submits the given task bundle to run asynchronously on a new thread.
 QB_API qbTask qb_taskbundle_dispatch(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
-QB_API qbVar  qb_taskbundle_run(qbTaskBundle bundle, qbVar arg);
+
+// Runs the given task bundle synchrously.
+QB_API qbVar  qb_taskbundle_run(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info);
 
 #endif  // CUBEZ_ASYNC__H

@@ -1,6 +1,7 @@
 #include <cubez/async.h>
 
 #include <cubez/memory.h>
+#include <cubez/random.h>
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -94,9 +95,112 @@ struct qbQueue_ {
 };
 
 struct qbTaskBundle_ {
+public:
+  struct State {
+    std::unordered_map<qbTaskBundle, std::vector<qbSemaphoreWaitInfo_>> semaphores;
+    std::unordered_map<qbTaskBundle, qbTask> tasks;
+  };
+
   qbTaskBundleBeginInfo_ begin_info;
   std::vector<std::function<qbVar(qbTask, qbVar)>> tasks_;
+
+  void add_bundle(qbTaskBundle bundle, qbTask task) {
+    std::shared_lock l(state_mu_);
+    State& state = state_.find(task)->second;
+    state.tasks[bundle] = task;
+  }
+
+  void add_semaphores(qbTask task, size_t count, qbTaskBundleSemaphore* semaphores) {
+    State* state;
+    {
+      std::shared_lock l(state_mu_);
+      state = &state_[task];
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+      qbTaskBundleSemaphore s = semaphores[i];
+      state->semaphores[s->task_bundle].push_back(s->wait_info);
+    }    
+  }
+
+  qbVar join_bundle(qbTask task, qbTaskBundle bundle) {
+    State* state;
+    {
+      std::shared_lock l(state_mu_);
+      state = &state_[task];
+    }
+    qbTask async_task = state->tasks.find(bundle)->second;
+
+    auto found = state->semaphores.find(bundle);
+    if (found != state->semaphores.end()) {
+      for (const auto& s : found->second) {
+        qb_semaphore_wait(s.semaphore, s.wait_until);
+      }
+    }
+
+    return qb_task_join(async_task);
+  }
+
+  void join_all_bundles(qbTask task) {
+    State* state;
+    {
+      std::shared_lock l(state_mu_);
+      state = &state_[task];
+    }
+    
+    for (auto& [bundle, async_task] : state->tasks) {
+      auto found = state->semaphores.find(bundle);
+      if (found != state->semaphores.end()) {
+        for (const auto& s : found->second) {
+          qb_semaphore_wait(s.semaphore, s.wait_until);
+        }
+      }
+
+      qb_task_join(async_task);
+    }
+  }
+
+  void clear_state(qbTask task) {
+    std::shared_lock l(state_mu_);
+    state_.erase(task);
+  }
+
+private:
+  std::shared_mutex state_mu_;
+  std::unordered_map<qbTask, State> state_;
 };
+
+struct qbSemaphore_ {
+  std::mutex mu;
+  std::condition_variable cv;
+  uint64_t n = 0;
+};
+
+void qb_semaphore_create(qbSemaphore* sem) {
+  *sem = new qbSemaphore_{};
+}
+
+void qb_semaphore_destroy(qbSemaphore* sem) {
+  delete *sem;
+  *sem = nullptr;
+}
+
+qbResult qb_semaphore_signal(qbSemaphore sem, uint64_t n) {
+  if (n < sem->n)
+    return QB_ERROR_SEMAPHORE_NONMONOTONIC_SIGNAL;
+
+  {
+    std::unique_lock<std::mutex> l(sem->mu);
+    sem->n = n;
+  }
+  sem->cv.notify_all();
+  return QB_OK;
+}
+
+void qb_semaphore_wait(qbSemaphore sem, uint64_t n) {
+  std::unique_lock l(sem->mu);
+  sem->cv.wait(l, [sem, n] { return sem->n >= n; });
+}
 
 void qb_channel_create(qbChannel* channel) {
   *channel = new qbChannel_{};
@@ -215,7 +319,7 @@ void qb_taskbundle_begin(qbTaskBundle bundle, qbTaskBundleBeginInfo info) {
 void qb_taskbundle_end(qbTaskBundle bundle) {}
 
 void qb_taskbundle_clear(qbTaskBundle bundle) {
-  bundle->tasks_.clear();
+  bundle->tasks_.resize(0);
 }
 
 void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qbTaskBundleAddTaskInfo info) {
@@ -225,7 +329,7 @@ void qb_taskbundle_addtask(qbTaskBundle bundle, qbVar(*entry)(qbTask, qbVar), qb
 }
 
 void qb_taskbundle_addtask(qbTaskBundle bundle, std::function<qbVar(qbTask, qbVar)>&& entry, qbTaskBundleAddTaskInfo info) {
-  bundle->tasks_.push_back(entry);
+  bundle->tasks_.push_back(std::move(entry));
 }
 
 void qb_taskbundle_addsystem(qbTaskBundle bundle, qbSystem system, qbTaskBundleAddTaskInfo info) {
@@ -244,9 +348,16 @@ void qb_taskbundle_addquery(qbTaskBundle bundle, qbQuery query, qbTaskBundleAddT
 void qb_taskbundle_addbundle(qbTaskBundle bundle, qbTaskBundle tasks,
                              qbTaskBundleAddTaskInfo add_info,
                              qbTaskBundleSubmitInfo submit_info) {
-  qbTaskBundleSubmitInfo_ info_copy = *submit_info;
-  bundle->tasks_.push_back([bundle, info_copy](qbTask, qbVar var) {
-    return qb_task_join(qb_taskbundle_submit(bundle, var, (qbTaskBundleSubmitInfo)&info_copy));
+  bundle->tasks_.push_back([bundle, tasks, submit_info](qbTask task, qbVar var) {
+    qbTask async_task = qb_taskbundle_submit(bundle, var, submit_info);
+    bundle->add_bundle(tasks, async_task);
+    return var;
+  });
+}
+
+void qb_taskbundle_joinbundle(qbTaskBundle bundle, qbTaskBundle tasks, qbTaskBundleAddTaskInfo add_info) {
+  bundle->tasks_.push_back([bundle, tasks](qbTask task, qbVar var) {
+    return bundle->join_bundle(task, tasks);
   });
 }
 
@@ -258,33 +369,57 @@ void qb_taskbundle_addsleep(qbTaskBundle bundle, uint64_t duration_ms, qbTaskBun
 }
 
 qbTask qb_taskbundle_submit(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
-  decltype(qbTaskBundle_::tasks_) tasks = bundle->tasks_;
-
-  qbTask task = thread_pool->enqueue([tasks = std::move(tasks), task, arg]() {
+  qbTask task = thread_pool->enqueue([bundle, task, arg, info]() {
     qbVar varg = arg;
-    for (auto& entry : tasks) {
+
+    if (info) {
+      bundle->add_semaphores(task, info->semaphore_count, info->semaphores);
+    }
+
+    for (auto& entry : bundle->tasks_) {
       varg = entry(task, varg);
     }
+    
+    bundle->join_all_bundles(task);
+    bundle->clear_state(task);
+
     return varg;
   });
   return task;
 }
 
 qbTask qb_taskbundle_dispatch(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
-  decltype(qbTaskBundle_::tasks_) tasks = bundle->tasks_;
-
-  return thread_pool->dispatch([tasks = std::move(tasks), arg](qbTask task) {
+  return thread_pool->dispatch([bundle, arg, info](qbTask task) {
     qbVar varg = arg;
-    for (auto& entry : tasks) {
+
+    if (info) {
+      bundle->add_semaphores(task, info->semaphore_count, info->semaphores);
+    }
+
+    for (auto& entry : bundle->tasks_) {
       varg = entry(task, varg);
     }
+
+    bundle->join_all_bundles(task);
+    bundle->clear_state(task);
+    
     return varg;
   });
 }
 
-qbVar qb_taskbundle_run(qbTaskBundle bundle, qbVar arg) {
-  for (auto& entry : bundle->tasks_) {
-    arg = entry(qbInvalidHandle, arg);
+qbVar qb_taskbundle_run(qbTaskBundle bundle, qbVar arg, qbTaskBundleSubmitInfo info) {
+  qbTask task = qb_rand();
+
+  if (info) {
+    bundle->add_semaphores(task, info->semaphore_count, info->semaphores);
   }
+
+  for (auto& entry : bundle->tasks_) {
+    arg = entry(task, arg);
+  }
+
+  bundle->join_all_bundles(task);
+  bundle->clear_state(task);
+
   return arg;
 }
