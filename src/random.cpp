@@ -1,21 +1,26 @@
 #include <cubez/random.h>
 
+#include <cstdlib>
+
+
 uint64_t rol64(uint64_t x, int k) {
 	return (x << k) | (x >> (64 - k));
 }
 
-thread_local uint64_t seed;
+static thread_local qbXorshift_ state = []() {
+	uint64_t s = (uint64_t)(rand()) << 32ull | (uint64_t)(rand());
+	return qbXorshift_{ s };
+}(); 
 
-QB_API void qb_seed(uint64_t s) {
+void qb_seed(uint64_t s) {
 	if (s == 0) {
-		seed = (uint64_t)(rand()) << 32ull | (uint64_t)(rand());
+		state.s = (uint64_t)(rand()) << 32ull | (uint64_t)(rand());
 	} else {
-		seed = s;
+		state.s = s;
 	}
 }
 
-QB_API uint64_t qb_rand() {
-	static thread_local qbXorshift_ state = { .s = seed };
+uint64_t qb_rand() {
 	return qb_xorshift(&state);
 }
 
