@@ -42,6 +42,10 @@ void rendercmd_beginpass(qbDrawState state, qbRenderCommand c) {
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->id);
+  if (state->clear_values_count == 0) {
+    return;
+  }
+
   for (size_t i = 0; i < render_pass->attachments.size(); ++i) {
     qbFramebufferAttachmentRef ref = &render_pass->attachments[i];
     if (ref->attachment == QB_UNUSED_FRAMEBUFFER_ATTACHMENT) continue;
@@ -108,6 +112,10 @@ void rendercmd_setscissor(qbDrawState state, qbRenderCommand c) {
 void rendercmd_bindpipeline(qbDrawState state, qbRenderCommand c) {
   qbRenderPipeline pipeline = c->command.bind_pipeline.pipeline;
   state->pipeline = pipeline;
+
+  if (!c->command.bind_pipeline.set_render_state) {
+    return;
+  }
 
   qbRasterizationInfo raster_info = pipeline->rasterization_info;
 
@@ -340,6 +348,11 @@ void rendercmd_updatebuffer(qbDrawState state, qbRenderCommand c) {
   qb_gpubuffer_update(buffer, offset, size, data);
 }
 
+void rendercmd_subcommands(qbDrawState state, qbRenderCommand c) {
+  qbDrawCommandBuffer buf = c->command.sub_commands.cmd_buf;
+  buf->execute();
+}
+
 // WARNING: The order of the jump table must match the enums in `qbRenderCommandType_`.
 RenderCommandFn render_command_jump_table[] = {
   rendercmd_noop,
@@ -355,7 +368,8 @@ RenderCommandFn render_command_jump_table[] = {
   rendercmd_bindindexbuffer,
   rendercmd_draw,
   rendercmd_drawindexed,
-  rendercmd_updatebuffer
+  rendercmd_updatebuffer,
+  rendercmd_subcommands
 };
 
 void RenderCommandQueue::clear() {
@@ -383,6 +397,12 @@ qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
   return qbInvalidHandle;
 }
 
+void qbDrawCommandBuffer_::execute() {
+  for (RenderCommandQueue* queue : queued_passes_) {
+    queue->execute();
+  }
+}
+
 void qbDrawCommandBuffer_::clear() {
   for (RenderCommandQueue* queue : queued_passes_) {
     queue->clear();
@@ -405,13 +425,19 @@ void qbDrawCommandBuffer_::begin_pass(qbBeginRenderPassInfo begin_info) {
   builder_->task_bundle = allocate_bundle();
   builder_->allocator = allocate_allocator();  
   builder_->state.clear_values_count = begin_info->clear_values_count;
-  builder_->state.clear_values = allocate<qbClearValue_>(builder_->state.clear_values_count);
+
+  if (builder_->state.clear_values_count > 0) {
+    builder_->state.clear_values = allocate<qbClearValue_>(builder_->state.clear_values_count);
+    std::copy(
+      begin_info->clear_values,
+      begin_info->clear_values + builder_->state.clear_values_count,
+      builder_->state.clear_values);
+  } else {
+    builder_->state.clear_values = nullptr;
+  }
+
   builder_->state.framebuffer = begin_info->framebuffer;
   builder_->state.render_pass = begin_info->render_pass;
-  std::copy(
-    begin_info->clear_values,
-    begin_info->clear_values + builder_->state.clear_values_count,
-    builder_->state.clear_values);
 
   //qb_taskbundle_begin(builder_->task_bundle, {});
 }

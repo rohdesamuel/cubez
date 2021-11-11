@@ -38,7 +38,8 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_BINDINDEXBUFFER,
   QB_RENDER_COMMAND_DRAW,
   QB_RENDER_COMMAND_DRAWINDEXED,
-  QB_RENDER_COMMAND_UPDATEBUFFER
+  QB_RENDER_COMMAND_UPDATEBUFFER,
+  QB_RENDER_COMMAND_SUBCOMMANDS
 } qbRenderCommandType_;
 
 typedef struct qbRenderCommandBegin_ {
@@ -51,6 +52,7 @@ typedef struct qbRenderCommandEnd_ {
 
 typedef struct qbRenderCommandBindPipeline_ {
   struct qbRenderPipeline_* pipeline;
+  qbBool set_render_state;
 } qbRenderCommandBindPipeline_;
 
 typedef struct qbRenderCommandSetCull_ {
@@ -107,6 +109,10 @@ typedef struct qbRenderCommandUpdateBuffer_ {
   void* data;
 } qbRenderCommandUpdateBuffer_;
 
+typedef struct qbRenderCommandSubCommands_ {
+  qbDrawCommandBuffer cmd_buf;
+} qbRenderCommandSubCommands_;
+
 typedef struct qbRenderCommand_ {
   qbRenderCommandType_ type;
   union {
@@ -123,6 +129,7 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandDraw_ draw;
     qbRenderCommandDrawIndexed_ draw_indexed;
     qbRenderCommandUpdateBuffer_ update_buffer;
+    qbRenderCommandSubCommands_ sub_commands;
   } command;
 
 } qbRenderCommand_, *qbRenderCommand;

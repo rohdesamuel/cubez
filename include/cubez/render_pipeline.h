@@ -629,7 +629,7 @@ QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
 QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
 QB_API void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport);
 QB_API void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect);
-QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
+QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline, qbBool set_render_state);
 QB_API void qb_drawcmd_bindshaderresourceset(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, qbShaderResourceSet resource_set);
 QB_API void qb_drawcmd_bindshaderresourcesets(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, uint32_t resource_set_count, qbShaderResourceSet* resource_sets);
 QB_API void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t binding_count, qbGpuBuffer* buffers);
@@ -642,6 +642,8 @@ QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buf
 
 // Allocates `size` bytes and copies `data` with the buffer's allocator.
 QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
+
+QB_API void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw);
 
 typedef struct qbDrawCommandSubmitInfo_ {
 

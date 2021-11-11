@@ -5,14 +5,14 @@
 #include <cubez/render_pipeline.h>
 
 typedef struct qbDrawCommands_* qbDrawCommands;
-typedef struct qbDrawBatch_* qbDrawBatch;
+typedef struct qbDrawCommandBuffer_** qbDrawBatch;
 
 // Should be called once per frame.
-QB_API qbResult qb_draw_beginframe(const struct qbCamera_* camera);
+QB_API qbResult qb_draw_beginframe(const struct qbCamera_* camera, qbClearValue clear);
 
 QB_API qbDrawCommands qb_draw_begin();
 QB_API qbResult qb_draw_end(qbDrawCommands* cmds);
-QB_API qbResult qb_draw_compile(qbDrawCommands* cmds, qbDrawCommandBuffer* buffer);
+QB_API qbDrawBatch qb_draw_compile(qbDrawCommands* cmds);
 
 QB_API void qb_draw_settransform(qbDrawCommands cmds, mat4s transform);
 QB_API void qb_draw_gettransform(qbDrawCommands cmds, mat4s* transform);
@@ -45,7 +45,7 @@ QB_API void qb_draw_sphere(qbDrawCommands cmds, float r);
 QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
 QB_API void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model);
 QB_API void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms);
-QB_API void qb_draw_submitbuffer(qbDrawCommands cmds, qbDrawCommandBuffer buffer);
+QB_API void qb_draw_batch(qbDrawCommands cmds, qbDrawBatch batch);
 QB_API void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg);
 
 typedef enum qbDrawCommandType_ {
@@ -59,7 +59,7 @@ typedef enum qbDrawCommandType_ {
   QB_DRAW_SPHERE,
   QB_DRAW_MESH,
   QB_DRAW_ENTITY,
-  QB_DRAW_SUBMITBUFFER,
+  QB_DRAW_BATCH,
   QB_DRAW_CUSTOM
 } qbDrawCommandType_;
 
@@ -109,9 +109,9 @@ typedef struct qbDrawCommandCustom_ {
   qbVar data;
 } qbDrawCommandCustom_;
 
-typedef struct qbDrawSubmitBuffer_ {
-  qbDrawCommandBuffer cmds;
-} qbDrawSubmitBuffer_;
+typedef struct qbDrawCommandBatch_ {
+  qbDrawBatch commands;
+} qbDrawCommandBatch_;
 
 typedef struct qbDrawCommandArgs_ {
   vec4s color;
@@ -131,7 +131,7 @@ typedef struct qbDrawCommand_ {
     qbDrawCommandCircle_ circle;
     qbDrawCommandSphere_ sphere;
     qbDrawCommandMesh_ mesh;
-    qbDrawSubmitBuffer_ submit_buffer;
+    qbDrawCommandBatch_ batch;
     qbDrawCommandCustom_ custom;
   } command;
   qbDrawCommandArgs_ args;

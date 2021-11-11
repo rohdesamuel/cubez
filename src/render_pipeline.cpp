@@ -1313,9 +1313,9 @@ void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect) {
   cmd_buf->queue_command(&c);
 }
 
-void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline) {
+void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline, qbBool set_render_state) {
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDPIPELINE};
-  c.command.bind_pipeline = qbRenderCommandBindPipeline_{ .pipeline = pipeline };
+  c.command.bind_pipeline = qbRenderCommandBindPipeline_{ .pipeline = pipeline, .set_render_state = set_render_state };
 
   cmd_buf->queue_command(&c);
 }
@@ -1363,7 +1363,6 @@ void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_bi
   cmd_buf->queue_command(&c);
 }
 
-
 void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer) {
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDINDEXBUFFER };
   c.command.bind_indexbuffer = qbRenderCommandBindIndexBuffer_{ .buffer = buffer};
@@ -1398,6 +1397,13 @@ void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intp
 
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_UPDATEBUFFER };
   c.command.update_buffer = qbRenderCommandUpdateBuffer_{ .buffer = buffer, .offset = offset, .size = size, .data = data_copy };
+
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_SUBCOMMANDS };
+  c.command.sub_commands = qbRenderCommandSubCommands_{ .cmd_buf = to_draw };
 
   cmd_buf->queue_command(&c);
 }

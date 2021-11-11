@@ -30,6 +30,8 @@ struct qbDrawCommandBuffer_ {
   qbDrawCommandBuffer_(qbMemoryAllocator allocator);
 
   qbTask submit(qbDrawCommandSubmitInfo submit_info);
+  void execute();
+
   void clear();
   void begin_pass(qbBeginRenderPassInfo begin_info);
   void end_pass();
@@ -48,7 +50,7 @@ struct qbDrawCommandBuffer_ {
   }
 
 private:
-  RenderCommandQueue* builder_;
+  RenderCommandQueue* builder_ = nullptr;
   std::vector<RenderCommandQueue*> queued_passes_ = {};
   std::vector<qbTaskBundle> allocated_bundles_ = {};
   std::vector<qbMemoryAllocator> allocated_allocators_ = {};

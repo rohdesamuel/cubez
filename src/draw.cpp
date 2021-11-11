@@ -34,9 +34,9 @@ void qb_draw_init(qbDrawCommands cmds) {
   };
 }
 
-qbResult qb_draw_beginframe(const struct qbCamera_* camera) {
+qbResult qb_draw_beginframe(const struct qbCamera_* camera, qbClearValue clear) {
   qbRenderer renderer = qb_renderer();
-  return renderer->draw_beginframe(renderer, camera);
+  return renderer->draw_beginframe(renderer, camera, clear);
 }
 
 void qb_draw_dealloc(qbDrawCommands* cmds) {
@@ -239,11 +239,11 @@ void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instanc
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 }
 
-void qb_draw_submitbuffer(qbDrawCommands cmds, qbDrawCommandBuffer buffer) {
+void qb_draw_batch(qbDrawCommands cmds, qbDrawBatch batch) {
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 
-  cmds->cur.command.submit_buffer = { buffer };
-  cmds->cur.type = QB_DRAW_SUBMITBUFFER;
+  cmds->cur.command.batch = { batch };
+  cmds->cur.type = QB_DRAW_BATCH;
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
@@ -254,32 +254,9 @@ void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
-qbResult qb_drawbatch_create(qbDrawBatch* batch, qbDrawCommands cmds) {
-  qbDrawBatch ret = new qbDrawBatch_{};
-  ret->commands_count = cmds->commands_count;
-  ret->commands = new qbDrawCommand_[ret->commands_count];
-
-  for (size_t i = 0; i < ret->commands_count; ++i) {
-    ret->commands[i] = cmds->commands[i];
-  }
-
-  *batch = ret;
-
-  return QB_OK;
-}
-
-qbResult qb_drawbatch_destroy(qbDrawBatch* batch) {
-  delete (*batch)->commands;
-  delete *batch;
-
-  *batch = nullptr;
-
-  return QB_OK;
-}
-
-qbResult qb_draw_compile(qbDrawCommands* cmds, qbDrawCommandBuffer* buffer) {
+qbDrawBatch qb_draw_compile(qbDrawCommands* cmds) {
   qbRenderer renderer = qb_renderer();
-  qbResult result = renderer->drawcommands_compile(renderer, (*cmds)->commands_count, (*cmds)->commands, buffer);
+  qbDrawBatch result = renderer->drawcommands_compile(renderer, (*cmds)->commands_count, (*cmds)->commands);
 
   qb_draw_dealloc(cmds);
   return result;
