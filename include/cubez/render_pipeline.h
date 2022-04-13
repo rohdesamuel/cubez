@@ -307,6 +307,12 @@ typedef enum {
   QB_RENDER_TEST_FUNC_ALWAYS,
 } qbRenderTestFunc;
 
+typedef enum {
+  QB_BUFFER_ACCESS_READ_ONLY,
+  QB_BUFFER_ACCESS_WRITE_ONLY,
+  QB_BUFFER_ACCESS_READ_WRITE,
+} qbBufferAccess;
+
 typedef struct qbDepthStencilState_ {
   qbBool depth_test_enable;
   qbBool depth_write_enable;
@@ -552,6 +558,8 @@ QB_API void qb_gpubuffer_copy(qbGpuBuffer dst, qbGpuBuffer src, intptr_t dst_off
 QB_API void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b);
 QB_API size_t qb_gpubuffer_size(qbGpuBuffer buffer);
 QB_API void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size);
+QB_API void* qb_gpubuffer_map(qbGpuBuffer buffer, qbBufferAccess access);
+QB_API void qb_gpubuffer_unmap(qbGpuBuffer buffer);
 
 QB_API void qb_meshbuffer_create(qbMeshBuffer* buffer, qbMeshBufferAttr attr);
 QB_API void qb_meshbuffer_destroy(qbMeshBuffer* buffer);
@@ -651,5 +659,8 @@ typedef struct qbDrawCommandSubmitInfo_ {
 
 // Runs all commands in `cmd_buf`, clears the allocator, presents the image, and swaps with the back buffer.
 QB_API qbTask qb_drawcmd_submit(qbDrawCommandBuffer cmd_buf, qbDrawCommandSubmitInfo submit_info);
+
+// Runs all commands in `cmd_buf` and finally clears all queued commands. Does not free any allocated memory.
+QB_API qbTask qb_drawcmd_flush(qbDrawCommandBuffer cmd_buf);
 
 #endif  // CUBEZ_RENDER_PIPELINE__H

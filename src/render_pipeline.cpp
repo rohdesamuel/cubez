@@ -47,13 +47,10 @@
 #include "stb_image.h"
 #include "render_pipeline_defs.h"
 #include "draw_command_buffer.h"
+#include "gl_translate_utils.h"
 
 #define WITH_MODULE(module, fn, ...) (module)->render_interface.fn((module)->impl, __VA_ARGS__)
 
-namespace
-{
-#include "gl_translate_utils.h"
-}
 
 void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
 
@@ -364,6 +361,19 @@ void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size) {
   glBindBuffer(target, buffer->id);
   glBufferData(target, buffer->size, buffer->data, GL_DYNAMIC_DRAW);
   CHECK_GL();
+}
+
+QB_API void* qb_gpubuffer_map(qbGpuBuffer buffer, qbBufferAccess access) {
+  GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
+  GLenum access = TranslateQbBufferAccessToOpenGl(access);
+  glBindBuffer(target, buffer->id);
+  return glMapBuffer(target, access);
+}
+
+QB_API void qb_gpubuffer_unmap(qbGpuBuffer buffer) {
+  GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
+  glBindBuffer(target, buffer->id);
+  glUnmapBuffer(target);
 }
 
 void qb_meshbuffer_create(qbMeshBuffer* buffer_ref, qbMeshBufferAttr attr) {
@@ -1410,4 +1420,8 @@ void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_
 
 qbTask qb_drawcmd_submit(qbDrawCommandBuffer cmd_buf, qbDrawCommandSubmitInfo submit_info) {
   return cmd_buf->submit(submit_info);
+}
+
+qbTask qb_drawcmd_flush(qbDrawCommandBuffer cmd_buf) {
+  return cmd_buf->flush();
 }
