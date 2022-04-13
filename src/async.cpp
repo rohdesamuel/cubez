@@ -202,6 +202,11 @@ void qb_semaphore_wait(qbSemaphore sem, uint64_t n) {
   sem->cv.wait(l, [sem, n] { return sem->n >= n; });
 }
 
+void qb_semaphore_reset(qbSemaphore sem) {
+  std::unique_lock<std::mutex> l(sem->mu);
+  sem->n = 0;
+}
+
 void qb_channel_create(qbChannel* channel) {
   *channel = new qbChannel_{};
 }

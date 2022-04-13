@@ -61,8 +61,15 @@ typedef struct qbSemaphore_ *qbSemaphore;
 
 QB_API void qb_semaphore_create(qbSemaphore* sem);
 QB_API void qb_semaphore_destroy(qbSemaphore* sem);
+
+// Wakes up any threads from `qb_semaphore_wait` with n >= the given `n`.
 QB_API qbResult qb_semaphore_signal(qbSemaphore sem, uint64_t n);
+
+// Waits until `sem.n` >= n.
 QB_API void qb_semaphore_wait(qbSemaphore sem, uint64_t n);
+
+// Resets the semaphore state to 0. Does not wake up any threads.
+QB_API void qb_semaphore_reset(qbSemaphore sem);
 
 typedef struct qbTaskBundleAttr_ {
   uint64_t reserved;
