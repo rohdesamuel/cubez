@@ -9,14 +9,10 @@
 
 #include "render_pipeline_defs.h"
 #include "draw_command_buffer.h"
+#include "gl_translate_utils.h"
 
 #include <functional>
 #include <vector>
-
-namespace
-{
-#include "gl_translate_utils.h"
-}
 
 typedef void (*RenderCommandFn)(qbDrawState state, qbRenderCommand c);
 
@@ -401,6 +397,13 @@ void qbDrawCommandBuffer_::execute() {
   for (RenderCommandQueue* queue : queued_passes_) {
     queue->execute();
   }
+}
+
+qbTask qbDrawCommandBuffer_::flush() {
+  execute();
+  queued_passes_.resize(0);
+
+  return qbInvalidHandle;
 }
 
 void qbDrawCommandBuffer_::clear() {
