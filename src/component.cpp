@@ -21,11 +21,22 @@
 
 #include <omp.h>
 
-Component::Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type)
-    : id_(id), instances_(instance_size), is_shared_(is_shared), type_(type) {}
+size_t default_onpack(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos) {
+  return 0;
+}
+
+size_t default_onunpack(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos) {
+  return 0;
+}
+
+Component::Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type, OnPack onpack, OnUnpack onunpack)
+    : id_(id), instances_(instance_size), is_shared_(is_shared), type_(type), onpack_(onpack), onunpack_(onunpack) {
+  if (!onpack_) onpack_ = default_onpack;
+  if (!onunpack_) onunpack_ = default_onunpack;
+}
 
 Component* Component::Clone() {
-  Component* ret = new Component(id_, instances_.element_size(), is_shared_, type_);
+  Component* ret = new Component(id_, instances_.element_size(), is_shared_, type_, onpack_, onunpack_);
   ret->instances_ = instances_;
   return ret;
 }
@@ -135,4 +146,40 @@ void Component::Unlock(bool is_mutable) {
   } else {
     mu_.unlock_shared();
   }
+}
+
+size_t Component::Pack(qbBuffer_* write, ptrdiff_t* pos) {
+  if (onpack_ == default_onpack) {
+    return 0;
+  }
+
+  size_t written = 0;
+  for (auto [id, data] : instances_) {
+    written += onpack_(id_, data, write, pos);
+  }
+
+  return written;
+}
+
+
+size_t Component::Pack(const void* read, qbBuffer_* write, ptrdiff_t* pos) {
+  return onpack_(id_, read, write, pos);
+}
+
+size_t Component::Unpack(qbBuffer_* write, ptrdiff_t* pos) {
+  if (onunpack_ == default_onunpack) {
+    return 0;
+  }
+
+  size_t written = 0;
+  for (auto [id, data] : instances_) {
+    written += onunpack_(id_, data, write, pos);
+  }
+
+  return written;
+}
+
+
+size_t Component::Unpack(const void* read, qbBuffer_* write, ptrdiff_t* pos) {
+  return onunpack_(id_, read, write, pos);
 }

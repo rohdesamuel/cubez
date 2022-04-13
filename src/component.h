@@ -31,8 +31,10 @@ class Component {
  public:
   typedef typename InstanceMap::iterator iterator;
   typedef typename InstanceMap::const_iterator const_iterator;
+  typedef size_t(*OnPack)(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos);
+  typedef size_t(*OnUnpack)(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos);
 
-  Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type);
+  Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type, OnPack onpack, OnUnpack onunpack);
 
   Component* Clone();
   void Merge(const Component& other);
@@ -56,6 +58,11 @@ class Component {
   void Lock(bool is_mutable=false);
   void Unlock(bool is_mutable=false);
 
+  size_t Pack(qbBuffer_* write, ptrdiff_t* pos);
+  size_t Pack(const void* read, qbBuffer_* write, ptrdiff_t* pos);
+  size_t Unpack(qbBuffer_* write, ptrdiff_t* pos);
+  size_t Unpack(const void* read, qbBuffer_* write, ptrdiff_t* pos);
+
   iterator begin();
   iterator end();
 
@@ -69,6 +76,9 @@ class Component {
   std::shared_mutex mu_;
   const bool is_shared_;
   qbComponentType type_;
+
+  OnPack onpack_;
+  OnUnpack onunpack_;
 };
 
 #endif

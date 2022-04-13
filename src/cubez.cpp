@@ -18,6 +18,7 @@
 
 #include <cubez/cubez.h>
 #include <cubez/utils.h>
+#include <cubez/random.h>
 #include <cubez/render.h>
 #include <cubez/audio.h>
 #include <cubez/socket.h>
@@ -66,6 +67,8 @@ Coro coro_main;
 fs::path resource_dir;
 qbResourceAttr_ resource_attr{};
 
+static qbComponent qb_id_component;
+
 struct GameLoop {
   const double kClockResolution = 1e9;
   const double dt = 0.01;
@@ -81,6 +84,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   universe_ = u;
   u->enabled = attr->enabled;
 
+  memory_initialize();
   utils_initialize();
   coro_main = coro_initialize(u);
 
@@ -165,6 +169,14 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   }
 
   network_initialize();
+
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, uint64_t);
+    qb_component_create(&qb_id_component, "id", attr);
+    qb_componentattr_destroy(&attr);
+  }
 
   return ret;
 }
@@ -413,7 +425,7 @@ qbResult qb_componentattr_setshared(qbComponentAttr attr, qbBool is_shared) {
 
 qbResult qb_componentattr_onpack(
   qbComponentAttr attr,
-  void(*fn)(qbComponent component, qbEntity entity, const void *read, qbBuffer_ *buf, ptrdiff_t *pos)) {
+  size_t(*fn)(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos)) {
 
   attr->onpack = fn;
   return qbResult::QB_OK;
@@ -421,7 +433,7 @@ qbResult qb_componentattr_onpack(
 
 qbResult qb_componentattr_onunpack(
   qbComponentAttr attr,
-  void(*fn)(qbComponent component, qbEntity entity, void *write, const qbBuffer_ *read, ptrdiff_t *pos)) {
+  size_t(*fn)(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos)) {
   
   attr->onunpack = fn;
   return qbResult::QB_OK;
@@ -432,7 +444,8 @@ qbResult qb_componentattr_setschema(qbComponentAttr attr, qbSchema schema) {
   return qbResult::QB_OK;
 }
 
-void pack_struct(qbSchema schema, const void* read, qbBuffer_* buf, ptrdiff_t* pos) {
+size_t pack_struct(qbSchema schema, const void* read, qbBuffer_* buf, ptrdiff_t* pos) {
+  size_t written = 0;
   for (size_t i = 0; i < schema->fields.size(); ++i) {
     const auto& field = schema->fields[i];
     const char* data = &((qbStruct_*)read)->data + field.offset;
@@ -454,10 +467,12 @@ void pack_struct(qbSchema schema, const void* read, qbBuffer_* buf, ptrdiff_t* p
       }
 
       case QB_TAG_STRUCT:
-        pack_struct(schema, data, buf, pos);
+        written += pack_struct(schema, data, buf, pos);
         break;
     }
   }
+
+  return written;
 }
 
 qbResult qb_component_create(
@@ -472,9 +487,9 @@ qbResult qb_component_create(
 
   if (attr->type == QB_COMPONENT_TYPE_SCHEMA) {
     if (!attr->onpack) {
-      attr->onpack = [](qbComponent component, qbEntity entity, const void* read, qbBuffer_* buf, ptrdiff_t* pos) {
+      attr->onpack = [](qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos) {
         static qbSchema schema = qb_component_schema(component);
-        pack_struct(schema, read, buf, pos);
+        return pack_struct(schema, read, write, pos);
       };
     }
   }
@@ -512,14 +527,14 @@ size_t qb_component_size(qbComponent component) {
   return size_t();
 }
 
-size_t qb_component_pack(qbComponent component, qbEntity entity,
-                                const void* read, qbBuffer_* write, int* pos) {
-  return qbResult();
+size_t qb_component_pack(qbComponent component, const qbBuffer_* read,
+                         qbBuffer_* write, ptrdiff_t* pos) {
+  return AS_PRIVATE(component_pack(component, read, write, pos));
 }
 
-size_t qb_component_unpack(qbComponent component, qbEntity entity,
-                                  void* data, const qbBuffer_* read, int* pos) {
-  return qbResult();
+size_t qb_component_unpack(qbComponent component, const qbBuffer_* read,
+                           qbBuffer_* write, ptrdiff_t* pos) {
+  return AS_PRIVATE(component_unpack(component, read, write, pos));
 }
 
 qbResult qb_component_oncreate(qbComponent component, qbSystem system) {
@@ -562,9 +577,26 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
 
   if (!attr) {
     attr = &empty;
+  }  
+
+  qbResult result = AS_PRIVATE(entity_create(entity, *attr));
+  if (result != QB_OK) {
+    return result;
   }
 
-  return AS_PRIVATE(entity_create(entity, *attr));
+  uint64_t id = qb_rand();
+  qb_entity_addcomponent(*entity, qb_id(), &id);
+
+  return QB_OK;
+}
+
+uint64_t qb_entity_id(qbEntity entity) {
+  void* ret = qb_entity_getcomponent(entity, qb_id());
+  if (!ret) {
+    return qbInvalidEntity;
+  }
+
+  return *(uint64_t*)ret;
 }
 
 qbEntity qb_entity_empty() {
@@ -2145,4 +2177,8 @@ size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* b
 
   *pos += read_size;
   return read_size;
+}
+
+qbComponent qb_id() {
+  return qb_id_component;
 }

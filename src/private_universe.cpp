@@ -29,6 +29,7 @@
 typedef Runner::State RunState;
 
 thread_local qbId PrivateUniverse::program_id;
+thread_local qbScene PrivateUniverse::working_scene = nullptr;
 
 extern qbUniverse* universe_;
 
@@ -118,7 +119,7 @@ PrivateUniverse::PrivateUniverse() {
   components_ = std::make_unique<ComponentRegistry>();
 
   scene_create(&baseline_, "");
-  working_ = active_ = baseline_;
+  working_scene = active_ = baseline_;
 
   // Create the default program.
   create_program("");
@@ -140,8 +141,8 @@ qbResult PrivateUniverse::loop() {
   scene_reset();
   runner_.transition({RunState::RUNNING, RunState::STARTED}, RunState::LOOPING);
 
-  WorkingScene()->Flush();
-  programs_->Run(WorkingScene());
+  ActiveScene()->Flush();
+  programs_->Run(ActiveScene());
 
   return runner_.transition(RunState::LOOPING, RunState::RUNNING);
 }
@@ -155,11 +156,11 @@ qbId PrivateUniverse::create_program(const char* name) {
 }
 
 qbResult PrivateUniverse::run_program(qbId program) {
-  return programs_->RunProgram(program, WorkingScene());
+  return programs_->RunProgram(program, ActiveScene());
 }
 
 qbResult PrivateUniverse::detach_program(qbId program) {
-  return programs_->DetatchProgram(program, [this]() { return WorkingScene(); });
+  return programs_->DetatchProgram(program, [this]() { return ActiveScene(); });
 }
 
 qbResult PrivateUniverse::join_program(qbId program) {
@@ -222,7 +223,7 @@ qbResult PrivateUniverse::disable_system(qbSystem system) {
 
 qbVar PrivateUniverse::run_system(qbSystem system, qbVar arg) {
   auto s = SystemImpl::FromRaw(system);
-  return s->Run(WorkingScene(), nullptr, arg);
+  return s->Run(ActiveScene(), nullptr, arg);
 }
 
 qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t component_count,
@@ -253,13 +254,13 @@ qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t compone
   });
 
   SystemImpl s(attr, nullptr, components_v);
-  s.Run(active_->state);
+  s.Run(ActiveScene());
 
   return QB_OK;
 }
 
 qbResult PrivateUniverse::do_query(qbQuery query, qbVar arg) {
-  return Query(query, WorkingScene())(arg);
+  return Query(query, ActiveScene())(arg);
 }
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
@@ -282,7 +283,7 @@ qbResult PrivateUniverse::event_flushall(qbProgram program) {
 
   qbProgram* p = programs_->GetProgram(program.id);
   DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  ProgramImpl::FromRaw(p)->FlushAllEvents(WorkingScene());
+  ProgramImpl::FromRaw(p)->FlushAllEvents(ActiveScene());
 	return qbResult::QB_OK;
 }
 
@@ -303,10 +304,13 @@ qbResult PrivateUniverse::event_send(qbEvent event, void* message) {
 }
 
 qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
-  return ((Event*)event->event)->SendMessageSync(message, WorkingScene());
+  return ((Event*)event->event)->SendMessageSync(message, ActiveScene());
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
+  if (!ActiveScene()) {
+    return ActiveScene()->EntityCreate(entity, attr);
+  }
   return WorkingScene()->EntityCreate(entity, attr);
 }
 
@@ -364,6 +368,16 @@ qbResult PrivateUniverse::component_oncreate(qbComponent component, qbSystem sys
 qbResult PrivateUniverse::component_ondestroy(qbComponent component, qbSystem system) {
   WorkingScene()->ComponentSubscribeToOnDestroy(system, component);
   return QB_OK;
+}
+
+size_t PrivateUniverse::component_pack(qbComponent component, const qbBuffer_* read,
+                                       qbBuffer_* write, ptrdiff_t* pos) {
+  return WorkingScene()->ComponentGet(component)->Pack(read, write, pos);
+}
+
+size_t PrivateUniverse::component_unpack(qbComponent component, const qbBuffer_* read,
+                                         qbBuffer_* write, ptrdiff_t* pos) {
+  return WorkingScene()->ComponentGet(component)->Unpack(read, write, pos);
 }
 
 qbSchema PrivateUniverse::schema_find(const char* name) {
@@ -536,7 +550,7 @@ qbResult PrivateUniverse::scene_destroy(qbScene* scene) {
   delete (*scene)->state;
   delete *scene;
   *scene = nullptr;
-  working_ = active_ = nullptr;
+  working_scene = active_ = nullptr;
 
   scene_activate(scene_global());
   scene_set(scene_global());
@@ -550,13 +564,13 @@ qbScene PrivateUniverse::scene_global() {
 
 qbResult PrivateUniverse::scene_set(qbScene scene) {
   DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
-  working_ = scene;
+  working_scene = scene;
   return QB_OK;
 }
 
 qbResult PrivateUniverse::scene_reset() {
   DEBUG_OP(runner_.assert_in_state({ RunState::RUNNING, RunState::STARTED }));
-  working_ = active_;
+  working_scene = active_;
   return QB_OK;
 }
 

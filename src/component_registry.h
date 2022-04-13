@@ -36,7 +36,7 @@ public:
   qbResult Create(qbComponent* component, qbComponentAttr attr);
   Component* Create(qbComponent component) const;
   void RegisterSchema(qbComponent component, qbSchema schema);
-
+  
   qbComponent Find(const std::string& name) const;
   qbSchema FindSchema(const std::string& name) const;
   qbSchema FindSchema(qbComponent component) const;

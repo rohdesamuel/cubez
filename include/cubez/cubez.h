@@ -243,15 +243,19 @@ QB_API qbResult      qb_componentattr_setschema(qbComponentAttr attr,
 // By default a component is "shared", i.e. is_shared=true.
 QB_API qbResult      qb_componentattr_setshared(qbComponentAttr attr, qbBool is_shared);
 
-// Unimplemented.
+// Sets the component's packing function to allow to be serialized.
+// Method should update `pos` to the byte past the last byte written and
+// return the number of bytes written.
 QB_API qbResult      qb_componentattr_onpack(qbComponentAttr attr,
-                                             void(*fn)(qbComponent component, qbEntity entity,
-                                                       const void* read, qbBuffer_* buf, ptrdiff_t* pos));
+                                             size_t(*fn)(qbComponent component, const void* read,
+                                                         qbBuffer_* write, ptrdiff_t* pos));
 
-// Unimplemented.
+// Sets the component's packing function to allow to be deserialized.
+// Method should update `pos` to the byte past the last byte written and
+// return the number of bytes written.
 QB_API qbResult      qb_componentattr_onunpack(qbComponentAttr attr,
-                                               void(*fn)(qbComponent component, qbEntity entity,
-                                                         void* write, const qbBuffer_* read, ptrdiff_t* pos));
+                                               size_t(*fn)(qbComponent component, const void* read,
+                                                           qbBuffer_* write, ptrdiff_t* pos));
 
 // Sets the data type for the component.
 // Same as qb_componentattr_setdatasize(attr, sizeof(type)).
@@ -280,13 +284,15 @@ QB_API qbSchema      qb_component_schema(qbComponent component);
 // Unimplemented.
 QB_API size_t        qb_component_size(qbComponent component);
 
-// Unimplemented.
-QB_API size_t        qb_component_pack(qbComponent component, qbEntity entity, const void* read,
-                                       qbBuffer_* write, int* pos);
+// Serializes the given `read` buffer containing `component` data to the
+// `write` buffer. Updates `pos` to the byte past the last byte written.
+QB_API size_t        qb_component_pack(qbComponent component, const qbBuffer_* read,
+                                       qbBuffer_* write, ptrdiff_t* pos);
 
-// Unimplemented.
-QB_API size_t        qb_component_unpack(qbComponent component, qbEntity entity, void* data,
-                                         const qbBuffer_* read, int* pos);
+// Deserializes the given `read` buffer containing serialized` component` data
+// to the `write` buffer. Updates `pos` to the byte past the last byte written.
+QB_API size_t        qb_component_unpack(qbComponent component, const qbBuffer_* read,
+                                         qbBuffer_* write, ptrdiff_t* pos);
 
 QB_API qbResult      qb_component_oncreate(qbComponent component, qbSystem system);
 QB_API qbResult      qb_component_ondestroy(qbComponent component, qbSystem system);
@@ -428,6 +434,10 @@ QB_API qbBool        qb_entity_hascomponent(qbEntity entity,
 // with the `qb_componentattr_setshared` method.
 QB_API void*         qb_entity_getcomponent(qbEntity entity,
                                             qbComponent component);
+
+// Returns the persistable id of the given entity.
+// This is short-hand for `qb_entity_getcomponent(entity, qb_id())`.
+QB_API uint64_t      qb_entity_id(qbEntity entity);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -785,5 +795,7 @@ QB_API qbVar      qb_coro_peek(qbCoro coro);
 // Returns true if Coroutine is finished running.
 QB_API qbBool     qb_coro_done(qbCoro coro);
 
+// Component type: uint64_t
+QB_API qbComponent qb_id();
 
 #endif  // #ifndef CUBEZ__H

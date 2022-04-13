@@ -30,6 +30,9 @@ struct qbDrawCommandBuffer_ {
   qbDrawCommandBuffer_(qbMemoryAllocator allocator);
 
   qbTask submit(qbDrawCommandSubmitInfo submit_info);
+
+  // Executes /all/ commands and clears the queued commands.
+  qbTask flush();
   void execute();
 
   void clear();

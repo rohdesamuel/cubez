@@ -64,7 +64,7 @@ qbResult ComponentRegistry::Create(qbComponent* component, qbComponentAttr attr)
 
 Component* ComponentRegistry::Create(qbComponent component) const {
   const qbComponentAttr_& attr = components_defs_[component];
-  return new Component(component, attr.data_size, attr.is_shared, attr.type);
+  return new Component(component, attr.data_size, attr.is_shared, attr.type, attr.onpack, attr.onunpack);
 }
 
 void ComponentRegistry::RegisterSchema(qbComponent component, qbSchema schema) {

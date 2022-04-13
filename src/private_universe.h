@@ -56,6 +56,9 @@ class Runner {
       case State::WAITING: return "WAITING";
       case State::PAUSED: return "PAUSED";
     }
+
+    assert(false && "Unknown state");
+    return "";
   }
 
   class TransitionGuard {
@@ -174,6 +177,10 @@ class PrivateUniverse {
   qbSchema component_schema(qbComponent component);
   qbResult component_oncreate(qbComponent component, qbSystem system);
   qbResult component_ondestroy(qbComponent component, qbSystem system);
+  size_t component_pack(qbComponent component, const qbBuffer_* read,
+                        qbBuffer_* write, ptrdiff_t* pos);
+  size_t component_unpack(qbComponent component, const qbBuffer_* read,
+                          qbBuffer_* write, ptrdiff_t* pos);
 
   // Schema manipulation.
   qbSchema schema_find(const char* name);
@@ -207,13 +214,22 @@ class PrivateUniverse {
   // Current program id of running thread.
   static thread_local qbId program_id;
 
+  // The scene that the thread is constructing.
+  static thread_local qbScene working_scene;
+
  private:
   GameState* Baseline() {
     return baseline_->state;
   }
 
   GameState* WorkingScene() {
-    return working_->state;
+    return working_scene->state;
+  }
+
+  // If the user explicity called qb_scene_set, then working_scene will be set
+  // and all state change in this thread will be done on the working_scene.
+  GameState* ActiveScene() {
+    return !working_scene ? active_->state : working_scene->state;
   }
 
   Runner runner_;
@@ -221,9 +237,12 @@ class PrivateUniverse {
   // Must be initialized first.
   std::unique_ptr<ProgramRegistry> programs_;
   std::unique_ptr<ComponentRegistry> components_;
+
+  // The default scene created at the start of the engine.
   qbScene baseline_;
+
+  // The current scene that the game loop is running over.
   qbScene active_;
-  qbScene working_;
 };
 
 #endif  // PRIVATE_UNIVERSE__H
