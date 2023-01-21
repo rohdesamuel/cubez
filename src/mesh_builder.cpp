@@ -765,7 +765,7 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   assert((vertices.size() == normals.size() || normals.empty()) && "Normal count must match vertex count.");
   assert((vertices.size() == uvs.size() || uvs.empty()) && "UV count must match vertex count.");
 
-  qbMesh mesh = new qbMesh_;
+  qbMesh mesh = new qbMesh_{};
   mesh->vertex_count = (uint32_t)vertices.size();
   mesh->vertices = new vec3s[mesh->vertex_count];
   memcpy(mesh->vertices, vertices.data(), mesh->vertex_count * sizeof(vec3));

@@ -153,7 +153,7 @@
   el:setvalue('Hello, world!')
   print(el:getvalue())
 
-  --]]
+
 
   adventurer_sheet = qb.sprite.loadsheet('Adventurer/adventurer-Sheet.png', 50, 37, 0)
   adventurer_sheet:setoffset(25, 0)
@@ -169,7 +169,7 @@
   player = qb.entity.create()
   player:add(Position:create{x=0, y=0})
   facing = 1
-
+    --]]
 end
 
 -- Called on every initialization of a new Lua State in the engine. This occurs
@@ -180,6 +180,7 @@ function qb.init()
 end
 
 function qb.update()
+--[[
   local player = player
   local pos = player:get(Position)
   
@@ -255,3 +256,4 @@ end
 function qb.resize(width, height)
   print(width, height)
 end
+]]

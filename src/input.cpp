@@ -17,16 +17,21 @@
 */
 
 #include <cubez/input.h>
-#include <cubez/gui.h>
-#include "input_internal.h"
-#include "gui_internal.h"
+
 #include <iostream>
 #include <unordered_map>
+
+#include <cubez/gui.h>
+#include <cubez/nuklear.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_mouse.h>
+
+#include "input_internal.h"
+#include "gui_internal.h"
+#include "nuklear_sdl_gl3.h"
 
 qbEvent keyboard_event;
 qbEvent mouse_event;
@@ -113,10 +118,11 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
   SDL_GetRelativeMouseState(&mouse_dx, &mouse_dy);
 
   // Reset the scroll wheel when it stops moving.
+  nk_input_begin(nk_sdl_ctx());
   bool wheel_updated = false;
   while (SDL_PollEvent(&e)) {
     qbInputEvent_ input_event;
-
+    nk_sdl_handle_event(&e);
     if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
       input_event.type = QB_INPUT_EVENT_KEY;
       input_event.key_event.is_pressed = e.key.state == SDL_PRESSED;
@@ -191,6 +197,7 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
       }
     }
   }
+  nk_input_end(nk_sdl_ctx());
 
   if (!wheel_updated) {
     wheel_x = 0;

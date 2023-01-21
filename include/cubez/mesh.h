@@ -150,21 +150,15 @@ QB_API qbMesh qb_mesh_load(const char* mesh_name, const char* filename);
 // TODO: remove unused
 
 QB_API qbModel qb_model_load(const char* model_name, const char* filename);
-QB_API struct qbModelGroup_* qb_model_upload(qbModel model);
 
 QB_API void qb_model_create(qbModel* model, qbModelAttr attr);
 QB_API void qb_model_destroy(qbModel* model);
 
-QB_API qbResult qb_mesh_tobuffer(qbMesh mesh, qbMeshBuffer* buffer);
 QB_API qbResult qb_mesh_destroy(qbMesh* mesh);
 QB_API qbResult qb_collider_destroy(qbCollider* collider);
 
 QB_API qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_name);
 QB_API qbResult qb_material_destroy(qbMaterial* material);
-
-//QB_API struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider);
-//QB_API struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider);
-//QB_API struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider);
 
 QB_API qbBool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
                               const qbTransform_* a_t, const qbTransform_* b_t);

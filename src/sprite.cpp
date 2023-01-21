@@ -70,35 +70,6 @@ enum RenderMode {
   GUI_RENDER_MODE_STRING,
 };
 
-struct qbAnimator_ {
-  qbAnimation animation;
-  int frame;
-  double elapsed;
-};
-
-struct qbSprite_ {
-  qbImage img;
-
-  vec2s offset;
-
-  // Index of sprite in atlas, -1 if not from atlas.
-  int ix, iy;
-
-  // Width and height of the sprite in pixels.
-  uint32_t w, h;
-
-  // Width and height of the tile.
-  uint32_t tw, th;
-
-  uint32_t margin;
-
-  // Depth of sprite for painter's algorithm.
-  float depth;
-
-  // If the sprite is animated, this will point to the animation.  
-  qbAnimator_ animator;
-};
-
 struct QueuedSprite {
   qbSprite sprite;
   float depth;
@@ -123,7 +94,7 @@ struct QueuedSprite {
   // If the sprite is part of an animation, then this will point to its
   // animator.
   qbSprite animator_sprite;
-  qbAnimator animator;
+  qbSpriteAnimator animator;
 
   bool operator<(const QueuedSprite& other) {
     if (depth == other.depth) {
@@ -133,7 +104,7 @@ struct QueuedSprite {
   }
 };
 
-struct qbAnimation_ {
+typedef struct qbSpriteAnimation_ {
   std::vector<qbSprite> frames;
   std::vector<double> durations;
 
@@ -144,7 +115,7 @@ struct qbAnimation_ {
   vec2s offset;
 
   uint32_t w, h;
-};
+} qbSpriteAnimation_, *qbSpriteAnimation;
 
 struct Batch {
   std::set<qbImage> images;
@@ -239,7 +210,7 @@ qbSprite qb_sprite_fromimage(qbImage image) {
   return ret;
 }
 
-qbAnimation qb_animation_loaddir(const char* dir, qbAnimationAttr attr) {
+qbSpriteAnimation qb_spriteanimation_loaddir(const char* dir, qbSpriteAnimationAttr attr) {
   thread_local static char buf[512];
 
   const std::filesystem::path path = std::filesystem::path(qb_resources()->dir) / std::filesystem::path(qb_resources()->sprites) / dir;
@@ -269,18 +240,18 @@ qbAnimation qb_animation_loaddir(const char* dir, qbAnimationAttr attr) {
   attr->durations = durations.data();
   attr->frame_count = frames.size();
 
-  return qb_animation_create(attr);
+  return qb_spriteanimation_create(attr);
 }
 
 void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
                              vec4s col, int32_t left, int32_t top, int32_t width, int32_t height) {
   qbSprite animator_sprite = nullptr;
-  qbAnimator animator = nullptr;
+  qbSpriteAnimator animator = nullptr;
 
-  if (sprite->animator.animation) {
+  if (sprite->animator->animation) {
     animator_sprite = sprite;
-    animator = &sprite->animator;
-    sprite = sprite->animator.animation->frames[sprite->animator.frame];    
+    animator = sprite->animator;
+    sprite = sprite->animator->animation->frames[sprite->animator->frame];    
   }
 
   sprites.push_back({ sprite, sprite->depth, sprites.size(), pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
@@ -289,12 +260,12 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
 
 void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot, vec4s col) {
   qbSprite animator_sprite = nullptr;
-  qbAnimator animator = nullptr;
+  qbSpriteAnimator animator = nullptr;
 
-  if (sprite->animator.animation) {
+  if (sprite->animator->animation) {
     animator_sprite = sprite;
-    animator = &sprite->animator;
-    sprite = sprite->animator.animation->frames[sprite->animator.frame];
+    animator = sprite->animator;
+    sprite = sprite->animator->animation->frames[sprite->animator->frame];
   }
 
   int32_t width = sprite->tw + sprite->margin;
@@ -348,11 +319,11 @@ uint32_t qb_sprite_height(qbSprite sprite) {
 }
 
 int32_t qb_sprite_framecount(qbSprite sprite) {
-  return sprite->animator.animation ? (int32_t)sprite->animator.animation->frames.size() : 1;
+  return sprite->animator->animation ? (int32_t)sprite->animator->animation->frames.size() : 1;
 }
 
 int32_t qb_sprite_getframe(qbSprite sprite) {
-  return sprite->animator.animation ? sprite->animator.frame : 0;
+  return sprite->animator->animation ? sprite->animator->frame : 0;
 }
 
 void qb_sprite_setframe(qbSprite sprite, int32_t frame_index) {
@@ -360,16 +331,16 @@ void qb_sprite_setframe(qbSprite sprite, int32_t frame_index) {
     return;
   }
 
-  if (sprite->animator.animation) {        
+  if (sprite->animator->animation) {
     int32_t framecount = std::max(qb_sprite_framecount(sprite), 1);
     frame_index = std::abs(frame_index);
     frame_index %= framecount;
-    sprite->animator.frame = frame_index;
+    sprite->animator->frame = frame_index;
   }
 }
 
 qbImage qb_sprite_subimg(qbSprite sprite, int32_t frame) {
-  if (!sprite->animator.animation) {
+  if (!sprite->animator->animation) {
     return sprite->img;
   }
 
@@ -380,11 +351,16 @@ qbImage qb_sprite_subimg(qbSprite sprite, int32_t frame) {
   int32_t framecount = std::max(qb_sprite_framecount(sprite), 1);
   frame = std::abs(frame);
   frame %= framecount;
-  return sprite->animator.animation->frames[frame]->img;
+  return sprite->animator->animation->frames[frame]->img;
 }
 
-qbAnimation qb_animation_create(qbAnimationAttr attr) {
-  qbAnimation animation = new qbAnimation_{};
+qbImage qb_sprite_curimg(qbSprite sprite) {
+  qbSpriteAnimator anim = sprite->animator;
+  return anim->animation->frames[anim->frame]->img;
+}
+
+qbSpriteAnimation qb_spriteanimation_create(qbSpriteAnimationAttr attr) {
+  qbSpriteAnimation animation = new qbSpriteAnimation_{};
   uint32_t width = 0;
   uint32_t height = 0;
 
@@ -407,7 +383,7 @@ qbAnimation qb_animation_create(qbAnimationAttr attr) {
   return animation;
 }
 
-qbAnimation qb_animation_fromsheet(qbAnimationAttr attr, qbSprite sheet, int index_start, int index_end) {
+qbSpriteAnimation qb_spriteanimation_fromsheet(qbSpriteAnimationAttr attr, qbSprite sheet, int index_start, int index_end) {
   std::vector<qbSprite> frames;
   std::vector<double> durations;
 
@@ -433,22 +409,22 @@ qbAnimation qb_animation_fromsheet(qbAnimationAttr attr, qbSprite sheet, int ind
   attr->frame_count = frames.size();
   attr->offset = qb_sprite_getoffset(sheet);
 
-  return qb_animation_create(attr);
+  return qb_spriteanimation_create(attr);
 }
 
-qbSprite qb_animation_play(qbAnimation animation) {
+qbSprite qb_spriteanimation_play(qbSpriteAnimation animation) {
   qbSprite ret = new qbSprite_{};
   ret->w = animation->w;
   ret->h = animation->h;
 
-  ret->animator.animation = animation;
-  ret->animator.frame = animation->keyframe;
+  ret->animator->animation = animation;
+  ret->animator->frame = animation->keyframe;
   ret->offset = animation->offset;
   return ret;
 }
 
-void qb_animator_update(qbAnimator animator, qbRenderEvent e) {
-  qbAnimation animation = animator->animation;
+void qb_animator_update(qbSpriteAnimator animator, qbRenderEvent e) {
+  qbSpriteAnimation animation = animator->animation;
 
   if (animation->frames.empty()) {
     return;
@@ -470,11 +446,11 @@ void qb_animator_update(qbAnimator animator, qbRenderEvent e) {
   }
 }
 
-vec2s qb_animation_getoffset(qbAnimation animation) {
+vec2s qb_spriteanimation_getoffset(qbSpriteAnimation animation) {
   return animation->offset;
 }
 
-void qb_animation_setoffset(qbAnimation animation, vec2s offset) {
+void qb_spriteanimation_setoffset(qbSpriteAnimation animation, vec2s offset) {
   animation->offset = offset;
 }
 
@@ -613,7 +589,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
 
     uint32_t bindings[] = { UniformCamera::Binding() };
     qbGpuBuffer ubo_buffers[] = { camera_ubo };
-    qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
+    //qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
 
     {
       UniformCamera camera;
@@ -639,7 +615,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
       image_samplers.push_back(sampler);
     }
 
-    qb_shadermodule_attachsamplers(shader_module, bindings.size(), bindings.data(), image_samplers.data());
+    //qb_shadermodule_attachsamplers(shader_module, bindings.size(), bindings.data(), image_samplers.data());
   }
   /*
   {
@@ -679,12 +655,12 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     qb_gpubuffer_create(&batch_ebo, &attr);
   }
   {
-    qbRenderGroupAttr_ attr = {};
-    qb_rendergroup_create(&batched_sprites, &attr);
+    //qbRenderGroupAttr_ attr = {};
+    //qb_rendergroup_create(&batched_sprites, &attr);
   }
   {
     qbMeshBufferAttr_ attr{};
-    attr.descriptor = *qb_renderpass_geometry(render_pass);
+    //attr.descriptor = *qb_renderpass_geometry(render_pass);
 
     qb_meshbuffer_create(&sprite_quads, &attr);
 
@@ -692,7 +668,7 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     qb_meshbuffer_attachvertices(sprite_quads, vertex_buffers, 0);
     qb_meshbuffer_attachindices(sprite_quads, batch_ebo, 0);
 
-    qb_rendergroup_append(batched_sprites, sprite_quads);
+    //qb_rendergroup_append(batched_sprites, sprite_quads);
   }
   {
     uint8_t white_pixel[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
@@ -726,8 +702,6 @@ void qb_sprite_onresize(uint32_t width, uint32_t height) {
     camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
     qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
   }
-
-  qb_renderpass_resize(sprite_render_pass, { 0.0, 0.0, (float)width, (float)height });
 }
 
 void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
@@ -846,7 +820,7 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
 
     qb_meshbuffer_updateimages(sprite_quads, textures.size(), texture_bindings.data(), textures.data());  
     
-    qb_renderpass_drawto(sprite_render_pass, frame, 1, &batched_sprites);
+    //qb_renderpass_drawto(sprite_render_pass, frame, 1, &batched_sprites);
   }
 }
 

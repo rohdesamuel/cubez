@@ -5,16 +5,17 @@
 #include "terrain/terrain.h"
 #include "climate/climate.h"
 
-class Planet {
-public:
-	Planet ();
-	~Planet ();
-	
-	Grid* grid;
-	Terrain* terrain;
-	Climate* climate;
-};
+namespace earthgen {
+	class Planet {
+	public:
+		Planet();
+		~Planet();
 
-void clear (Planet&);
+		Grid* grid;
+		Terrain* terrain;
+		Climate* climate;
+	};
 
+	void clear(Planet&);
+}
 #endif

@@ -17,10 +17,12 @@ const size_t MAX_TRI_BATCH_COUNT = 100;
 
 struct CameraUbo {
   mat4s viewproj;
+  vec3s eye;
   float frame;
 };
 
 struct ModelUbo {
+  mat4s parent;
   mat4s model;
 };
 
@@ -74,12 +76,10 @@ const int MAX_SPOT_LIGHTS = 8;
 struct LightUbo {
   LightPoint point_lights[MAX_POINT_LIGHTS];
   LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
-  vec3s view_pos;
   int32_t pass_id;
-
   int32_t num_dir_lights;
   // The struct needs to be a multiple of the size of vec4 (std140).
-  float _pad[3];
+  float _pad[2];
 };
 
 struct DrawCommandQueue {
@@ -102,7 +102,9 @@ struct qbDefaultRenderer_ {
 
   qbRenderPass render_pass;
   qbRenderPipeline render_pipeline;
-  qbMemoryAllocator cmd_buf_allocator;
+  qbMemoryAllocator dynamic_cmd_buf_allocator;
+  qbMemoryAllocator static_cmd_buf_allocator;
+  qbMemoryAllocator lighting_cmd_buf_allocator;
   qbMemoryAllocator draw_allocator;
   qbMemoryAllocator allocator;
 
@@ -124,11 +126,18 @@ struct qbDefaultRenderer_ {
   // Render queue.
   std::vector<qbTask> render_tasks;
   std::vector<qbClearValue_> clear_values;
-  std::vector<qbDrawCommandBuffer> cmd_bufs;
+  std::vector<qbDrawCommand_> static_cmd_bufs;
+  std::vector<qbDrawCommandBuffer> dynamic_cmd_bufs;
+  std::vector<qbDrawCommandBuffer> lighting_cmd_bufs;
+
   std::vector<qbShaderResourceSet> resource_sets;
   std::vector<qbFrameBuffer> fbos;
   std::vector<qbImage> swapchain_images;
   std::vector<CameraUbo> camera_data;
+
+  // Todo: consider adding ability to render to an off-screen buffer.
+  const qbCamera_* camera;
+  qbClearValue_ clear_value;
 
   DrawCommandQueue draw_commands;
 
@@ -223,9 +232,9 @@ qbGeometryDescriptor create_geometry_descriptor() {
 }
 
 template<class Ty_>
-qbGpuBuffer create_uniform(Ty_ material_data) {
+qbGpuBuffer create_uniform() {
   qbGpuBufferAttr_ attr{
-    .data = &material_data,
+    .data = nullptr,
     .size = sizeof(Ty_),
     .buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM,
   };
@@ -233,12 +242,6 @@ qbGpuBuffer create_uniform(Ty_ material_data) {
   qbGpuBuffer ret;
   qb_gpubuffer_create(&ret, &attr);
   return ret;
-}
-
-template<class Ty_>
-qbGpuBuffer create_uniform() {
-  Ty_ material_data{};
-  return create_uniform(material_data);
 }
 
 qbShaderResourceLayout create_resource_layout() {
@@ -352,7 +355,7 @@ qbShaderResourceLayout create_material_resource_layout() {
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
-      {
+    {
       .name = "roughness_map",
       .binding = 3,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
@@ -405,6 +408,7 @@ qbShaderModule create_shader_module() {
 
     layout(std140, binding = 0) uniform CameraUbo {
         mat4 viewproj;
+        vec3 eye;
         float frame;
     } camera_ubo;
 
@@ -429,7 +433,6 @@ qbShaderModule create_shader_module() {
     layout(std140, binding = 1) uniform LightUbo {
       LightPoint point_lights[MAX_POINT_LIGHTS];
       LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
-      vec3 view_pos;
 
       // pass_id = 0 --> directional lights
       // pass_id = 1 --> point lights
@@ -438,11 +441,16 @@ qbShaderModule create_shader_module() {
     } light_ubo;
 
     layout(std140, binding = 2) uniform ModelUbo {
+        mat4 parent;
         mat4 model;
     } model_ubo;
 
-    out vec2 TexCoords;
-    out flat int light_id;
+    out Params
+    {
+      vec2 TexCoords;
+      flat int light_id;
+      flat vec3 cam_eye;
+    } params;
 
     void main()
     {
@@ -459,7 +467,9 @@ qbShaderModule create_shader_module() {
           vec4(pos.x,   pos.y,   pos.z,   1.0)
         );
 
-        light_id = gl_InstanceID;
+        params.light_id = gl_InstanceID;
+        params.cam_eye = camera_ubo.eye;
+
         vec4 world_pos = model * vec4(in_pos, 1.0);
         gl_Position = camera_ubo.viewproj * world_pos;
       }
@@ -472,6 +482,7 @@ qbShaderModule create_shader_module() {
 
     in vec2 TexCoords;
     in flat int light_id;
+    in flat vec3 cam_eye;
 
     uniform sampler2D gPosition;
     uniform sampler2D gNormal;
@@ -498,13 +509,19 @@ qbShaderModule create_shader_module() {
     layout(std140, binding = 1) uniform LightUbo {
       LightPoint point_lights[MAX_POINT_LIGHTS];
       LightDirectional dir_lights[MAX_DIRECTIONAL_LIGHTS];
-      vec3 view_pos;
 
       // pass_id = 0 --> directional lights
       // pass_id = 1 --> point lights
       int pass_id;
       int num_dir_lights;
     } light_ubo;
+
+    in Params
+    {
+      vec2 TexCoords;
+      flat int light_id;
+      flat vec3 cam_eye;
+    } params;
 
     void main()
     {   
@@ -523,7 +540,7 @@ qbShaderModule create_shader_module() {
     
         // then calculate lighting as usual
         vec3 lighting  = vec3(0.f);//Diffuse * 0.1; // hard-coded ambient component
-        vec3 viewDir  = normalize(light_ubo.view_pos - FragPos);
+        vec3 viewDir  = normalize(params.cam_eye - FragPos);
 
         if (light_ubo.pass_id == 0) {
           for (int i = 0; i < light_ubo.num_dir_lights; ++i) {            
@@ -532,17 +549,17 @@ qbShaderModule create_shader_module() {
           out_color = vec4(lighting, 1.f);
         } else if (light_ubo.pass_id == 1) {
           // calculate distance between light source and current fragment
-          float distance = length(light_ubo.point_lights[light_id].pos - FragPos);
+          float distance = length(light_ubo.point_lights[params.light_id].pos - FragPos);
 
           // diffuse
-          vec3 lightDir = normalize(light_ubo.point_lights[light_id].pos - FragPos);
-          vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light_ubo.point_lights[light_id].col;
+          vec3 lightDir = normalize(light_ubo.point_lights[params.light_id].pos - FragPos);
+          vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light_ubo.point_lights[params.light_id].col;
           // specular
           vec3 halfwayDir = normalize(lightDir + viewDir);  
           float spec = pow(max(dot(Normal, halfwayDir), 0.0), 16.0);
-          vec3 specular = light_ubo.point_lights[light_id].col * spec * Specular;
+          vec3 specular = light_ubo.point_lights[params.light_id].col * spec * Specular;
           // attenuation
-          float attenuation = 1.0 / (1.0 + light_ubo.point_lights[light_id].linear * distance + light_ubo.point_lights[light_id].quadratic * distance * distance);
+          float attenuation = 1.0 / (1.0 + light_ubo.point_lights[params.light_id].linear * distance + light_ubo.point_lights[params.light_id].quadratic * distance * distance);
           diffuse *= attenuation;
           specular *= attenuation;
           lighting += (diffuse + specular);
@@ -570,10 +587,12 @@ qbShaderModule create_deferred_shader_module() {
 
     layout(std140, binding = 0) uniform CameraUbo {
         mat4 viewproj;
+        vec3 eye;
         float frame;
     } camera_ubo;
 
     layout(std140, binding = 2) uniform ModelUbo {
+        mat4 parent;
         mat4 model;
     } model_ubo;
     
@@ -585,7 +604,8 @@ qbShaderModule create_deferred_shader_module() {
     } o;
 
     void main() {
-      vec4 world_pos = model_ubo.model * vec4(in_pos, 1.0);
+      mat4 world_mat = model_ubo.parent * model_ubo.model;
+      vec4 world_pos = world_mat * vec4(in_pos, 1.0);
       mat3 normal_matrix = transpose(inverse(mat3(model_ubo.model)));
 
       o.pos = world_pos.xyz;
@@ -627,7 +647,7 @@ qbShaderModule create_deferred_shader_module() {
       g_position = o.pos;
       g_normal = normalize(o.norm);
 
-      g_albedospec = vec4(texture(albedo_map, o.tex).rgb, material_ubo.metallic); //vec4(material_ubo.albedo, material_ubo.metallic);
+      g_albedospec = vec4(material_ubo.albedo * texture(albedo_map, o.tex).rgb, material_ubo.metallic); //vec4(material_ubo.albedo, material_ubo.metallic);
     })";
 
   attr.interpret_as_strings = QB_TRUE;
@@ -853,16 +873,28 @@ void create_resourcesets(qbDefaultRenderer r) {
   size_t swapchain_size = r->swapchain_images.size();
 
   r->draw_allocator = qb_memallocator_pool();
-  r->cmd_buf_allocator = qb_memallocator_linear(1 << 20);
-  r->cmd_bufs = std::vector<qbDrawCommandBuffer>(swapchain_size, nullptr);
+  r->dynamic_cmd_buf_allocator = qb_memallocator_linear(1 << 20);
+  r->dynamic_cmd_bufs = std::vector<qbDrawCommandBuffer>(swapchain_size, nullptr);
   {
     qbDrawCommandBufferAttr_ attr{
       .count = 2,
-      .allocator = r->cmd_buf_allocator,
+      .allocator = r->dynamic_cmd_buf_allocator,
     };
 
-    qb_drawcmd_create(r->cmd_bufs.data(), &attr);
+    qb_drawcmd_create(r->dynamic_cmd_bufs.data(), &attr);
   }
+
+  r->lighting_cmd_bufs = std::vector<qbDrawCommandBuffer>(swapchain_size, nullptr);
+  r->lighting_cmd_buf_allocator = qb_memallocator_linear(1 << 20);
+  {
+    qbDrawCommandBufferAttr_ attr{
+      .count = 2,
+      .allocator = r->lighting_cmd_buf_allocator,
+    };
+
+    qb_drawcmd_create(r->lighting_cmd_bufs.data(), &attr);
+  }
+
 
   r->resource_sets = std::vector<qbShaderResourceSet>(swapchain_size, nullptr);
   {
@@ -1195,24 +1227,26 @@ void create_vbos(qbDefaultRenderer r) {
   }
 }
 
-void update_directional_lights_ubo(qbDrawCommandBuffer draw_cmds, qbDefaultRenderer r, const struct qbCamera_* camera) {
-  LightUbo* l = r->light_ubo_buf;
+void update_camera_ubo(qbDefaultRenderer self, const qbCamera_* camera, uint32_t frame) {
+  qb_gpubuffer_update(self->camera_ubo, 0, sizeof(CameraUbo), &self->camera_data[frame]);
+}
 
+void update_directional_lights_ubo(qbDefaultRenderer self) {
+  LightUbo* l = self->light_ubo_buf;
   int enabled_index = 0;
-  for (qbId enabled : r->enabled_directional_lights) {
-    l->dir_lights[enabled_index] = r->directional_lights[enabled];
+  for (qbId enabled : self->enabled_directional_lights) {
+    l->dir_lights[enabled_index] = self->directional_lights[enabled];
     ++enabled_index;
   }
   l->num_dir_lights = enabled_index;
 
-  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, num_dir_lights), sizeof(int32_t), &l->num_dir_lights);
-  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, dir_lights), sizeof(LightDirectional) * enabled_index, &l->dir_lights);
+  qb_gpubuffer_update(self->light_ubo, offsetof(LightUbo, num_dir_lights), sizeof(int32_t), &l->num_dir_lights);
+  qb_gpubuffer_update(self->light_ubo, offsetof(LightUbo, dir_lights), sizeof(LightDirectional) * enabled_index, &l->dir_lights);
+}
 
-  l->pass_id = 0;
-  qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &l->pass_id);
-
-  l->view_pos = camera->eye;
-  qb_drawcmd_updatebuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, view_pos), sizeof(vec3), &l->view_pos);
+void update_global_ubos(qbDefaultRenderer self, const qbCamera_* camera, uint32_t frame) {
+  update_camera_ubo(self, camera, frame);
+  update_directional_lights_ubo(self);
 }
 
 // TODO: consider using frustum culling to disregard spheres with influence not
@@ -1238,178 +1272,267 @@ int update_point_lights_ubo(qbDrawCommandBuffer draw_cmds, qbDefaultRenderer r, 
 
   qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, point_lights), sizeof(LightPoint) * enabled_index, &l->point_lights);
 
-  l->pass_id = 1;
-  qb_drawcmd_pushbuffer(draw_cmds, r->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &l->pass_id);
   return enabled_index;
 }
 
-void record_command_buffers(qbDefaultRenderer r, uint32_t frame) {
-  size_t swapchain_size = r->swapchain_images.size();
+void record_lighting_commands(qbDefaultRenderer self, const qbCamera_* camera, uint32_t frame) {
+  qbDrawCommandBuffer draw_cmds = self->lighting_cmd_bufs[frame];
 
-  qbDrawCommandBuffer draw_cmds = r->cmd_bufs[frame];
-  const qbCamera_* camera = nullptr;
+  qbClearValue_ clear_values[2] = {};
+  clear_values[0].color = { 0.f, 0.f, 0.f, 1.f };
+  clear_values[1].depth = 1.f;
 
+  qbBeginRenderPassInfo_ begin_info{
+    .render_pass = self->render_pass,
+    .framebuffer = self->fbos[frame],
+    .clear_values = clear_values,
+    .clear_values_count = 2,
+  };
+
+  qb_drawcmd_beginpass(draw_cmds, &begin_info);
+  qb_drawcmd_bindpipeline(draw_cmds, self->render_pipeline, QB_TRUE);
+  qb_drawcmd_bindshaderresourceset(draw_cmds, self->pipeline_layout, self->resource_sets[frame]);
+
+
+  qb_drawcmd_setcull(draw_cmds, QB_FACE_BACK);
+
+  // Set pass to directional lights.
   {
-    qbClearValue_ clear_values[4] = {};
-    clear_values[0].color = { 0.f, 0.f, 0.f, 0.f };
-    clear_values[1].color = { 0.f, 0.f, 0.f, 0.f };
-    clear_values[2].color = { 0.f, 0.f, 0.f, 0.f };
-    clear_values[3].depth = 1.f;
-    
-    qbBeginRenderPassInfo_ begin_info{
-      .render_pass = r->deferred_render_pass,
-      .framebuffer = r->deferred_fbos[frame],
-      .clear_values = clear_values,
-      .clear_values_count = 4,
-    };
+    int32_t pass_id = 0;
+    qb_drawcmd_pushbuffer(draw_cmds, self->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &pass_id);
+  }
 
-    qb_drawcmd_beginpass(draw_cmds, &begin_info);
-    qb_drawcmd_bindpipeline(draw_cmds, r->deferred_render_pipeline);
+  qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &screenquad_verts);
+  qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
 
-    // Bind CameraUbo
-    // Bind ModelUbo
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, r->deferred_resource_sets[frame]);  
+  // Set pass to point lights.
+  {
+    int32_t pass_id = 1;
+    qb_drawcmd_pushbuffer(draw_cmds, self->light_ubo, offsetof(LightUbo, pass_id), sizeof(LightUbo::pass_id), &pass_id);
+  }
 
-    for (auto& [material, cmds] : r->draw_commands.commands) {
-      if (material) {
-        // Bind MaterialUbo
-        // Bind material samplers
-        qb_drawcmd_bindshaderresourceset(draw_cmds, r->deferred_pipeline_layout, r->material_resource_sets[material]);
-        qb_drawcmd_updatebuffer(draw_cmds, r->material_ubo, 0, sizeof(MaterialUbo), material);        
+  // Draw front-lit (back-face culled) objects.
+  int num_enabled = 0;
+  qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
+  num_enabled = update_point_lights_ubo(draw_cmds, self, camera, QB_FACE_BACK);
+  qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
+
+  // Draw back-lit (front-face culled) objects.
+  qb_drawcmd_setcull(draw_cmds, QB_FACE_FRONT);
+  num_enabled = update_point_lights_ubo(draw_cmds, self, camera, QB_FACE_FRONT);
+  qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
+
+  qb_drawcmd_endpass(draw_cmds);
+}
+
+void record_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw_cmds, DrawCommandQueue& command_queue, uint32_t frame) {  
+  for (auto& [material, cmds] : command_queue.commands) {
+    if (material) {
+      // Bind MaterialUbo
+      // Bind material samplers
+      qb_drawcmd_bindshaderresourceset(draw_cmds, self->deferred_pipeline_layout, self->material_resource_sets[material]);
+      qb_drawcmd_updatebuffer(draw_cmds, self->material_ubo, 0, sizeof(MaterialUbo), material);        
+    }    
+
+    for (auto& draw_cmd : cmds) {
+      if (!material) {
+        qbMaterial_ default_mat{};
+        default_mat.albedo = { draw_cmd.args.color.x, draw_cmd.args.color.y, draw_cmd.args.color.z };
+        qb_drawcmd_pushbuffer(draw_cmds, self->material_ubo, 0, sizeof(MaterialUbo), &default_mat);
       }
 
-      for (auto& draw_cmd : cmds) {
-        if (!material) {
-          qbMaterial_ default_mat{};
-          default_mat.albedo = { draw_cmd.args.color.x, draw_cmd.args.color.y, draw_cmd.args.color.z };
-          qb_drawcmd_pushbuffer(draw_cmds, r->material_ubo, 0, sizeof(MaterialUbo), &default_mat);
-        }
+      mat4s model_mat = draw_cmd.args.transform;
+      switch (draw_cmd.type) {
+        case QB_DRAW_TRI:
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &tri_verts);
+          qb_drawcmd_draw(draw_cmds, 3, 1, 0, 0);
+          break;
 
-        switch (draw_cmd.type) {
-          case QB_DRAW_CAMERA:
-          {
-            camera = draw_cmd.command.init.camera;
-            r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
-            qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &r->camera_data[frame]);          
-            break;
+        case QB_DRAW_QUAD:
+          qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, model), sizeof(mat4s), &model_mat);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &quad_verts);
+          qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
+          break;
+
+        case QB_DRAW_CIRCLE:
+          qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, model), sizeof(mat4s), &model_mat);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &circle_verts);
+          qb_drawcmd_draw(draw_cmds, circle_verts_count, 1, 0, 0);
+          break;
+
+        case QB_DRAW_BOX:
+          qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, model), sizeof(mat4s), &model_mat);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &box_verts);
+          qb_drawcmd_draw(draw_cmds, box_verts_count, 1, 0, 0);
+          break;
+
+        case QB_DRAW_SPHERE:
+          qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, model), sizeof(mat4s), &model_mat);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
+          qb_drawcmd_draw(draw_cmds, sphere_verts_count, 1, 0, 0);
+          break;
+
+        case QB_DRAW_MESH:
+          qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, model), sizeof(mat4s), &model_mat);
+          qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &draw_cmd.command.mesh.mesh->vbo);
+
+          if (draw_cmd.command.mesh.mesh->ibo) {
+            qb_drawcmd_bindindexbuffer(draw_cmds, draw_cmd.command.mesh.mesh->ibo);
+            qb_drawcmd_drawindexed(draw_cmds, draw_cmd.command.mesh.mesh->index_count, 1, 0, 0);
           }
+          else {
+            qb_drawcmd_draw(draw_cmds, draw_cmd.command.mesh.mesh->vertex_count, 1, 0, 0);
+          }
+          break;
 
-          case QB_DRAW_TRI:
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &tri_verts);
-            qb_drawcmd_draw(draw_cmds, 3, 1, 0, 0);
-            break;
-
-          case QB_DRAW_QUAD:
-            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &quad_verts);
-            qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
-            break;
-
-          case QB_DRAW_CIRCLE:
-            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &circle_verts);
-            qb_drawcmd_draw(draw_cmds, circle_verts_count, 1, 0, 0);
-            break;
-
-          case QB_DRAW_BOX:
-            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &box_verts);
-            qb_drawcmd_draw(draw_cmds, box_verts_count, 1, 0, 0);
-            break;
-
-          case QB_DRAW_SPHERE:
-            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
-            qb_drawcmd_draw(draw_cmds, sphere_verts_count, 1, 0, 0);
-            break;
-
-          case QB_DRAW_MESH:
-            qb_drawcmd_updatebuffer(draw_cmds, r->model_ubo, 0, sizeof(ModelUbo), &draw_cmd.args.transform);
-            qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &draw_cmd.command.mesh.mesh->vbo);
-
-            if (draw_cmd.command.mesh.mesh->ibo) {
-              qb_drawcmd_bindindexbuffer(draw_cmds, draw_cmd.command.mesh.mesh->ibo);
-              qb_drawcmd_drawindexed(draw_cmds, draw_cmd.command.mesh.mesh->index_count, 1, 0, 0);
-            }
-            else {
-              qb_drawcmd_draw(draw_cmds, draw_cmd.command.mesh.mesh->vertex_count, 1, 0, 0);
-            }
-            break;
-        }
+        case QB_DRAW_SPRITE:
+          break;
       }
     }
+  }
+}
 
-    qb_drawcmd_endpass(draw_cmds);
+void record_all_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw_cmds, DrawCommandQueue& command_queue, uint32_t frame) {
+  qbClearValue_ clear_values[4] = {};
+  clear_values[0].color = { 0.f, 0.f, 0.f, 0.f };  // Position
+  clear_values[1].color = { 0.f, 0.f, 0.f, 0.f };  // Normal
+  clear_values[2].color = self->clear_value.color;  // Albedo-specular
+  clear_values[3].depth = 1.f;
+
+  qbBeginRenderPassInfo_ begin_info{
+    .render_pass = self->deferred_render_pass,
+    .framebuffer = self->deferred_fbos[frame],
+    .clear_values = clear_values,
+    .clear_values_count = 4,
+  };
+
+  qb_drawcmd_beginpass(draw_cmds, &begin_info);
+  qb_drawcmd_bindpipeline(draw_cmds, self->deferred_render_pipeline, QB_TRUE);  
+
+  // Bind CameraUbo
+  // Bind ModelUbo
+  qb_drawcmd_bindshaderresourceset(draw_cmds, self->deferred_pipeline_layout, self->deferred_resource_sets[frame]);
+
+  mat4s parent_mat = GLMS_MAT4_IDENTITY_INIT;
+  qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, parent), sizeof(mat4s), &parent_mat);
+  record_command_buffers(self, draw_cmds, command_queue, frame);
+
+  for (const qbDrawCommand_& cmd: self->static_cmd_bufs) {
+    qbCommandBatch batch = cmd.command.batch.batch;
+
+    if (qb_commandbatch_isdynamic(batch)) {      
+      parent_mat = cmd.args.transform;
+      qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, parent), sizeof(mat4s), &parent_mat);
+    }
+
+    qb_drawcmd_subcommands(draw_cmds, qb_commandbatch_cmds(batch, frame));
+
+    if (qb_commandbatch_isdynamic(batch)) {
+      parent_mat = GLMS_MAT4_IDENTITY_INIT;
+      qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, parent), sizeof(mat4s), &parent_mat);
+    }
   }
 
-  if (camera) {
-    qbClearValue_ clear_values[2] = {};
-    clear_values[0].color = { 0.f, 0.f, 0.f, 1.f };
-    clear_values[1].depth = 1.f;
+  qb_drawcmd_endpass(draw_cmds);
+}
 
-    qbBeginRenderPassInfo_ begin_info{
-      .render_pass = r->render_pass,
-      .framebuffer = r->fbos[frame],
-      .clear_values = clear_values,
-      .clear_values_count = 2,
-    };
+void record_static_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw_cmds, DrawCommandQueue& command_queue, uint32_t frame) {
+  qbBeginRenderPassInfo_ begin_info{
+    .render_pass = self->deferred_render_pass,
+    .framebuffer = self->deferred_fbos[frame],
+    .clear_values = nullptr,
+    .clear_values_count = 0,
+  };
 
-    qb_drawcmd_beginpass(draw_cmds, &begin_info);
-    qb_drawcmd_bindpipeline(draw_cmds, r->render_pipeline);
-    qb_drawcmd_bindshaderresourceset(draw_cmds, r->pipeline_layout, r->resource_sets[frame]);
+  qb_drawcmd_beginpass(draw_cmds, &begin_info);
+  qb_drawcmd_bindpipeline(draw_cmds, self->deferred_render_pipeline, QB_FALSE);
 
+  record_command_buffers(self, draw_cmds, command_queue, frame);
 
-    qb_drawcmd_setcull(draw_cmds, QB_FACE_BACK);
-    update_directional_lights_ubo(draw_cmds, r, camera);
-    qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &screenquad_verts);
-    qb_drawcmd_draw(draw_cmds, 6, 1, 0, 0);
-
-    int num_enabled = 0;
-    qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &sphere_verts);
-    num_enabled = update_point_lights_ubo(draw_cmds, r, camera, QB_FACE_BACK);
-    qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
-
-    qb_drawcmd_setcull(draw_cmds, QB_FACE_FRONT);
-    num_enabled = update_point_lights_ubo(draw_cmds, r, camera, QB_FACE_FRONT);
-    qb_drawcmd_draw(draw_cmds, sphere_verts_count, num_enabled, 0, 0);
-    
-    qb_drawcmd_endpass(draw_cmds);
-  }
+  qb_drawcmd_endpass(draw_cmds);
 }
 
 void render(struct qbRenderer_* self, qbRenderEvent event) {
   qbDefaultRenderer r = (qbDefaultRenderer)self;
 
 
-  uint32_t frame = qb_swapchain_waitforframe(r->swapchain);
+  uint32_t frame = qb_swapchain_waitforframe(r->swapchain);  
 
-  CameraUbo camera{};
-  camera.frame = (float)event->frame;
-  qb_gpubuffer_update(r->camera_ubo, 0, sizeof(CameraUbo), &camera);
+  const qbCamera_* camera = r->camera;
+  if (camera) {
+    r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+    r->camera_data[frame].eye = camera->eye;
+    r->camera_data[frame].frame = frame;
 
-  record_command_buffers(r, frame);
+    update_global_ubos(r, camera, frame);
+    record_all_command_buffers(r, r->dynamic_cmd_bufs[frame], r->draw_commands, frame);
+    record_lighting_commands(r, camera, frame);
 
+    qbDrawCommandSubmitInfo_ submit_info{};
+
+    qb_drawcmd_submit(r->dynamic_cmd_bufs[frame], &submit_info);
+    qb_drawcmd_submit(r->lighting_cmd_bufs[frame], &submit_info);
+    qb_drawcmd_clear(r->dynamic_cmd_bufs[frame]);
+    qb_drawcmd_clear(r->lighting_cmd_bufs[frame]);
+  }
+  
   qbDrawPresentInfo_ present_info{
-    .swapchain = r->swapchain,
     .image_index = frame
   };
-  qb_drawcmd_present(r->cmd_bufs[frame], &present_info);
-  r->draw_commands.commands.clear();
+  qb_swapchain_present(r->swapchain, &present_info);
+  qb_swapchain_swap(r->swapchain);
+
+  // Set the size of the commands to 0 to reuse the map between frames.
+  for (auto& c : r->draw_commands.commands) {
+    c.second.resize(0);
+  }
+  r->static_cmd_bufs.resize(0);
+  r->camera = nullptr;
 }
 
-qbResult drawcommands_submit(struct qbRenderer_* self, struct qbDrawCommands_* cmd_buf) {
-  size_t cmd_count = 0;
-  qbDrawCommand cmds;
-
-  qb_draw_commands(cmd_buf, &cmd_count, &cmds);
+qbResult drawcommands_submit(struct qbRenderer_* self, size_t cmd_count, struct qbDrawCommand_* cmds) {
+  qbDefaultRenderer r = (qbDefaultRenderer)self;
   for (size_t i = 0; i < cmd_count; ++i) {
     if (cmds[i].args.material) {
       create_material_resourceset(((qbDefaultRenderer)self), cmds[i].args.material);
     }
-    ((qbDefaultRenderer)self)->draw_commands.push(std::move(cmds[i]));
+
+    if (cmds[i].type == QB_DRAW_BATCH) {
+      r->static_cmd_bufs.push_back(std::move(cmds[i]));
+    } else {
+      r->draw_commands.push(std::move(cmds[i]));
+    }
   }
 
   return QB_OK;
+}
+
+qbDrawCommandBuffer* drawcommands_compile(qbRenderer self, size_t cmd_count, qbDrawCommand cmds, qbDrawCompileAttr attr, uint32_t* count) {
+  qbDefaultRenderer r = (qbDefaultRenderer)self;
+
+  DrawCommandQueue queue{};
+  for (size_t i = 0; i < cmd_count; ++i) {
+    if (cmds[i].args.material) {
+      create_material_resourceset(r, cmds[i].args.material);
+    }
+    queue.push(std::move(cmds[i]));
+  }
+
+  qbDrawCommandBuffer* buf = new qbDrawCommandBuffer[2];
+  {
+    qbDrawCommandBufferAttr_ attr{
+      .count = r->swapchain_images.size(),
+      .allocator = qb_memallocator_paged(4096),
+    };
+    qb_drawcmd_create(buf, &attr);
+  }
+
+  for (uint32_t frame = 0; frame < r->swapchain_images.size(); ++frame) {
+    record_static_command_buffers(r, buf[frame], queue, frame);
+  }
+
+  *count = r->swapchain_images.size();
+  return buf;
 }
 
 void light_enable(struct qbRenderer_* self, qbId id, qbLightType light_type) {
@@ -1580,20 +1703,30 @@ void mesh_create(struct qbRenderer_* self, struct qbMesh_* mesh) {
   }
 }
 
+void mesh_destroy(struct qbRenderer_* self, struct qbMesh_* mesh) {
+  if (mesh->ibo) {
+    qb_gpubuffer_destroy(&mesh->ibo);
+  }
+
+  if (mesh->vbo) {
+    qb_gpubuffer_destroy(&mesh->vbo);
+  }
+}
+
 void create_default_textures(qbDefaultRenderer r) {
   qbImageAttr_ attr{};
   attr.type = QB_IMAGE_TYPE_2D;
 
   {
-    char pixel[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+    char pixel[4] = { (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF };
     qb_image_raw(&white_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
   }
   {
-    char pixel[4] = { 0x00, 0x00, 0x00, 0xFF };
+    char pixel[4] = { (char)0x00, (char)0x00, (char)0x00, (char)0xFF };
     qb_image_raw(&black_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
   }
   {
-    char pixel[4] = { 0x00 };
+    char pixel[4] = { (char)0x00 };
     qb_image_raw(&zero_tex, &attr, QB_PIXEL_FORMAT_RGBA8, 1, 1, pixel);
   }
 
@@ -1607,9 +1740,18 @@ void create_default_textures(qbDefaultRenderer r) {
   };
 }
 
+qbResult draw_beginframe(struct qbRenderer_* self, const struct qbCamera_* camera, qbClearValue clear) {
+  qbDefaultRenderer r = (qbDefaultRenderer)self;
+  r->camera = camera;
+  r->clear_value = *clear;
+  return QB_OK;
+}
+
 struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbDefaultRenderer ret = new qbDefaultRenderer_{};
+  ret->renderer.draw_beginframe = draw_beginframe;
   ret->renderer.drawcommands_submit = drawcommands_submit;
+  ret->renderer.drawcommands_compile = drawcommands_compile;
   ret->renderer.render = render;
   ret->renderer.light_enable = light_enable;
   ret->renderer.light_disable = light_disable;

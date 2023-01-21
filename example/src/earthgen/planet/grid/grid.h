@@ -6,34 +6,36 @@
 #include "corner.h"
 #include "edge.h"
 #include "create_grid.h"
-class Planet;
 
-class Grid {
-public:
-	Grid (int);
-	
-	int size;
-	std::deque<Tile> tiles;
-	std::deque<Corner> corners;
-	std::deque<Edge> edges;
-};
+namespace earthgen {
+	class Planet;
 
-const std::deque<Tile>& tiles (const Planet&);
-const std::deque<Corner>& corners (const Planet&);
-const std::deque<Edge>& edges (const Planet&);
+	class Grid {
+	public:
+		Grid(int);
 
-const Tile* nth_tile (const Planet&, int);
-const Corner* nth_corner (const Planet&, int);
-const Edge* nth_edge (const Planet&, int);
+		int size;
+		std::deque<Tile> tiles;
+		std::deque<Corner> corners;
+		std::deque<Edge> edges;
+	};
 
-int tile_count (const Planet&);
-int corner_count (const Planet&);
-int edge_count (const Planet&);
+	const std::deque<Tile>& tiles(const Planet&);
+	const std::deque<Corner>& corners(const Planet&);
+	const std::deque<Edge>& edges(const Planet&);
 
-int tile_count (int size);
-int corner_count (int size);
-int edge_count (int size);
+	const Tile* nth_tile(const Planet&, int);
+	const Corner* nth_corner(const Planet&, int);
+	const Edge* nth_edge(const Planet&, int);
 
-void set_grid_size (Planet&, int);
+	int tile_count(const Planet&);
+	int corner_count(const Planet&);
+	int edge_count(const Planet&);
 
+	int tile_count(int size);
+	int corner_count(int size);
+	int edge_count(int size);
+
+	void set_grid_size(Planet&, int);
+}
 #endif

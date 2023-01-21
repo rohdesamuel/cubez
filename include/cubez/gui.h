@@ -136,4 +136,6 @@ QB_API void qb_guielement_settextalign(qbGuiElement el, qbTextAlign align);
 
 QB_API void qb_gui_resize(uint32_t width, uint32_t height);
 
+QB_API struct nk_context* nk_ctx();
+
 #endif  // CUBEZ_GUI__H

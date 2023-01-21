@@ -365,9 +365,9 @@ void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size) {
 
 QB_API void* qb_gpubuffer_map(qbGpuBuffer buffer, qbBufferAccess access) {
   GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
-  GLenum access = TranslateQbBufferAccessToOpenGl(access);
+  GLenum gl_access = TranslateQbBufferAccessToOpenGl(access);
   glBindBuffer(target, buffer->id);
-  return glMapBuffer(target, access);
+  return glMapBuffer(target, gl_access);
 }
 
 QB_API void qb_gpubuffer_unmap(qbGpuBuffer buffer) {

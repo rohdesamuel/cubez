@@ -5,33 +5,35 @@
 #include "season.h"
 #include "climate_variables.h"
 #include "climate_parameters.h"
-class Planet;
 
-class Climate {
-public:
-	Climate () {}
+namespace earthgen {
+	class Planet;
 
-	Climate_variables var;
-	std::deque<Season> seasons;
-};
+	class Climate {
+	public:
+		Climate() {}
 
-const Climate& climate (const Planet&);
-Climate& m_climate (Planet&);
+		Climate_variables var;
+		std::deque<Season> seasons;
+	};
 
-const std::deque<Season> seasons (const Planet&);
-const Season& nth_season (const Planet&, int);
-Season& m_season (Planet&, int);
+	const Climate& climate(const Planet&);
+	Climate& m_climate(Planet&);
 
-void clear_climate (Planet&);
+	const std::deque<Season> seasons(const Planet&);
+	const Season& nth_season(const Planet&, int);
+	Season& m_season(Planet&, int);
 
-float freezing_point ();
-float temperature_lapse_rate ();
-// lapse of elevation
-float temperature_lapse (float);
+	void clear_climate(Planet&);
 
-// saturation at temperature
-float saturation_humidity (float);
-// aridity at temperature
-float aridity (float);
+	float freezing_point();
+	float temperature_lapse_rate();
+	// lapse of elevation
+	float temperature_lapse(float);
 
+	// saturation at temperature
+	float saturation_humidity(float);
+	// aridity at temperature
+	float aridity(float);
+}
 #endif

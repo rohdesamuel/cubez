@@ -7,56 +7,58 @@
 #include "terrain_edge.h"
 #include "terrain_variables.h"
 #include "river.h"
-class Planet;
-class Tile;
-class Quaternion;
 
-class Terrain {
-public:
-	Terrain () {}
-	
-	Terrain_variables var;
-	std::deque<Terrain_tile> tiles;
-	std::deque<Terrain_corner> corners;
-	std::deque<Terrain_edge> edges;
-};
+namespace earthgen {
+	class Planet;
+	class Tile;
+	class Quaternion;
 
-void clear_terrain (Planet&);
-void init_terrain (Planet&);
+	class Terrain {
+	public:
+		Terrain() {}
 
-double latitude (const Vector3&);
-double longitude (const Vector3&);
+		Terrain_variables var;
+		std::deque<Terrain_tile> tiles;
+		std::deque<Terrain_corner> corners;
+		std::deque<Terrain_edge> edges;
+	};
 
-double latitude (const Planet&, const Vector3&);
-double longitude (const Planet&, const Vector3&);
+	void clear_terrain(Planet&);
+	void init_terrain(Planet&);
 
-// angle from corner 0 to north
-double north (const Planet&, const Tile*);
+	double latitude(const Vector3&);
+	double longitude(const Vector3&);
 
-double area (const Planet&, const Tile*);
-double length (const Planet&, const Edge*);
+	double latitude(const Planet&, const Vector3&);
+	double longitude(const Planet&, const Vector3&);
 
-double coriolis_coefficient (const Planet&, double);
+	// angle from corner 0 to north
+	double north(const Planet&, const Tile*);
 
-Vector3 default_axis ();
-Quaternion rotation (const Planet&);
-// rotation to bring planet axis into default position
-Quaternion rotation_to_default (const Planet&);
+	double area(const Planet&, const Tile*);
+	double length(const Planet&, const Edge*);
 
-const Terrain& terrain (const Planet&);
-Terrain& m_terrain (Planet&);
+	double coriolis_coefficient(const Planet&, double);
 
-const std::deque<Terrain_tile>& tiles (const Terrain&);
-const std::deque<Terrain_corner>& corners (const Terrain&);
-const std::deque<Terrain_edge>& edges (const Terrain&);
+	Vector3 default_axis();
+	Quaternion rotation(const Planet&);
+	// rotation to bring planet axis into default position
+	Quaternion rotation_to_default(const Planet&);
 
-const Terrain_tile& nth_tile (const Terrain&, int);
-const Terrain_corner& nth_corner (const Terrain&, int);
-const Terrain_edge& nth_edge (const Terrain&, int);
+	const Terrain& terrain(const Planet&);
+	Terrain& m_terrain(Planet&);
 
-Terrain_tile& m_tile (Terrain&, int);
-Terrain_corner& m_corner (Terrain&, int);
-Terrain_edge& m_edge (Terrain&, int);
+	const std::deque<Terrain_tile>& tiles(const Terrain&);
+	const std::deque<Terrain_corner>& corners(const Terrain&);
+	const std::deque<Terrain_edge>& edges(const Terrain&);
 
+	const Terrain_tile& nth_tile(const Terrain&, int);
+	const Terrain_corner& nth_corner(const Terrain&, int);
+	const Terrain_edge& nth_edge(const Terrain&, int);
+
+	Terrain_tile& m_tile(Terrain&, int);
+	Terrain_corner& m_corner(Terrain&, int);
+	Terrain_edge& m_edge(Terrain&, int);
+}
 
 #endif

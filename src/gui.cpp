@@ -27,6 +27,8 @@
 #include <algorithm>
 #include <memory>
 
+#include "nuklear_sdl_gl3.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <cubez/gui.h>
 #include "gui_internal.h"
@@ -417,7 +419,7 @@ public:
 
     UpdateRenderGroup(&buffers, &root_);
 
-    qb_rendergroup_update(gui_render_group, buffers.size(), buffers.data());
+    //qb_rendergroup_update(gui_render_group, buffers.size(), buffers.data());
   }
 
 private:
@@ -692,7 +694,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
     uint32_t bindings[] = { GuiUniformCamera::Binding() };
     qbGpuBuffer ubo_buffers[] = { camera_ubo };
-    qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
+    //qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
 
     {
       GuiUniformCamera camera;
@@ -714,7 +716,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 
     uint32_t bindings[] = { 2 };
     qbImageSampler* samplers = image_samplers;
-    qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
+    //qb_shadermodule_attachsamplers(shader_module, 1, bindings, samplers);
   }
 
   {
@@ -771,8 +773,8 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
     qb_gpubuffer_create(&default_ebo, &attr);
   }
   {
-    qbRenderGroupAttr_ attr = {};
-    qb_rendergroup_create(&gui_render_group, &attr);
+    //qbRenderGroupAttr_ attr = {};
+    //qb_rendergroup_create(&gui_render_group, &attr);
     //qb_renderpass_append(gui_render_pass, gui_render_group);
   }
 
@@ -780,7 +782,6 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 }
 
 void qb_gui_resize(uint32_t width, uint32_t height) {
-  qb_renderpass_resize(gui_render_pass, { 0, 0, (float)width, (float)height });
   {
     GuiUniformCamera camera;
     camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
@@ -833,7 +834,7 @@ void qb_guielement_create(qbGuiElement* el, const char* id, qbGuiElementAttr att
   }
   {
     qbMeshBufferAttr_ buffer_attr = {};
-    buffer_attr.descriptor = *qb_renderpass_geometry(gui_render_pass);
+    //buffer_attr.descriptor = *qb_renderpass_geometry(gui_render_pass);
 
     qb_meshbuffer_create(&dbo, &buffer_attr);
 
@@ -1018,7 +1019,7 @@ void qb_guielement_settext(qbGuiElement el, const utf8_t* text) {
 
   {
     qbMeshBufferAttr_ attr = {};
-    attr.descriptor = *qb_renderpass_geometry(gui_render_pass);
+    //attr.descriptor = *qb_renderpass_geometry(gui_render_pass);
 
     qb_meshbuffer_create(&el->text_dbo, &attr);
 
@@ -1352,4 +1353,8 @@ vec2s qb_guielement_getrelpos(qbGuiElement el) {
 
 qbGuiElement qb_guielement_parent(qbGuiElement el) {
   return el->parent;
+}
+
+struct nk_context* nk_ctx() {
+  return nk_sdl_ctx();
 }

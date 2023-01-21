@@ -25,6 +25,30 @@
     <Filter Include="Header Files\modules">
       <UniqueIdentifier>{ba915a3f-533f-414a-be5e-a5eb7fb3b148}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\earthgen">
+      <UniqueIdentifier>{271abcc0-fe39-4dde-a4ba-c96fda5d8abd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\planet">
+      <UniqueIdentifier>{f3ff2a09-f4df-42a8-bfb5-9a778a81487c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\planet\climage">
+      <UniqueIdentifier>{0b5f1869-e784-44b0-b456-8ea08ed60385}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\planet\grid">
+      <UniqueIdentifier>{0b69366e-7d72-45de-919b-3b9862796e55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\planet\terrain">
+      <UniqueIdentifier>{f50fe050-118f-4427-b3e9-4403720bf5e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\math">
+      <UniqueIdentifier>{9edb104d-4a17-4655-8b86-0eeb69f212dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\hash">
+      <UniqueIdentifier>{868f8eac-f2de-4028-8d03-829d27677303}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\earthgen\render">
+      <UniqueIdentifier>{f61bff36-9215-4bbf-9eee-caa8737a705f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\..\example\ball.bmp">
@@ -50,6 +74,90 @@
     <ClCompile Include="..\..\..\example\src\renderer.cpp">
       <Filter>Source Files\modules</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate_corner.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate_edge.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate_generation.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate_tile.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\climate_variables.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\climate\season.cpp">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\grid\corner.cpp">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\grid\create_grid.cpp">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\grid\edge.cpp">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\grid\grid.cpp">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\grid\tile.cpp">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain_edge.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain_generation.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain_tile.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain_variables.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\river.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\terrain\terrain_corner.cpp">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\planet\planet.cpp">
+      <Filter>Source Files\earthgen\planet</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\math\vector2.cpp">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\math\vector3.cpp">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\math\matrix2.cpp">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\math\matrix3.cpp">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\math\quaternion.cpp">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\hash\md5.cpp">
+      <Filter>Source Files\earthgen\hash</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\render\planet_colours.cpp">
+      <Filter>Source Files\earthgen\render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\example\src\earthgen\render\colour.cpp">
+      <Filter>Source Files\earthgen\render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\cubez\common.h">
@@ -68,6 +176,114 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\example\src\renderer.h">
+      <Filter>Header Files\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_corner.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_edge.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_generation.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_generation_season.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_parameters.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_tile.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\climate_variables.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\season.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\season_variables.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\climate\wind.h">
+      <Filter>Source Files\earthgen\planet\climage</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\grid\corner.h">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\grid\create_grid.h">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\grid\edge.h">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\grid\grid.h">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\grid\tile.h">
+      <Filter>Source Files\earthgen\planet\grid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_corner.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_edge.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_generation.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_parameters.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_tile.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_variables.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain_water.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\river.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\terrain\terrain.h">
+      <Filter>Source Files\earthgen\planet\terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\planet\planet.h">
+      <Filter>Source Files\earthgen\planet</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\vector2.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\vector3.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\math_common.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\matrix2.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\matrix3.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\math\quaternion.h">
+      <Filter>Source Files\earthgen\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\hash\md5.h">
+      <Filter>Source Files\earthgen\hash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\render\planet_colours.h">
+      <Filter>Source Files\earthgen\render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\earthgen\render\colour.h">
+      <Filter>Source Files\earthgen\render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\example\src\nuklear.h">
       <Filter>Header Files\modules</Filter>
     </ClInclude>
   </ItemGroup>

@@ -19,9 +19,10 @@ struct qbDrawCommands_ {
   qbDrawCommand_ cur;
 };
 
-struct qbDrawBatch_ {
-  qbDrawCommand_* commands;
+struct qbCommandBatch_ {
+  qbDrawCommandBuffer* commands;
   size_t commands_count;
+  qbBool is_dynamic;
 };
 
 static thread_local qbMemoryAllocator allocator = nullptr;
@@ -239,7 +240,7 @@ void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instanc
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 }
 
-void qb_draw_batch(qbDrawCommands cmds, qbDrawBatch batch) {
+void qb_draw_batch(qbDrawCommands cmds, qbCommandBatch batch) {
   assert(cmds->commands_count < MAX_DRAW_COMMANDS);
 
   cmds->cur.command.batch = { batch };
@@ -254,10 +255,40 @@ void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg) {
   cmds->commands[cmds->commands_count++] = std::move(cmds->cur);
 }
 
-qbDrawBatch qb_draw_compile(qbDrawCommands* cmds) {
+qbCommandBatch qb_draw_compile(qbDrawCommands* cmds, qbDrawCompileAttr attr) {
   qbRenderer renderer = qb_renderer();
-  qbDrawBatch result = renderer->drawcommands_compile(renderer, (*cmds)->commands_count, (*cmds)->commands);
+
+  uint32_t frame_count = 0;
+  qbDrawCommandBuffer* compiled = renderer->drawcommands_compile(renderer, (*cmds)->commands_count, (*cmds)->commands, attr, &frame_count);
+
+  assert(frame_count > 0 && "Must return a non-zero value");
+
+  qbCommandBatch result = new qbCommandBatch_{
+    .commands = compiled,
+    .commands_count = frame_count,
+    .is_dynamic = attr->is_dynamic
+  };
 
   qb_draw_dealloc(cmds);
   return result;
+}
+
+qbDrawCommandBuffer qb_commandbatch_cmds(qbCommandBatch batch, uint32_t idx) {
+  return batch->commands[idx];
+}
+
+qbBool qb_commandbatch_isdynamic(qbCommandBatch batch) {
+  return batch->is_dynamic;
+}
+
+qbBool qb_commandbatch_isstatic(qbCommandBatch batch) {
+  return !batch->is_dynamic;
+}
+
+void qb_draw_sprite(qbDrawCommands cmds, struct qbSprite_* sprite) {
+  
+}
+
+void qb_draw_spritepart(qbDrawCommands cmds, struct qbSprite_* sprite, int32_t left, int32_t top, int32_t width, int32_t height) {
+
 }

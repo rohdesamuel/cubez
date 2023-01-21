@@ -236,7 +236,10 @@ qbResult loop(qbLoopCallbacks callbacks,
   frame_time = std::min(0.25, frame_time);
   game_loop.current_time = new_time;
 
-  if (game_loop.accumulator >= game_loop.dt) {
+  // TODO: should this or shouldn't done per frame?
+  // i.e. if (game_loop.accumulator >= game_loop.dt) or not
+  // But Nuklear needs to have this once per frame to clear the input state per frame.
+  {
     struct ResizeState {
       qbLoopCallbacks callbacks;
       qbLoopArgs args;

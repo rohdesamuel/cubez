@@ -3,16 +3,31 @@
 
 #include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
+#include <cubez/mesh.h>
 
 typedef struct qbDrawCommands_* qbDrawCommands;
-typedef struct qbDrawCommandBuffer_** qbDrawBatch;
+typedef struct qbCommandBatch_* qbCommandBatch;
+typedef struct qbDrawBatch_* qbDrawBatch;
 
 // Should be called once per frame.
 QB_API qbResult qb_draw_beginframe(const struct qbCamera_* camera, qbClearValue clear);
 
 QB_API qbDrawCommands qb_draw_begin();
 QB_API qbResult qb_draw_end(qbDrawCommands* cmds);
-QB_API qbDrawBatch qb_draw_compile(qbDrawCommands* cmds);
+
+typedef struct qbDrawCompileAttr_ {
+  qbBool is_dynamic;
+} qbDrawCompileAttr_, *qbDrawCompileAttr;
+QB_API qbCommandBatch qb_draw_compile(qbDrawCommands* cmds, qbDrawCompileAttr attr);
+
+typedef struct qbDrawBatch_ {
+  qbMesh mesh;
+  size_t count;
+  mat4s* transforms;
+  uint8_t* attributes;
+  size_t attributes_size;
+  qbBool is_dynamic;
+} qbDrawBatch_, *qbDrawBatch;
 
 QB_API void qb_draw_settransform(qbDrawCommands cmds, mat4s transform);
 QB_API void qb_draw_gettransform(qbDrawCommands cmds, mat4s* transform);
@@ -45,8 +60,18 @@ QB_API void qb_draw_sphere(qbDrawCommands cmds, float r);
 QB_API void qb_draw_mesh(qbDrawCommands cmds, struct qbMesh_* mesh);
 QB_API void qb_draw_model(qbDrawCommands cmds, struct qbModel_* model);
 QB_API void qb_draw_instanced(qbDrawCommands cmds, struct qbMesh_* mesh, size_t instance_count, mat4s* transforms);
-QB_API void qb_draw_batch(qbDrawCommands cmds, qbDrawBatch batch);
+QB_API void qb_draw_batch(qbDrawCommands cmds, qbCommandBatch batch);
 QB_API void qb_draw_custom(qbDrawCommands cmds, int command_type, qbVar arg);
+
+// Unimplemented.
+QB_API void qb_draw_sprite(qbDrawCommands cmds, struct qbSprite_* sprite);
+
+// Unimplemented.
+QB_API void qb_draw_spritepart(qbDrawCommands cmds, struct qbSprite_* sprite, int32_t left, int32_t top, int32_t width, int32_t height);
+
+QB_API qbDrawCommandBuffer qb_commandbatch_cmds(qbCommandBatch batch, uint32_t idx);
+QB_API qbBool qb_commandbatch_isdynamic(qbCommandBatch batch);
+QB_API qbBool qb_commandbatch_isstatic(qbCommandBatch batch);
 
 typedef enum qbDrawCommandType_ {
   QB_DRAW_NOOP,
@@ -60,6 +85,7 @@ typedef enum qbDrawCommandType_ {
   QB_DRAW_MESH,
   QB_DRAW_ENTITY,
   QB_DRAW_BATCH,
+  QB_DRAW_SPRITE,
   QB_DRAW_CUSTOM
 } qbDrawCommandType_;
 
@@ -110,8 +136,17 @@ typedef struct qbDrawCommandCustom_ {
 } qbDrawCommandCustom_;
 
 typedef struct qbDrawCommandBatch_ {
-  qbDrawBatch commands;
+  qbCommandBatch batch;
 } qbDrawCommandBatch_;
+
+typedef struct qbDrawCommandSprite_ {
+  struct qbSprite_* sprite;
+
+  int32_t left;
+  int32_t top;
+  int32_t width;
+  int32_t height;
+} qbDrawCommandSprite_;
 
 typedef struct qbDrawCommandArgs_ {
   vec4s color;
@@ -132,6 +167,7 @@ typedef struct qbDrawCommand_ {
     qbDrawCommandSphere_ sphere;
     qbDrawCommandMesh_ mesh;
     qbDrawCommandBatch_ batch;
+    qbDrawCommandSprite_ sprite;
     qbDrawCommandCustom_ custom;
   } command;
   qbDrawCommandArgs_ args;

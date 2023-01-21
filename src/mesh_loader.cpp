@@ -116,7 +116,7 @@ qbModel MeshLoader::Load(char** path, const char* filename) {
       index_offset += fv;
 
       // per-face material
-      shapes[s].mesh.material_ids[f];
+      // shapes[s].mesh.material_ids[f];
     }
   }
   return nullptr;

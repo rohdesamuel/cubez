@@ -23,10 +23,36 @@
 #include <cubez/render_pipeline.h>
 #include <cglm/struct.h>
 
-typedef struct qbSprite_* qbSprite;
-typedef struct qbAnimationBuilder_* qbAnimationBuilder;
-typedef struct qbAnimation_* qbAnimation;
-typedef struct qbAnimator_* qbAnimator;
+typedef struct qbSpriteAnimation_* qbSpriteAnimation;
+
+typedef struct qbSpriteAnimator_ {
+  qbSpriteAnimation animation;
+  int frame;
+  double elapsed;
+} qbSpriteAnimator_, *qbSpriteAnimator;
+
+typedef struct qbSprite_ {
+  qbImage img;
+
+  vec2s offset;
+
+  // Index of sprite in atlas, -1 if not from atlas.
+  int ix, iy;
+
+  // Width and height of the sprite in pixels.
+  uint32_t w, h;
+
+  // Width and height of the tile.
+  uint32_t tw, th;
+
+  uint32_t margin;
+
+  // Depth of sprite for painter's algorithm.
+  float depth;
+
+  // If the sprite is animated, this will point to the animation.  
+  qbSpriteAnimator animator;
+} qbSprite_, *qbSprite;
 
 QB_API qbSprite qb_sprite_load(const char* filename);
 
@@ -61,11 +87,12 @@ QB_API int32_t  qb_sprite_framecount(qbSprite sprite);
 QB_API int32_t  qb_sprite_getframe(qbSprite sprite);
 QB_API void     qb_sprite_setframe(qbSprite sprite, int32_t frame_index);
 QB_API qbImage  qb_sprite_subimg(qbSprite sprite, int32_t frame);
+QB_API qbImage  qb_sprite_curimg(qbSprite sprite);
 
 QB_API void     qb_sprite_onresize(uint32_t width, uint32_t height);
 QB_API void     qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e);
 
-typedef struct qbAnimationAttr_ {
+typedef struct qbSpriteAnimationAttr_ {
   qbSprite* frames;
 
   // Unit in milliseconds.
@@ -79,19 +106,19 @@ typedef struct qbAnimationAttr_ {
   int keyframe;
 
   vec2s offset;
-} qbAnimationAttr_, *qbAnimationAttr;
+} qbSpriteAnimationAttr_, *qbSpriteAnimationAttr;
 
-QB_API qbAnimation qb_animation_create(qbAnimationAttr attr);
+QB_API qbSpriteAnimation qb_spriteanimation_create(qbSpriteAnimationAttr attr);
 
-QB_API qbAnimation qb_animation_loaddir(const char* dir, qbAnimationAttr attr);
+QB_API qbSpriteAnimation qb_spriteanimation_loaddir(const char* dir, qbSpriteAnimationAttr attr);
 
-QB_API qbAnimation qb_animation_fromsheet(qbAnimationAttr attr, qbSprite sheet,
+QB_API qbSpriteAnimation qb_spriteanimation_fromsheet(qbSpriteAnimationAttr attr, qbSprite sheet,
                                           int index_start, int index_end);
 
-QB_API qbSprite  qb_animation_play(qbAnimation animation);
+QB_API qbSprite  qb_spriteanimation_play(qbSpriteAnimation animation);
 
-QB_API vec2s  qb_animation_getoffset(qbAnimation animation);
-QB_API void   qb_animation_setoffset(qbAnimation animation, vec2s offset);
+QB_API vec2s  qb_spriteanimation_getoffset(qbSpriteAnimation animation);
+QB_API void   qb_spriteanimation_setoffset(qbSpriteAnimation animation, vec2s offset);
 
 // Component type: qbSprite
 QB_API qbComponent qb_sprite();

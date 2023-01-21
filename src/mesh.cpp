@@ -87,13 +87,6 @@ qbModel qb_model_load(const char* model_name, const char* filename) {
   return builder.Model(QB_DRAW_MODE_TRIANGLES);
 }
 
-struct qbModelGroup_* qb_model_upload(qbModel model) {
-  qbModelGroup ret;
-  qb_modelgroup_create(&ret);
-  qb_modelgroup_upload(ret, model, nullptr);
-  return ret;
-}
-
 void qb_model_create(qbModel* model_ref, qbModelAttr attr) {
   qbModel model = *model_ref = new qbModel_{};
   model->name = STRDUP(attr->name);
@@ -138,12 +131,10 @@ bool qb_model_collides(vec3 a_origin, vec3 b_origin, qbModel a, qbModel b) {
   return false;
 }
 
-qbResult qb_mesh_tobuffer(qbMesh mesh, qbMeshBuffer* buffer) {
-  assert(false && "unimplemented");
-  return QB_OK;
-}
-
 qbResult qb_mesh_destroy(qbMesh* mesh) {
+  auto r = qb_renderer();
+  r->mesh_destroy(r, *mesh);
+
   delete[](*mesh)->vertices;
   delete[](*mesh)->indices;
   delete[](*mesh)->normals;
@@ -572,48 +563,6 @@ qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform,
 
   *t = p_zero_v.front().z;
   return QB_TRUE;
-}
-
-struct qbModelGroup_* qb_draw_cube(float size_x, float size_y, float size_z, qbDrawMode mode, qbCollider* collider) {
-  MeshBuilder builder = MeshBuilder::Box(size_x, size_y, size_z);
-  qbModelGroup_* ret;
-  qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(mode);
-  qb_modelgroup_upload(ret, model, nullptr);
-
-  if (collider) {
-    *collider = builder.Collider(model->meshes[0]);
-  }
-  qb_model_destroy(&model);
-  return ret;
-}
-
-struct qbModelGroup_* qb_draw_rect(float w, float h, qbDrawMode mode, qbCollider* collider) {
-  MeshBuilder builder = MeshBuilder::Rect(w, h);
-  qbModelGroup_* ret;
-  qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(mode);
-  qb_modelgroup_upload(ret, model, nullptr);
-
-  if (collider) {
-    *collider = builder.Collider(model->meshes[0]);
-  }
-  qb_model_destroy(&model);
-  return ret;
-}
-
-struct qbModelGroup_* qb_draw_sphere(float radius, int slices, int zslices, qbDrawMode mode, qbCollider* collider) {
-  MeshBuilder builder = MeshBuilder::Sphere(radius, slices, zslices);
-  qbModelGroup_* ret;
-  qb_modelgroup_create(&ret);
-  qbModel model = builder.Model(mode);
-  qb_modelgroup_upload(ret, model, nullptr);
-
-  if (collider) {
-    *collider = builder.Collider(model->meshes[0]);
-  }
-  qb_model_destroy(&model);
-  return ret;
 }
 
 void qb_collider_sphere(qbCollider collider, float r) {

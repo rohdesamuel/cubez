@@ -21,6 +21,9 @@
 #include "shader.h"
 #include "render_internal.h"
 #include "gui_internal.h"
+#include "nuklear_sdl_gl3.h"
+#include <cubez/nuklear.h>
+
 #include <cubez/gui.h>
 
 #include <atomic>
@@ -83,6 +86,11 @@ qbComponent qb_material_ = 0;
 qbComponent qb_transform_ = 0;
 qbComponent qb_collider_ = 0;
 
+// Nuklear SDL rendering parameters.
+#define MAX_VERTEX_MEMORY 512 * 1024
+#define MAX_ELEMENT_MEMORY 128 * 1024
+
+
 qbComponent qb_renderable() {
   return qb_renderable_;
 }
@@ -117,6 +125,8 @@ bool check_for_gl_errors() {
 }
 
 qbResult qb_render_swapbuffers() {
+  // TODO: Parameterize the arguments here.
+  nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
   SDL_GL_SwapWindow(win);
   return QB_OK;
 }
@@ -148,7 +158,7 @@ qbResult qb_render(qbRenderEvent event,
 
 void initialize_context(const RenderSettings& settings) {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    printf("SDL could not initialize! SDL Error: %s\n", SDL_GetError());
+    FATAL("SDL could not initialize! SDL Error: \n" << SDL_GetError());
   }
   
   // Request an OpenGL 3.3 context
@@ -186,6 +196,7 @@ void initialize_context(const RenderSettings& settings) {
   // that error here and carry on.
   glGetError();
   SDL_GL_SwapWindow(win);
+  nk_sdl_init(win);
 }
 
 void renderer_initialize(const RenderSettings& settings) {
@@ -257,6 +268,7 @@ void render_initialize(RenderSettings* settings) {
 }
 
 void render_shutdown() {
+  nk_sdl_shutdown();
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(win);
   if (destroy_renderer) {
@@ -449,23 +461,6 @@ qbResult qb_render_makenull() {
 
 qbRenderer qb_renderer() {
   return renderer_;
-}
-
-void qb_modelgroup_create(qbModelGroup* modelgroup) {
-  qbRenderer r = qb_renderer();
-  r->modelgroup_create(r, modelgroup);
-}
-
-void qb_modelgroup_destroy(qbModelGroup* modelgroup) {
-  qbRenderer r = qb_renderer();
-  r->modelgroup_destroy(r, modelgroup);
-}
-
-void qb_modelgroup_upload(qbModelGroup modelgroup,
-                          struct qbModel_* model,
-                          struct qbMaterial_* material) {
-  qbRenderer r = qb_renderer();
-  r->modelgroup_upload(r, modelgroup, model, material);
 }
 
 void qb_light_enable(qbId id, qbLightType type) {

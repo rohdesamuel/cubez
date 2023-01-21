@@ -292,6 +292,8 @@
     <ClInclude Include="..\..\..\include\cubez\memory.h" />
     <ClInclude Include="..\..\..\include\cubez\mesh.h" />
     <ClInclude Include="..\..\..\include\cubez\network.h" />
+    <ClInclude Include="..\..\..\include\cubez\nuklear.h" />
+    <ClInclude Include="..\..\..\include\cubez\random.h" />
     <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\renderer.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
@@ -318,6 +320,7 @@
     <ClInclude Include="..\..\..\src\ctxt.h" />
     <ClInclude Include="..\..\..\src\cute_sound.h" />
     <ClInclude Include="..\..\..\src\defs.h" />
+    <ClInclude Include="..\..\..\src\draw_command_buffer.h" />
     <ClInclude Include="..\..\..\src\entity_registry.h" />
     <ClInclude Include="..\..\..\src\event.h" />
     <ClInclude Include="..\..\..\src\event_registry.h" />
@@ -326,6 +329,8 @@
     <ClInclude Include="..\..\..\src\font_registry.h" />
     <ClInclude Include="..\..\..\src\font_render.h" />
     <ClInclude Include="..\..\..\src\game_state.h" />
+    <ClInclude Include="..\..\..\src\gl_render_pipeline_defs.h" />
+    <ClInclude Include="..\..\..\src\gl_translate_utils.h" />
     <ClInclude Include="..\..\..\src\gui_internal.h" />
     <ClInclude Include="..\..\..\src\input_internal.h" />
     <ClInclude Include="..\..\..\src\instance_registry.h" />
@@ -346,10 +351,14 @@
     <ClInclude Include="..\..\..\src\mesh_loader.h" />
     <ClInclude Include="..\..\..\src\mesh_simplify.h" />
     <ClInclude Include="..\..\..\src\network_impl.h" />
+    <ClInclude Include="..\..\..\src\nuklear_sdl_gl3.h" />
+    <ClInclude Include="..\..\..\src\paged_allocator.h" />
     <ClInclude Include="..\..\..\src\query.h" />
     <ClInclude Include="..\..\..\src\quickhull.h" />
+    <ClInclude Include="..\..\..\src\render_commands.h" />
     <ClInclude Include="..\..\..\src\render_defs.h" />
     <ClInclude Include="..\..\..\src\render_internal.h" />
+    <ClInclude Include="..\..\..\src\render_pipeline_defs.h" />
     <ClInclude Include="..\..\..\src\shader.h" />
     <ClInclude Include="..\..\..\src\simplex.h" />
     <ClInclude Include="..\..\..\src\sparse_map.h" />
@@ -407,6 +416,7 @@
     <ClCompile Include="..\..\..\src\font_registry.cpp" />
     <ClCompile Include="..\..\..\src\font_render.cpp" />
     <ClCompile Include="..\..\..\src\game_state.cpp" />
+    <ClCompile Include="..\..\..\src\gl_translate_utils.cpp" />
     <ClCompile Include="..\..\..\src\gui.cpp" />
     <ClCompile Include="..\..\..\src\input.cpp" />
     <ClCompile Include="..\..\..\src\instance_registry.cpp" />
@@ -431,13 +441,17 @@
     <ClCompile Include="..\..\..\src\mesh_builder.cpp" />
     <ClCompile Include="..\..\..\src\mesh_loader.cpp" />
     <ClCompile Include="..\..\..\src\network.cpp" />
+    <ClCompile Include="..\..\..\src\nuklear.cpp" />
+    <ClCompile Include="..\..\..\src\paged_allocator.cpp" />
     <ClCompile Include="..\..\..\src\private_universe.cpp" />
     <ClCompile Include="..\..\..\src\program_impl.cpp" />
     <ClCompile Include="..\..\..\src\program_registry.cpp" />
     <ClCompile Include="..\..\..\src\program_thread.cpp" />
     <ClCompile Include="..\..\..\src\query.cpp" />
     <ClCompile Include="..\..\..\src\quickhull.cpp" />
+    <ClCompile Include="..\..\..\src\random.cpp" />
     <ClCompile Include="..\..\..\src\render.cpp" />
+    <ClCompile Include="..\..\..\src\render_commands.cpp" />
     <ClCompile Include="..\..\..\src\render_pipeline.cpp" />
     <ClCompile Include="..\..\..\src\shader.cpp" />
     <ClCompile Include="..\..\..\src\simplex.cpp" />

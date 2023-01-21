@@ -290,14 +290,14 @@ int animation_create(lua_State *L) {
   bool repeat = lua_toboolean(L, 3) == 1;
   int64_t keyframe = lua_tointeger(L, 4);
 
-  qbAnimationAttr_ attr{};
+  qbSpriteAnimationAttr_ attr{};
   attr.frames = frames.data();
   attr.frame_count = frames.size();
   attr.frame_speed = frame_speed;
   attr.repeat = repeat;
   attr.keyframe = (int)keyframe;
 
-  lua_pushlightuserdata(L, qb_animation_create(&attr));
+  lua_pushlightuserdata(L, qb_spriteanimation_create(&attr));
 
   return 1;
 }
@@ -319,12 +319,12 @@ int animation_fromsheet(lua_State* L) {
   bool repeat = lua_toboolean(L, 5) == 1;
   int64_t keyframe = lua_tointeger(L, 6);
 
-  qbAnimationAttr_ attr{};
+  qbSpriteAnimationAttr_ attr{};
   attr.frame_speed = frame_speed;
   attr.repeat = repeat;
   attr.keyframe = (int)keyframe;
 
-  lua_pushlightuserdata(L, qb_animation_fromsheet(&attr, sheet, index_start, index_end));
+  lua_pushlightuserdata(L, qb_spriteanimation_fromsheet(&attr, sheet, index_start, index_end));
 
   return 1;
 }
@@ -341,12 +341,12 @@ int animation_loaddir(lua_State* L) {
   bool repeat = lua_toboolean(L, 3) == 1;
   int64_t keyframe = lua_tointeger(L, 4);
 
-  qbAnimationAttr_ attr{};
+  qbSpriteAnimationAttr_ attr{};
   attr.frame_speed = frame_speed;
   attr.repeat = repeat;
   attr.keyframe = (int)keyframe;
 
-  lua_pushlightuserdata(L, qb_animation_loaddir(dir, &attr));
+  lua_pushlightuserdata(L, qb_spriteanimation_loaddir(dir, &attr));
 
   return 1;
 }
@@ -354,9 +354,9 @@ int animation_loaddir(lua_State* L) {
 int animation_play(lua_State* L) {
   LUA_CHECK_TYPE(L, 1, LUA_TLIGHTUSERDATA);
 
-  qbAnimation animation = (qbAnimation)lua_touserdata(L, 1);
+  qbSpriteAnimation animation = (qbSpriteAnimation)lua_touserdata(L, 1);
 
-  lua_pushlightuserdata(L, qb_animation_play(animation));
+  lua_pushlightuserdata(L, qb_spriteanimation_play(animation));
 
   return 1;
 }
@@ -364,9 +364,9 @@ int animation_play(lua_State* L) {
 int animation_getoffset(lua_State* L) {
   LUA_CHECK_TYPE(L, 1, LUA_TLIGHTUSERDATA);
 
-  qbAnimation animation = (qbAnimation)lua_touserdata(L, 1);
+  qbSpriteAnimation animation = (qbSpriteAnimation)lua_touserdata(L, 1);
 
-  vec2s offset = qb_animation_getoffset(animation);
+  vec2s offset = qb_spriteanimation_getoffset(animation);
   lua_pushnumber(L, offset.x);
   lua_pushnumber(L, offset.y);
 
@@ -378,10 +378,10 @@ int animation_setoffset(lua_State* L) {
   LUA_CHECK_TYPE(L, 2, LUA_TNUMBER);
   LUA_CHECK_TYPE(L, 3, LUA_TNUMBER);
 
-  qbAnimation animation = (qbAnimation)lua_touserdata(L, 1);
+  qbSpriteAnimation animation = (qbSpriteAnimation)lua_touserdata(L, 1);
   double ox = lua_tonumber(L, 2);
   double oy = lua_tonumber(L, 3);
 
-  qb_animation_setoffset(animation, { (float)ox, (float)oy });
+  qb_spriteanimation_setoffset(animation, { (float)ox, (float)oy });
   return 0;
 }

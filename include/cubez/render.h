@@ -32,9 +32,8 @@ typedef struct qbRenderer_ {
 
   qbResult(*draw_beginframe)(struct qbRenderer_* self, const struct qbCamera_* camera, qbClearValue clear);
   qbResult(*drawcommands_submit)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds);
-  qbDrawCommandBuffer*(*drawcommands_compile)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds);
+  qbDrawCommandBuffer*(*drawcommands_compile)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds, struct qbDrawCompileAttr_* attr, uint32_t* frame_count);
   
-  size_t(*max_lights)(struct qbRenderer_* self);
   void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
   void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
   bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
@@ -48,38 +47,7 @@ typedef struct qbRenderer_ {
   size_t(*light_max)(struct qbRenderer_* self, qbLightType light_type);
 
   void(*mesh_create)(struct qbRenderer_* self, struct qbMesh_* mesh);
-
-  void(*modelgroup_create)(struct qbRenderer_* self, qbModelGroup* modelgroup);
-  void(*modelgroup_destroy)(struct qbRenderer_* self, qbModelGroup* modelgroup);
-  void(*modelgroup_upload)(struct qbRenderer_* self, qbModelGroup modelgroup,
-                           struct qbModel_* model, struct qbMaterial_* material);
-  qbRenderGroup(*modelgroup_rendergroup)(struct qbRenderer_* self, qbModelGroup modelgroup);
-
-  size_t(*max_texture_units)(struct qbRenderer_* self);
-  size_t(*max_uniform_units)(struct qbRenderer_* self);  
-  
-  void(*meshbuffer_attach_material)(struct qbRenderer_* self, qbMeshBuffer buffer,
-                                    struct qbMaterial_* material);
-  void(*meshbuffer_attach_textures)(struct qbRenderer_* self, qbMeshBuffer buffer,
-                                    size_t count,
-                                    uint32_t texture_units[],
-                                    qbImage textures[]);
-  void(*meshbuffer_attach_uniforms)(struct qbRenderer_* self, qbMeshBuffer buffer,
-                                    size_t count,
-                                    uint32_t uniform_bindings[],
-                                    qbGpuBuffer uniforms[]);
-  void(*rendergroup_attach_material)(struct qbRenderer_* self, qbRenderGroup group,
-                                     struct qbMaterial_* material);
-  void(*rendergroup_attach_textures)(struct qbRenderer_* self, qbRenderGroup group,
-                                     size_t count,
-                                     uint32_t texture_units[],
-                                     qbImage textures[]);
-  void(*rendergroup_attach_uniforms)(struct qbRenderer_* self, qbRenderGroup group,
-                                     size_t count,
-                                     uint32_t uniform_bindings[],
-                                     qbGpuBuffer uniforms[]);
-
-  qbFrameBuffer(*camera_framebuffer_create)(struct qbRenderer_* self, uint32_t width, uint32_t height);
+  void(*mesh_destroy)(struct qbRenderer_* self, struct qbMesh_* mesh);
 
   const char* title;
   qbRenderPipeline render_pipeline;

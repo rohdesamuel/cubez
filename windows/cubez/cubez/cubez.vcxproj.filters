@@ -165,16 +165,7 @@
     <ClInclude Include="..\..\..\include\cubez\utils.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\utils_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\log_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\input_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\gui_internal.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\font_registry.h">
@@ -276,12 +267,6 @@
     <ClInclude Include="..\..\..\src\async_internal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\sprite.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\sprite_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\lua_sprite_bindings.h">
       <Filter>Header Files\lua</Filter>
     </ClInclude>
@@ -289,9 +274,6 @@
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\memory.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\memory_internal.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\query.h">
@@ -319,6 +301,51 @@
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\render_internal.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\sprite.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\sprite_internal.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\utils_internal.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\memory_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gui_internal.h">
+      <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\input_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\random.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\paged_allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\render_commands.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gl_translate_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gl_render_pipeline_defs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\render_pipeline_defs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\draw_command_buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\nuklear.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\nuklear_sdl_gl3.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
@@ -571,6 +598,21 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\draw.cpp">
       <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\random.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\paged_allocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\render_commands.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\gl_translate_utils.cpp">
+      <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\nuklear.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
