@@ -1,5 +1,6 @@
 #include "lua_input_bindings.h"
 
+#include <string>
 #include <unordered_map>
 #include <cubez/input.h>
 

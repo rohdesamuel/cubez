@@ -710,8 +710,10 @@ void lua_start(lua_State* L) {
     lua_pushnumber(L, qb_window_width());
     lua_pushnumber(L, qb_window_height());
     lua_call(L, 2, 0);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 2);
   }
-  lua_pop(L, 1);
 }
 
 void lua_update(lua_State* L) {
@@ -724,22 +726,26 @@ void lua_update(lua_State* L) {
   lua_getfield(L, -1, "update");
   if (!lua_isnil(L, -1)) {
     lua_call(L, 0, 0);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 2);
   }
-  lua_pop(L, 1);
 }
 
 void lua_draw(lua_State* L) {
   if (!L) {
     return;
   }
-
+  return;
   // Call qb.draw()
   lua_getglobal(L, "qb");
   lua_getfield(L, -1, "draw");
   if (!lua_isnil(L, -1)) {
     lua_call(L, 0, 0);
-  }
-  lua_pop(L, 1);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 2);
+  }  
 }
 
 void lua_resize(lua_State* L, uint32_t width, uint32_t height) {
@@ -754,8 +760,10 @@ void lua_resize(lua_State* L, uint32_t width, uint32_t height) {
     lua_pushinteger(L, width);
     lua_pushinteger(L, height);
     lua_call(L, 2, 0);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 2);
   }
-  lua_pop(L, 1);
 }
 
 void lua_init(lua_State* L) {
@@ -768,8 +776,10 @@ void lua_init(lua_State* L) {
   lua_getfield(L, -1, "init");
   if (!lua_isnil(L, -1)) {
     lua_call(L, 0, 0);
+    lua_pop(L, 1);
+  } else {
+    lua_pop(L, 2);
   }
-  lua_pop(L, 1);
 }
 
 std::filesystem::path directory;
