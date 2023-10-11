@@ -52,7 +52,7 @@
     <Filter Include="Header Files\mempool">
       <UniqueIdentifier>{ede01714-5c68-47dd-9dc3-d267d98c63a1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\lua\audio">
+    <Filter Include="Source Files\audio">
       <UniqueIdentifier>{a3738078-1c1d-4248-9ae1-b3a3e4e8d0c5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -444,10 +444,10 @@
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\cute_sound.cpp">
-      <Filter>Source Files\lua\audio</Filter>
+      <Filter>Source Files\audio</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\audio.cpp">
-      <Filter>Source Files\lua\audio</Filter>
+      <Filter>Source Files\audio</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\cglm\affine.c">
       <Filter>Source Files\cglm</Filter>

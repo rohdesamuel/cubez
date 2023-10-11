@@ -39,9 +39,6 @@ QB_API void qb_channel_write(qbChannel channel, qbVar v);
 // Reads a var from the channel. Blocks until data is available.
 QB_API void qb_channel_read(qbChannel channel, qbVar* v);
 
-// Reads a var from the channel. Blocks until data is available.
-QB_API void qb_channel_read(qbChannel channel, qbVar* v);
-
 // Iterates through channels in a random order until data is available.
 QB_API qbVar qb_channel_select(qbChannel* channels, uint8_t len);
 

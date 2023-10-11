@@ -144,7 +144,11 @@ qbResult qb_render(qbRenderEvent event,
     if (on_render) {
       on_render(event, on_render_arg);
     }
-    qb_renderer()->render(qb_renderer(), event);
+
+    qbRenderer renderer = qb_renderer();
+    if (renderer) {
+      renderer->render(renderer, event);
+    }
     qb_event_sendsync(render_event, event);
 
     if (on_postrender) {

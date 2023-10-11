@@ -36,11 +36,6 @@
 #endif
 
 #ifdef __ENGINE_DEBUG__
-#ifdef __COMPILE_AS_WINDOWS__
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-#endif  // COMPILE_AS_WINDOWS__
 
 #define DEBUG_ASSERT(expr, exit_code) \
 do{ if (!(expr)) { std::cerr << #expr << std::endl; exit(exit_code);} } while (0)

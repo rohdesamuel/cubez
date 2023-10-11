@@ -1420,7 +1420,7 @@ void record_all_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw
   for (const qbDrawCommand_& cmd: self->static_cmd_bufs) {
     qbCommandBatch batch = cmd.command.batch.batch;
 
-    if (qb_commandbatch_isdynamic(batch)) {      
+    if (qb_commandbatch_isdynamic(batch)) {
       parent_mat = cmd.args.transform;
       qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, parent), sizeof(mat4s), &parent_mat);
     }

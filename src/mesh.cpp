@@ -460,7 +460,7 @@ qbBool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t) {
   if (denom > 1e-6) {
     vec3s p0l0 = glms_vec3_sub(plane->orig, ray->orig);
     *t = glms_vec3_dot(p0l0, plane->dir) / denom;
-    return (t >= 0);
+    return (*t >= 0);
   }
 
   return QB_FALSE;

@@ -24,7 +24,7 @@ typedef struct qbDrawBatch_ {
   qbMesh mesh;
   size_t count;
   mat4s* transforms;
-  uint8_t* attributes;
+  //uint8_t* attributes;
   size_t attributes_size;
   qbBool is_dynamic;
 } qbDrawBatch_, *qbDrawBatch;
