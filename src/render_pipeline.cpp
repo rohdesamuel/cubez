@@ -1323,9 +1323,16 @@ void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect) {
   cmd_buf->queue_command(&c);
 }
 
-void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline, qbBool set_render_state) {
+void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline) {
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDPIPELINE};
-  c.command.bind_pipeline = qbRenderCommandBindPipeline_{ .pipeline = pipeline, .set_render_state = set_render_state };
+  c.command.bind_pipeline = qbRenderCommandBindPipeline_{ .pipeline = pipeline };
+
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_beginpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BEGINPIPELINE };
+  c.command.begin_pipeline = qbRenderCommandBeginPipeline_{ .pipeline = pipeline  };
 
   cmd_buf->queue_command(&c);
 }
@@ -1415,6 +1422,24 @@ void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_SUBCOMMANDS };
   c.command.sub_commands = qbRenderCommandSubCommands_{ .cmd_buf = to_draw };
 
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_refcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer* to_draw, qbSemaphore opt_semaphore, uint64_t wait_n) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_REFCOMMANDS };
+  c.command.ref_commands = qbRenderCommandRefCommands_{ .cmd_buf = to_draw, .opt_sem = opt_semaphore, .wait_n = wait_n };
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_signal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_SIGNAL};
+  c.command.signal = qbRenderCommandSignal_{ .semaphore = semaphore, .n = n };
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_wait(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_WAIT };
+  c.command.wait = qbRenderCommandWait_{ .semaphore = semaphore, .n = n };
   cmd_buf->queue_command(&c);
 }
 

@@ -108,13 +108,13 @@ void rendercmd_setscissor(qbDrawState state, qbRenderCommand c) {
 void rendercmd_bindpipeline(qbDrawState state, qbRenderCommand c) {
   qbRenderPipeline pipeline = c->command.bind_pipeline.pipeline;
   state->pipeline = pipeline;
+}
 
-  if (!c->command.bind_pipeline.set_render_state) {
-    return;
-  }
+void rendercmd_beginpipeline(qbDrawState state, qbRenderCommand c) {
+  qbRenderPipeline pipeline = c->command.begin_pipeline.pipeline;
+  state->pipeline = pipeline;
 
   qbRasterizationInfo raster_info = pipeline->rasterization_info;
-
   qbViewportState view = pipeline->viewport_state;
   glViewport((GLint)view->viewport.x, (GLint)view->viewport.y, (GLsizei)view->viewport.w, (GLsizei)view->viewport.h);
 
@@ -326,7 +326,7 @@ void rendercmd_drawindexed(qbDrawState state, qbRenderCommand c) {
   uint32_t first_instance = c->command.draw_indexed.first_instance;
 
   GLenum draw_mode = TranslateQbDrawModeToOpenGlMode(state->pipeline->geometry->mode);
-  if (instance_count == 0) {
+  if (instance_count <= 1) {
     glDrawElementsBaseVertex(draw_mode, (GLsizei)index_count, GL_UNSIGNED_INT, nullptr, vertex_offset);
   } else {
     glDrawElementsInstancedBaseVertex(draw_mode, (GLsizei)index_count, GL_UNSIGNED_INT, nullptr, (GLsizei)instance_count, first_instance);
@@ -349,12 +349,32 @@ void rendercmd_subcommands(qbDrawState state, qbRenderCommand c) {
   buf->execute();
 }
 
+void rendercmd_refcommands(qbDrawState state, qbRenderCommand c) {
+  qbRenderCommandRefCommands_ cmd = c->command.ref_commands;
+  qbDrawCommandBuffer* buf = cmd.cmd_buf;
+  qbSemaphore sem = cmd.opt_sem;
+
+  if (sem) {
+    qb_semaphore_wait(sem, cmd.wait_n);
+  }
+  (*buf)->execute();
+}
+
+void rendercmd_signal(qbDrawState state, qbRenderCommand c) {
+  qb_semaphore_signal(c->command.signal.semaphore, c->command.signal.n);
+}
+
+void rendercmd_wait(qbDrawState state, qbRenderCommand c) {
+  qb_semaphore_wait(c->command.wait.semaphore, c->command.wait.n);
+}
+
 // WARNING: The order of the jump table must match the enums in `qbRenderCommandType_`.
 RenderCommandFn render_command_jump_table[] = {
   rendercmd_noop,
   rendercmd_beginpass,
   rendercmd_endpass,
   rendercmd_bindpipeline,
+  rendercmd_beginpipeline,
   rendercmd_setcull,
   rendercmd_setviewport,
   rendercmd_setscissor,
@@ -365,7 +385,10 @@ RenderCommandFn render_command_jump_table[] = {
   rendercmd_draw,
   rendercmd_drawindexed,
   rendercmd_updatebuffer,
-  rendercmd_subcommands
+  rendercmd_subcommands,
+  rendercmd_refcommands,
+  rendercmd_signal,
+  rendercmd_wait,
 };
 
 void RenderCommandQueue::clear() {
@@ -387,9 +410,7 @@ qbDrawCommandBuffer_::qbDrawCommandBuffer_(qbMemoryAllocator allocator) : alloca
 }
 
 qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
-  for (RenderCommandQueue* queue : queued_passes_) {
-    queue->execute();
-  }
+  execute();
   return qbInvalidHandle;
 }
 

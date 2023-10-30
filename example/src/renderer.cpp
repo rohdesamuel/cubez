@@ -1290,7 +1290,7 @@ void record_lighting_commands(qbDefaultRenderer self, const qbCamera_* camera, u
   };
 
   qb_drawcmd_beginpass(draw_cmds, &begin_info);
-  qb_drawcmd_bindpipeline(draw_cmds, self->render_pipeline, QB_TRUE);
+  qb_drawcmd_beginpipeline(draw_cmds, self->render_pipeline);
   qb_drawcmd_bindshaderresourceset(draw_cmds, self->pipeline_layout, self->resource_sets[frame]);
 
 
@@ -1407,7 +1407,7 @@ void record_all_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw
   };
 
   qb_drawcmd_beginpass(draw_cmds, &begin_info);
-  qb_drawcmd_bindpipeline(draw_cmds, self->deferred_render_pipeline, QB_TRUE);  
+  qb_drawcmd_beginpipeline(draw_cmds, self->deferred_render_pipeline);
 
   // Bind CameraUbo
   // Bind ModelUbo
@@ -1445,7 +1445,7 @@ void record_static_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer d
   };
 
   qb_drawcmd_beginpass(draw_cmds, &begin_info);
-  qb_drawcmd_bindpipeline(draw_cmds, self->deferred_render_pipeline, QB_FALSE);
+  qb_drawcmd_bindpipeline(draw_cmds, self->deferred_render_pipeline);
 
   record_command_buffers(self, draw_cmds, command_queue, frame);
 

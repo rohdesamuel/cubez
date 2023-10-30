@@ -29,6 +29,7 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_BEGIN,
   QB_RENDER_COMMAND_END,
   QB_RENDER_COMMAND_BINDPIPELINE,
+  QB_RENDER_COMMAND_BEGINPIPELINE,
   QB_RENDER_COMMAND_SETCULL,
   QB_RENDER_COMMAND_SETVIEWPORT,
   QB_RENDER_COMMAND_SETSCISSOR,
@@ -39,7 +40,10 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_DRAW,
   QB_RENDER_COMMAND_DRAWINDEXED,
   QB_RENDER_COMMAND_UPDATEBUFFER,
-  QB_RENDER_COMMAND_SUBCOMMANDS
+  QB_RENDER_COMMAND_SUBCOMMANDS,
+  QB_RENDER_COMMAND_REFCOMMANDS,
+  QB_RENDER_COMMAND_SIGNAL,
+  QB_RENDER_COMMAND_WAIT,
 } qbRenderCommandType_;
 
 typedef struct qbRenderCommandBegin_ {
@@ -52,8 +56,11 @@ typedef struct qbRenderCommandEnd_ {
 
 typedef struct qbRenderCommandBindPipeline_ {
   struct qbRenderPipeline_* pipeline;
-  qbBool set_render_state;
 } qbRenderCommandBindPipeline_;
+
+typedef struct qbRenderCommandBeginPipeline_ {
+  struct qbRenderPipeline_* pipeline;
+} qbRenderCommandBeginPipeline_;
 
 typedef struct qbRenderCommandSetCull_ {
   qbFace cull_face;
@@ -113,12 +120,29 @@ typedef struct qbRenderCommandSubCommands_ {
   qbDrawCommandBuffer cmd_buf;
 } qbRenderCommandSubCommands_;
 
+typedef struct qbRenderCommandRefCommands_ {
+  qbDrawCommandBuffer* cmd_buf;
+  qbSemaphore opt_sem;
+  uint64_t wait_n;
+} qbRenderCommandRefCommands_;
+
+typedef struct qbRenderCommandSignal_ {
+  qbSemaphore semaphore;
+  uint64_t n;
+} qbRenderCommandSignal_;
+
+typedef struct qbRenderCommandWait_ {
+  qbSemaphore semaphore;
+  uint64_t n;
+} qbRenderCommandWait_;
+
 typedef struct qbRenderCommand_ {
   qbRenderCommandType_ type;
   union {
     qbRenderCommandBegin_ begin;
     qbRenderCommandEnd_ end;
     qbRenderCommandBindPipeline_ bind_pipeline;
+    qbRenderCommandBeginPipeline_ begin_pipeline;
     qbRenderCommandSetCull_ set_cull;
     qbRenderCommandSetViewport_ set_viewport;
     qbRenderCommandSetScissor_ set_scissor;
@@ -130,6 +154,9 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandDrawIndexed_ draw_indexed;
     qbRenderCommandUpdateBuffer_ update_buffer;
     qbRenderCommandSubCommands_ sub_commands;
+    qbRenderCommandRefCommands_ ref_commands;
+    qbRenderCommandSignal_ signal;
+    qbRenderCommandWait_ wait;
   } command;
 
 } qbRenderCommand_, *qbRenderCommand;
