@@ -82,6 +82,10 @@ qbScanCode scancode_from_sdl(SDL_Scancode sdl_key) {
 
 }
 
+// Defined in nuklear.cpp
+int nk_sdl_consume_keyboard(struct nk_context* ctx);
+int nk_sdl_consume_mouse(struct nk_context* ctx);
+
 void input_initialize() {
   mouse_x = 0;
   mouse_y = 0;
@@ -122,60 +126,71 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
   bool wheel_updated = false;
   while (SDL_PollEvent(&e)) {
     qbInputEvent_ input_event;
+
+    if (e.type == SDL_QUIT) {
+      on_shutdown(shutdown_arg);
+      return;
+    }
+
     nk_sdl_handle_event(&e);
-    if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-      input_event.type = QB_INPUT_EVENT_KEY;
-      input_event.key_event.is_pressed = e.key.state == SDL_PRESSED;
-      input_event.key_event.key = keycode_from_sdl(e.key.keysym.sym);
-      input_event.key_event.scane_code = scancode_from_sdl(e.key.keysym.scancode);
+    if (nk_sdl_consume_keyboard(nk_sdl_ctx()) == 0) {
+      if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
+        input_event.type = QB_INPUT_EVENT_KEY;
+        input_event.key_event.is_pressed = e.key.state == SDL_PRESSED;
+        input_event.key_event.key = keycode_from_sdl(e.key.keysym.sym);
+        input_event.key_event.scane_code = scancode_from_sdl(e.key.keysym.scancode);
 
-      save_key_state(input_event.key_event.key, input_event.key_event.scane_code,
-                     input_event.key_event.is_pressed);
+        save_key_state(input_event.key_event.key, input_event.key_event.scane_code,
+          input_event.key_event.is_pressed);
 
-      input_event.key_event.was_pressed = key_states[(int)input_event.key_event.key];
+        input_event.key_event.was_pressed = key_states[(int)input_event.key_event.key];
 
-      qb_send_key_event(&input_event.key_event);
-    } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
-      input_event.type = QB_INPUT_EVENT_MOUSE;
-      input_event.mouse_event.type = QB_MOUSE_EVENT_BUTTON;
-      input_event.mouse_event.button.button = button_from_sdl(e.button.button);
-      input_event.mouse_event.button.state = e.button.state ? QB_MOUSE_DOWN : QB_MOUSE_UP;
+        qb_send_key_event(&input_event.key_event);
+      }
+    }
 
-      mouse_states[input_event.mouse_event.button.button] = input_event.mouse_event.button.state;
-    } else if (e.type == SDL_MOUSEMOTION) {
-      input_event.type = QB_INPUT_EVENT_MOUSE;
-      input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
-      input_event.mouse_event.motion.x = e.motion.x;
-      input_event.mouse_event.motion.y = e.motion.y;
-      input_event.mouse_event.motion.xrel = e.motion.xrel;
-      input_event.mouse_event.motion.yrel = e.motion.yrel;
+    if (nk_sdl_consume_mouse(nk_sdl_ctx()) == 0) {
+      if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+        input_event.type = QB_INPUT_EVENT_MOUSE;
+        input_event.mouse_event.type = QB_MOUSE_EVENT_BUTTON;
+        input_event.mouse_event.button.button = button_from_sdl(e.button.button);
+        input_event.mouse_event.button.state = e.button.state ? QB_MOUSE_DOWN : QB_MOUSE_UP;
 
-      mouse_x = e.motion.x;
-      mouse_y = e.motion.y;
-      mouse_dx = e.motion.xrel;
-      mouse_dy = e.motion.yrel;
-    } else if (e.type == SDL_MOUSEWHEEL) {
-      wheel_updated = true;
-      
-      input_event.type = QB_INPUT_EVENT_MOUSE;
-      input_event.mouse_event.type = QB_MOUSE_EVENT_SCROLL;
-      qb_mouse_getposition(&input_event.mouse_event.scroll.x,
-                        &input_event.mouse_event.scroll.y);
-      input_event.mouse_event.scroll.xrel = e.wheel.x;
-      input_event.mouse_event.scroll.yrel = e.wheel.y;
+        mouse_states[input_event.mouse_event.button.button] = input_event.mouse_event.button.state;
+      } else if (e.type == SDL_MOUSEMOTION) {
+        input_event.type = QB_INPUT_EVENT_MOUSE;
+        input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
+        input_event.mouse_event.motion.x = e.motion.x;
+        input_event.mouse_event.motion.y = e.motion.y;
+        input_event.mouse_event.motion.xrel = e.motion.xrel;
+        input_event.mouse_event.motion.yrel = e.motion.yrel;
 
-      wheel_x = e.wheel.x;
-      wheel_y = e.wheel.y;
-    } else if (e.type == SDL_WINDOWEVENT) {
+        mouse_x = e.motion.x;
+        mouse_y = e.motion.y;
+        mouse_dx = e.motion.xrel;
+        mouse_dy = e.motion.yrel;
+      } else if (e.type == SDL_MOUSEWHEEL) {
+        wheel_updated = true;
+
+        input_event.type = QB_INPUT_EVENT_MOUSE;
+        input_event.mouse_event.type = QB_MOUSE_EVENT_SCROLL;
+        qb_mouse_getposition(&input_event.mouse_event.scroll.x,
+          &input_event.mouse_event.scroll.y);
+        input_event.mouse_event.scroll.xrel = e.wheel.x;
+        input_event.mouse_event.scroll.yrel = e.wheel.y;
+
+        wheel_x = e.wheel.x;
+        wheel_y = e.wheel.y;
+      }
+    }
+
+    if (e.type == SDL_WINDOWEVENT) {
       if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
         qb_window_resize(e.window.data1, e.window.data2);
         on_resize(resize_arg, (uint32_t)e.window.data1, (uint32_t)e.window.data2);
       } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
         qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
       }
-    } else if (e.type == SDL_QUIT) {
-      on_shutdown(shutdown_arg);
-      return;
     }
 
     bool handled_by_gui = QB_FOCUS_APP;//gui_handle_input(&input_event) == QB_TRUE;
@@ -247,16 +262,17 @@ qbBool qb_key_ispressed(qbKey key) {
 }
 
 qbBool qb_mouse_ispressed(qbButton mouse_button) {
-  return SDL_GetMouseState(nullptr, nullptr) & (1 << (button_to_sdl(mouse_button) - 1));
+  return mouse_states[mouse_button] == QB_MOUSE_DOWN;
 }
 
 void qb_mouse_getposition(int* x, int* y) {
-  SDL_GetMouseState(x, y);
+  if (x) *x = mouse_x;
+  if (y) *y = mouse_y;
 }
 
 void qb_mouse_getrelposition(int* relx, int* rely) {
-  *relx = mouse_dx;
-  *rely = mouse_dy;  
+  if (relx) *relx = mouse_dx;
+  if (rely) *rely = mouse_dy;  
 }
 
 int qb_mouse_setrelative(int enabled) {

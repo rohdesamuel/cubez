@@ -631,13 +631,21 @@ QB_API void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count);
 // Clears all commands from `cmd_buf` and clears the allocator.
 QB_API void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf);
 
+// Begins the render pass by clearing the attached frame buffers.
 QB_API void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info);
+
+// Clears all background state.
 QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
 
 QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
 QB_API void qb_drawcmd_setviewport(qbDrawCommandBuffer cmd_buf, qbViewport viewport);
 QB_API void qb_drawcmd_setscissor(qbDrawCommandBuffer cmd_buf, qbRect rect);
+
+// Binds the given render pipeline but does not set its associated render state.
 QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
+
+// Binds the given render pipeline and its associated render state (e.g. cull
+// face, stencil testing, etc.). Sets the geometry attributes from the given pipeline.
 QB_API void qb_drawcmd_beginpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
 QB_API void qb_drawcmd_bindshaderresourceset(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, qbShaderResourceSet resource_set);
 QB_API void qb_drawcmd_bindshaderresourcesets(qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, uint32_t resource_set_count, qbShaderResourceSet* resource_sets);
@@ -652,16 +660,23 @@ QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buf
 // Allocates `size` bytes and copies `data` with the buffer's allocator.
 QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 
+// Adds the given buffer to draw.
 QB_API void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw);
 
+// Adds the given reference to a buffer to draw. This buffer can be NULL and
+// can be replaced. Waits for the given semaphore before executing the buffer.
 QB_API void qb_drawcmd_refcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer* to_draw, qbSemaphore opt_semaphore, uint64_t wait_n);
 
+// Queues the semaphore to signal with the given n.
 QB_API void qb_drawcmd_signal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n);
 
+// Queues the semaphore to wait for the given signal to be >= n.
 QB_API void qb_drawcmd_wait(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n);
 
 typedef struct qbDrawCommandSubmitInfo_ {
-
+  // List of semaphores to reset.
+  qbSemaphore* semaphores;
+  uint64_t semaphores_count;
 } qbDrawCommandSubmitInfo_, *qbDrawCommandSubmitInfo;
 
 // Runs all commands in `cmd_buf`, clears the allocator, presents the image, and swaps with the back buffer.

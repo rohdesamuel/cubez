@@ -357,7 +357,10 @@ void rendercmd_refcommands(qbDrawState state, qbRenderCommand c) {
   if (sem) {
     qb_semaphore_wait(sem, cmd.wait_n);
   }
-  (*buf)->execute();
+
+  if (*buf) {
+    (*buf)->execute();
+  }
 }
 
 void rendercmd_signal(qbDrawState state, qbRenderCommand c) {
@@ -411,6 +414,9 @@ qbDrawCommandBuffer_::qbDrawCommandBuffer_(qbMemoryAllocator allocator) : alloca
 
 qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
   execute();
+  for (uint64_t i = 0; i < submit_info->semaphores_count; ++i) {
+    qb_semaphore_reset(submit_info->semaphores[i]);
+  }
   return qbInvalidHandle;
 }
 

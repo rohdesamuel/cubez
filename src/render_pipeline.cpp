@@ -288,7 +288,7 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   buffer->name = STRDUP(attr->name);
   buffer->ext = attr->ext;
 
-  // In Vulkan this might be able to be replaced with a staging buffer.
+  // TODO: In Vulkan this might be able to be replaced with a staging buffer.
   buffer->data = new char[buffer->size];
   if (attr->data) {
     memcpy(buffer->data, attr->data, buffer->size);

@@ -452,3 +452,30 @@ void nk_sdl_shutdown(void) {
     nk_sdl_device_destroy();
     memset(&sdl, 0, sizeof(sdl));
 }
+
+int nk_sdl_consume_keyboard(struct nk_context* ctx) {
+  struct nk_window* iter;
+  NK_ASSERT(ctx);
+  if (!ctx) return 0;
+  iter = ctx->begin;
+  while (iter) {
+    if (iter->edit.active & NK_EDIT_ACTIVE)
+      return 1;
+    iter = iter->next;
+  }
+  return 0;
+}
+
+int nk_sdl_consume_mouse(struct nk_context* ctx) {
+  static unsigned sdl_previous_button_state = 0;
+  static int nk_consume_mouse_at_button_press = 0;
+  unsigned sdl_current_button_state = SDL_GetMouseState(nullptr, nullptr);
+  if (sdl_previous_button_state == 0 && sdl_current_button_state != 0) {
+    nk_consume_mouse_at_button_press = nk_item_is_any_active(ctx);
+  }
+  sdl_previous_button_state = sdl_current_button_state;
+  if (sdl_current_button_state != 0)
+    return nk_consume_mouse_at_button_press;
+  else
+    return nk_item_is_any_active(ctx);
+}

@@ -296,7 +296,7 @@ void qb_window_resize(uint32_t width, uint32_t height) {
   for (auto c : cameras) {
     qb_camera_resize((qbCamera)c, width, height);
   }
-  if (renderer_) {
+  if (renderer_ && renderer_->resize) {
     renderer_->resize(renderer_, width, height);
   }
   qb_gui_resize(width, height);

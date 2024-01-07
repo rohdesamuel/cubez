@@ -367,6 +367,11 @@
     <None Include="..\..\..\example\resources\texture.vs" />
     <None Include="..\..\..\example\src\planet-generator.js" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cubez\cubez.vcxproj">
+      <Project>{1a4f920a-804c-41a7-9a38-533348444a5f}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

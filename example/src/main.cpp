@@ -730,13 +730,32 @@ void on_fixedupdate(uint64_t frame, qbVar) {
   };
 
   auto ctx = nk_ctx();
+  uint32_t win_width = qb_window_width();
+  uint32_t win_height = qb_window_height();
+  uint32_t height = 128;
+
+  struct nk_style* s = &ctx->style;
+  nk_style_push_color(ctx, &s->window.background,
+    {
+      (uint8_t)(bg.r * 256),
+      (uint8_t)(bg.g * 256),
+      (uint8_t)(bg.b * 256),
+      (uint8_t)(bg.a * 256)
+    });
+  nk_style_push_style_item(ctx, &s->window.fixed_background, nk_style_item_color({
+      (uint8_t)(bg.r * 256),
+      (uint8_t)(bg.g * 256),
+      (uint8_t)(bg.b * 256),
+      (uint8_t)(bg.a * 256)
+    }));
+
+
   if (nk_begin(ctx, "Demo", nk_rect(50, 50, 230, 250),
                NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
                NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE)) {
     enum { EASY, HARD };
     static int op = EASY;
     static int property = 20;
-
     nk_layout_row_static(ctx, 30, 80, 1);
     if (nk_button_label(ctx, "button"))
       printf("button pressed!\n");
@@ -759,6 +778,13 @@ void on_fixedupdate(uint64_t frame, qbVar) {
       bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
       nk_combo_end(ctx);
     }
+  }
+  nk_end(ctx);
+  nk_style_pop_color(ctx);
+  nk_style_pop_style_item(ctx);
+  
+
+  if (nk_begin(ctx, "da", nk_rect(0, win_height - height, win_width, height), 0)) {
   }
   nk_end(ctx);
 }
