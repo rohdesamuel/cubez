@@ -532,6 +532,9 @@ qbShaderModule create_shader_module() {
         vec3 Normal = texture(gNormal, tex_coords).rgb;
         vec3 Diffuse = texture(gAlbedoSpec, tex_coords).rgb;
 
+        out_color = vec4(Diffuse, 1.0);
+        return;
+
         if (Normal == vec3(0.f, 0.f, 0.f)) {
           discard;
         }

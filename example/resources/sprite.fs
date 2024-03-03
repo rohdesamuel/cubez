@@ -6,7 +6,7 @@ layout (location = 0) out vec4 out_color;
 
 in VertexData
 {
-	flat vec4 col;
+  flat vec4 col;
   vec2 tex;
   flat float tex_id;
 } o;

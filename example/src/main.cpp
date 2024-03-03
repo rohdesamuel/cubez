@@ -840,6 +840,8 @@ int main(int, char* []) {
   initialize_universe(&uni);
   qb_start();
 
+  qb_window_settransparencycolor({1.f, 0.f, 1.f});
+
   //qb_mouse_setshow(QB_FALSE);
 
   float aspect = (float)qb_window_width() / (float)qb_window_height();
@@ -1100,7 +1102,7 @@ int main(int, char* []) {
 
   while (qb_loop(&callbacks, &args) != QB_DONE) {
     qbClearValue_ clear{};
-    clear.color = { 1.f, 0.f, 0.f, 1.f };
+    clear.color = { 1.f, 0.f, 1.f, 1.f };
 
     qb_draw_beginframe(camera, &clear);
     

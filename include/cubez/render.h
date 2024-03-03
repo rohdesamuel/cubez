@@ -128,6 +128,8 @@ QB_API void qb_window_setfullscreen(qbFullscreenType type);
 QB_API qbFullscreenType  qb_window_fullscreen();
 QB_API void qb_window_setbordered(int bordered);
 QB_API int qb_window_bordered();
+QB_API void qb_window_settransparency(float alpha);
+QB_API void qb_window_settransparencycolor(vec3s rgb);
 
 QB_API qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye);
 QB_API qbCamera qb_camera_perspective(float fov, float aspect, float near, float far, vec3s eye, vec3s center, vec3s up);

@@ -39,6 +39,14 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
+#ifdef __COMPILE_AS_WINDOWS__
+#include <SDL2/SDL_syswm.h>
+#undef near
+#undef far
+#undef max
+#undef min
+#endif
+
 #include <vector>
 #include "render_defs.h"
 #include "sparse_map.h"
@@ -333,6 +341,34 @@ void qb_window_setbordered(int bordered) {
 
 int qb_window_bordered() {
   return SDL_GetWindowFlags(win) & SDL_WINDOW_BORDERLESS ? 0 : 1;
+}
+
+void qb_window_settransparency(float alpha) {
+  // Get window handle (https://stackoverflow.com/a/24118145/3357935)
+  SDL_SysWMinfo wmInfo;
+  SDL_VERSION(&wmInfo.version);  // Initialize wmInfo
+  SDL_GetWindowWMInfo(win, &wmInfo);
+  HWND hWnd = wmInfo.info.win.window;
+
+  // Change window type to layered (https://stackoverflow.com/a/3970218/3357935)
+  SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+  // Set transparency color
+  SetLayeredWindowAttributes(hWnd, RGB(0, 0, 0), 0x7F, LWA_ALPHA);
+}
+
+QB_API void qb_window_settransparencycolor(vec3s rgb) {
+  // Get window handle (https://stackoverflow.com/a/24118145/3357935)
+  SDL_SysWMinfo wmInfo;
+  SDL_VERSION(&wmInfo.version);  // Initialize wmInfo
+  SDL_GetWindowWMInfo(win, &wmInfo);
+  HWND hWnd = wmInfo.info.win.window;
+
+  // Change window type to layered (https://stackoverflow.com/a/3970218/3357935)
+  SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+  // Set transparency color
+  SetLayeredWindowAttributes(hWnd, RGB((uint8_t)(rgb.x * 255), (uint8_t)(rgb.y * 255), (uint8_t)(rgb.z * 255)), 0, LWA_COLORKEY);
 }
 
 qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye) {
