@@ -1,9 +1,11 @@
 #include <cubez/render.h>
+#include <cubez/memory.h>
 #include <cubez/sprite.h>
 #include <cubez/render_pipeline.h>
 #include <cglm/struct.h>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <iostream>
 #include <iterator>
@@ -38,10 +40,7 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   1 + 
 
   // Texture Id
-  1 +
-  
-  // Entity Id
-  4;
+  1;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
 
 std::filesystem::path sprite_path;
@@ -71,7 +70,7 @@ enum RenderMode {
 };
 
 struct QueuedSprite {
-  qbSprite sprite;
+  //qbSprite sprite;
   float depth;
   size_t index;
 
@@ -93,8 +92,14 @@ struct QueuedSprite {
 
   // If the sprite is part of an animation, then this will point to its
   // animator.
-  qbSprite animator_sprite;
+  //qbSprite animator_sprite;
   qbSpriteAnimator animator;
+
+  qbImage sprite_img;
+
+  uint32_t sprite_w, sprite_h;
+
+  float offset_x, offset_y;
 
   bool operator<(const QueuedSprite& other) {
     if (depth == other.depth) {
@@ -125,11 +130,11 @@ struct Batch {
 
 std::vector<QueuedSprite> sprites;
 
-qbGpuBuffer batch_vbo;
-qbGpuBuffer batch_ebo;
-
-static qbGpuBuffer camera_ubo;
 qbRenderPass sprite_render_pass;
+
+qbShaderResourcePipelineLayout sprite_render_pipeline_layout;
+qbRenderPipeline sprite_render_pipeline;
+qbShaderResourceLayout sprite_resource_layout;
 
 qbRenderGroup batched_sprites;
 qbMeshBuffer sprite_quads;
@@ -138,6 +143,8 @@ qbMeshBuffer sprite_quads;
 qbImage clear_texture;
 
 qbComponent sprite_component;
+
+std::array<std::array<qbShaderResourceSet, MAX_BATCH_TEXTURE_UNITS>, 2> sprite_textures;
 
 qbSprite qb_spritesheet_load(const char* filename, int tw, int th, int margin) {
   qbSprite sheet = qb_sprite_load(filename);
@@ -254,7 +261,25 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
     sprite = sprite->animator->animation->frames[sprite->animator->frame];    
   }
 
-  sprites.push_back({ sprite, sprite->depth, sprites.size(), pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
+  float offset_x = animator ? animator_sprite->offset.x : sprite->offset.x;
+  float offset_y = animator ? animator_sprite->offset.y : sprite->offset.y;
+
+  sprites.push_back({
+    .depth = sprite->depth,
+    .index = sprites.size(),
+    .pos = pos,
+    .scale = scale,
+    .rot = rot,
+    .col = col,
+    .left = left,
+    .top = top,
+    .w = width,
+    .h = height,
+    .animator = animator,
+    .sprite_img = sprite->img,
+    .sprite_w = sprite->w, .sprite_h = sprite->h,
+    .offset_x = offset_x, .offset_y = offset_y,
+    });
   std::push_heap(sprites.begin(), sprites.end());
 }
 
@@ -262,7 +287,7 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
   qbSprite animator_sprite = nullptr;
   qbSpriteAnimator animator = nullptr;
 
-  if (sprite->animator->animation) {
+  if (sprite->animator && sprite->animator->animation) {
     animator_sprite = sprite;
     animator = sprite->animator;
     sprite = sprite->animator->animation->frames[sprite->animator->frame];
@@ -272,8 +297,26 @@ void qb_sprite_draw_internal(qbSprite sprite, vec2s pos, vec2s scale, float rot,
   int32_t height = sprite->th + sprite->margin;
   int32_t left = sprite->ix * width;
   int32_t top = sprite->iy * height;
+  float offset_x = animator ? animator_sprite->offset.x : sprite->offset.x;
+  float offset_y = animator ? animator_sprite->offset.y : sprite->offset.y;
 
-  sprites.push_back({ sprite, sprite->depth, sprites.size(), pos, scale, rot, col, left, top, width, height, animator_sprite, animator });
+  sprites.push_back({
+    .depth = sprite->depth,
+    .index = sprites.size(),
+    .pos = pos,
+    .scale = scale,
+    .rot = rot,
+    .col = col,
+    .left = left,
+    .top = top,
+    .w = width,
+    .h = height,
+    .animator = animator,
+    .sprite_img = sprite->img,
+    .sprite_w = sprite->w, .sprite_h = sprite->h,
+    .offset_x = offset_x, .offset_y = offset_y,
+    });
+
   std::push_heap(sprites.begin(), sprites.end());
 }
 
@@ -417,20 +460,21 @@ qbSprite qb_spriteanimation_play(qbSpriteAnimation animation) {
   ret->w = animation->w;
   ret->h = animation->h;
 
+  ret->animator = new qbSpriteAnimator_{animation};
   ret->animator->animation = animation;
   ret->animator->frame = animation->keyframe;
   ret->offset = animation->offset;
   return ret;
 }
 
-void qb_animator_update(qbSpriteAnimator animator, qbRenderEvent e) {
+void qb_animator_update(qbSpriteAnimator animator, float dt) {
   qbSpriteAnimation animation = animator->animation;
 
   if (animation->frames.empty()) {
     return;
   }
 
-  animator->elapsed += e->dt;
+  animator->elapsed += dt;
   double frame_time = animation->durations.empty() ? animation->frame_duration : animation->durations[animator->frame];
   if (animator->elapsed >= frame_time) {
     ++animator->frame;
@@ -454,8 +498,8 @@ void qb_spriteanimation_setoffset(qbSpriteAnimation animation, vec2s offset) {
   animation->offset = offset;
 }
 
-qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
-  qbRenderPass render_pass{};
+qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
+  qbRenderPipeline render_pipeline{};
 
   qbBufferBinding_ binding = {};
   binding.binding = 0;
@@ -541,134 +585,66 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     attr->offset = (void*)(13 * sizeof(float));
   }
 
+  qbGeometryDescriptor_ geometry_descriptor = {
+    .bindings = &binding,
+    .bindings_count = 1,
+
+    .attributes = attributes,
+    .attributes_count = sizeof(attributes) / sizeof(attributes[0]),
+
+    .mode = QB_DRAW_MODE_TRIANGLES
+  };
+
   qbShaderModule shader_module;
   {
-    std::vector<qbShaderResourceBinding_> resources{};
-    {      
-      qbShaderResourceBinding_ info;
-      info.binding = UniformCamera::Binding();
-      info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
-      info.stages = QB_SHADER_STAGE_VERTEX;
-      info.name = "Camera";
+    {
+      std::vector<qbShaderResourceBinding_> resources{};
+      {
+        qbShaderResourceBinding_ info = {};
+        info.binding = UniformCamera::Binding();
+        info.resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER;
+        info.stages = QB_SHADER_STAGE_VERTEX;
+        info.name = "Camera";
 
-      resources.push_back(info);
+        resources.push_back(info);
+      }
+
+      std::vector<std::string> resource_names;
+      resource_names.reserve(MAX_BATCH_TEXTURE_UNITS + 1);
+      for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
+        resource_names.push_back(std::string("tex_sampler[") + std::to_string(i) + "]");
+        qbShaderResourceBinding_ info;
+        info.binding = 1 + i;
+        info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
+        info.stages = QB_SHADER_STAGE_FRAGMENT;
+        info.name = resource_names.back().c_str();
+
+        resources.push_back(info);
+      }
+
+      qbShaderResourceLayoutAttr_ attr = {
+        .binding_count = (uint32_t)resources.size(),
+        .bindings = resources.data()
+      };
+      qb_shaderresourcelayout_create(&sprite_resource_layout, &attr);
     }
 
-    std::vector<std::string> resource_names;
-    resource_names.reserve(MAX_BATCH_TEXTURE_UNITS + 1);
-    for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
-      resource_names.push_back(std::string("tex_sampler[") + std::to_string(i) + "]");
-      qbShaderResourceBinding_ info;
-      info.binding = 1 + i;
-      info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
-      info.stages = QB_SHADER_STAGE_FRAGMENT;
-      info.name = resource_names.back().c_str();
-
-      resources.push_back(info);
+    {
+      qbShaderResourcePipelineLayoutAttr_ attr = {
+        .layout_count = 1,
+        .layouts = &sprite_resource_layout,
+      };
+      qb_shaderresourcepipelinelayout_create(&sprite_render_pipeline_layout, &attr);
     }
     
-    qbShaderModuleAttr_ attr = {};
-    attr.vs = get_sprite_vs();
-    attr.fs = get_sprite_fs();
-    attr.interpret_as_strings = true;
-
-    //attr.resources = resources.data();
-    //attr.resources_count = resources.size();
-
-    qb_shadermodule_create(&shader_module, &attr);
-  }
-  {
     {
-      qbGpuBufferAttr_ attr = {};
-      attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
-      attr.data = nullptr;
-      attr.size = sizeof(UniformCamera);
+      qbShaderModuleAttr_ attr = {};
+      attr.vs = get_sprite_vs();
+      attr.fs = get_sprite_fs();
+      attr.interpret_as_strings = true;
 
-      qb_gpubuffer_create(&camera_ubo, &attr);
+      qb_shadermodule_create(&shader_module, &attr);
     }
-
-    uint32_t bindings[] = { UniformCamera::Binding() };
-    qbGpuBuffer ubo_buffers[] = { camera_ubo };
-    //qb_shadermodule_attachuniforms(shader_module, 1, bindings, ubo_buffers);
-
-    {
-      UniformCamera camera;
-      camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
-      qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
-    }
-  }
-  {
-    std::vector<uint32_t> bindings;
-    std::vector<qbImageSampler> image_samplers;
-    for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
-      bindings.push_back(1 + i);
-
-      qbImageSamplerAttr_ attr = {};
-      qbImageSampler sampler;
-      attr.image_type = QB_IMAGE_TYPE_2D;
-      attr.min_filter = QB_FILTER_TYPE_NEAREST;
-      attr.mag_filter = QB_FILTER_TYPE_NEAREST;
-      attr.s_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
-      attr.t_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
-      qb_imagesampler_create(&sampler, &attr);
-
-      image_samplers.push_back(sampler);
-    }
-
-    //qb_shadermodule_attachsamplers(shader_module, bindings.size(), bindings.data(), image_samplers.data());
-  }
-  /*
-  {
-    qbRenderPassAttr_ attr = {};
-    attr.name = "Sprite Render Pass";
-    attr.supported_geometry.bindings = &binding;
-    attr.supported_geometry.bindings_count = 1;
-    attr.supported_geometry.attributes = attributes;
-    attr.supported_geometry.attributes_count = sizeof(attributes) / sizeof(attributes[0]);
-    attr.supported_geometry.mode = QB_DRAW_MODE_TRIANGLES;
-    attr.shader = shader_module;
-    attr.viewport = { 0.0, 0.0, (float)width, (float)height };
-    attr.viewport_scale = 1.0f;
-    attr.cull = QB_FACE_NONE;
-
-    qbClearValue_ clear{};
-    clear.attachments = (qbFrameBufferAttachment)(QB_COLOR_ATTACHMENT | QB_DEPTH_ATTACHMENT);
-    clear.color = { 1.0f, 0.0f, 1.0f, 1.0f };
-    clear.depth = 1.0f;
-    attr.clear = clear;
-
-    qb_renderpass_create(&render_pass, &attr);
-  }
-  */
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_VERTEX;
-    attr.elem_size = sizeof(float);
-
-    qb_gpubuffer_create(&batch_vbo, &attr);
-  }
-  {
-    qbGpuBufferAttr_ attr = {};
-    attr.buffer_type = QB_GPU_BUFFER_TYPE_INDEX;
-    attr.elem_size = sizeof(int);
-
-    qb_gpubuffer_create(&batch_ebo, &attr);
-  }
-  {
-    //qbRenderGroupAttr_ attr = {};
-    //qb_rendergroup_create(&batched_sprites, &attr);
-  }
-  {
-    qbMeshBufferAttr_ attr{};
-    //attr.descriptor = *qb_renderpass_geometry(render_pass);
-
-    qb_meshbuffer_create(&sprite_quads, &attr);
-
-    qbGpuBuffer vertex_buffers[] = { batch_vbo };
-    qb_meshbuffer_attachvertices(sprite_quads, vertex_buffers, 0);
-    qb_meshbuffer_attachindices(sprite_quads, batch_ebo, 0);
-
-    //qb_rendergroup_append(batched_sprites, sprite_quads);
   }
   {
     uint8_t white_pixel[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
@@ -680,12 +656,94 @@ qbRenderPass sprite_create_renderpass(uint32_t width, uint32_t height) {
     qb_image_create(&clear_texture, &attr, white_pixelmap);
   }
 
-  return render_pass;
+  {
+    qbColorBlendState_ blend_state{
+      .blend_enable = QB_TRUE,
+      .rgb_blend = {
+        .op = QB_BLEND_EQUATION_ADD,
+        .src = QB_BLEND_FACTOR_SRC_ALPHA,
+        .dst = QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+      },
+      .alpha_blend = {
+        .op = QB_BLEND_EQUATION_ADD,
+        .src = QB_BLEND_FACTOR_ONE,
+        .dst = QB_BLEND_FACTOR_ZERO,
+      },
+    };
+
+    qbViewport_ viewport{
+      .x = 0,
+      .y = 0,
+      .w = (float)width,
+      .h = (float)height,
+      .min_depth = 0.f,
+      .max_depth = 1.f
+    };
+
+    qbRect_ scissor{
+      .x = 0,
+      .y = 0,
+      .w = (float)width,
+      .h = (float)height
+    };
+
+    qbViewportState_ viewport_state{
+      .viewport = viewport,
+      .scissor = scissor
+    };
+
+    qbDepthStencilState_ depth_stencil_state{
+      .depth_test_enable = QB_TRUE,
+      .depth_write_enable = QB_TRUE,
+      .depth_compare_op = QB_RENDER_TEST_FUNC_LESS,
+      .stencil_test_enable = QB_FALSE,
+    };
+
+    qbRasterizationInfo_ raster_info{
+      .raster_mode = QB_POLYGON_MODE_FILL,
+      .raster_face = QB_FACE_FRONT_AND_BACK,
+      .front_face = QB_FRONT_FACE_CCW,
+      .cull_face = QB_FACE_BACK,
+      .enable_depth_clamp = QB_FALSE,
+      .depth_stencil_state = &depth_stencil_state
+    };
+
+    qbRenderPipelineAttr_ attr = {
+      .shader = shader_module,
+      .geometry = &geometry_descriptor,
+      .blend_state = &blend_state,
+      .viewport_state = &viewport_state,
+      .rasterization_info = &raster_info,
+      .resource_layout = sprite_render_pipeline_layout
+    };
+
+    qb_renderpipeline_create(&render_pipeline, &attr);
+  }
+
+  {
+    qbFramebufferAttachmentRef_ attachments[2] = {};
+    attachments[0] = {
+      .attachment = 0,
+      .aspect = qbImageAspect::QB_COLOR_ASPECT
+    };
+    attachments[1] = {
+      .attachment = 1,
+      .aspect = qbImageAspect::QB_DEPTH_ASPECT
+    };
+
+    qbRenderPassAttr_ attr{
+      .attachments = attachments,
+      .attachments_count = 2
+    };
+
+    qb_renderpass_create(&sprite_render_pass, &attr);
+  }
+
+  return render_pipeline;
 }
 
 void sprite_initialize(uint32_t width, uint32_t height) {
-  return;
-  sprite_render_pass = sprite_create_renderpass(width, height);
+  sprite_render_pipeline = sprite_create_renderpipeline(width, height);
   sprite_path = std::filesystem::path(qb_resources()->dir) / qb_resources()->sprites;
 
   {
@@ -697,14 +755,123 @@ void sprite_initialize(uint32_t width, uint32_t height) {
 }
 
 void qb_sprite_onresize(uint32_t width, uint32_t height) {
-  {
-    UniformCamera camera{};
-    camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
-    qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
-  }
 }
 
-void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
+typedef struct qbSpriteRenderState_ {
+  qbDrawCommandBuffer cmds;
+  qbGpuBuffer batch_vbo;
+  qbGpuBuffer batch_ibo;
+  qbGpuBuffer camera_ubo;
+  qbMemoryAllocator allocator;
+  std::vector<float> vertex_buffer;
+  std::vector<uint32_t> index_buffer;
+  qbShaderResourceLayout resource_layout;
+  qbShaderResourceSet resource_set;
+  qbShaderResourcePipelineLayout shader_pipeline_layout;
+} qbSpriteRenderState_, *qbSpriteRenderState;
+
+qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
+  qbGpuBuffer batch_vbo;
+  qbGpuBuffer batch_ibo;
+  {
+    qbGpuBufferAttr_ attr = {
+      .size = sizeof(float) * MAX_NUM_SPRITES_PER_BATCH * 4,
+      .elem_size = sizeof(float),
+      .buffer_type = QB_GPU_BUFFER_TYPE_VERTEX,
+    };
+    qb_gpubuffer_create(&batch_vbo, &attr);
+  }
+
+  {
+    qbGpuBufferAttr_ attr = {
+      .size = sizeof(uint32_t) * MAX_NUM_SPRITES_PER_BATCH * 6,
+      .elem_size = sizeof(uint32_t),
+      .buffer_type = QB_GPU_BUFFER_TYPE_INDEX,
+    };
+    qb_gpubuffer_create(&batch_ibo, &attr);
+  }
+
+  qbMemoryAllocator allocator = qb_memallocator_paged(1 << 14);
+
+  qbDrawCommandBuffer cmd_buf;
+  {
+    qbDrawCommandBufferAttr_ attr = {
+      .count = 1,
+      .allocator = allocator,
+    };
+    qb_drawcmd_create(&cmd_buf, &attr);
+  }
+
+  qbShaderResourceSet resource_set;
+  {
+    qbShaderResourceSetAttr_ attr = {
+      .create_count = 1,
+      .layout = sprite_resource_layout
+    };
+
+    qb_shaderresourceset_create(&resource_set, &attr);
+  }
+
+  qbGpuBuffer camera_ubo;
+  {
+    {
+      qbGpuBufferAttr_ attr = {};
+      attr.buffer_type = QB_GPU_BUFFER_TYPE_UNIFORM;
+      attr.data = nullptr;
+      attr.size = sizeof(UniformCamera);
+
+      qb_gpubuffer_create(&camera_ubo, &attr);
+    }
+
+    {
+      UniformCamera camera;
+      camera.projection = glms_ortho(0.0f, width, height, 0.0f, -2.0f, 2.0f);
+      qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
+    }
+
+    qb_shaderresourceset_writeuniform(resource_set, UniformCamera::Binding(), camera_ubo);
+  }
+  {
+    for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
+      qbImageSamplerAttr_ attr = {};
+      qbImageSampler sampler;
+      attr.image_type = QB_IMAGE_TYPE_2D;
+      attr.min_filter = QB_FILTER_TYPE_NEAREST;
+      attr.mag_filter = QB_FILTER_TYPE_NEAREST;
+      attr.s_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
+      attr.t_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
+      qb_imagesampler_create(&sampler, &attr);
+      qb_shaderresourceset_writeimage(resource_set, i + 1, nullptr, sampler);
+    }
+  }
+
+  qbSpriteRenderState state = new qbSpriteRenderState_{};
+  *state = qbSpriteRenderState_{
+    .cmds = cmd_buf,
+    .batch_vbo = batch_vbo,
+    .batch_ibo = batch_ibo,
+    .camera_ubo = camera_ubo,
+    .allocator = allocator,
+    .resource_layout = sprite_resource_layout,
+    .resource_set = resource_set,
+    .shader_pipeline_layout = sprite_render_pipeline_layout,
+  };
+
+  state->vertex_buffer.reserve(MAX_NUM_SPRITES_PER_BATCH * 4);
+  state->index_buffer.reserve(MAX_NUM_SPRITES_PER_BATCH * 6);
+
+  return state;
+}
+
+void qb_spriterenderstate_resize(qbSpriteRenderState renderstate, float width, float height) {
+  UniformCamera camera;
+  camera.projection = glms_ortho(0.0f, width, height, 0.0f, -2.0f, 2.0f);
+  qb_gpubuffer_update(renderstate->camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
+}
+
+void qb_spriterenderstate_record(qbSpriteRenderState state, qbFrameBuffer framebuffer, float width, float height, float dt) {
+  qbDrawCommandBuffer draw_cmds = state->cmds;
+
   if (sprites.empty()) {
     return;
   }
@@ -717,14 +884,14 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
     has_batch = true;
     QueuedSprite s = std::move(sprites.front());
     std::pop_heap(sprites.begin(), sprites.end()); sprites.pop_back();
-    
+
     // Update the animator here, so that extra work to update them in a
     // separate call isn't done.
     if (s.animator) {
-      qb_animator_update(s.animator, e);
+      qb_animator_update(s.animator, dt);
     }
 
-    batch.images.insert(s.sprite->img);
+    batch.images.insert(s.sprite_img);
     batch.sprites.push_back(std::move(s));
     if (batch.images.size() >= MAX_BATCH_TEXTURE_UNITS) {
       has_batch = false;
@@ -737,9 +904,40 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
     batches.push_back(std::move(batch));
   }
 
+  qbBeginRenderPassInfo_ begin_info {
+    .render_pass = sprite_render_pass,
+    .framebuffer = framebuffer,
+  };
+
+  qb_drawcmd_beginpass(draw_cmds, &begin_info);
+  qb_drawcmd_beginpipeline(draw_cmds, sprite_render_pipeline);
+
+  qbViewport_ viewport{
+    .x = 0,
+    .y = 0,
+    .w = width,
+    .h = height,
+    .min_depth = 0.f,
+    .max_depth = 1.f
+  };
+
+  qbRect_ scissor{
+    .x = 0,
+    .y = 0,
+    .w = width,
+    .h = height
+  };
+
+  qb_drawcmd_setviewport(draw_cmds, &viewport);
+  qb_drawcmd_setscissor(draw_cmds, &scissor);
+
+  std::vector<float>& vertices = state->vertex_buffer;
+  std::vector<uint32_t>& indices = state->index_buffer;
+
   for (auto& batch : batches) {
-    std::vector<float> vertices;
-    std::vector<int> indices;
+    vertices.resize(0);
+    indices.resize(0);
+
     std::vector<uint32_t> texture_bindings;
     std::vector<qbImage> textures;
     std::unordered_map<qbImage, uint32_t> texture_to_ids;
@@ -750,7 +948,7 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
     }
     texture_to_ids[clear_texture] = 0;
 
-    int texture_id = 1;
+    int texture_id = 0;
     for (qbImage img : batch.images) {
       textures[texture_id] = img;
       texture_to_ids[img] = texture_id;
@@ -766,8 +964,8 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         4 * index + 2, 4 * index + 3, 4 * index + 0
       };
 
-      float offset_x = queued.animator ? queued.animator_sprite->offset.x : queued.sprite->offset.x;
-      float offset_y = queued.animator ? queued.animator_sprite->offset.y : queued.sprite->offset.y;
+      float offset_x = queued.offset_x;
+      float offset_y = queued.offset_y;
 
       for (uint32_t i = 0; i < 4; ++i) {
         float x = (float)(i & 0x1);
@@ -787,8 +985,8 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         attributes[7] = queued.col.w;
 
         // Texture ix/iy for atlas.
-        attributes[8] = (queued.left + x * (float)queued.w) / (float)queued.sprite->w;
-        attributes[9] = (queued.top + y * (float)queued.h) / (float)queued.sprite->h;
+        attributes[8] = (queued.left + x * (float)queued.w) / (float)queued.sprite_w;
+        attributes[9] = (queued.top + y * (float)queued.h) / (float)queued.sprite_h;
 
         // Scale
         attributes[10] = queued.scale.x;
@@ -798,30 +996,30 @@ void qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e) {
         attributes[12] = queued.rot;
 
         // Texture Id
-        attributes[13] = (float)texture_to_ids[queued.sprite->img];
+        attributes[13] = (float)texture_to_ids[queued.sprite_img];
 
-        std::copy(attributes, attributes + SPRITE_VERTEX_ATTRIBUTE_SIZE, std::back_inserter(vertices));        
+        std::copy(attributes, attributes + SPRITE_VERTEX_ATTRIBUTE_SIZE, std::back_inserter(vertices));
       }
 
       std::copy(quad_indices, quad_indices + (sizeof(quad_indices) / sizeof(quad_indices[0])), std::back_inserter(indices));
       ++index;
     }
 
-    qbGpuBuffer* vertex_buffers;
-    qb_meshbuffer_vertices(sprite_quads, &vertex_buffers);
-    qb_gpubuffer_resize(vertex_buffers[0], vertices.size() * sizeof(float));
-    qb_gpubuffer_update(vertex_buffers[0], 0, vertices.size() * sizeof(float), vertices.data());
-
-    qbGpuBuffer index_buffer;
-    qb_meshbuffer_indices(sprite_quads, &index_buffer);
-    qb_gpubuffer_resize(index_buffer, indices.size() * sizeof(uint32_t));
-    qb_gpubuffer_update(index_buffer, 0, indices.size() * sizeof(uint32_t), indices.data());
-    qb_meshbuffer_setcount(sprite_quads, indices.size());
-
-    qb_meshbuffer_updateimages(sprite_quads, textures.size(), texture_bindings.data(), textures.data());  
-    
-    //qb_renderpass_drawto(sprite_render_pass, frame, 1, &batched_sprites);
+    qbShaderResourceSet sprite_resource_set = state->resource_set;
+    qb_drawcmd_updateshaderresources(draw_cmds, texture_bindings.size(), texture_bindings.data(), textures.data(), nullptr, sprite_resource_set);
+    qb_drawcmd_bindshaderresourceset(draw_cmds, sprite_resource_set);
+    qb_drawcmd_pushbuffer(draw_cmds, state->batch_ibo, 0, indices.size() * sizeof(uint32_t), indices.data());
+    qb_drawcmd_pushbuffer(draw_cmds, state->batch_vbo, 0, vertices.size() * sizeof(float), vertices.data());
+    qb_drawcmd_bindindexbuffer(draw_cmds, state->batch_ibo);
+    qb_drawcmd_bindvertexbuffers(draw_cmds, 0, 1, &state->batch_vbo);
+    qb_drawcmd_drawindexed(draw_cmds, indices.size(), 0, 0, 0);
   }
+
+  qb_drawcmd_endpass(draw_cmds);
+}
+
+qbDrawCommandBuffer qb_spriterenderstate_commands(qbSpriteRenderState state) {
+  return state->cmds;
 }
 
 qbComponent qb_sprite() {

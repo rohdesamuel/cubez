@@ -170,9 +170,9 @@ void rendercmd_beginpipeline(qbDrawState state, qbRenderCommand c) {
       TranslateQbBlendFactorToOpenGl(blend_state->alpha_blend.dst));
 
     glBlendColor(blend_state->blend_color.x,
-                  blend_state->blend_color.y,
-                  blend_state->blend_color.z,
-                  blend_state->blend_color.w);
+                 blend_state->blend_color.y,
+                 blend_state->blend_color.z,
+                 blend_state->blend_color.w);
   }
 
   glPolygonMode(TranslateQbCullFaceToOpenGl(raster_info->raster_face),
@@ -193,7 +193,7 @@ void rendercmd_beginpipeline(qbDrawState state, qbRenderCommand c) {
   CHECK_GL();
 }
 
-void bind_shaderresourcesets(qbDrawState state, qbShaderResourcePipelineLayout layout, uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
+void bind_shaderresourcesets(qbDrawState state, uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
   qbRenderPipeline pipeline = state->pipeline;
   ShaderProgram& shader = *pipeline->shader_module->shader;
 
@@ -219,7 +219,7 @@ void bind_shaderresourcesets(qbDrawState state, qbShaderResourcePipelineLayout l
         case QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER: {
           qbImage image = resource_set->images[j];
           qbImageSampler sampler = resource_set->samplers[j];
-          uint32_t texture_slot = binding->binding;//shader.texture_slot(binding->name);
+          uint32_t texture_slot = binding->texture_slot;//shader.texture_slot(binding->name);
 
           glActiveTexture((GLenum)(GL_TEXTURE0 + texture_slot));
 
@@ -238,20 +238,52 @@ void bind_shaderresourcesets(qbDrawState state, qbShaderResourcePipelineLayout l
   }
 }
 
+void rendercmd_updateshaderresource(qbDrawState state, qbRenderCommand c) {
+  qbRenderCommandUpdateShaderResource_* cmd = &c->command.update_shaderresource;
+  qbShaderResourceSet resource_set = cmd->resource_set;
+
+  DEBUG_ASSERT(cmd->binding < resource_set->binding_indices.size(), 1);
+  int index = resource_set->binding_indices[cmd->binding];
+
+  qbShaderResourceBinding binding = resource_set->bindings[index];
+  if (cmd->image && binding->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
+    resource_set->images[index] = cmd->image;
+  } else if (cmd->buffer) {
+    resource_set->uniforms[index] = cmd->buffer;
+  }
+}
+
+void rendercmd_updateshaderresources(qbDrawState state, qbRenderCommand c) {
+  qbRenderCommandUpdateShaderResources_* cmd = &c->command.update_shaderresources;
+  qbShaderResourceSet resource_set = cmd->resource_set;
+
+  for (size_t i = 0; i < cmd->binding_count; ++i) {
+    uint32_t binding = cmd->bindings[i];
+
+    DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
+    int index = resource_set->binding_indices[binding];
+
+    qbShaderResourceBinding resource_binding = resource_set->bindings[index];
+    if (cmd->images[i] && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
+      resource_set->images[index] = cmd->images[i];
+    } else if (cmd->buffers[i]) {
+      resource_set->uniforms[index] = cmd->buffers[i];
+    }
+  }
+}
+
 void rendercmd_bindshaderresourceset(qbDrawState state, qbRenderCommand c) {
-  qbShaderResourcePipelineLayout layout = c->command.bind_shaderresourceset.layout;
   qbShaderResourceSet resource_set = c->command.bind_shaderresourceset.resource_set;
 
   qbShaderResourceSet* resource_sets = (qbShaderResourceSet*)&resource_set;
-  bind_shaderresourcesets(state, layout, 1, resource_sets);
+  bind_shaderresourcesets(state, 1, resource_sets);
 }
 
 void rendercmd_bindshaderresourcesets(qbDrawState state, qbRenderCommand c) {
-  qbShaderResourcePipelineLayout layout = c->command.bind_shaderresourcesets.layout;
   uint32_t resource_set_count = c->command.bind_shaderresourcesets.resource_set_count;
   qbShaderResourceSet* resource_sets = c->command.bind_shaderresourcesets.resource_sets;
 
-  bind_shaderresourcesets(state, layout, resource_set_count, resource_sets);
+  bind_shaderresourcesets(state, resource_set_count, resource_sets);
 }
 
 void rendercmd_bindvertexbuffers(qbDrawState state, qbRenderCommand c) {
@@ -294,7 +326,6 @@ void rendercmd_bindvertexbuffers(qbDrawState state, qbRenderCommand c) {
   CHECK_GL();
 }
 
-
 void rendercmd_bindindexbuffer(qbDrawState state, qbRenderCommand c) {
   qbGpuBuffer buffer = c->command.bind_indexbuffer.buffer;
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->id);
@@ -310,7 +341,7 @@ void rendercmd_draw(qbDrawState state, qbRenderCommand c) {
 
   GLenum draw_mode = TranslateQbDrawModeToOpenGlMode(state->pipeline->geometry->mode);
 
-  if (instance_count == 0) {
+  if (instance_count <= 1) {
     glDrawArrays(draw_mode, first_vertex, (GLsizei)vertex_count);
   } else {
     glDrawArraysInstanced(draw_mode, first_instance, (GLsizei)vertex_count, instance_count);
@@ -351,13 +382,12 @@ void rendercmd_subcommands(qbDrawState state, qbRenderCommand c) {
 
 void rendercmd_refcommands(qbDrawState state, qbRenderCommand c) {
   qbRenderCommandRefCommands_ cmd = c->command.ref_commands;
-  qbDrawCommandBuffer* buf = cmd.cmd_buf;
   qbSemaphore sem = cmd.opt_sem;
-
   if (sem) {
     qb_semaphore_wait(sem, cmd.wait_n);
   }
-
+  
+  qbDrawCommandBuffer* buf = cmd.cmd_buf;
   if (*buf) {
     (*buf)->execute();
   }
@@ -371,6 +401,10 @@ void rendercmd_wait(qbDrawState state, qbRenderCommand c) {
   qb_semaphore_wait(c->command.wait.semaphore, c->command.wait.n);
 }
 
+void rendercmd_resetsignal(qbDrawState state, qbRenderCommand c) {
+  qb_semaphore_reset(c->command.reset_signal.semaphore);
+}
+
 // WARNING: The order of the jump table must match the enums in `qbRenderCommandType_`.
 RenderCommandFn render_command_jump_table[] = {
   rendercmd_noop,
@@ -381,6 +415,8 @@ RenderCommandFn render_command_jump_table[] = {
   rendercmd_setcull,
   rendercmd_setviewport,
   rendercmd_setscissor,
+  rendercmd_updateshaderresource,
+  rendercmd_updateshaderresources,
   rendercmd_bindshaderresourceset,
   rendercmd_bindshaderresourcesets,
   rendercmd_bindvertexbuffers,
@@ -392,6 +428,7 @@ RenderCommandFn render_command_jump_table[] = {
   rendercmd_refcommands,
   rendercmd_signal,
   rendercmd_wait,
+  rendercmd_resetsignal,
 };
 
 void RenderCommandQueue::clear() {

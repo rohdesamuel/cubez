@@ -7,6 +7,7 @@
 #include <cubez/draw.h>
 #include <cubez/memory.h>
 #include <cubez/log.h>
+#include <cubez/sprite.h>
 
 #include <cglm/struct.h>
 #include <array>
@@ -129,11 +130,13 @@ struct qbDefaultRenderer_ {
   std::vector<qbDrawCommand_> static_cmd_bufs;
   std::vector<qbDrawCommandBuffer> dynamic_cmd_bufs;
   std::vector<qbDrawCommandBuffer> lighting_cmd_bufs;
+  std::vector<qbDrawCommandBuffer> sprite_cmd_bufs;
 
   std::vector<qbShaderResourceSet> resource_sets;
   std::vector<qbFrameBuffer> fbos;
   std::vector<qbImage> swapchain_images;
   std::vector<CameraUbo> camera_data;
+  std::vector<qbSpriteRenderState> sprite_state;
 
   // Todo: consider adding ability to render to an off-screen buffer.
   const qbCamera_* camera;
@@ -244,45 +247,52 @@ qbGpuBuffer create_uniform() {
   return ret;
 }
 
+const uint32_t CAMERA_UBO_BINDING = 0;
+const uint32_t LIGHT_UBO_BINDING = 1;
+const uint32_t MODEL_UBO_BINDING = 2;
+const uint32_t GPOSITION_BINDING = 3;
+const uint32_t GNORMAL_BINDING = 4;
+const uint32_t GALBEDOSPEC_BINDING = 5;
+
 qbShaderResourceLayout create_resource_layout() {
   qbShaderResourceLayout resource_layout;
   qbShaderResourceBinding_ bindings[] = {
     {
       .name = "camera_ubo",
-      .binding = 0,
+      .binding = CAMERA_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_VERTEX,
     },
     {
       .name = "light_ubo",
-      .binding = 1,
+      .binding = LIGHT_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_VERTEX | QB_SHADER_STAGE_FRAGMENT,
     },
     {
       .name = "model_ubo",
-      .binding = 2,
+      .binding = MODEL_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_VERTEX,
     },
     {
       .name = "gPosition",
-      .binding = 0,
+      .binding = GPOSITION_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "gNormal",
-      .binding = 1,
+      .binding = GNORMAL_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "gAlbedoSpec",
-      .binding = 2,
+      .binding = GALBEDOSPEC_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
@@ -298,19 +308,29 @@ qbShaderResourceLayout create_resource_layout() {
   return resource_layout;
 }
 
+const uint32_t DEFERRED_CAMERA_UBO_BINDING = 0;
+const uint32_t DEFERRED_MODEL_UBO_BINDING = 1;
+const uint32_t DEFERRED_ALBEDO_MAP_BINDING = 2;
+const uint32_t DEFERRED_NORMAL_MAP_BINDING = 3;
+const uint32_t DEFERRED_METALLIC_MAP_BINDING = 4;
+const uint32_t DEFERRED_ROUGHNESS_MAP_BINDING = 5;
+const uint32_t DEFERRED_AO_MAP_BINDING = 6;
+const uint32_t DEFERRED_EMISSION_MAP_BINDING = 7;
+const uint32_t DEFERRED_MATERIAL_UBO_BINDING = 8;
+
 qbShaderResourceLayout create_deferred_resource_layout() {
   qbShaderResourceLayout resource_layout;
   qbShaderResourceBinding_ bindings[] = {
     {
       .name = "camera_ubo",
-      .binding = 0,
+      .binding = DEFERRED_CAMERA_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_VERTEX,
     },
     {
       .name = "model_ubo",
-      .binding = 2,
+      .binding = DEFERRED_MODEL_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_VERTEX,
@@ -332,44 +352,44 @@ qbShaderResourceLayout create_material_resource_layout() {
   qbShaderResourceBinding_ bindings[] = {
     {
       .name = "material_ubo",
-      .binding = 1,
+      .binding = DEFERRED_MATERIAL_UBO_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER,
       .resource_count = 1,
       .stages = QB_SHADER_STAGE_FRAGMENT,
     },
     {
       .name = "albedo_map",
-      .binding = 0,
+      .binding = DEFERRED_ALBEDO_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "normal_map",
-      .binding = 1,
+      .binding = DEFERRED_NORMAL_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "metallic_map",
-      .binding = 2,
+      .binding = DEFERRED_METALLIC_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "roughness_map",
-      .binding = 3,
+      .binding = DEFERRED_ROUGHNESS_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "ao_map",
-      .binding = 4,
+      .binding = DEFERRED_AO_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
     {
       .name = "emission_map",
-      .binding = 5,
+      .binding = DEFERRED_EMISSION_MAP_BINDING,
       .resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER,
       .resource_count = 1,
     },
@@ -388,9 +408,23 @@ qbShaderResourceLayout create_material_resource_layout() {
 qbShaderResourcePipelineLayout create_resource_pipeline_layout(qbShaderResourceLayout resource_layout) {
   qbShaderResourcePipelineLayout resource_pipeline_layout;
 
+  qbShaderResourceLayout layouts[] = { resource_layout };
   qbShaderResourcePipelineLayoutAttr_ attr{
-    .layout_count = 1,
-    .layouts = &resource_layout
+    .layout_count = sizeof(layouts) / sizeof(layouts[0]),
+    .layouts = layouts
+  };
+
+  qb_shaderresourcepipelinelayout_create(&resource_pipeline_layout, &attr);
+  return resource_pipeline_layout;
+}
+
+qbShaderResourcePipelineLayout create_deferreed_resource_pipeline_layout(qbShaderResourceLayout resource_layout, qbShaderResourceLayout material_resource_layout) {
+  qbShaderResourcePipelineLayout resource_pipeline_layout;
+
+  qbShaderResourceLayout layouts[] = { resource_layout, material_resource_layout };
+  qbShaderResourcePipelineLayoutAttr_ attr{
+    .layout_count = sizeof(layouts) / sizeof(layouts[0]),
+    .layouts = layouts
   };
 
   qb_shaderresourcepipelinelayout_create(&resource_pipeline_layout, &attr);
@@ -532,9 +566,6 @@ qbShaderModule create_shader_module() {
         vec3 Normal = texture(gNormal, tex_coords).rgb;
         vec3 Diffuse = texture(gAlbedoSpec, tex_coords).rgb;
 
-        out_color = vec4(Diffuse, 1.0);
-        return;
-
         if (Normal == vec3(0.f, 0.f, 0.f)) {
           discard;
         }
@@ -594,7 +625,7 @@ qbShaderModule create_deferred_shader_module() {
         float frame;
     } camera_ubo;
 
-    layout(std140, binding = 2) uniform ModelUbo {
+    layout(std140, binding = 1) uniform ModelUbo {
         mat4 parent;
         mat4 model;
     } model_ubo;
@@ -625,14 +656,14 @@ qbShaderModule create_deferred_shader_module() {
     layout (location = 1) out vec3 g_normal;
     layout (location = 2) out vec4 g_albedospec;
 
-    uniform sampler2D albedo_map;
-    uniform sampler2D normal_map;
-    uniform sampler2D metallic_map;
-    uniform sampler2D roughness_map;
-    uniform sampler2D ao_map;
-    uniform sampler2D emission_map;
+    /* layout(binding = 2) */ uniform sampler2D albedo_map;
+    /* layout(binding = 3) */ uniform sampler2D normal_map;
+    /* layout(binding = 4) */ uniform sampler2D metallic_map;
+    /* layout(binding = 5) */ uniform sampler2D roughness_map;
+    /* layout(binding = 6) */ uniform sampler2D ao_map;
+    /* layout(binding = 7) */ uniform sampler2D emission_map;
 
-    layout (std140, binding = 1) uniform MaterialUbo {
+    layout (std140, binding = 8) uniform MaterialUbo {
       vec3 albedo;
       float metallic;
       vec3 emission;
@@ -859,7 +890,6 @@ qbRenderPipeline create_render_pipeline(
     qbRenderPipelineAttr_ attr{
       .shader = shader,
       .geometry = geometry,
-      .render_pass = render_pass,
       .blend_state = blend_state,
       .viewport_state = &viewport_state,
       .rasterization_info = &raster_info,
@@ -908,12 +938,12 @@ void create_resourcesets(qbDefaultRenderer r) {
     qb_shaderresourceset_create(r->resource_sets.data(), &attr);
 
     for (size_t i = 0; i < swapchain_size; ++i) {
-      qb_shaderresourceset_writeuniform(r->resource_sets[i], 0, r->camera_ubo);
-      qb_shaderresourceset_writeuniform(r->resource_sets[i], 1, r->light_ubo);
-      qb_shaderresourceset_writeuniform(r->resource_sets[i], 2, r->model_ubo);
-      for (size_t j = 0; j < r->gbuffer_samplers.size(); ++j) {
-        qb_shaderresourceset_writeimage(r->resource_sets[i], j, r->gbuffers[j], r->gbuffer_samplers[j]);
-      }
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], CAMERA_UBO_BINDING, r->camera_ubo);
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], LIGHT_UBO_BINDING, r->light_ubo);
+      qb_shaderresourceset_writeuniform(r->resource_sets[i], MODEL_UBO_BINDING, r->model_ubo);
+      qb_shaderresourceset_writeimage(r->resource_sets[i], GPOSITION_BINDING, r->gbuffers[0], r->gbuffer_samplers[0]);
+      qb_shaderresourceset_writeimage(r->resource_sets[i], GNORMAL_BINDING, r->gbuffers[1], r->gbuffer_samplers[1]);
+      qb_shaderresourceset_writeimage(r->resource_sets[i], GALBEDOSPEC_BINDING, r->gbuffers[2], r->gbuffer_samplers[2]);
     }
   }
 }
@@ -930,12 +960,8 @@ void create_deferred_resourcesets(qbDefaultRenderer r) {
     qb_shaderresourceset_create(r->deferred_resource_sets.data(), &attr);
 
     for (size_t i = 0; i < swapchain_size; ++i) {
-      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 0, r->camera_ubo);      
-      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], 2, r->model_ubo);
-
-      for (size_t j = 0; j < r->deferred_samplers.size(); ++j) {
-        qb_shaderresourceset_writeimage(r->deferred_resource_sets[i], j, r->default_textures[j], r->deferred_samplers[j]);
-      }
+      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], DEFERRED_CAMERA_UBO_BINDING, r->camera_ubo);      
+      qb_shaderresourceset_writeuniform(r->deferred_resource_sets[i], DEFERRED_MODEL_UBO_BINDING, r->model_ubo);      
     }
   }
 }
@@ -962,11 +988,13 @@ void create_material_resourceset(qbDefaultRenderer r, qbMaterial material) {
 
   assert(textures.size() == r->deferred_samplers.size());
 
-  for (size_t j = 0; j < r->deferred_samplers.size(); ++j) {
-    qb_shaderresourceset_writeimage(resource_set, j, textures[j], r->deferred_samplers[j]);
-  }
-
-  qb_shaderresourceset_writeuniform(resource_set, 1, r->material_ubo);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_ALBEDO_MAP_BINDING, textures[0], r->deferred_samplers[0]);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_NORMAL_MAP_BINDING, textures[1], r->deferred_samplers[1]);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_METALLIC_MAP_BINDING, textures[2], r->deferred_samplers[2]);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_ROUGHNESS_MAP_BINDING, textures[3], r->deferred_samplers[3]);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_AO_MAP_BINDING, textures[4], r->deferred_samplers[4]);
+  qb_shaderresourceset_writeimage(resource_set, DEFERRED_EMISSION_MAP_BINDING, textures[5], r->deferred_samplers[5]);
+  qb_shaderresourceset_writeuniform(resource_set, DEFERRED_MATERIAL_UBO_BINDING, r->material_ubo);
   r->material_resource_sets[material] = resource_set;
 }
 
@@ -1294,7 +1322,7 @@ void record_lighting_commands(qbDefaultRenderer self, const qbCamera_* camera, u
 
   qb_drawcmd_beginpass(draw_cmds, &begin_info);
   qb_drawcmd_beginpipeline(draw_cmds, self->render_pipeline);
-  qb_drawcmd_bindshaderresourceset(draw_cmds, self->pipeline_layout, self->resource_sets[frame]);
+  qb_drawcmd_bindshaderresourceset(draw_cmds, self->resource_sets[frame]);
 
 
   qb_drawcmd_setcull(draw_cmds, QB_FACE_BACK);
@@ -1328,12 +1356,17 @@ void record_lighting_commands(qbDefaultRenderer self, const qbCamera_* camera, u
   qb_drawcmd_endpass(draw_cmds);
 }
 
+void record_sprite_commands(qbDefaultRenderer self, uint32_t frame, float width, float height, float dt) {
+  qbSpriteRenderState sprite_state = self->sprite_state[frame];
+  qb_spriterenderstate_record(sprite_state, self->fbos[frame], width, height, dt);
+}
+
 void record_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw_cmds, DrawCommandQueue& command_queue, uint32_t frame) {  
   for (auto& [material, cmds] : command_queue.commands) {
     if (material) {
       // Bind MaterialUbo
       // Bind material samplers
-      qb_drawcmd_bindshaderresourceset(draw_cmds, self->deferred_pipeline_layout, self->material_resource_sets[material]);
+      qb_drawcmd_bindshaderresourceset(draw_cmds, self->material_resource_sets[material]);
       qb_drawcmd_updatebuffer(draw_cmds, self->material_ubo, 0, sizeof(MaterialUbo), material);        
     }    
 
@@ -1414,7 +1447,7 @@ void record_all_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer draw
 
   // Bind CameraUbo
   // Bind ModelUbo
-  qb_drawcmd_bindshaderresourceset(draw_cmds, self->deferred_pipeline_layout, self->deferred_resource_sets[frame]);
+  qb_drawcmd_bindshaderresourceset(draw_cmds, self->deferred_resource_sets[frame]);
 
   mat4s parent_mat = GLMS_MAT4_IDENTITY_INIT;
   qb_drawcmd_pushbuffer(draw_cmds, self->model_ubo, offsetof(ModelUbo, parent), sizeof(mat4s), &parent_mat);
@@ -1453,44 +1486,6 @@ void record_static_command_buffers(qbDefaultRenderer self, qbDrawCommandBuffer d
   record_command_buffers(self, draw_cmds, command_queue, frame);
 
   qb_drawcmd_endpass(draw_cmds);
-}
-
-void render(struct qbRenderer_* self, qbRenderEvent event) {
-  qbDefaultRenderer r = (qbDefaultRenderer)self;
-
-
-  uint32_t frame = qb_swapchain_waitforframe(r->swapchain);  
-
-  const qbCamera_* camera = r->camera;
-  if (camera) {
-    r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
-    r->camera_data[frame].eye = camera->eye;
-    r->camera_data[frame].frame = frame;
-
-    update_global_ubos(r, camera, frame);
-    record_all_command_buffers(r, r->dynamic_cmd_bufs[frame], r->draw_commands, frame);
-    record_lighting_commands(r, camera, frame);
-
-    qbDrawCommandSubmitInfo_ submit_info{};
-
-    qb_drawcmd_submit(r->dynamic_cmd_bufs[frame], &submit_info);
-    qb_drawcmd_submit(r->lighting_cmd_bufs[frame], &submit_info);
-    qb_drawcmd_clear(r->dynamic_cmd_bufs[frame]);
-    qb_drawcmd_clear(r->lighting_cmd_bufs[frame]);
-  }
-  
-  qbDrawPresentInfo_ present_info{
-    .image_index = frame
-  };
-  qb_swapchain_present(r->swapchain, &present_info);
-  qb_swapchain_swap(r->swapchain);
-
-  // Set the size of the commands to 0 to reuse the map between frames.
-  for (auto& c : r->draw_commands.commands) {
-    c.second.resize(0);
-  }
-  r->static_cmd_bufs.resize(0);
-  r->camera = nullptr;
 }
 
 qbResult drawcommands_submit(struct qbRenderer_* self, size_t cmd_count, struct qbDrawCommand_* cmds) {
@@ -1750,12 +1745,68 @@ qbResult draw_beginframe(struct qbRenderer_* self, const struct qbCamera_* camer
   return QB_OK;
 }
 
+void create_sprite_state(qbDefaultRenderer r, float width, float height) {
+  for (size_t i = 0; i < r->swapchain_images.size(); ++i) {
+    qbSpriteRenderState sprite_state = qb_spriterenderstate_create(width, height);
+    qbDrawCommandBuffer draw_cmds = qb_spriterenderstate_commands(sprite_state);
+    r->sprite_state.push_back(sprite_state);
+    r->sprite_cmd_bufs.push_back(draw_cmds);
+  }
+}
+
+void render(struct qbRenderer_* self, qbRenderEvent event) {
+  qbDefaultRenderer r = (qbDefaultRenderer)self;
+  uint32_t frame = qb_swapchain_waitforframe(r->swapchain);
+  const qbCamera_* camera = r->camera;
+  if (camera) {
+    r->camera_data[frame].viewproj = glms_mat4_mul(camera->projection_mat, camera->view_mat);
+    r->camera_data[frame].eye = camera->eye;
+    r->camera_data[frame].frame = frame;
+
+    update_global_ubos(r, camera, frame);
+    record_all_command_buffers(r, r->dynamic_cmd_bufs[frame], r->draw_commands, frame);
+    record_lighting_commands(r, camera, frame);
+    record_sprite_commands(r, frame, (float)qb_window_width(), (float)qb_window_height(), event->dt);
+
+    qbDrawCommandSubmitInfo_ submit_info{};
+
+    qb_task_join(qb_drawcmd_submit(r->dynamic_cmd_bufs[frame], &submit_info));
+    qb_task_join(qb_drawcmd_submit(r->lighting_cmd_bufs[frame], &submit_info));
+    qb_drawcmd_clear(r->dynamic_cmd_bufs[frame]);
+    qb_drawcmd_clear(r->lighting_cmd_bufs[frame]);
+  }
+
+  {
+    qbDrawCommandSubmitInfo_ submit_info{};
+    qb_task_join(qb_drawcmd_submit(r->sprite_cmd_bufs[frame], &submit_info));
+    qb_drawcmd_clear(r->sprite_cmd_bufs[frame]);
+  }
+
+  qbDrawPresentInfo_ present_info{
+    .image_index = frame
+  };
+  qb_swapchain_present(r->swapchain, &present_info);
+  qb_swapchain_swap(r->swapchain);
+
+  // Set the size of the commands to 0 to reuse the map between frames.
+  for (auto& c : r->draw_commands.commands) {
+    c.second.resize(0);
+  }
+  r->static_cmd_bufs.resize(0);
+  r->camera = nullptr;
+}
+
+void resize(struct qbRenderer_* self, uint32_t width, uint32_t height) {
+
+}
+
 struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args) {
   qbDefaultRenderer ret = new qbDefaultRenderer_{};
   ret->renderer.draw_beginframe = draw_beginframe;
   ret->renderer.drawcommands_submit = drawcommands_submit;
   ret->renderer.drawcommands_compile = drawcommands_compile;
   ret->renderer.render = render;
+  ret->renderer.resize = resize;
   ret->renderer.light_enable = light_enable;
   ret->renderer.light_disable = light_disable;
   ret->renderer.light_isenabled = light_isenabled;
@@ -1778,12 +1829,12 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
   ret->render_pass = create_renderpass();
 
   ret->deferred_resource_layout = create_deferred_resource_layout();
-  ret->deferred_pipeline_layout = create_resource_pipeline_layout(ret->deferred_resource_layout);
+  ret->material_resource_layout = create_material_resource_layout();
+  ret->deferred_pipeline_layout = create_deferreed_resource_pipeline_layout(ret->deferred_resource_layout, ret->material_resource_layout);
   ret->deferred_shader_module = create_deferred_shader_module();
   ret->deferred_render_pass = create_deferred_renderpass();
-
-  ret->material_resource_layout = create_material_resource_layout();
-
+  
+  
   create_default_textures(ret);
   create_swapchain(width, height, ret->render_pass, ret);
 
@@ -1804,8 +1855,8 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
       },
       .alpha_blend = {
         .op = QB_BLEND_EQUATION_ADD,
-        .src = QB_BLEND_FACTOR_SRC_ALPHA,
-        .dst = QB_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .src = QB_BLEND_FACTOR_ONE,
+        .dst = QB_BLEND_FACTOR_ZERO,
       },
     };
     ret->render_pipeline = create_render_pipeline(
@@ -1828,7 +1879,8 @@ struct qbRenderer_* qb_defaultrenderer_create(uint32_t width, uint32_t height, s
   create_vbos(ret);
   create_resourcesets(ret);
   create_deferred_resourcesets(ret);
-  
+  create_sprite_state(ret, (float)width, (float)height);
+
   return (qbRenderer)ret;
 }
 

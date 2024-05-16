@@ -303,10 +303,16 @@ qbTask qb_task_async(qbVar(*entry)(qbTask, qbVar), qbVar var) {
 }
 
 qbVar qb_task_join(qbTask task) {
+  if (task == qbInvalidHandle) {
+    return qbNil;
+  }
   return thread_pool->join(task);
 }
 
 qbBool qb_task_isactive(qbTask task) {
+  if (task == qbInvalidHandle) {
+    return QB_FALSE;
+  }
   return thread_pool->is_active(task);
 }
 

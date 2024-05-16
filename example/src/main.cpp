@@ -672,7 +672,7 @@ void on_update(uint64_t frame, qbVar) {
     rot_speed += (float)relx * 0.005f;
     zrot_speed += (float)rely * 0.005f;
   }
-
+  rot_speed = 0.001f;
   {
     mat4s& planet_orientation = planet_transform->orientation();
     planet_orientation = glms_mat4_identity();
@@ -725,6 +725,7 @@ void on_update(uint64_t frame, qbVar) {
 }
 
 void on_fixedupdate(uint64_t frame, qbVar) {
+  return;
   static struct nk_colorf bg {
     .r = 0.10f, .g = 0.18f, .b = 0.24f, .a = 1.0f
   };
@@ -840,7 +841,7 @@ int main(int, char* []) {
   initialize_universe(&uni);
   qb_start();
 
-  qb_window_settransparencycolor({1.f, 0.f, 1.f});
+  //qb_window_settransparencycolor({1.f, 0.f, 1.f});
 
   //qb_mouse_setshow(QB_FALSE);
 
@@ -861,7 +862,7 @@ int main(int, char* []) {
   qbLoopCallbacks_ callbacks{ .on_update = on_update, .on_fixedupdate = on_fixedupdate };
   qbLoopArgs_ args{};
 
-  int num_lights = 1;
+  int num_lights = 4;
   for (int i = 0; i < num_lights; ++i) {
     qb_light_enable(i, QB_LIGHT_TYPE_POINT);
   }
@@ -872,11 +873,14 @@ int main(int, char* []) {
   float linear = 0.0001;
   float quadratic = 0.00001;
   float lightMax = 1.f;
-  float radius =
-    (-linear + std::sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 1.0) * lightMax)))
-    / (2 * quadratic);
+  float radius = 5000.f;
+    //(-linear + std::sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 1.0) * lightMax)))
+    /// (2 * quadratic);
 
-  qb_light_point(0, { 1.f, 1.f, 1.f }, { ((float)qb_window_width() - 25.f),  0.f, -1000.f }, linear, quadratic, radius);
+  qb_light_point(0, { 1.f, 1.f, 1.f }, {  0.f,                     0.f, -1000.f }, linear, quadratic, radius);
+  qb_light_point(1, { 1.f, 1.f, 1.f }, { (float)qb_window_width(), 0.f, -1000.f }, linear, quadratic, radius);
+  qb_light_point(2, { 1.f, 1.f, 1.f }, { (float)qb_window_width(), (float)qb_window_height(), -1000.f }, linear, quadratic, radius);
+  qb_light_point(3, { 1.f, 1.f, 1.f }, { 0.f, (float)qb_window_height(), -1000.f }, linear, quadratic, radius);
 
   qb_light_directional(0, { 1.f, 1.f, 0.85f }, { 0.f, 0.f, 1.f }, 0.5f);
 
@@ -1022,7 +1026,7 @@ int main(int, char* []) {
 
   for (auto seed : coal_seeds) {
     make_nodes(planet, qb_rand() % 2, earthgen::tiles(planet)[seed], &coal_ore_nodes);
-  }  
+  }
 
   qbMaterial_ iron_ore_material{};
   iron_ore_material.albedo = { .5f, 0.5f, 0.5f };
@@ -1037,7 +1041,7 @@ int main(int, char* []) {
   coal_material.metallic = 2.f;
 
   /*
-  
+
   qbSprite sprite = qb_sprite_load();
   qbCamera player_cam;
 
@@ -1048,10 +1052,17 @@ int main(int, char* []) {
     qb_draw_translatev(asteroids[i].pos);
     qb_draw_sprite(asterpods[i].sprite);
   }
-  
+
   qb_draw_end(cmds);
 
   */
+  qbSprite test_sprite = qb_sprite_load("mine.png");
+  qbSpriteAnimation test_animation;
+  {
+    qbSpriteAnimationAttr_ attr = { .frame_speed = 100, .repeat = true };
+    test_animation = qb_spriteanimation_loaddir("run_animation", &attr);
+  }
+  qbSprite test_animation_sprite = qb_spriteanimation_play(test_animation);
 
   qbCommandBatch batch;
   {
@@ -1091,18 +1102,29 @@ int main(int, char* []) {
     };
     batch = qb_draw_compile(&d, &attr);
   }
-  
+
   const size_t instance_count = 512;
   mat4s transforms[instance_count] = {};
-  qbDrawBatch_ draw_batch {
+  qbDrawBatch_ draw_batch{
       .mesh = rock_ore,
       .count = instance_count,
       .transforms = transforms,
   };
 
+  float x = 600.f;
   while (qb_loop(&callbacks, &args) != QB_DONE) {
+    x += 1.f;
+    if (x >= (float)qb_window_width() + 5.f) {
+      x = -5.f;
+    } else if (x <= -5.f) {
+      x = (float)qb_window_width() + 5.f;
+    }
+
+    //qb_sprite_draw(test_sprite, vec2s{ 32, 32 });
+    qb_sprite_draw(test_animation_sprite, vec2s{ x, 100 });
+
     qbClearValue_ clear{};
-    clear.color = { 1.f, 0.f, 1.f, 1.f };
+    clear.color = { 1.f, 1.f, 1.f, 1.f };
 
     qb_draw_beginframe(camera, &clear);
     
@@ -1122,13 +1144,13 @@ int main(int, char* []) {
     qb_draw_rotatef(d, rot, 0.f, 1.f, 0.f);
     qb_draw_sphere(d, 250.f);
 
-    //qb_draw_material(d, &blue_shiny);
+    qb_draw_material(d, &blue_shiny);
     qb_draw_identity(d);
     qb_draw_translatef(d, (float)qb_window_width() - 50.f, (float)qb_window_height() - 50.f, 0.f);
     qb_draw_rotatef(d, rot, 0.f, 1.f, 0.f);
     qb_draw_cube(d, 50.f);
 
-    //qb_draw_material(d, &magenta_shiny);
+    qb_draw_material(d, &magenta_shiny);
     qb_draw_identity(d);
     qb_draw_translatef(d, 0.f, (float)qb_window_height() - 50.f, 0.f);
     qb_draw_rotatef(d, rot, 0.f, 1.f, 0.f);
@@ -1339,7 +1361,7 @@ int main(int, char* []) {
       qbTiming_ timing_info;
       qb_timing(uni, &timing_info);
 
-      qb_log(QB_INFO, "%f: %f", (float)timing_info.udpate_fps, (float)timing_info.render_fps);
+      qb_log(QB_INFO, "%f: %f", (float)timing_info.total_elapsed_ns, (float)timing_info.render_fps);
     }
   }
 }

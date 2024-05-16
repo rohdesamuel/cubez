@@ -33,6 +33,8 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_SETCULL,
   QB_RENDER_COMMAND_SETVIEWPORT,
   QB_RENDER_COMMAND_SETSCISSOR,
+  QB_RENDER_COMMAND_UPDATESHADERRESOURCE,
+  QB_RENDER_COMMAND_UPDATESHADERRESOURCES,
   QB_RENDER_COMMAND_BINDSHADERRESOURCESET,
   QB_RENDER_COMMAND_BINDSHADERRESOURCESETS,
   QB_RENDER_COMMAND_BINDVERTEXBUFFERS,
@@ -44,6 +46,7 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_REFCOMMANDS,
   QB_RENDER_COMMAND_SIGNAL,
   QB_RENDER_COMMAND_WAIT,
+  QB_RENDER_COMMAND_RESETSIGNAL,
 } qbRenderCommandType_;
 
 typedef struct qbRenderCommandBegin_ {
@@ -74,13 +77,26 @@ typedef struct qbRenderCommandSetScissor_ {
   qbRect_ rect;
 } qbRenderCommandSetScissor_;
 
+typedef struct qbRenderCommandUpdateShaderResource_ {
+  uint32_t binding;
+  qbImage image;
+  qbGpuBuffer buffer;
+  qbShaderResourceSet resource_set;
+} qbRenderCommandUpdateShaderResource_;
+
+typedef struct qbRenderCommandUpdateShaderResources_{
+  size_t binding_count;
+  uint32_t* bindings;
+  qbImage* images;
+  qbGpuBuffer* buffers;
+  qbShaderResourceSet resource_set;
+} qbRenderCommandUpdateShaderResources_;
+
 typedef struct qbRenderCommandBindShaderResourceSet_ {
-  qbShaderResourcePipelineLayout layout;
   qbShaderResourceSet resource_set;
 } qbRenderCommandBindShaderResourceSet_;
 
 typedef struct qbRenderCommandBindShaderResourceSets_ {
-  qbShaderResourcePipelineLayout layout;
   uint32_t resource_set_count;
   qbShaderResourceSet* resource_sets;
 } qbRenderCommandBindShaderResourceSets_;
@@ -136,6 +152,10 @@ typedef struct qbRenderCommandWait_ {
   uint64_t n;
 } qbRenderCommandWait_;
 
+typedef struct qbRenderCommandResetSignal_ {
+  qbSemaphore semaphore;
+} qbRenderCommandResetSignal_;
+
 typedef struct qbRenderCommand_ {
   qbRenderCommandType_ type;
   union {
@@ -146,6 +166,8 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandSetCull_ set_cull;
     qbRenderCommandSetViewport_ set_viewport;
     qbRenderCommandSetScissor_ set_scissor;
+    qbRenderCommandUpdateShaderResource_ update_shaderresource;
+    qbRenderCommandUpdateShaderResources_ update_shaderresources;
     qbRenderCommandBindShaderResourceSet_ bind_shaderresourceset;
     qbRenderCommandBindShaderResourceSets_ bind_shaderresourcesets;
     qbRenderCommandBindVertexBuffers_ bind_vertexbuffers;
@@ -157,6 +179,7 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandRefCommands_ ref_commands;
     qbRenderCommandSignal_ signal;
     qbRenderCommandWait_ wait;
+    qbRenderCommandResetSignal_ reset_signal;
   } command;
 
 } qbRenderCommand_, *qbRenderCommand;

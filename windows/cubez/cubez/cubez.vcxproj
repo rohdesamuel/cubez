@@ -189,7 +189,7 @@
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
@@ -215,7 +215,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
@@ -269,7 +269,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
     <Link>

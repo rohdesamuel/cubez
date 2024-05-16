@@ -90,7 +90,12 @@ QB_API qbImage  qb_sprite_subimg(qbSprite sprite, int32_t frame);
 QB_API qbImage  qb_sprite_curimg(qbSprite sprite);
 
 QB_API void     qb_sprite_onresize(uint32_t width, uint32_t height);
-QB_API void     qb_sprite_flush(qbFrameBuffer frame, qbRenderEvent e);
+
+typedef struct qbSpriteRenderState_* qbSpriteRenderState;
+QB_API qbSpriteRenderState qb_spriterenderstate_create(float width, float height);
+QB_API void qb_spriterenderstate_resize(qbSpriteRenderState renderstate, float width, float height);
+QB_API qbDrawCommandBuffer qb_spriterenderstate_commands(qbSpriteRenderState state);
+QB_API void qb_spriterenderstate_record(qbSpriteRenderState state, qbFrameBuffer framebuffer, float width, float height, float dt);
 
 typedef struct qbSpriteAnimationAttr_ {
   qbSprite* frames;

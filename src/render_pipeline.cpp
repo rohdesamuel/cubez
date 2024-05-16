@@ -52,8 +52,6 @@
 #define WITH_MODULE(module, fn, ...) (module)->render_interface.fn((module)->impl, __VA_ARGS__)
 
 
-void qb_renderpass_draw(qbRenderPass render_pass, qbFrameBuffer frame_buffer);
-
 qbPixelMap qb_pixelmap_create(uint32_t width, uint32_t height, uint32_t depth,
                               qbPixelFormat format, void* pixels) {
   qbPixelMap p = new qbPixelMap_;
@@ -196,7 +194,6 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
   (*pipeline)->ext = pipeline_attr->ext;
 
   (*pipeline)->shader_module = pipeline_attr->shader;
-  (*pipeline)->render_pass = pipeline_attr->render_pass;
   (*pipeline)->blend_state = new qbColorBlendState_(*pipeline_attr->blend_state);
   
   {
@@ -205,11 +202,11 @@ void qb_renderpipeline_create(qbRenderPipeline* pipeline, qbRenderPipelineAttr p
     copy->depth_stencil_state = new qbDepthStencilState_;
     *copy->depth_stencil_state = *pipeline_attr->rasterization_info->depth_stencil_state;
     
-    if (copy->line_width == 0.f) {
+    if (copy->line_width <= 0.f) {
       copy->line_width = 1.f;
     }
 
-    if (copy->point_size == 0.f) {
+    if (copy->point_size <= 0.f) {
       copy->point_size = 1.f;
     }
 
@@ -288,19 +285,13 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   buffer->name = STRDUP(attr->name);
   buffer->ext = attr->ext;
 
-  // TODO: In Vulkan this might be able to be replaced with a staging buffer.
-  buffer->data = new char[buffer->size];
-  if (attr->data) {
-    memcpy(buffer->data, attr->data, buffer->size);
-  }
-
   // TODO: consider glMapBuffer, glMapBufferRange, glSubBufferData
   // https://stackoverflow.com/questions/32222574/is-it-better-glbuffersubdata-or-glmapbuffer
   // https://www.khronos.org/opengl/wiki/Buffer_Object#Copying
   glGenBuffers(1, &buffer->id);
   GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
   glBindBuffer(target, buffer->id);
-  glBufferData(target, buffer->size, buffer->data, GL_DYNAMIC_DRAW);
+  glBufferData(target, buffer->size, attr->data, GL_DYNAMIC_DRAW);
   CHECK_GL();
 }
 
@@ -308,7 +299,6 @@ void qb_gpubuffer_destroy(qbGpuBuffer* buffer) {
   free((void*)(*buffer)->name);
   qb_renderext_destroy(&(*buffer)->ext);
   glDeleteBuffers(1, &(*buffer)->id);
-  delete[] (*buffer)->data;
   delete *buffer;
   *buffer = nullptr;
 }
@@ -342,25 +332,6 @@ void qb_gpubuffer_swap(qbGpuBuffer a, qbGpuBuffer b) {
 
 size_t qb_gpubuffer_size(qbGpuBuffer buffer) {
   return buffer->size;
-}
-
-void qb_gpubuffer_resize(qbGpuBuffer buffer, size_t new_size) {
-  if (buffer->size == new_size) {
-    return;
-  }
-
-  size_t copy_size = std::min(buffer->size, new_size);
-  char* new_data = new char[new_size];
-  memcpy(new_data, buffer->data, copy_size);
-
-  delete[] buffer->data;
-  buffer->data = new_data;
-  buffer->size = new_size;
-
-  GLenum target = TranslateQbGpuBufferTypeToOpenGl(buffer->buffer_type);
-  glBindBuffer(target, buffer->id);
-  glBufferData(target, buffer->size, buffer->data, GL_DYNAMIC_DRAW);
-  CHECK_GL();
 }
 
 QB_API void* qb_gpubuffer_map(qbGpuBuffer buffer, qbBufferAccess access) {
@@ -498,20 +469,6 @@ void qb_meshbuffer_attachvertices(qbMeshBuffer buffer, qbGpuBuffer vertices[], s
   if (!buffer->indices) {
     buffer->count = count;
   }
-}
-
-void qb_meshbuffer_attachindices(qbMeshBuffer buffer, qbGpuBuffer indices, size_t count) {
-  glBindVertexArray(buffer->id);
-  glBindBuffer(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->id);
-  glBufferData(TranslateQbGpuBufferTypeToOpenGl(indices->buffer_type), indices->size, indices->data, GL_DYNAMIC_DRAW);
-
-  if (!indices) {
-    FATAL("Indices are null");
-  }
-
-  buffer->indices = indices;
-  buffer->count = count;
-  CHECK_GL();
 }
 
 void qb_meshbuffer_render(qbMeshBuffer buffer, qbDrawMode mode, uint32_t bindings[]) {
@@ -1100,9 +1057,9 @@ void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr) {
   qbImageAttr_ image_attr{
       .type = qbImageType::QB_IMAGE_TYPE_2D
   };
-  qb_image_raw(&(*swapchain)->images[0], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGB8,
+  qb_image_raw(&(*swapchain)->images[0], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8,
                (uint32_t)attr->extent.w, (uint32_t)attr->extent.h, nullptr);
-  qb_image_raw(&(*swapchain)->images[1], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGB8,
+  qb_image_raw(&(*swapchain)->images[1], &image_attr, qbPixelFormat::QB_PIXEL_FORMAT_RGBA8,
                (uint32_t)attr->extent.w, (uint32_t)attr->extent.h, nullptr);
   (*swapchain)->front_image = 0;
   (*swapchain)->back_image = 1;
@@ -1176,6 +1133,8 @@ uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain) {
 
 void qb_swapchain_present(qbSwapchain swapchain, qbDrawPresentInfo present_info) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDrawBuffer(GL_BACK);
+
   glClearColor(1.f, 0.f, 0.f, 1.f);
   glClear(GL_COLOR_BUFFER_BIT);
 
@@ -1218,23 +1177,23 @@ void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_set, qbShad
 }
 
 void qb_shaderresourceset_writeuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
-  for (size_t i = 0; i < resource_set->bindings.size(); ++i) {
-    qbShaderResourceBinding resource_binding = resource_set->bindings[i];
-    if (resource_binding->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
-      resource_set->uniforms[i] = buffer;
-      break;
-    }
+  DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
+
+  int index = resource_set->binding_indices[binding];
+  qbShaderResourceBinding resource_binding = resource_set->bindings[index];
+  if (resource_binding->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_UNIFORM_BUFFER) {
+    resource_set->uniforms[index] = buffer;
   }
 }
 
 void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage image, qbImageSampler sampler) {
-  for (auto i = 0; i < resource_set->bindings.size(); ++i) {
-    qbShaderResourceBinding resource_binding = resource_set->bindings[i];
-    if (resource_set->bindings[i]->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
-      resource_set->images[i] = image;
-      resource_set->samplers[i] = sampler;
-      break;
-    }
+  DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
+
+  int index = resource_set->binding_indices[binding];
+  qbShaderResourceBinding resource_binding = resource_set->bindings[index];
+  if (resource_set->bindings[index]->binding == binding && resource_binding->resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
+    resource_set->images[index] = image;
+    resource_set->samplers[index] = sampler;
   }
 }
 
@@ -1243,6 +1202,18 @@ void qb_shaderresourcepipelinelayout_create(qbShaderResourcePipelineLayout* layo
   for (uint32_t i = 0; i < attr->layout_count; ++i) {
     (*layout)->layouts.push_back(attr->layouts[i]);
   }
+
+  // OpenGL only. OpenGL doesn't allow for manually setting binding points on
+  // texture samplers in version 3.3. Texture slots are then allocated here.
+  uint32_t texture_slot = 0;
+  for (uint32_t i = 0; i < attr->layout_count; ++i) {
+    qbShaderResourceLayout layout = attr->layouts[i];
+    for (qbShaderResourceBinding_& binding : layout->bindings) {
+      if (binding.resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
+        binding.texture_slot = texture_slot++;
+      }
+    }
+  }
 }
 
 void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderResourceSetAttr attr) {
@@ -1250,7 +1221,16 @@ void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderReso
   qbShaderResourceLayout layout = attr->layout;
   for (uint32_t i = 0; i < attr->create_count; ++i) {
     resource_set[i] = new qbShaderResourceSet_();
+    int max_binding = 0;
     for (auto& binding : layout->bindings) {
+      if (binding.binding > max_binding) {
+        max_binding = binding.binding;
+      }
+    }
+    resource_set[i]->binding_indices.resize(max_binding + 1);
+
+    for (auto& binding : layout->bindings) {
+      resource_set[i]->binding_indices[binding.binding] = resource_set[i]->bindings.size();
       resource_set[i]->bindings.push_back(&binding);
       resource_set[i]->uniforms.push_back({});
       resource_set[i]->images.push_back({});
@@ -1292,7 +1272,9 @@ void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face) {
 }
 
 void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info) {
-  assert(begin_info->render_pass->attachments.size() >= begin_info->clear_values_count);
+  if (begin_info->render_pass) {
+    assert(begin_info->render_pass->attachments.size() >= begin_info->clear_values_count);
+  }
 
   cmd_buf->begin_pass(begin_info);
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BEGIN };
@@ -1337,19 +1319,63 @@ void qb_drawcmd_beginpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipe
   cmd_buf->queue_command(&c);
 }
 
+QB_API void qb_drawcmd_updateshaderresource(qbDrawCommandBuffer cmd_buf, uint32_t binding, qbImage image,
+  qbGpuBuffer uniform, qbShaderResourceSet resource_set) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_UPDATESHADERRESOURCE };
+  c.command.update_shaderresource =
+    qbRenderCommandUpdateShaderResource_{
+      .binding = binding,
+      .image = image,
+      .buffer = uniform,
+      .resource_set = resource_set,
+  };
+
+  cmd_buf->queue_command(&c);
+}
+
+QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32_t binding_count,
+  uint32_t bindings[], qbImage images[], qbGpuBuffer uniforms[], qbShaderResourceSet resource_set) {
+    
+  uint32_t* bindings_copy = cmd_buf->allocate<uint32_t>(binding_count);
+  qbImage* images_copy = images ? cmd_buf->allocate<qbImage>(binding_count) : nullptr;
+  qbGpuBuffer* buffers_copy = uniforms ? cmd_buf->allocate<qbGpuBuffer>(binding_count) : nullptr;
+  for (size_t i = 0; i < binding_count; ++i) {
+    bindings_copy[i] = bindings[i];
+
+    if (images) {
+      images_copy[i] = images[i];
+    }
+    
+    if (uniforms) {
+      buffers_copy[i] = uniforms[i];
+    }
+  }
+
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_UPDATESHADERRESOURCES };
+  c.command.update_shaderresources =
+    qbRenderCommandUpdateShaderResources_{
+      .binding_count = binding_count,
+      .bindings = bindings_copy,
+      .images = images_copy,
+      .buffers = buffers_copy,
+      .resource_set = resource_set,
+    };
+
+  cmd_buf->queue_command(&c);
+}
+
 void qb_drawcmd_bindshaderresourceset(
-  qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout, qbShaderResourceSet resource_set) {
+  qbDrawCommandBuffer cmd_buf, qbShaderResourceSet resource_set) {
 
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDSHADERRESOURCESET };
   c.command.bind_shaderresourceset =
-    qbRenderCommandBindShaderResourceSet_{ .layout = layout, .resource_set = resource_set };
+    qbRenderCommandBindShaderResourceSet_{ .resource_set = resource_set };
 
   cmd_buf->queue_command(&c);
 }
 
 void qb_drawcmd_bindshaderresourcesets(
-  qbDrawCommandBuffer cmd_buf, qbShaderResourcePipelineLayout layout,
-  uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
+  qbDrawCommandBuffer cmd_buf, uint32_t resource_set_count, qbShaderResourceSet* resource_sets) {
 
   qbShaderResourceSet* resource_sets_copy = cmd_buf->allocate<qbShaderResourceSet>(resource_set_count);
   for (size_t i = 0; i < resource_set_count; ++i) {
@@ -1358,7 +1384,7 @@ void qb_drawcmd_bindshaderresourcesets(
 
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDSHADERRESOURCESETS };
   c.command.bind_shaderresourcesets =
-    qbRenderCommandBindShaderResourceSets_{ .layout = layout,
+    qbRenderCommandBindShaderResourceSets_{
         .resource_set_count = resource_set_count,
         .resource_sets = resource_sets_copy };
 
@@ -1440,6 +1466,12 @@ void qb_drawcmd_signal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint6
 void qb_drawcmd_wait(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n) {
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_WAIT };
   c.command.wait = qbRenderCommandWait_{ .semaphore = semaphore, .n = n };
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_resetsignal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_RESETSIGNAL };
+  c.command.reset_signal = qbRenderCommandResetSignal_ { .semaphore = semaphore };
   cmd_buf->queue_command(&c);
 }
 

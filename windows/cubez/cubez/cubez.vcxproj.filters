@@ -428,9 +428,6 @@
     <ClCompile Include="..\..\..\src\gui.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\log.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\mesh_builder.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
@@ -612,6 +609,9 @@
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\nuklear.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

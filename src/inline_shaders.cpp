@@ -11,7 +11,7 @@ layout (location = 4) in vec2  in_scale;
 layout (location = 5) in float in_rot;
 layout (location = 6) in float in_tex_id;
 
-layout (std140) uniform Camera
+layout (std140, binding = 0) uniform Camera
 {
     mat4 projection;
 } camera;
@@ -45,7 +45,6 @@ void main() {
                     vec4(0.0,        in_scale.y, 0.0,      0.0),
                     vec4(0.0,        0.0,        1.0,      0.0),
                     vec4(0.0,        0.0,        0.0,      1.0));
-
   gl_Position =  (camera.projection * pos * rot * scale) * vec4(in_pos.x, in_pos.y, 0.0, 1.0);
 })";
 

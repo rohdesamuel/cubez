@@ -168,7 +168,7 @@
       <CallingConvention>StdCall</CallingConvention>
       <ExceptionHandling>Async</ExceptionHandling>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -188,7 +188,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ExceptionHandling>false</ExceptionHandling>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectRoot)\windows\cubez\x64\Optimized Debug;$(ProjectRoot)\deps\win\x64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -244,7 +244,7 @@
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
       <ExceptionHandling>Async</ExceptionHandling>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

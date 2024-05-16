@@ -29,7 +29,6 @@ constexpr std::vector<std::string> shader_extensions() {
 typedef struct qbRenderPipeline_ {
   qbShaderModule shader_module;
   qbGeometryDescriptor geometry;
-  qbRenderPass render_pass;
   qbColorBlendState blend_state;
   qbViewportState viewport_state;
   qbRasterizationInfo rasterization_info;
@@ -89,7 +88,6 @@ typedef struct qbGpuBuffer_ {
   const char* name;
   qbRenderExt ext;
 
-  void* data;
   size_t size;
   size_t elem_size;
 
@@ -187,6 +185,7 @@ typedef struct qbShaderResourceSet_ {
   std::vector<qbGpuBuffer> uniforms;
   std::vector<qbImage> images;
   std::vector<qbImageSampler> samplers;
+  std::vector<int> binding_indices;
 } qbShaderResourceSet_, * qbShaderResourceSet;
 
 #endif  // RENDER_PIPELINE_DEFS__H

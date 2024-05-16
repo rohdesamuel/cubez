@@ -154,8 +154,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     }
     render_settings.opt_renderer_args = attr->renderer_args ? attr->renderer_args : &empty_args;
 
-    render_initialize(&render_settings);
-    sprite_initialize(attr->width, attr->height);
+    render_initialize(&render_settings);    
   }
 
   if (universe_->enabled & QB_FEATURE_AUDIO) {
@@ -239,7 +238,7 @@ qbResult loop(qbLoopCallbacks callbacks,
   // TODO: should this or shouldn't done per frame?
   // i.e. if (game_loop.accumulator >= game_loop.dt) or not
   // But Nuklear needs to have this once per frame to clear the input state per frame.
-  {
+  if (game_loop.accumulator >= game_loop.dt) {
     struct ResizeState {
       qbLoopCallbacks callbacks;
       qbLoopArgs args;

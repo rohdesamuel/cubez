@@ -782,6 +782,7 @@ qbRenderPass gui_create_renderpass(uint32_t width, uint32_t height) {
 }
 
 void qb_gui_resize(uint32_t width, uint32_t height) {
+  return;
   {
     GuiUniformCamera camera;
     camera.projection = glms_ortho(0.0f, (float)width, (float)height, 0.0f, -2.0f, 2.0f);
@@ -840,7 +841,7 @@ void qb_guielement_create(qbGuiElement* el, const char* id, qbGuiElementAttr att
 
     qbGpuBuffer vertex_buffers[] = { default_vbo };
     qb_meshbuffer_attachvertices(dbo, vertex_buffers, 4);
-    qb_meshbuffer_attachindices(dbo, default_ebo, 6);
+    //qb_meshbuffer_attachindices(dbo, default_ebo, 6);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { ubo };
@@ -1025,7 +1026,7 @@ void qb_guielement_settext(qbGuiElement el, const utf8_t* text) {
 
     qbGpuBuffer vertex_buffers[] = { vbo };
     qb_meshbuffer_attachvertices(el->text_dbo, vertex_buffers, 4);
-    qb_meshbuffer_attachindices(el->text_dbo, ebo, 6);
+    //qb_meshbuffer_attachindices(el->text_dbo, ebo, 6);
 
     uint32_t bindings[] = { GuiUniformModel::Binding() };
     qbGpuBuffer uniform_buffers[] = { ubo };

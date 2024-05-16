@@ -25,6 +25,8 @@
 #include <cubez/nuklear.h>
 
 #include <cubez/gui.h>
+#include <cubez/sprite.h>
+#include "sprite_internal.h"
 
 #include <atomic>
 
@@ -134,7 +136,7 @@ bool check_for_gl_errors() {
 
 qbResult qb_render_swapbuffers() {
   // TODO: Parameterize the arguments here.
-  nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
+  //nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
   SDL_GL_SwapWindow(win);
   return QB_OK;
 }
@@ -276,6 +278,7 @@ void render_initialize(RenderSettings* settings) {
     qb_eventattr_destroy(&attr);
   }
   gui_initialize();
+  sprite_initialize(window_width, window_height);
   renderer_initialize(*settings);
 }
 
