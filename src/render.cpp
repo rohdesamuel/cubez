@@ -136,7 +136,7 @@ bool check_for_gl_errors() {
 
 qbResult qb_render_swapbuffers() {
   // TODO: Parameterize the arguments here.
-  //nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
+  nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
   SDL_GL_SwapWindow(win);
   return QB_OK;
 }

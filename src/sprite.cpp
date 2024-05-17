@@ -42,6 +42,7 @@ constexpr size_t SPRITE_VERTEX_ATTRIBUTE_SIZE =
   // Texture Id
   1;
 constexpr size_t MAX_NUM_SPRITES_PER_BATCH = 1000;
+constexpr uint32_t TEXTURE_UNITS_START_BINDING = 1;
 
 std::filesystem::path sprite_path;
 
@@ -610,11 +611,11 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
       }
 
       std::vector<std::string> resource_names;
-      resource_names.reserve(MAX_BATCH_TEXTURE_UNITS + 1);
-      for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
+      resource_names.reserve(MAX_BATCH_TEXTURE_UNITS);
+      for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS; ++i) {
         resource_names.push_back(std::string("tex_sampler[") + std::to_string(i) + "]");
         qbShaderResourceBinding_ info;
-        info.binding = 1 + i;
+        info.binding = TEXTURE_UNITS_START_BINDING + i;
         info.resource_type = QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER;
         info.stages = QB_SHADER_STAGE_FRAGMENT;
         info.name = resource_names.back().c_str();
@@ -832,7 +833,7 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
     qb_shaderresourceset_writeuniform(resource_set, UniformCamera::Binding(), camera_ubo);
   }
   {
-    for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
+    for (uint32_t i = 0; i < MAX_BATCH_TEXTURE_UNITS; ++i) {
       qbImageSamplerAttr_ attr = {};
       qbImageSampler sampler;
       attr.image_type = QB_IMAGE_TYPE_2D;
@@ -841,7 +842,7 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
       attr.s_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
       attr.t_wrap = QB_IMAGE_WRAP_TYPE_REPEAT;
       qb_imagesampler_create(&sampler, &attr);
-      qb_shaderresourceset_writeimage(resource_set, i + 1, nullptr, sampler);
+      qb_shaderresourceset_writeimage(resource_set, TEXTURE_UNITS_START_BINDING + i, nullptr, sampler);
     }
   }
 
@@ -942,11 +943,10 @@ void qb_spriterenderstate_record(qbSpriteRenderState state, qbFrameBuffer frameb
     std::vector<qbImage> textures;
     std::unordered_map<qbImage, uint32_t> texture_to_ids;
 
-    for (int i = 0; i < MAX_BATCH_TEXTURE_UNITS + 1; ++i) {
-      texture_bindings.push_back(i + 1);
+    for (int i = 0; i < MAX_BATCH_TEXTURE_UNITS; ++i) {
+      texture_bindings.push_back(TEXTURE_UNITS_START_BINDING + i);
       textures.push_back(clear_texture);
     }
-    texture_to_ids[clear_texture] = 0;
 
     int texture_id = 0;
     for (qbImage img : batch.images) {

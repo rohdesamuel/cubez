@@ -725,7 +725,6 @@ void on_update(uint64_t frame, qbVar) {
 }
 
 void on_fixedupdate(uint64_t frame, qbVar) {
-  return;
   static struct nk_colorf bg {
     .r = 0.10f, .g = 0.18f, .b = 0.24f, .a = 1.0f
   };
@@ -1120,7 +1119,7 @@ int main(int, char* []) {
       x = (float)qb_window_width() + 5.f;
     }
 
-    //qb_sprite_draw(test_sprite, vec2s{ 32, 32 });
+    qb_sprite_draw(test_sprite, vec2s{ 32, 32 });
     qb_sprite_draw(test_animation_sprite, vec2s{ x, 100 });
 
     qbClearValue_ clear{};

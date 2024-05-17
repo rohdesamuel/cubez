@@ -1173,6 +1173,12 @@ void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_set, qbShad
   (*resource_set) = new qbShaderResourceLayout_();
   for (uint32_t i = 0; i < attr->binding_count; ++i) {
     (*resource_set)->bindings.push_back(attr->bindings[i]);
+    qbShaderResourceBinding_& new_binding = (*resource_set)->bindings[i];
+    const qbShaderResourceBinding_& old_binding = attr->bindings[i];
+
+    size_t len = std::min(strlen(old_binding.name) + 1, (size_t)GL_ACTIVE_UNIFORM_MAX_LENGTH);
+    new_binding.name = (char*)calloc(len, 1);
+    strcpy_s((char*)new_binding.name, len, old_binding.name);
   }
 }
 
