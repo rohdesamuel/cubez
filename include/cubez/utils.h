@@ -41,4 +41,12 @@ QB_API int64_t qb_timer_elapsed(qbTimer timer);
 
 QB_API int64_t qb_timer_average(qbTimer timer);
 
+// Sleeps for the given duration in milliseconds.
+QB_API void qb_sleep(uint32_t ms);
+
+// Sleeps for the given duration in microseconds using high-resolution,
+// OS-specific constructs.
+QB_API void qb_highres_sleep(uint32_t us);
+
+
 #endif  // CUBEZ_UTILS__H

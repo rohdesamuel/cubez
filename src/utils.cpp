@@ -29,7 +29,10 @@
 #undef max
 #elif defined (__COMPILE_AS_LINUX__)
 #include <time.h>
+#include <errno.h>
 #endif
+
+#include <thread>
 
 typedef struct qbTimer_ {
 #ifdef __COMPILE_AS_WINDOWS__
@@ -197,4 +200,26 @@ int64_t qb_timer_average(qbTimer timer) {
     accum += n;
   }
   return convert_to_time(accum / timer->window_size_);
+}
+
+void qb_sleep(uint32_t ms) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
+void qb_highres_sleep(uint32_t us) {
+#ifdef __COMPILE_AS_WINDOWS__
+  ::LARGE_INTEGER ft;
+  ft.QuadPart = -static_cast<int64_t>(us * 10);  // '-' using relative time
+
+  ::HANDLE timer = ::CreateWaitableTimer(NULL, TRUE, NULL);
+  ::SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+  ::WaitForSingleObject(timer, INFINITE);
+  ::CloseHandle(timer);
+#elif defined(__COMPILE_AS_LINUX__)
+  struct timespec ts;
+  ts.tv_sec = us / 1000000;
+  ts.tv_nsec = us % 1000000 * 1000;
+
+  while (nanosleep(&ts, &ts) == -1 && errno == EINTR);
+#endif
 }
