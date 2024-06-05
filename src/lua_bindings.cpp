@@ -25,7 +25,6 @@
 
 #include "lua_cubez_bindings.h"
 #include "lua_input_bindings.h"
-#include "lua_gui_bindings.h"
 #include "lua_audio_bindings.h"
 #include "lua_sprite_bindings.h"
 #include "lua_draw_bindings.h"
@@ -82,38 +81,6 @@ static const luaL_Reg qb_lib[] = {
   { "window_setfullscreen", window_setfullscreen },
   { "window_getbordered", window_getbordered },
   { "window_setbordered", window_setbordered },
-
-  { "guielement_getfocus", guielement_getfocus },
-  { "guielement_getfocusat", guielement_getfocusat },
-  { "guielement_find", guielement_find },
-  { "guielement_create", guielement_create },
-  { "guielement_destroy", guielement_destroy },
-  { "guielement_open", guielement_open },
-  { "guielement_close", guielement_close },
-  { "guielement_closechildren", guielement_closechildren },
-  { "guielement_getconstraint", guielement_getconstraint },
-  { "guielement_setconstraint", guielement_setconstraint },  
-  { "guielement_clearconstraint", guielement_clearconstraint },
-  { "guielement_link", guielement_link },
-  { "guielement_unlink", guielement_unlink },
-  { "guielement_getparent", guielement_getparent },
-  { "guielement_movetofront", guielement_movetofront },
-  { "guielement_movetoback", guielement_movetoback },
-  { "guielement_moveforward", guielement_moveforward },
-  { "guielement_movebackward", guielement_movebackward },
-  { "guielement_moveto", guielement_moveto },
-  { "guielement_moveby", guielement_moveby },
-  { "guielement_resizeto", guielement_resizeto },
-  { "guielement_resizeby", guielement_resizeby },
-  { "guielement_getsize", guielement_getsize },
-  { "guielement_getposition", guielement_getposition },
-  { "guielement_setvalue", guielement_setvalue },
-  { "guielement_getvalue", guielement_getvalue },
-  { "guielement_gettext", guielement_gettext },
-  { "guielement_settext", guielement_settext },
-  { "guielement_settextcolor", guielement_settextcolor },
-  { "guielement_settextscale", guielement_settextscale },
-  { "guielement_settextsize", guielement_settextsize },
 
   { "audio_loadwav", audio_loadwav },
   { "audio_free", audio_free },

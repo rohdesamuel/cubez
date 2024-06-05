@@ -21,13 +21,13 @@ int window_height(lua_State* L) {
 int window_getfullscreen(lua_State* L) {
   auto fs = qb_window_fullscreen();
   switch (fs) {
-    case QB_WINDOWED:
+    case QB_FULLSCREEN_TYPE_WINDOWED:
       lua_pushstring(L, "windowed");
       break;
-    case QB_WINDOW_FULLSCREEN:
+    case QB_FULLSCREEN_TYPE_FULLSCREEN:
       lua_pushstring(L, "window_fullscreen");
       break;
-    case QB_WINDOW_FULLSCREEN_DESKTOP:
+    case QB_FULLSCREEN_TYPE_BORDERLESS:
       lua_pushstring(L, "window_fullscreen_desktop");
       break;
   }
@@ -39,11 +39,11 @@ int window_setfullscreen(lua_State* L) {
 
   const char* s = lua_tostring(L, 1);
   if (strcmp(s, "windowed") == 0) {
-    qb_window_setfullscreen(QB_WINDOWED);
+    qb_window_setfullscreen(QB_FULLSCREEN_TYPE_WINDOWED);
   } else if (strcmp(s, "window_fullscreen") == 0) {
-    qb_window_setfullscreen(QB_WINDOW_FULLSCREEN);
+    qb_window_setfullscreen(QB_FULLSCREEN_TYPE_FULLSCREEN);
   } else if (strcmp(s, "window_fullscreen_desktop") == 0) {
-    qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
+    qb_window_setfullscreen(QB_FULLSCREEN_TYPE_BORDERLESS);
   }
 
   return 0;
