@@ -39,6 +39,27 @@
 #define QB_FEATURE_GAME_LOOP 0x0010
 typedef uint32_t qbFeature;
 
+// Macro to abstract away Windows-specific WinMain.
+// Usage:
+// int qb_main(int argc, char* argv[]) { ... }
+#if defined(_DEBUG) || defined(__COPMILE_AS_LINUX__)
+#define qb_main(argc, argv) \
+__qb_main(argc, argv); \
+int main(int _argc, char* _argv[]) { \
+  return __qb_main(_argc, _argv); \
+} int __qb_main(argc, argv)
+#else
+#define qb_main(argc, argv) \
+__qb_main(argc, argv); \
+int WINAPI wWinMain( \
+  _In_ HINSTANCE hInstance, \
+  _In_opt_ HINSTANCE hPrevInstance, \
+  _In_ LPWSTR lpCmdLine, \
+  _In_ int nShowCmd) { \
+  return __qb_main(__argc, __argv); \
+} int __qb_main(argc, argv)
+#endif
+
 // Holds the game engine state
 typedef struct qbUniverse {
   void* self;
