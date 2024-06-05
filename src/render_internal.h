@@ -40,5 +40,13 @@ void render_initialize(RenderSettings* settings);
 void render_shutdown();
 
 qbTask render_submit(RenderPresentInfo_ info);
+qbShaderModule render_present_shader();
+qbResult render_swapbuffers();
+qbResult render_makecurrent();
+
+qbResult do_render(qbRenderEvent event,
+  void(*on_render)(struct qbRenderEvent_*, qbVar),
+  void(*on_postrender)(struct qbRenderEvent_*, qbVar),
+  qbVar on_render_arg, qbVar on_postrender_arg);
 
 #endif  // RENDER_INTERNAL__H
