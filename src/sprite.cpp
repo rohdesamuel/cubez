@@ -355,11 +355,19 @@ void qb_sprite_setoffset(qbSprite sprite, vec2s offset) {
 }
 
 uint32_t qb_sprite_width(qbSprite sprite) {
-  return sprite->w;
+  if (sprite->animator && sprite->animator->animation) {
+    sprite = sprite->animator->animation->frames[sprite->animator->frame];
+  }
+
+  return sprite->tw + sprite->margin;
 }
 
 uint32_t qb_sprite_height(qbSprite sprite) {
-  return sprite->h;
+  if (sprite->animator && sprite->animator->animation) {
+    sprite = sprite->animator->animation->frames[sprite->animator->frame];
+  }
+
+  return sprite->th + sprite->margin;
 }
 
 int32_t qb_sprite_framecount(qbSprite sprite) {
@@ -448,12 +456,13 @@ qbSpriteAnimation qb_spriteanimation_fromsheet(qbSpriteAnimationAttr attr, qbSpr
     }
   }
 
-  attr->frames = frames.data();
-  attr->durations = durations.data();
-  attr->frame_count = frames.size();
-  attr->offset = qb_sprite_getoffset(sheet);
+  qbSpriteAnimationAttr_ copy = *attr;
+  copy.frames = frames.data();
+  copy.durations = durations.data();
+  copy.frame_count = frames.size();
+  copy.offset = qb_sprite_getoffset(sheet);
 
-  return qb_spriteanimation_create(attr);
+  return qb_spriteanimation_create(&copy);
 }
 
 qbSprite qb_spriteanimation_play(qbSpriteAnimation animation) {
@@ -704,7 +713,7 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
       .raster_mode = QB_POLYGON_MODE_FILL,
       .raster_face = QB_FACE_FRONT_AND_BACK,
       .front_face = QB_FRONT_FACE_CCW,
-      .cull_face = QB_FACE_BACK,
+      .cull_face = QB_FACE_NONE,
       .enable_depth_clamp = QB_FALSE,
       .depth_stencil_state = &depth_stencil_state
     };
@@ -826,7 +835,7 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
 
     {
       UniformCamera camera;
-      camera.projection = glms_ortho(0.0f, width, height, 0.0f, -2.0f, 2.0f);
+      camera.projection = glms_ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
       qb_gpubuffer_update(camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
     }
 
@@ -864,9 +873,13 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
   return state;
 }
 
+qbRenderPipeline qb_sprite_renderpipeline() {
+  return sprite_render_pipeline;
+}
+
 void qb_spriterenderstate_resize(qbSpriteRenderState renderstate, float width, float height) {
   UniformCamera camera;
-  camera.projection = glms_ortho(0.0f, width, height, 0.0f, -2.0f, 2.0f);
+  camera.projection = glms_ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f);
   qb_gpubuffer_update(renderstate->camera_ubo, 0, sizeof(UniformCamera), &camera.projection);
 }
 
@@ -964,19 +977,16 @@ void qb_spriterenderstate_record(qbSpriteRenderState state, qbFrameBuffer frameb
         4 * index + 2, 4 * index + 3, 4 * index + 0
       };
 
-      float offset_x = queued.offset_x;
-      float offset_y = queued.offset_y;
-
       for (uint32_t i = 0; i < 4; ++i) {
         float x = (float)(i & 0x1);
         float y = (float)((i & 0x2) >> 1);
         // Position
-        attributes[0] = queued.w * x - offset_x;
-        attributes[1] = queued.h * y - offset_y;
+        attributes[0] = queued.pos.x;
+        attributes[1] = queued.pos.y;
 
         // Offset
-        attributes[2] = queued.pos.x;
-        attributes[3] = queued.pos.y;
+        attributes[2] = queued.w * x - queued.offset_x;
+        attributes[3] = queued.h * y - queued.offset_y;
 
         // Color
         attributes[4] = queued.col.x;

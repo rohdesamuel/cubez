@@ -90,6 +90,7 @@ QB_API qbImage  qb_sprite_subimg(qbSprite sprite, int32_t frame);
 QB_API qbImage  qb_sprite_curimg(qbSprite sprite);
 
 QB_API void     qb_sprite_onresize(uint32_t width, uint32_t height);
+QB_API qbRenderPipeline     qb_sprite_renderpipeline();
 
 typedef struct qbSpriteRenderState_* qbSpriteRenderState;
 QB_API qbSpriteRenderState qb_spriterenderstate_create(float width, float height);
