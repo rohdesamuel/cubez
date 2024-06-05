@@ -20,12 +20,12 @@
 #include <cubez/input.h>
 #include "shader.h"
 #include "render_internal.h"
-#include "gui_internal.h"
 #include "nuklear_sdl_gl3.h"
 #include <cubez/nuklear.h>
 
 #include <cubez/gui.h>
 #include <cubez/sprite.h>
+#include "inline_shaders.h"
 #include "sprite_internal.h"
 
 #include <atomic>
@@ -62,8 +62,16 @@ qbEvent render_event;
 // Systems
 qbSystem render_system;
 
+constexpr int QB_WINDOW_BORDERLESS_MARGIN = 1;
 int window_width;
 int window_height;
+
+int windowed_width;
+int windowed_height;
+int windowed_pos_x;
+int windowed_pos_y;
+
+qbFullscreenType fullscreen_type = QB_FULLSCREEN_TYPE_WINDOWED;
 
 SDL_Window *win = nullptr;
 SDL_GLContext context;
@@ -100,6 +108,7 @@ qbComponent qb_collider_ = 0;
 #define MAX_VERTEX_MEMORY 512 * 1024
 #define MAX_ELEMENT_MEMORY 128 * 1024
 
+qbShaderModule present_pass_shader;
 
 qbComponent qb_renderable() {
   return qb_renderable_;
@@ -134,7 +143,7 @@ bool check_for_gl_errors() {
   return true;
 }
 
-qbResult qb_render_swapbuffers() {
+qbResult render_swapbuffers() {
   // TODO: Parameterize the arguments here.
   nk_sdl_render(NK_ANTI_ALIASING_ON, MAX_VERTEX_MEMORY, MAX_ELEMENT_MEMORY);
   SDL_GL_SwapWindow(win);
@@ -145,12 +154,12 @@ qbEvent qb_render_event() {
   return render_event;
 }
 
-qbResult qb_render(qbRenderEvent event,
+qbResult do_render(qbRenderEvent event,
                    void(*on_render)(struct qbRenderEvent_*, qbVar),
                    void(*on_postrender)(struct qbRenderEvent_*, qbVar),
                    qbVar on_render_arg, qbVar on_postrender_arg) {
   if (render_event) {
-    qb_render_makecurrent();
+    render_makecurrent();
     if (on_render) {
       on_render(event, on_render_arg);
     }
@@ -165,7 +174,7 @@ qbResult qb_render(qbRenderEvent event,
       on_postrender(event, on_postrender_arg);
     }
 
-    qb_render_swapbuffers();
+    render_swapbuffers();
   }
   return QB_OK;
 }
@@ -214,10 +223,6 @@ void initialize_context(const RenderSettings& settings) {
 }
 
 void renderer_initialize(const RenderSettings& settings) {
-  if (!settings.opt_renderer_args->opt_gui_renderpass) {
-    settings.opt_renderer_args->opt_gui_renderpass = gui_create_renderpass(settings.width, settings.height);
-  }
-
   if (settings.create_renderer) {
     renderer_ = settings.create_renderer(settings.width, settings.height, settings.opt_renderer_args);
   } else {
@@ -233,8 +238,9 @@ void renderer_initialize(const RenderSettings& settings) {
 
 void render_initialize(RenderSettings* settings) {
   initialize_context(*settings);  
-  window_width = settings->width;
-  window_height = settings->height;
+  windowed_width = window_width = settings->width;
+  windowed_height = window_height = settings->height;
+
   light_id = 0;
   {
     qbComponentAttr attr;
@@ -277,9 +283,17 @@ void render_initialize(RenderSettings* settings) {
     qb_event_create(&render_event, attr);
     qb_eventattr_destroy(&attr);
   }
-  gui_initialize();
+  {
+    qbShaderModuleAttr_ attr = {};
+    attr.vs = get_presentpass_vs();
+    attr.fs = get_presentpass_fs();
+    attr.interpret_as_strings = true;
+
+    qb_shadermodule_create(&present_pass_shader, &attr);
+  }
   sprite_initialize(window_width, window_height);
   renderer_initialize(*settings);
+  SDL_GetWindowPosition(win, &windowed_pos_x, &windowed_pos_y);
 }
 
 void render_shutdown() {
@@ -301,8 +315,12 @@ uint32_t qb_window_height() {
 }
 
 void qb_window_resize(uint32_t width, uint32_t height) {
-  window_width = width;
-  window_height = height;
+  if (qb_window_fullscreen() != QB_FULLSCREEN_TYPE_WINDOWED) {
+    return;
+  }
+
+  windowed_width = window_width = width;
+  windowed_height = window_height = height;
 
   for (auto c : cameras) {
     qb_camera_resize((qbCamera)c, width, height);
@@ -310,40 +328,72 @@ void qb_window_resize(uint32_t width, uint32_t height) {
   if (renderer_ && renderer_->resize) {
     renderer_->resize(renderer_, width, height);
   }
-  qb_gui_resize(width, height);
+
+  SDL_SetWindowSize(win, width, height);
 }
 
 void qb_window_setfullscreen(qbFullscreenType type) {
-  uint32_t flags = 0;
-  if (type == QB_WINDOW_FULLSCREEN) {
-    flags = SDL_WINDOW_FULLSCREEN;
-  } else if (type == QB_WINDOW_FULLSCREEN_DESKTOP) {
-    flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
-  }
+  fullscreen_type = type;
+  if (type == QB_FULLSCREEN_TYPE_FULLSCREEN) {
+    SDL_GetWindowPosition(win, &windowed_pos_x, &windowed_pos_y);
+    SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN);    
+    SDL_GetWindowSize(win, &window_width, &window_height);
+  } else if (type == QB_FULLSCREEN_TYPE_BORDERLESS) {
+    SDL_GetWindowPosition(win, &windowed_pos_x, &windowed_pos_y);
+    SDL_SetWindowPosition(win, 0, 0);
+    qb_window_setbordered(QB_FALSE);
+    qb_window_setresizeable(QB_FALSE);
 
-  SDL_SetWindowFullscreen(win, flags);
+    SDL_Rect bounds;
+    SDL_GetDisplayBounds(0, &bounds);
+    SDL_SetWindowSize(win, bounds.w + QB_WINDOW_BORDERLESS_MARGIN, bounds.h);
+    window_width = bounds.w;
+    window_height = bounds.h;
+  } else {
+    SDL_SetWindowFullscreen(win, 0);
+    qb_window_setbordered(QB_TRUE);
+    qb_window_setresizeable(QB_TRUE);
+    SDL_SetWindowPosition(win, windowed_pos_x, windowed_pos_y);
+    SDL_SetWindowSize(win, windowed_width, windowed_height);
+    window_width = windowed_width;
+    window_height = windowed_height;
+  }
 }
 
 qbFullscreenType qb_window_fullscreen() {
-  uint32_t flags = SDL_GetWindowFlags(win);
-
-  if (flags & SDL_WINDOW_FULLSCREEN) {
-    return QB_WINDOW_FULLSCREEN;
-  }
-
-  if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
-    return QB_WINDOW_FULLSCREEN_DESKTOP;
-  }
-
-  return QB_WINDOWED;
+  return fullscreen_type;
 }
 
-void qb_window_setbordered(int bordered) {
-  SDL_SetWindowBordered(win, (SDL_bool)bordered);
+void qb_window_setbordered(qbBool is_bordered) { 
+  if (is_bordered) {
+    SDL_SetWindowBordered(win, SDL_TRUE);
+  } else {
+    // SDL2 doesn't remove the thinkframe style from the window. So remove it
+    // here to reduce the title bar flickering when the window gets focus.
+#ifdef __COMPILE_AS_WINDOWS__
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);  // Initialize wmInfo
+    SDL_GetWindowWMInfo(win, &wmInfo);
+    HWND hWnd = wmInfo.info.win.window;
+
+    SetWindowLongPtr(hWnd, GWL_STYLE, GetWindowLongPtr(hWnd, GWL_STYLE) & ~WS_CAPTION & ~WS_BORDER & ~WS_THICKFRAME);
+    qb_window_resize(qb_window_width(), qb_window_height());
+#else
+    SDL_SetWindowBordered(win, (SDL_bool)is_bordered);
+#endif  // __COMPILE_AS_WINDOWS__
+  }
 }
 
-int qb_window_bordered() {
-  return SDL_GetWindowFlags(win) & SDL_WINDOW_BORDERLESS ? 0 : 1;
+void qb_window_setresizeable(qbBool is_resizeable) {
+  SDL_SetWindowResizable(win, (SDL_bool)is_resizeable);
+}
+
+qbBool qb_window_bordered() {
+  return SDL_GetWindowFlags(win) & SDL_WINDOW_BORDERLESS ? QB_TRUE : QB_FALSE;
+}
+
+qbBool qb_window_resizeable() {
+  return SDL_GetWindowFlags(win) & SDL_WINDOW_RESIZABLE ? QB_TRUE : QB_FALSE;
 }
 
 void qb_window_settransparency(float alpha) {
@@ -354,13 +404,13 @@ void qb_window_settransparency(float alpha) {
   HWND hWnd = wmInfo.info.win.window;
 
   // Change window type to layered (https://stackoverflow.com/a/3970218/3357935)
-  SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+  SetWindowLongPtr(hWnd, GWL_EXSTYLE, GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
 
   // Set transparency color
   SetLayeredWindowAttributes(hWnd, RGB(0, 0, 0), 0x7F, LWA_ALPHA);
 }
 
-QB_API void qb_window_settransparencycolor(vec3s rgb) {
+void qb_window_settransparencycolor(vec3s rgb) {
   // Get window handle (https://stackoverflow.com/a/24118145/3357935)
   SDL_SysWMinfo wmInfo;
   SDL_VERSION(&wmInfo.version);  // Initialize wmInfo
@@ -368,10 +418,14 @@ QB_API void qb_window_settransparencycolor(vec3s rgb) {
   HWND hWnd = wmInfo.info.win.window;
 
   // Change window type to layered (https://stackoverflow.com/a/3970218/3357935)
-  SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+  SetWindowLongPtr(hWnd, GWL_EXSTYLE, (GetWindowLongPtr(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED));
 
   // Set transparency color
   SetLayeredWindowAttributes(hWnd, RGB((uint8_t)(rgb.x * 255), (uint8_t)(rgb.y * 255), (uint8_t)(rgb.z * 255)), 0, LWA_COLORKEY);
+}
+
+void qb_window_setalwaysontop(qbBool is_on_top) {
+  SDL_SetWindowAlwaysOnTop(win, (SDL_bool)is_on_top);
 }
 
 qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye) {
@@ -486,16 +540,8 @@ vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world) {
   return glms_vec2(glms_mat4_mulv3(project_view, world, 1.0f));
 }
 
-qbResult qb_render_makecurrent() {
+qbResult render_makecurrent() {
   int ret = SDL_GL_MakeCurrent(win, context);
-  if (ret < 0) {
-    std::cout << "SDL_GL_MakeCurrent failed: " << SDL_GetError() << std::endl;
-  }
-  return QB_OK;
-}
-
-qbResult qb_render_makenull() {
-  int ret = SDL_GL_MakeCurrent(win, nullptr);
   if (ret < 0) {
     std::cout << "SDL_GL_MakeCurrent failed: " << SDL_GetError() << std::endl;
   }
@@ -539,4 +585,8 @@ void qb_light_spotlight(qbId id, vec3s  rgb, vec3s  pos, vec3s  dir, float brigh
 size_t qb_light_getmax(qbLightType light_type) {
   auto r = qb_renderer();
   return r->light_max(r, light_type);
+}
+
+qbShaderModule render_present_shader() {
+  return present_pass_shader;
 }

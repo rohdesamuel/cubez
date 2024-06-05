@@ -521,9 +521,8 @@ QB_API size_t qb_framebuffer_rendertargets(qbFrameBuffer frame_buffer, qbImage**
 QB_API qbImage qb_framebuffer_depthtarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_stenciltarget(qbFrameBuffer frame_buffer);
 QB_API qbImage qb_framebuffer_depthstenciltarget(qbFrameBuffer frame_buffer);
-QB_API void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, uint32_t height);
-QB_API uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer);
-QB_API uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer);
+QB_API uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer, uint32_t attachment_binding);
+QB_API uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer, uint32_t attachment_binding);
 QB_API uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t attachment_binding, int32_t x, int32_t y);
 /*QB_API void qb_framebuffer_blit(qbFrameBuffer src, qbFrameBuffer dest,
                                 qbViewport_ src_viewport,
@@ -600,6 +599,7 @@ typedef struct qbDrawPresentInfo_ {
 
 typedef struct qbSwapchain_* qbSwapchain;
 QB_API void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr);
+QB_API void qb_swapchain_destroy(qbSwapchain* swapchain);
 QB_API void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images);
 QB_API uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain);
 QB_API void qb_swapchain_present(qbSwapchain swapchain, qbDrawPresentInfo present_info);
