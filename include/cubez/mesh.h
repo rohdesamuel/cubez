@@ -98,7 +98,7 @@ typedef struct qbMesh_ {
   qbDrawMode mode;
 } qbMesh_, *qbMesh;
 
-typedef struct {
+typedef struct qbRay_ {
   vec3s orig;
   vec3s dir;
 } qbRay_, *qbRay;
@@ -116,7 +116,6 @@ typedef struct qbModel_ {
   qbDrawMode mode;
 } qbModel_, *qbModel;
 
-// In memory representation.
 typedef struct qbModelAttr_ {
   const char* name;
 
@@ -126,11 +125,6 @@ typedef struct qbModelAttr_ {
   qbCollider* colliders;
   uint32_t collider_count;
 } qbModelAttr_, *qbModelAttr;
-
-typedef struct qbIntersection_ {
-  vec3s n;
-  float l;
-} qbIntersection_, *qbIntersection;
 
 typedef struct qbMeshBuilder_* qbMeshBuilder;
 QB_API qbResult qb_meshbuilder_create(qbMeshBuilder* builder);
@@ -173,10 +167,8 @@ QB_API qbBool qb_collider_checkray(const qbCollider_* collider, const qbTransfor
 
 QB_API vec3s qb_collider_support(const qbCollider_* collider, const qbTransform_* transform, vec3s dir);
 
-// Unimplemented.
 QB_API void qb_collider_sphere(qbCollider collider, float r);
 
-// Unimplemented.
 QB_API void qb_collider_aabb(qbCollider collider, vec3s max, vec3s min, vec3s center);
 
 // Unimplemented.
@@ -194,7 +186,6 @@ QB_API void qb_collider_cone(qbCollider collider, float r, float h);
 QB_API qbBool qb_ray_checkaabb(const qbCollider_* c, const qbTransform_* t, const qbRay_* r,
                              float* tmin, float* tmax);
 
-// Unimplemented.
 QB_API qbBool qb_ray_checkobb(const qbCollider_* c, const qbTransform_* t, const qbRay_* r,
                             float* tmin, float* tmax);
 
