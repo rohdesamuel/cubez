@@ -699,6 +699,8 @@ void qb_image_raw(qbImage* image_ref, qbImageAttr attr, qbPixelFormat format, ui
 }
 
 void qb_image_destroy(qbImage* image) {
+  if (!image || !*image) return;
+
   free((void*)(*image)->name);
   glDeleteTextures(1, &(*image)->id);
   qb_renderext_destroy(&(*image)->ext);
@@ -888,6 +890,8 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
 }
 
 void qb_framebuffer_clear(qbFrameBuffer frame_buffer) {
+  glDeleteFramebuffers(1, &frame_buffer->id);
+
   for (qbImage& img : frame_buffer->render_targets) {
     qb_image_destroy(&img);
   }
@@ -907,6 +911,7 @@ void qb_framebuffer_create(qbFrameBuffer* frame_buffer, qbFrameBufferAttr attr) 
 }
 
 void qb_framebuffer_destroy(qbFrameBuffer* frame_buffer) {
+  glDeleteFramebuffers(1, &(*frame_buffer)->id);
   delete *frame_buffer;
   *frame_buffer = nullptr;
 }
@@ -942,42 +947,14 @@ qbImage qb_framebuffer_depthstenciltarget(qbFrameBuffer frame_buffer) {
   return frame_buffer->depthstencil_target;
 }
 
-void qb_framebuffer_resize(qbFrameBuffer frame_buffer, uint32_t width, uint32_t height) {
-  for (qbImage& img : frame_buffer->render_targets) {
-    qb_image_destroy(&img);
-  }
-  if (frame_buffer->depth_target) {
-    qb_image_destroy(&frame_buffer->depth_target);
-  }
-
-  if (frame_buffer->stencil_target) {
-    qb_image_destroy(&frame_buffer->stencil_target);
-  }
-
-  if (frame_buffer->depthstencil_target) {
-    qb_image_destroy(&frame_buffer->depthstencil_target);
-  }
-
-  glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer->id);
-  glDeleteFramebuffers(1, &frame_buffer->id);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-  frame_buffer->render_targets = {};
-  frame_buffer->depth_target = nullptr;
-  frame_buffer->stencil_target = nullptr;
-  frame_buffer->depthstencil_target = nullptr;
-
-  //frame_buffer->attr.width = width;
-  //frame_buffer->attr.height = height;
-  //qb_framebuffer_init(frame_buffer, &frame_buffer->attr);
+uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer, uint32_t attachment_binding) {
+  DEBUG_ASSERT(attachment_binding < frame_buffer->attachments.size(), 1);
+  return frame_buffer->attachments[attachment_binding].image->width;
 }
 
-uint32_t qb_framebuffer_width(qbFrameBuffer frame_buffer) {
-  return 0;//frame_buffer->attr.width;
-}
-
-uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer) {
-  return 0;//frame_buffer->attr.height;
+uint32_t qb_framebuffer_height(qbFrameBuffer frame_buffer, uint32_t attachment_binding) {
+  DEBUG_ASSERT(attachment_binding < frame_buffer->attachments.size(), 1);
+  return frame_buffer->attachments[attachment_binding].image->height;
 }
 
 uint32_t qb_framebuffer_readpixel(qbFrameBuffer frame_buffer, uint32_t attachment_binding, int32_t x, int32_t y) {
@@ -1086,14 +1063,7 @@ void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr) {
   glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-  {
-    qbShaderModuleAttr_ attr = {};
-    attr.vs = get_presentpass_vs();
-    attr.fs = get_presentpass_fs();
-    attr.interpret_as_strings = true;
-
-    qb_shadermodule_create(&(*swapchain)->shader_module, &attr);
-  }
+  (*swapchain)->shader_module = render_present_shader();
   {
     qbImageSamplerAttr_ attr = {};
     attr.image_type = QB_IMAGE_TYPE_2D;
@@ -1102,6 +1072,16 @@ void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr) {
     qb_imagesampler_create(&(*swapchain)->swapchain_imager_sampler, &attr);
   }
   CHECK_GL();
+}
+
+void qb_swapchain_destroy(qbSwapchain* swapchain) {
+  qbSwapchain sc = *swapchain;
+  qb_imagesampler_destroy(&(*swapchain)->swapchain_imager_sampler);
+  glDeleteBuffers(1, &sc->present_vbo);
+  glDeleteVertexArrays(1, &sc->present_vao);
+  for (auto& img : sc->images) {
+    qb_image_destroy(&img);
+  }  
 }
 
 void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images) {
