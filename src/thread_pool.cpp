@@ -12,7 +12,7 @@ TaskThreadPool::TaskThreadPool(size_t threads, size_t max_queue_size)
   for (size_t i = 0; i < threads; ++i) {
     workers_.emplace_back(
       [this] {
-        while (!qb_running()) {
+        while (!qb_running() && !stop_) {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
@@ -145,4 +145,8 @@ qbBool TaskThreadPool::is_active(qbTask task) {
   }
 
   return tasks_[id].generation == generation;
+}
+
+void TaskThreadPool::stop() {
+  stop_ = false;
 }

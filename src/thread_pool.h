@@ -34,7 +34,7 @@ private:
   // synchronization
   std::mutex queue_mutex;
   std::condition_variable condition;
-  bool stop;
+  std::atomic_bool stop;
 };
  
 // the constructor just launches some amount of workers
@@ -115,6 +115,9 @@ public:
   // QB_FALSE after the task is joined.
   qbBool is_active(qbTask task);
 
+  // Forces the workers to stop after their current work is complete.
+  void stop();
+
 private:
   struct Task {
     std::function<qbVar()> fn;
@@ -145,7 +148,7 @@ private:
   std::mutex queue_mu_;
   std::queue<Task*> tasks_queue_;
   std::condition_variable task_available_;
-  bool stop_;
+  std::atomic_bool stop_;
   
   const size_t max_queue_size_;
 };
