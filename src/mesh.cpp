@@ -66,7 +66,9 @@ qbMesh qb_mesh_load(const char* mesh_name, const char* filename) {
   qbMesh ret = builder.Mesh(QB_DRAW_MODE_TRIANGLES);
 
   qbRenderer r = qb_renderer();
-  r->mesh_create(r, ret);
+  if (r) {
+    r->mesh_create(r, ret);
+  }
 
   return ret;
 }
@@ -133,7 +135,9 @@ bool qb_model_collides(vec3 a_origin, vec3 b_origin, qbModel a, qbModel b) {
 
 qbResult qb_mesh_destroy(qbMesh* mesh) {
   auto r = qb_renderer();
-  r->mesh_destroy(r, *mesh);
+  if (r) {
+    r->mesh_destroy(r, *mesh);
+  }
 
   delete[](*mesh)->vertices;
   delete[](*mesh)->indices;

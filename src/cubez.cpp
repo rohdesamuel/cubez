@@ -23,6 +23,7 @@
 #include <cubez/audio.h>
 #include <cubez/socket.h>
 #include <cubez/struct.h>
+#include <cubez/input.h>
 #include <filesystem>
 #include <iomanip>
 
@@ -36,7 +37,6 @@
 #include "input_internal.h"
 #include "log_internal.h"
 #include "render_internal.h"
-#include "gui_internal.h"
 #include "audio_internal.h"
 #include "network_impl.h"
 #include "lua_bindings.h"
@@ -77,7 +77,7 @@ struct GameLoop {
   double current_time;
   double start_time;
   double accumulator;
-  std::atomic_bool is_running{ false };
+  volatile std::atomic_bool is_running{ false };
 } game_loop;
 
 qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
@@ -190,6 +190,8 @@ qbResult qb_start() {
 }
 
 qbResult qb_stop() {
+  if (!game_loop.is_running) return QB_DONE;
+
   game_loop.is_running = false;
   qbResult ret = AS_PRIVATE(stop());
 
@@ -296,7 +298,7 @@ qbResult loop(qbLoopCallbacks callbacks,
   }
 
   lua_draw(AS_PRIVATE(main_lua_state()));
-  qb_render(&e, callbacks->on_render, callbacks->on_postrender, args->render, args->postrender);
+  do_render(&e, callbacks->on_render, callbacks->on_postrender, args->render, args->postrender);
 
   timing_info.render_elapsed_ns = qb_timer_add(render_timer);
   double elapsed_render = qb_timer_average(render_timer) * 1e-9 + extra_render_time;

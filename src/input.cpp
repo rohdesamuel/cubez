@@ -23,6 +23,7 @@
 
 #include <cubez/gui.h>
 #include <cubez/nuklear.h>
+#include <cubez/render.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL_events.h>
@@ -30,7 +31,6 @@
 #include <SDL2/SDL_mouse.h>
 
 #include "input_internal.h"
-#include "gui_internal.h"
 #include "nuklear_sdl_gl3.h"
 
 qbEvent keyboard_event;
@@ -189,7 +189,7 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
         qb_window_resize(e.window.data1, e.window.data2);
         on_resize(resize_arg, (uint32_t)e.window.data1, (uint32_t)e.window.data2);
       } else if (e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
-        qb_window_setfullscreen(QB_WINDOW_FULLSCREEN_DESKTOP);
+        qb_window_setfullscreen(QB_FULLSCREEN_TYPE_BORDERLESS);
       }
     }
 
@@ -266,8 +266,7 @@ qbBool qb_mouse_ispressed(qbButton mouse_button) {
 }
 
 void qb_mouse_getposition(int* x, int* y) {
-  if (x) *x = mouse_x;
-  if (y) *y = mouse_y;
+  SDL_GetMouseState(x, y);
 }
 
 void qb_mouse_getrelposition(int* relx, int* rely) {
@@ -281,6 +280,14 @@ int qb_mouse_setrelative(int enabled) {
 
 int qb_mouse_getrelative() {
   return (int)SDL_GetRelativeMouseMode();
+}
+
+int qb_mouse_setcapture(qbBool is_captured) {
+  return (int)SDL_CaptureMouse((SDL_bool)is_captured);
+}
+
+int qb_mouse_globalposition(int* x, int* y) {
+  return (int)SDL_GetGlobalMouseState(x, y);
 }
 
 void qb_mouse_getwheel(int* scroll_x, int* scroll_y) {

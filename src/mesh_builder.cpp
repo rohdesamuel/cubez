@@ -821,7 +821,9 @@ qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbDrawMode mode,
   if (mesh) {
     *mesh = builder->builder.Mesh(mode);
     qbRenderer r = qb_renderer();
-    r->mesh_create(r, *mesh);
+    if (r) {
+      r->mesh_create(r, *mesh);
+    }
   }
 
   if (collider) {
