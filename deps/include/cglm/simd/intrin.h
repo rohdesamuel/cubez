@@ -34,7 +34,7 @@
 #endif
 
 #if defined(__SSE3__)
-#  include <x86intrin.h>
+#  include <immintrin.h>
 #  ifndef CGLM_SIMD_x86
 #    define CGLM_SIMD_x86
 #  endif
