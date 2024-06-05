@@ -748,6 +748,8 @@ QB_API void qb_mouse_getwheel(int* scroll_x, int* scroll_y);
 
 QB_API int qb_mouse_setrelative(int enabled);
 QB_API int qb_mouse_getrelative();
+QB_API int qb_mouse_setcapture(qbBool is_captured);
+QB_API int qb_mouse_globalposition(int* x, int* y);
 
 QB_API int qb_mouse_setshow(qbBool enable);
 QB_API int qb_mouse_getshow(qbBool enable);
