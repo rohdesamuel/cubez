@@ -17,7 +17,7 @@
 */
 
 #include <cubez/async.h>
-#include <cubez/utils.h>
+#include <cubez/time.h>
 #include <cubez/log.h>
 #include <iostream>
 #include <cstring>

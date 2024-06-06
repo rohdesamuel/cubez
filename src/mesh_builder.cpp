@@ -20,7 +20,7 @@
 #include "collision_utils.h"
 #include "quickhull.h"
 
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 
 #include <GL/glew.h>
 #include <algorithm>

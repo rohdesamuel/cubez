@@ -17,9 +17,10 @@
 */
 
 #include <cubez/cubez.h>
-#include <cubez/utils.h>
+#include <cubez/draw.h>
+#include <cubez/time.h>
 #include <cubez/random.h>
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 #include <cubez/audio.h>
 #include <cubez/socket.h>
 #include <cubez/struct.h>

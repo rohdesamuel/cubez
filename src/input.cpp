@@ -23,7 +23,7 @@
 
 #include <cubez/gui.h>
 #include <cubez/nuklear.h>
-#include <cubez/render.h>
+#include <cubez/window.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL_events.h>

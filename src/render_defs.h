@@ -21,7 +21,7 @@
 
 #include <vector>
 
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/mesh.h>
 

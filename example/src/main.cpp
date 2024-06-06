@@ -1,9 +1,11 @@
 #include <cubez/cubez.h>
-#include <cubez/utils.h>
+#include <cubez/time.h>
 #include <cubez/log.h>
 #include <cubez/mesh.h>
 #include <cubez/input.h>
-#include <cubez/render.h>
+#include <cubez/camera.h>
+#include <cubez/renderer.h>
+#include <cubez/window.h>
 #include <cubez/audio.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/gui.h>
@@ -626,25 +628,25 @@ void on_update(uint64_t frame, qbVar) {
   }
 
   if (qb_key_ispressed(qbKey::QB_KEY_SPACE)) {
-    float constant = (float)(rand() % 1000) / 100.f;
-    float linear = (float)(rand() % 1000) / 10000.f;
-    float quadratic = (float)(rand() % 1000) / 1000000.f;
-    float lightMax = 1.f;
-    float radius =
-      (-linear + std::sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 1.0) * lightMax)))
-      / (2 * quadratic);
-    for (int i = 0; i < 32; ++i) {
+float constant = (float)(rand() % 1000) / 100.f;
+float linear = (float)(rand() % 1000) / 10000.f;
+float quadratic = (float)(rand() % 1000) / 1000000.f;
+float lightMax = 1.f;
+float radius =
+(-linear + std::sqrtf(linear * linear - 4 * quadratic * (constant - (256.0 / 1.0) * lightMax)))
+/ (2 * quadratic);
+for (int i = 0; i < 32; ++i) {
 
-      float x = (float)(qb_rand() % qb_window_width());
-      float y = (float)(qb_rand() % qb_window_height());
-      float z = (float)(qb_rand() % 2000) - 1000.f;
+  float x = (float)(qb_rand() % qb_window_width());
+  float y = (float)(qb_rand() % qb_window_height());
+  float z = (float)(qb_rand() % 2000) - 1000.f;
 
-      float r = (float)(qb_rand() % 10000) / 10000.f;
-      float g = (float)(qb_rand() % 10000) / 10000.f;
-      float b = (float)(qb_rand() % 10000) / 10000.f;
+  float r = (float)(qb_rand() % 10000) / 10000.f;
+  float g = (float)(qb_rand() % 10000) / 10000.f;
+  float b = (float)(qb_rand() % 10000) / 10000.f;
 
-      qb_light_point(i, { r, g, b }, { x, y, z }, linear, quadratic, radius);
-    }
+  qb_light_point(i, { r, g, b }, { x, y, z }, linear, quadratic, radius);
+}
   }
 
   if (qb_key_ispressed(qbKey::QB_KEY_1)) {
@@ -664,7 +666,7 @@ void on_update(uint64_t frame, qbVar) {
   }
 
   int mouse_x, mouse_y;
-  qb_mouse_getposition(&mouse_x, &mouse_y);  
+  qb_mouse_getposition(&mouse_x, &mouse_y);
 
   if (qb_mouse_ispressed(QB_BUTTON_RIGHT)) {
     int relx, rely;
@@ -725,8 +727,21 @@ void on_update(uint64_t frame, qbVar) {
 }
 
 void on_fixedupdate(uint64_t frame, qbVar) {
+  static bool f_is_pressed = false;
+  if (!f_is_pressed && qb_key_ispressed(qbKey::QB_KEY_F)) {
+    f_is_pressed = true;
+    if (qb_window_fullscreen() == QB_FULLSCREEN_TYPE_WINDOWED) {
+      qb_window_setfullscreen(QB_FULLSCREEN_TYPE_BORDERLESS);      
+    } else {
+      qb_window_setfullscreen(QB_FULLSCREEN_TYPE_WINDOWED);
+    }
+  } else if (!qb_key_ispressed(qbKey::QB_KEY_F)) {
+    f_is_pressed = false;
+  }
+
+
   static struct nk_colorf bg {
-    .r = 0.10f, .g = 0.18f, .b = 0.24f, .a = 1.0f
+    .r = 1.0f, .g = 0.f, .b = 1.f, .a = 1.0f
   };
 
   auto ctx = nk_ctx();
@@ -830,7 +845,7 @@ void make_nodes(const earthgen::Planet& planet, int radius, const earthgen::Tile
   make_nodes_recur(planet, radius, seed, nodes);
 };
 
-int main(int, char* []) {
+int qb_main(int argc, char* argv[]) {
   qbUniverse uni = {};
 
   uint64_t seed = 1234;
@@ -840,7 +855,8 @@ int main(int, char* []) {
   initialize_universe(&uni);
   qb_start();
 
-  //qb_window_settransparencycolor({1.f, 0.f, 1.f});
+  qb_window_settransparencycolor({0.f, 0.f, 0.f});
+  qb_window_setbordered(QB_FALSE);
 
   //qb_mouse_setshow(QB_FALSE);
 
@@ -1067,7 +1083,7 @@ int main(int, char* []) {
   {
     qbDrawCommands d = qb_draw_begin();
 
-    qb_draw_colorf(d, 1.f, 1.f, 1.f);
+    qb_draw_colorf(d, 1.f, 0.f, 1.f);
 
     qb_draw_material(d, &white_shiny);
     qb_draw_identity(d);
@@ -1111,7 +1127,7 @@ int main(int, char* []) {
   };
 
   float x = 600.f;
-  while (qb_loop(&callbacks, &args) != QB_DONE) {
+  while (qb_running()) {
     x += 1.f;
     if (x >= (float)qb_window_width() + 5.f) {
       x = -5.f;
@@ -1119,8 +1135,12 @@ int main(int, char* []) {
       x = (float)qb_window_width() + 5.f;
     }
 
-    qb_sprite_draw(test_sprite, vec2s{ 32, 32 });
-    qb_sprite_draw(test_animation_sprite, vec2s{ x, 100 });
+    //qb_sprite_draw(test_sprite, vec2s{ 32, 32 });
+    test_animation_sprite->offset = { qb_sprite_width(test_animation_sprite) / 1.f, qb_sprite_height(test_animation_sprite) / 1.f};
+    //qb_sprite_draw_ext(test_animation_sprite, { x, 100 } , { ((int)x % 100) / 100.f, ((int)x % 100) / 100.f }, x / 100.f, GLMS_VEC4_ONE_INIT);
+    float s = 2.f; // ((int)x % 100) / 100.f
+    float rot = x / 50.f;
+    qb_sprite_draw_ext(test_animation_sprite, { 100, 100 }, { s, s }, rot, GLMS_VEC4_ONE_INIT);
 
     qbClearValue_ clear{};
     clear.color = { 1.f, 1.f, 1.f, 1.f };
@@ -1362,5 +1382,9 @@ int main(int, char* []) {
 
       qb_log(QB_INFO, "%f: %f", (float)timing_info.total_elapsed_ns, (float)timing_info.render_fps);
     }
+
+    qb_loop(&callbacks, &args);
   }
+
+  return 0;
 }

@@ -17,7 +17,7 @@
 */
 
 #include <cubez/mesh.h>
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 #include "mesh_builder.h"
 #include "shader.h"
 

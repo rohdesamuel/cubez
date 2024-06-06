@@ -16,14 +16,17 @@
 * limitations under the License.
 */
 
-#include <cubez/render.h>
+#include <cubez/draw.h>
+#include <cubez/renderer.h>
 #include <cubez/input.h>
+#include <cubez/camera.h>
 #include "shader.h"
 #include "render_internal.h"
 #include "nuklear_sdl_gl3.h"
 #include <cubez/nuklear.h>
 
 #include <cubez/gui.h>
+#include <cubez/window.h>
 #include <cubez/sprite.h>
 #include "inline_shaders.h"
 #include "sprite_internal.h"
@@ -246,13 +249,6 @@ void render_initialize(RenderSettings* settings) {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
     qb_component_create(&qb_renderable_, "qbRenderable", attr);
-    qb_componentattr_destroy(&attr);
-  }
-  {
-    qbComponentAttr attr;
-    qb_componentattr_create(&attr);
-    qb_componentattr_setdatatype(attr, qbModelGroup);
-    qb_component_create(&qb_modelgroup_, "qbModelgroup", attr);
     qb_componentattr_destroy(&attr);
   }
   {

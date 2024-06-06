@@ -154,6 +154,13 @@ QB_API qbResult qb_collider_destroy(qbCollider* collider);
 QB_API qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const char* material_name);
 QB_API qbResult qb_material_destroy(qbMaterial* material);
 
+typedef struct qbTransform_ {
+  vec3s offset;
+  vec3s position;
+  mat4s orientation;
+  vec3s scale;
+} qbTransform_, * qbTransform;
+
 QB_API qbBool qb_collider_check(const qbCollider_* a, const qbCollider_* b,
                               const qbTransform_* a_t, const qbTransform_* b_t);
 

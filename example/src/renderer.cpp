@@ -3,7 +3,9 @@
 #include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/mesh.h>
-#include <cubez/render.h>
+#include <cubez/renderer.h>
+#include <cubez/camera.h>
+#include <cubez/window.h>
 #include <cubez/draw.h>
 #include <cubez/memory.h>
 #include <cubez/log.h>

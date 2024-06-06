@@ -1,6 +1,6 @@
 #include "lua_draw_bindings.h"
 #include "lua_common.h"
-#include <cubez/render.h>
+#include <cubez/window.h>
 
 extern "C" {
 #include <lua/lua.h>

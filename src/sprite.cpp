@@ -1,4 +1,3 @@
-#include <cubez/render.h>
 #include <cubez/memory.h>
 #include <cubez/sprite.h>
 #include <cubez/render_pipeline.h>

@@ -2,7 +2,6 @@
 #include <cubez/cubez.h>
 #include <cubez/input.h>
 #include <cubez/render_pipeline.h>
-#include <cubez/render.h>
 #include <cubez/mesh.h>
 #include <cglm/struct.h>
 

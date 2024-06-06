@@ -22,7 +22,7 @@
 #include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/mesh.h>
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 
 typedef struct qbDefaultRenderer_* qbDefaultRenderer;
 

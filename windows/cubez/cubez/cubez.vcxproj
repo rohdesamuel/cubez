@@ -266,7 +266,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=0" /D "_SECURE_SCL=0" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -283,6 +283,7 @@
     <ClInclude Include="..\..\..\include\cubez\async.h" />
     <ClInclude Include="..\..\..\include\cubez\audio.h" />
     <ClInclude Include="..\..\..\include\cubez\buffer.h" />
+    <ClInclude Include="..\..\..\include\cubez\camera.h" />
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
     <ClInclude Include="..\..\..\include\cubez\draw.h" />
@@ -294,14 +295,14 @@
     <ClInclude Include="..\..\..\include\cubez\network.h" />
     <ClInclude Include="..\..\..\include\cubez\nuklear.h" />
     <ClInclude Include="..\..\..\include\cubez\random.h" />
-    <ClInclude Include="..\..\..\include\cubez\render.h" />
     <ClInclude Include="..\..\..\include\cubez\renderer.h" />
     <ClInclude Include="..\..\..\include\cubez\render_pipeline.h" />
     <ClInclude Include="..\..\..\include\cubez\socket.h" />
     <ClInclude Include="..\..\..\include\cubez\sprite.h" />
     <ClInclude Include="..\..\..\include\cubez\struct.h" />
-    <ClInclude Include="..\..\..\include\cubez\utils.h" />
+    <ClInclude Include="..\..\..\include\cubez\time.h" />
     <ClInclude Include="..\..\..\include\cubez\var.h" />
+    <ClInclude Include="..\..\..\include\cubez\window.h" />
     <ClInclude Include="..\..\..\src\async_internal.h" />
     <ClInclude Include="..\..\..\src\audio_internal.h" />
     <ClInclude Include="..\..\..\src\barrier.h" />
@@ -326,12 +327,9 @@
     <ClInclude Include="..\..\..\src\event_registry.h" />
     <ClInclude Include="..\..\..\src\fast_math.h" />
     <ClInclude Include="..\..\..\src\finally.h" />
-    <ClInclude Include="..\..\..\src\font_registry.h" />
-    <ClInclude Include="..\..\..\src\font_render.h" />
     <ClInclude Include="..\..\..\src\game_state.h" />
     <ClInclude Include="..\..\..\src\gl_render_pipeline_defs.h" />
     <ClInclude Include="..\..\..\src\gl_translate_utils.h" />
-    <ClInclude Include="..\..\..\src\gui_internal.h" />
     <ClInclude Include="..\..\..\src\input_internal.h" />
     <ClInclude Include="..\..\..\src\instance_registry.h" />
     <ClInclude Include="..\..\..\src\log_internal.h" />
@@ -340,7 +338,6 @@
     <ClInclude Include="..\..\..\src\lua_common.h" />
     <ClInclude Include="..\..\..\src\lua_cubez_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_draw_bindings.h" />
-    <ClInclude Include="..\..\..\src\lua_gui_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_input_bindings.h" />
     <ClInclude Include="..\..\..\src\lua_sprite_bindings.h" />
     <ClInclude Include="..\..\..\src\mem-pool\internals.h" />
@@ -356,7 +353,6 @@
     <ClInclude Include="..\..\..\src\query.h" />
     <ClInclude Include="..\..\..\src\quickhull.h" />
     <ClInclude Include="..\..\..\src\render_commands.h" />
-    <ClInclude Include="..\..\..\src\render_defs.h" />
     <ClInclude Include="..\..\..\src\render_internal.h" />
     <ClInclude Include="..\..\..\src\render_pipeline_defs.h" />
     <ClInclude Include="..\..\..\src\shader.h" />
@@ -413,8 +409,6 @@
     <ClCompile Include="..\..\..\src\event.cpp" />
     <ClCompile Include="..\..\..\src\event_registry.cpp" />
     <ClCompile Include="..\..\..\src\fast_math.cpp" />
-    <ClCompile Include="..\..\..\src\font_registry.cpp" />
-    <ClCompile Include="..\..\..\src\font_render.cpp" />
     <ClCompile Include="..\..\..\src\game_state.cpp" />
     <ClCompile Include="..\..\..\src\gl_translate_utils.cpp" />
     <ClCompile Include="..\..\..\src\gui.cpp" />
@@ -426,7 +420,6 @@
     <ClCompile Include="..\..\..\src\lua_common.cpp" />
     <ClCompile Include="..\..\..\src\lua_cubez_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_draw_bindings.cpp" />
-    <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_input_bindings.cpp" />
     <ClCompile Include="..\..\..\src\lua_sprite_bindings.cpp" />
     <ClCompile Include="..\..\..\src\mem-pool\buffer.cpp" />
@@ -466,10 +459,10 @@
     <ClCompile Include="..\..\..\src\thread_pool.cpp" />
     <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp" />
     <ClCompile Include="..\..\..\src\utf8.cpp" />
-    <ClCompile Include="..\..\..\src\utils.cpp" />
+    <ClCompile Include="..\..\..\src\time.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="lua.md" />
+    <None Include="..\..\..\docs\lua.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -22,7 +22,69 @@
 #include <cubez/cubez.h>
 #include <cubez/render_pipeline.h>
 #include <cubez/mesh.h>
-#include <cubez/render.h>
+
+typedef struct qbRenderer_ {
+  void(*render)(struct qbRenderer_* self, qbRenderEvent event);
+  void(*resize)(struct qbRenderer_* self, uint32_t width, uint32_t height);
+
+  qbResult(*draw_beginframe)(struct qbRenderer_* self, const struct qbCamera_* camera, qbClearValue clear);
+  qbResult(*drawcommands_submit)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds);
+  qbDrawCommandBuffer* (*drawcommands_compile)(struct qbRenderer_* self, size_t count, struct qbDrawCommand_* cmds, struct qbDrawCompileAttr_* attr, uint32_t* frame_count);
+
+  void(*light_enable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_disable)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  bool(*light_isenabled)(struct qbRenderer_* self, qbId id, enum qbLightType type);
+  void(*light_directional)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s dir, float brightness);
+  void(*light_point)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s pos, float linear, float quadratic, float radius);
+  void(*light_spot)(struct qbRenderer_* self, qbId id, vec3s rgb,
+    vec3s pos, vec3s dir, float brightness,
+    float radius, float angle_deg);
+  size_t(*light_max)(struct qbRenderer_* self, enum qbLightType light_type);
+
+  void(*mesh_create)(struct qbRenderer_* self, struct qbMesh_* mesh);
+  void(*mesh_destroy)(struct qbRenderer_* self, struct qbMesh_* mesh);
+
+  const char* title;
+  qbRenderPipeline render_pipeline;
+
+  void* state;
+} qbRenderer_, * qbRenderer;
+
+typedef struct qbRendererAttr_ {
+  struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
+  void(*destroy_renderer)(struct qbRenderer_* renderer);
+
+  // A list of any new uniforms to be used in the shader. The bindings should
+  // start at 0. These should not include any texture sampler uniforms. For
+  // those, use the image_samplers value.
+  qbShaderResourceBinding shader_resources;
+  uint32_t shader_resource_count;
+
+  // The bindings should start at 0. These should not include any texture
+  // sampler uniforms. For those, use the image_samplers value.
+  // Unimplemented.
+  qbGpuBuffer* uniforms;
+  uint32_t* uniform_bindings;
+  uint32_t uniform_count;
+
+  // A list of any new texture samplers to be used in the shader. This will
+  // automatically create all necessary qbShaderResourceInfos. Do not create
+  // individual qbShaderResourceInfos for the given samplers.
+  qbImageSampler* image_samplers;
+  uint32_t image_sampler_count;
+
+  // An optional renderpass to draw the gui.
+  qbRenderPass opt_gui_renderpass;
+
+  // An optional present pass to draw the final frame.
+  qbRenderPass opt_present_renderpass;
+
+  // Optional arguments to pass to the create_renderer function.
+  void* opt_args;
+
+} qbRendererAttr_, * qbRendererAttr;
 
 typedef struct qbDefaultRenderer_* qbDefaultRenderer;
 
@@ -33,5 +95,7 @@ typedef struct qbDefaultRendererAttr_ {
 
 qbRenderer qb_defaultrenderer_create(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
 void qb_defaultrenderer_destroy(qbRenderer renderer);
+
+QB_API qbRenderer qb_renderer();
 
 #endif

@@ -144,9 +144,6 @@
     <ClInclude Include="..\..\..\src\instance_registry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\gui.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\input.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
@@ -162,17 +159,11 @@
     <ClInclude Include="..\..\..\include\cubez\cubez.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\utils.h">
+    <ClInclude Include="..\..\..\include\cubez\time.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\log_internal.h">
       <Filter>Header Files\cubez</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\font_registry.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\font_render.h">
-      <Filter>Header Files\rendering</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\shader.h">
       <Filter>Header Files\rendering</Filter>
@@ -182,12 +173,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\collision_utils.h">
       <Filter>Header Files\rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\render_defs.h">
-      <Filter>Header Files\rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\audio.h">
-      <Filter>Header Files\audio</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\audio_internal.h">
       <Filter>Header Files\audio</Filter>
@@ -232,9 +217,6 @@
       <Filter>Header Files\lua</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\lua_draw_bindings.h">
-      <Filter>Header Files\lua</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\lua_gui_bindings.h">
       <Filter>Header Files\lua</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\lua_audio_bindings.h">
@@ -297,9 +279,6 @@
     <ClInclude Include="..\..\..\include\cubez\renderer.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\include\cubez\render.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\render_internal.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
@@ -314,9 +293,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\memory_internal.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\gui_internal.h">
-      <Filter>Header Files\rendering</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\input_internal.h">
       <Filter>Header Files</Filter>
@@ -347,6 +323,18 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\nuklear_sdl_gl3.h">
       <Filter>Header Files\rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\gui.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\window.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\audio.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\camera.h">
+      <Filter>Header Files\cubez</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -401,7 +389,7 @@
     <ClCompile Include="..\..\..\src\task.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\utils.cpp">
+    <ClCompile Include="..\..\..\src\time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\coro_scheduler.cpp">
@@ -417,15 +405,6 @@
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\shader.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\font_registry.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\font_render.cpp">
-      <Filter>Source Files\rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\gui.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\mesh_builder.cpp">
@@ -545,9 +524,6 @@
     <ClCompile Include="..\..\..\src\lua_input_bindings.cpp">
       <Filter>Source Files\lua</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\lua_gui_bindings.cpp">
-      <Filter>Source Files\lua</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\utf8.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -614,9 +590,12 @@
     <ClCompile Include="..\..\..\src\log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\gui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="lua.md">
+    <None Include="..\..\..\docs\lua.md">
       <Filter>Docs</Filter>
     </None>
   </ItemGroup>

@@ -3,7 +3,7 @@
 #include <cglm/struct.h>
 
 #include <cubez/memory.h>
-#include <cubez/render.h>
+#include <cubez/renderer.h>
 #include <vector>
 
 size_t MAX_DRAW_COMMANDS = 1024;

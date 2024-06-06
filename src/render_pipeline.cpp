@@ -34,8 +34,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cubez/render.h>
-#include <cubez/utils.h>
+#include <cubez/time.h>
 #include <vector>
 #include <assert.h>
 

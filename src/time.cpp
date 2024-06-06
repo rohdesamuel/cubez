@@ -16,7 +16,7 @@
 * limitations under the License.
 */
 
-#include <cubez/utils.h>
+#include <cubez/time.h>
 #include "utils_internal.h"
 
 #include <algorithm>

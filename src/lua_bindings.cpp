@@ -18,7 +18,7 @@
 
 #include <cubez/common.h>
 #include <cubez/cubez.h>
-#include <cubez/render.h>
+#include <cubez/window.h>
 #include "component_registry.h"
 #include "lua_bindings.h"
 #include "lua_common.h"

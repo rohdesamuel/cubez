@@ -8,6 +8,7 @@
 typedef struct qbDrawCommands_* qbDrawCommands;
 typedef struct qbCommandBatch_* qbCommandBatch;
 typedef struct qbDrawBatch_* qbDrawBatch;
+typedef struct qbRenderer_* qbRenderer;
 
 // Should be called once per frame.
 QB_API qbResult qb_draw_beginframe(const struct qbCamera_* camera, qbClearValue clear);
@@ -173,5 +174,45 @@ typedef struct qbDrawCommand_ {
   qbDrawCommandArgs_ args;
 
 } qbDrawCommand_, *qbDrawCommand;
+
+typedef struct qbRenderEvent_ {
+  double alpha;
+  double dt;
+  uint64_t frame;
+
+  qbRenderer renderer;
+} qbRenderEvent_, * qbRenderEvent;
+
+enum qbLightType {
+  QB_LIGHT_TYPE_DIRECTIONAL,
+  QB_LIGHT_TYPE_SPOTLIGHT,
+  QB_LIGHT_TYPE_POINT,
+};
+
+QB_API void qb_light_enable(qbId id, qbLightType light_type);
+QB_API void qb_light_disable(qbId id, qbLightType light_type);
+QB_API bool qb_light_isenabled(qbId id, qbLightType light_type);
+
+QB_API void qb_light_directional(qbId id, vec3s rgb, vec3s dir, float brightness);
+QB_API void qb_light_point(qbId id, vec3s rgb, vec3s pos, float linear, float quadratic, float radius);
+
+QB_API size_t qb_light_getmax(qbLightType light_type);
+
+QB_API qbEvent qb_render_event();
+
+// Component type: tag
+QB_API qbComponent qb_renderable();
+
+// Component type: qbModelGroup
+QB_API qbComponent qb_modelgroup();
+
+// Component type: qbMaterial
+QB_API qbComponent qb_material();
+
+// Component type: qbTransform_
+QB_API qbComponent qb_transform();
+
+// Component type: qbCollider_
+QB_API qbComponent qb_collider();
 
 #endif  // CUBEZ_DRAW__H
