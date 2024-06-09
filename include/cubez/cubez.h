@@ -19,8 +19,8 @@
 #ifndef CUBEZ__H
 #define CUBEZ__H
 
-#define QB_MAJOR_VERSION 0
-#define QB_MINOR_VERSION 0
+#define QB_MAJOR_VERSION 1
+#define QB_MINOR_VERSION 1
 #define QB_PATCH_VERSION 0
 
 #include <cubez/common.h>
