@@ -17,6 +17,7 @@
 */
 
 #include <cubez/audio.h>
+#include <cubez/log.h>
 
 #include <atomic>
 #include <chrono>
@@ -40,6 +41,10 @@ cs_context_t* ctx;
 typedef struct qbAudioBuffer_ {
   qbId id;
   cs_loaded_sound_t loaded;
+
+  float volume;
+  float pan;
+  qbBool loop;
 } qbAudioBuffer_, *qbAudioBuffer;
 
 typedef struct qbAudioPlaying_ {
@@ -110,30 +115,38 @@ void audio_shutdown() {
   cs_shutdown_context(ctx);
 }
 
-qbAudioBuffer qb_audio_loadwav(const char* file) {
+qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr) {
   fs::path path = fs::path(qb_resources()->dir) / fs::path(qb_resources()->sounds) / file;
   if (fs::exists(path)) {
     std::lock_guard<decltype(loaded_mu_)> l(loaded_mu_);
     qbAudioBuffer ret = new qbAudioBuffer_{ sound_id, cs_load_wav(path.string().c_str()) };
+
+    if (opt_attr) {
+      ret->volume = opt_attr->volume;
+      ret->pan = opt_attr->pan;
+      ret->loop = opt_attr->loop;
+    } else {
+      ret->volume = 1.f;
+      ret->pan = 0.5f;
+      ret->loop = false;
+    }
+
     loaded_.insert(ret);
     return ret;
   } else {
-    std::cerr << "Could not load sound: \"" << path << "\"";
+    std::string p = path.string();
+    qb_log(QB_ERR, "Could not load sound: \"%s\"", p.c_str());
   }
   return nullptr;
 }
 
 void qb_audio_free(qbAudioBuffer loaded) {
   cs_free_sound(&loaded->loaded);
-
+  
   {
     std::lock_guard<decltype(loaded_mu_)> l(loaded_mu_);
     loaded_.erase(loaded);
   }
-}
-
-size_t qb_audio_getsize(qbAudioBuffer loaded) {
-  return (size_t)cs_sound_size(&loaded->loaded);
 }
 
 qbHandle qb_audio_play(qbAudioBuffer loaded) {
@@ -144,6 +157,11 @@ qbHandle qb_audio_play(qbAudioBuffer loaded) {
     id = sound_id++;
     sound = new qbAudioPlaying_{ sound_id, cs_make_playing_sound(&loaded->loaded), 1, loaded };
     sounds_[id] = sound;
+  }
+  cs_set_volume(&sound->playing, loaded->volume, loaded->volume);
+  cs_set_pan(&sound->playing, loaded->pan);
+  if (loaded->loop) {
+    cs_loop_sound(&sound->playing, loaded->loop);
   }
   cs_insert_sound(ctx, &sound->playing);
 
@@ -156,7 +174,7 @@ void qb_audio_stop(qbHandle playing) {
   auto found = sounds_.find(playing);
   if (found != sounds_.end()) {
     cs_playing_sound_t* playing = &found->second->playing;
-    if (!cs_is_active(playing)) {
+    if (cs_is_active(playing)) {
       cs_stop_sound(&found->second->playing);
     }
   }
@@ -191,7 +209,19 @@ void qb_audio_pause(qbHandle playing) {
   if (found != sounds_.end()) {
     cs_playing_sound_t* playing = &found->second->playing;
     if (cs_is_active(playing)) {
-      cs_pause_sound(playing, playing->paused);
+      cs_pause_sound(playing, 1);
+    }
+  }
+}
+
+void qb_audio_unpause(qbHandle playing) {
+  std::lock_guard<decltype(sounds_mu_)> l(sounds_mu_);
+
+  auto found = sounds_.find(playing);
+  if (found != sounds_.end()) {
+    cs_playing_sound_t* playing = &found->second->playing;
+    if (cs_is_active(playing)) {
+      cs_pause_sound(playing, 0);
     }
   }
 }
@@ -208,18 +238,24 @@ void qb_audio_setpan(qbHandle playing, float pan) {
   }
 }
 
-void qb_audio_setvolume(qbHandle playing, float left, float right) {
+void qb_audio_setvolume(qbHandle playing, float volume) {
   std::lock_guard<decltype(sounds_mu_)> l(sounds_mu_);
 
   auto found = sounds_.find(playing);
   if (found != sounds_.end()) {
     cs_playing_sound_t* playing = &found->second->playing;
     if (cs_is_active(playing)) {
-      cs_set_volume(playing, left, right);
+      cs_set_volume(playing, volume, volume);
     }
   }
 }
 
 void qb_audio_stopall() {
-  cs_stop_all_sounds(ctx);
+  std::lock_guard<decltype(sounds_mu_)> l(sounds_mu_);
+
+  for (auto& [_, s] : sounds_) {
+    if (cs_is_active(&s->playing)) {
+      cs_stop_sound(&s->playing);
+    }    
+  }
 }

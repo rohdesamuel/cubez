@@ -26,8 +26,8 @@
 Example:
 
 qbAudioBuffer jump_wav = qb_audio_loadwav("resources/jump.wav");
-qbAudioPlaying jump = qb_audio_upload(jump_wav);
-qb_audio_play(jump);
+qbHandle jump_playing = qb_audio_play(jump_wav);
+qb_audio_setvolume(jump_playing, 0.4f, 0.4f);
 ...
 
 // Stops the wav and frees the audio.
@@ -47,20 +47,51 @@ typedef struct qbAudioAttr_ {
 
 typedef struct qbAudioBuffer_ *qbAudioBuffer;
 
-// Loads the WAV file in the resources directory.
-QB_API qbAudioBuffer qb_audio_loadwav(const char* file);
 
+typedef struct qbAudioLoadAttr_ {
+  // Sets the volums for the sound, 0.f for quiet, 1.f for full volume.
+  // Default 1.f
+  float volume;
+
+  // Sets the pan, 0.f for full left, 1.f for full right.
+  // Default 0.5f
+  float pan;
+
+  // Enables looping.
+  // Default QB_FALSE
+  qbBool loop;
+} qbAudioLoadAttr_, *qbAudioLoadAttr;
+// Loads the WAV file in the resources directory. Returns NULL if file is not found.
+QB_API qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr);
 QB_API void qb_audio_free(qbAudioBuffer loaded);
-QB_API size_t qb_audio_getsize(qbAudioBuffer loaded);
 
+// Starts playing the loaded sound. The pan, volume, and loop defaults are set
+// from the loaded sample. This can be overridden when the sample is playing
+// without changing other playing samples.
 QB_API qbHandle qb_audio_play(qbAudioBuffer loaded);
+
+// Stops playing the sample.
 QB_API void qb_audio_stop(qbHandle playing);
-QB_API void qb_audio_loop(qbHandle playing, int enable_looping);
+
+// Pauses the playing sample.
 QB_API void qb_audio_pause(qbHandle playing);
+
+// Unpases the playing sample.
+QB_API void qb_audio_unpause(qbHandle playing);
+
+// Sets looping the sample.
+QB_API void qb_audio_loop(qbHandle playing, int enable_looping);
+
+// Sets the pan of the sample, 0.f for left, 1.f for right.
 QB_API void qb_audio_setpan(qbHandle playing, float pan);
-QB_API void qb_audio_setvolume(qbHandle playing, float left, float right);
+
+// Sets the volume of the sample.
+QB_API void qb_audio_setvolume(qbHandle playing, float volume);
+
+// Returns true if the sample is playing, and false if it stopped.
 QB_API qbBool qb_audio_isplaying(qbHandle playing);
 
+// Stops playing all samples.
 QB_API void qb_audio_stopall();
 
 #endif  // CUBEZ_AUDIO__H
