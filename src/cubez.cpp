@@ -1331,6 +1331,17 @@ size_t qb_buffer_writes(qbBuffer buf, ptrdiff_t* pos, int16_t n) {
   return written;
 }
 
+size_t qb_buffer_writec(qbBuffer buf, ptrdiff_t* pos, uint8_t c) {
+  ptrdiff_t saved = *pos;
+
+  size_t written = qb_buffer_write(buf, pos, 1, &c);
+  if (written != 1) {
+    *pos = saved;
+    return 0;
+  }
+  return written;
+}
+
 size_t qb_buffer_writed(qbBuffer buf, ptrdiff_t* pos, double n) {
   ptrdiff_t saved = *pos;
 
@@ -1418,6 +1429,18 @@ size_t qb_buffer_reads(const qbBuffer_* buf, ptrdiff_t* pos, int16_t* n) {
   *n = qb_ntohs(*n);
 
   if (read != 2) {
+    *pos = saved;
+    return 0;
+  }
+
+  return read;
+}
+
+size_t qb_buffer_readc(const qbBuffer_* buf, ptrdiff_t* pos, uint8_t* c) {
+  ptrdiff_t saved = *pos;
+
+  size_t read = qb_buffer_read(buf, pos, 1, c);
+  if (read != 1) {
     *pos = saved;
     return 0;
   }
