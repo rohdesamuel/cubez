@@ -31,15 +31,28 @@ typedef struct qbCamera_ {
   float fov;
 
   vec3s eye;
-  mat4s view_mat;
+  mat4s view_mat; 
   mat4s projection_mat;
 } qbCamera_, * qbCamera;
 
+// Returns a camera with an orthographic projection. If just the orthographic
+// projection matrix is needed, use glms_ortho or glm_ortho from
+// <cglm/struct/cam.h> or <cglm/cam.h>, respectively.
 QB_API qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s eye);
+
+// Returns a camera with a perspective projection. If just the perspective
+// projection matrix is needed, use glms_perspective or glm_perspective from
+// <cglm/struct/cam.h> or <cglm/cam.h>, respectively.
 QB_API qbCamera qb_camera_perspective(float fov, float aspect, float near, float far, vec3s eye, vec3s center, vec3s up);
-QB_API void qb_camera_resize(qbCamera camera, uint32_t width, uint32_t height);
+
+// Destroys the given camera.
 QB_API void qb_camera_destroy(qbCamera* camera);
+
+// Projects the screen space coordinates to the world as a normalized direction
+// vector.
 QB_API vec3s qb_camera_screentoworld(qbCamera camera, vec2s screen);
+
+// Projects the given world coordinates to screen space coordinates.
 QB_API vec2s qb_camera_worldtoscreen(qbCamera camera, vec3s world);
 
 #endif  // CUBEZ_CAMERA__H
