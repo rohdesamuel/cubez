@@ -14,7 +14,7 @@ int audio_loadwav(lua_State* L) {
 
   const char* f = lua_tostring(L, 1);
 
-  qbAudioBuffer buf = qb_audio_loadwav(f);
+  qbAudioBuffer buf = qb_audio_loadwav(f, nullptr);
   
   lua_pushlightuserdata(L, buf);
   return 1;
@@ -88,15 +88,9 @@ int audio_setvolume(lua_State* L) {
   int num_args = lua_gettop(L);
   if (num_args == 2 || lua_isnil(L, 3)) {
     qbId handle = lua_tointeger(L, 1);
-    double left = lua_tonumber(L, 2);
+    double vol = lua_tonumber(L, 2);
 
-    qb_audio_setvolume(handle, (float)left, (float)left);
-  } else if (num_args == 3) {
-    qbId handle = lua_tointeger(L, 1);
-    double left = lua_tonumber(L, 2);
-    double right = lua_tonumber(L, 3);
-
-    qb_audio_setvolume(handle, (float)left, (float)right);
+    qb_audio_setvolume(handle, (float)vol);
   }
 
   return 0;
