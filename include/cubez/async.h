@@ -56,6 +56,11 @@ QB_API qbBool   qb_task_isactive(qbTask task);
 
 typedef struct qbSemaphore_ *qbSemaphore;
 
+// Creates a thread synchronization method between tasks. Each semaphore starts
+// with an integer state of "0". Threads can wait on the semaphore's state to
+// be >= to a parameter (see qb_semaphore_wait). The tasks controlling the
+// semaphore can then signal to some integer waking up any tasks in the
+// process.
 QB_API void qb_semaphore_create(qbSemaphore* sem);
 QB_API void qb_semaphore_destroy(qbSemaphore* sem);
 
