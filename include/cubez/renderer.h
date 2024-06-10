@@ -55,35 +55,6 @@ typedef struct qbRenderer_ {
 typedef struct qbRendererAttr_ {
   struct qbRenderer_* (*create_renderer)(uint32_t width, uint32_t height, struct qbRendererAttr_* args);
   void(*destroy_renderer)(struct qbRenderer_* renderer);
-
-  // A list of any new uniforms to be used in the shader. The bindings should
-  // start at 0. These should not include any texture sampler uniforms. For
-  // those, use the image_samplers value.
-  qbShaderResourceBinding shader_resources;
-  uint32_t shader_resource_count;
-
-  // The bindings should start at 0. These should not include any texture
-  // sampler uniforms. For those, use the image_samplers value.
-  // Unimplemented.
-  qbGpuBuffer* uniforms;
-  uint32_t* uniform_bindings;
-  uint32_t uniform_count;
-
-  // A list of any new texture samplers to be used in the shader. This will
-  // automatically create all necessary qbShaderResourceInfos. Do not create
-  // individual qbShaderResourceInfos for the given samplers.
-  qbImageSampler* image_samplers;
-  uint32_t image_sampler_count;
-
-  // An optional renderpass to draw the gui.
-  qbRenderPass opt_gui_renderpass;
-
-  // An optional present pass to draw the final frame.
-  qbRenderPass opt_present_renderpass;
-
-  // Optional arguments to pass to the create_renderer function.
-  void* opt_args;
-
 } qbRendererAttr_, * qbRendererAttr;
 
 typedef struct qbDefaultRenderer_* qbDefaultRenderer;
