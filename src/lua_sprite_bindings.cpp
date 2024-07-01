@@ -14,7 +14,7 @@ int sprite_load(lua_State* L) {
 
   const char* f = lua_tostring(L, 1);
 
-  qbSprite sprite = qb_sprite_load(f);
+  qbSprite sprite = qb_sprite_load((utf8_t*)f);
 
   lua_pushlightuserdata(L, sprite);
   return 1;
@@ -31,7 +31,7 @@ int spritesheet_load(lua_State* L) {
   int th = lua_tointeger(L, 3);
   int margin = lua_tointeger(L, 4);
 
-  qbSprite sprite = qb_spritesheet_load(f, tw, th, margin);
+  qbSprite sprite = qb_spritesheet_load((utf8_t*)f, tw, th, margin);
 
   lua_pushlightuserdata(L, sprite);
   return 1;
@@ -346,7 +346,7 @@ int animation_loaddir(lua_State* L) {
   attr.repeat = repeat;
   attr.keyframe = (int)keyframe;
 
-  lua_pushlightuserdata(L, qb_spriteanimation_loaddir(dir, &attr));
+  lua_pushlightuserdata(L, qb_spriteanimation_loaddir((utf8_t*)dir, &attr));
 
   return 1;
 }

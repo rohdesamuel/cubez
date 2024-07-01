@@ -19,6 +19,8 @@
 #ifndef LOG_INTERNAL__H
 #define LOG_INTERNAL__H
 
-void log_initialize();
+#include <filesystem>
+
+void log_initialize(qbLoggingAttr_ log_attr);
 
 #endif  // LOG_INTERNAL__H

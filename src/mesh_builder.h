@@ -34,7 +34,7 @@ public:
     int v[4];
     int vn[4];
     int vt[4];
-
+    int32_t cols_idx;
     size_t count;
   };
 
@@ -43,18 +43,21 @@ public:
   static MeshBuilder Box(float x, float y, float z);
   static MeshBuilder Rect(float x, float y);
 
+  MeshBuilder(qbMeshBuilderAttr attr);
+
   int AddVertex(vec3s v);
   int AddVertexWithOffset(vec3s v, vec3s center);
   int AddTexture(vec2s vt);
   int AddNormal(vec3s vn);
+  int AddColor(float color[]);
   int AddFace(Face face);
   int AddFace(std::vector<vec3s>&& vertices,
               std::vector<vec2s>&& textures,
               std::vector<vec3s>&& normals);
-  int AddFace(int vertices[], int normals[], int uvs[]);
-  int AddLine(int vertices[], int normals[], int uvs[]);
+  int AddFace(int vertices[], int normals[], int uvs[], int cols[]);
+  int AddLine(int vertices[], int normals[], int uvs[], int cols[]);
 
-  qbCollider Collider(qbMesh mesh);
+  static qbCollider Collider(qbMesh mesh);
   qbModel Model(qbDrawMode render_mode);
   qbMesh Mesh(qbDrawMode render_mode);
 
@@ -66,6 +69,9 @@ private:
   std::vector<vec2s> vt_;
   std::vector<vec3s> vn_;
   std::vector<Face> f_;
+  std::vector<float> colors_;
+  std::vector<int> face_colors_;
+  int color_channels_;
 };
 
 #endif  // MESH_BUILDER__H

@@ -34,6 +34,29 @@ QB_API extern const char* QB_STD_ERR;
 #define qb_log(level, format, ...) \
   qb_log_ex(level, __FILE__, __LINE__, format, __VA_ARGS__)
 
+#define qb_info(format, ...) \
+  qb_log_ex(QB_INFO, __FILE__, __LINE__, format, __VA_ARGS__)
+
+#define qb_warn(format, ...) \
+  qb_log_ex(QB_WARN, __FILE__, __LINE__, format, __VA_ARGS__)
+
+#define qb_err(format, ...) \
+  qb_log_ex(QB_ERR, __FILE__, __LINE__, format, __VA_ARGS__)
+
+#ifdef __ENGINE_DEBUG__
+#ifdef __COMPILE_AS_WINDOWS__
+#define qb_fatal(format, ...) \
+  do { qb_log_ex(QB_ERR, __FILE__, __LINE__, format, __VA_ARGS__); qb_log_flush(); __debugbreak(); exit(-1); } while(0)
+#else
+#define qb_fatal(format, ...) \
+  do { qb_log_ex(QB_ERR, __FILE__, __LINE__, format, __VA_ARGS__); qb_log_flush(); exit(-1); } while (0)
+#endif
+#else
+#define qb_fatal(format, ...) \
+  do { qb_log_ex(QB_ERR, __FILE__, __LINE__, format, __VA_ARGS__); qb_log_flush(); exit(-1); } while (0)
+#endif
+
 QB_API void qb_log_ex(qbLogLevel level, const char* filename, uint64_t fileline, const char* format, ...);
+QB_API void qb_log_flush();
 
 #endif  // CUBEZ_LOG__H

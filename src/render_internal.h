@@ -22,7 +22,7 @@
 #include <cubez/render_pipeline.h>
 
 struct RenderSettings {
-  const char* title;
+  const utf8_t* title;
   int width;
   int height;
 
@@ -48,5 +48,7 @@ qbResult do_render(qbRenderEvent event,
   void(*on_render)(struct qbRenderEvent_*, qbVar),
   void(*on_postrender)(struct qbRenderEvent_*, qbVar),
   qbVar on_render_arg, qbVar on_postrender_arg);
+
+struct SDL_Window* render_curwindow();
 
 #endif  // RENDER_INTERNAL__H

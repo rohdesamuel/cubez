@@ -37,14 +37,6 @@
 
 #ifdef __ENGINE_DEBUG__
 
-#define DEBUG_ASSERT(expr, exit_code) \
-do{ if (!(expr)) { std::cerr << #expr << std::endl; exit(exit_code);} } while (0)
-
-#define DEBUG_OP(expr) do{ expr; } while(0)
-
-#define ASSERT_NOT_NULL(var) \
-DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
-
 #ifdef __COMPILE_AS_WINDOWS__
 #define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
 #define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
@@ -54,6 +46,14 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
   std::cin.get(); exit(-1); }
 #endif  // __COMPILE_AS_WINDOWS__
+
+#define DEBUG_ASSERT(expr, exit_code) \
+do{ if (!(expr)) { FATAL("Failed assertion: "#expr);} } while (0)
+
+#define DEBUG_OP(expr) do{ expr; } while(0)
+
+#define ASSERT_NOT_NULL(var) \
+DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #else
 
@@ -98,6 +98,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define SSCANF sscanf_s
 #define ALIGNED_ALLOC _aligned_malloc
 #define ALIGNED_FREE _aligned_free
+#define QB_PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
 #else
 #define QB_API extern "C"
 #define STRCPY strcpy
@@ -105,6 +106,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define SSCANF sscanf
 #define ALIGNED_ALLOC(size, alignment) aligned_alloc((alignment), (size))
 #define ALIGNED_FREE free
+#define QB_PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
 
 #ifndef __COMPILE_AS_WINDOWS__
@@ -117,7 +119,12 @@ typedef int qbBool;
 
 typedef int64_t qbOffset;
 typedef int64_t qbId;
-typedef char utf8_t;
+
+#ifdef __cplusplus
+typedef char8_t utf8_t;
+#else
+typedef uint8_t utf8_t;
+#endif
 
 // A handle is an id that refers to a piece of memory owned by the engine. The
 // data refered to by the id may be destroyed while the user still has the

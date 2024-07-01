@@ -50,7 +50,7 @@ typedef struct {
 
   union {
     void* p;
-    utf8_t* s;
+    char* s;
     int64_t i;
     uint64_t u;
     double d;
@@ -71,8 +71,8 @@ QB_API qbVar       qbDouble(double d);
 QB_API qbVar       qbStruct(qbSchema schema, void* buf);
 QB_API qbVar       qbArray(qbTag v_type);
 QB_API qbVar       qbMap(qbTag k_type, qbTag v_type);
-QB_API qbVar       qbString(const utf8_t* s);
-QB_API qbVar       qbCString(utf8_t* s);
+QB_API qbVar       qbString(const char* s);
+QB_API qbVar       qbCString(char* s);
 QB_API qbVar       qbBytes(const char* bytes, size_t size);
 
 QB_API qbRef       qb_ref_at(qbVar v, qbVar key);

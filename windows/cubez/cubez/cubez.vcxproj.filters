@@ -162,9 +162,6 @@
     <ClInclude Include="..\..\..\include\cubez\time.h">
       <Filter>Header Files\cubez</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\log_internal.h">
-      <Filter>Header Files\cubez</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\shader.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
@@ -306,12 +303,6 @@
     <ClInclude Include="..\..\..\src\render_commands.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\gl_translate_utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\gl_render_pipeline_defs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\render_pipeline_defs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -335,6 +326,12 @@
     </ClInclude>
     <ClInclude Include="..\..\..\include\cubez\camera.h">
       <Filter>Header Files\cubez</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\log_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\gl_translate_utils.h">
+      <Filter>Header Files\rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -578,9 +575,6 @@
     <ClCompile Include="..\..\..\src\paged_allocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\render_commands.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\gl_translate_utils.cpp">
       <Filter>Source Files\rendering</Filter>
     </ClCompile>
@@ -592,6 +586,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\gui.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\render_commands.cpp">
+      <Filter>Source Files\rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

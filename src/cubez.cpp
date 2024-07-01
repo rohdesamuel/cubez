@@ -27,6 +27,9 @@
 #include <cubez/input.h>
 #include <filesystem>
 #include <iomanip>
+#include <locale>
+#include <string>
+#include <codecvt>
 
 #include "defs.h"
 #include "private_universe.h"
@@ -65,6 +68,8 @@ qbTimer render_timer;
 CoroScheduler* coro_scheduler;
 Coro coro_main;
 
+std::u8string cwd_dir_str;
+fs::path cwd_dir;
 fs::path resource_dir;
 qbResourceAttr_ resource_attr{};
 
@@ -81,8 +86,23 @@ struct GameLoop {
   volatile std::atomic_bool is_running{ false };
 } game_loop;
 
+namespace {
+std::u8string wstring_to_utf8(const std::wstring& str) {
+  std::wstring_convert<std::codecvt_utf16<wchar_t>> to_utf16;
+  std::wstring_convert<std::codecvt_utf8_utf16<char16_t, 0x10ffff,
+    std::codecvt_mode::little_endian>, char16_t> to_utf8;
+
+  std::u16string utf16_str((char16_t*)to_utf16.to_bytes(str).data());
+  std::string utf8_str = to_utf8.to_bytes(utf16_str);
+
+  return std::u8string(utf8_str.begin(), utf8_str.end());
+}
+}
+
 qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   universe_ = u;
+  assert(u->argc > 0 && (u->argv || u->wargv) && "Must include the argc and argv during initialization.");
+
   u->enabled = attr->enabled;
 
   memory_initialize();
@@ -90,34 +110,47 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   coro_main = coro_initialize(u);
 
   {
-    resource_attr.dir = "resources";
-    resource_attr.fonts = "";
-    resource_attr.scripts = "";
-    resource_attr.sounds = "";
-    resource_attr.sprites = "";
-    resource_attr.meshes = "";
+    std::filesystem::path cwd;
+
+    if (__argv) {
+      std::u8string arg(u->argv[0], u->argv[0] + strlen(u->argv[0]));
+      cwd = arg;
+    } else {
+      std::wstring warg(u->wargv[0]);
+      std::u8string arg = wstring_to_utf8(warg);
+      cwd = arg;
+    }
+    cwd = cwd.remove_filename();
+
+    cwd_dir_str = cwd.u8string();
+    cwd_dir = cwd.u8string().c_str();
+
+    std::filesystem::path resource_path = cwd;
+
+    resource_attr.resources = u8"resources";
+    resource_attr.fonts = u8"";
+    resource_attr.scripts = u8"";
+    resource_attr.sounds = u8"";
+    resource_attr.images = u8"";
 
     if (attr->resource_args) {
-      resource_attr.dir = attr->resource_args->dir ?
-        STRDUP(attr->resource_args->dir) : resource_attr.dir;
+      resource_attr.resources = attr->resource_args->resources ?
+        (const utf8_t*)STRDUP((const char*)attr->resource_args->resources) : (const utf8_t*)resource_attr.resources;
 
       resource_attr.fonts = attr->resource_args->fonts ?
-        STRDUP(attr->resource_args->fonts) : resource_attr.fonts;
+        (const utf8_t*)STRDUP((const char*)attr->resource_args->fonts) : (const utf8_t*)resource_attr.fonts;
 
       resource_attr.scripts = attr->resource_args->scripts ?
-        STRDUP(attr->resource_args->scripts) : resource_attr.scripts;
+        (const utf8_t*)STRDUP((const char*)attr->resource_args->scripts) : (const utf8_t*)resource_attr.scripts;
 
       resource_attr.sounds = attr->resource_args->sounds ?
-        STRDUP(attr->resource_args->sounds) : resource_attr.sounds;
+        (const utf8_t*)STRDUP((const char*)attr->resource_args->sounds) : (const utf8_t*)resource_attr.sounds;
 
-      resource_attr.sprites = attr->resource_args->sprites ?
-        STRDUP(attr->resource_args->sprites) : resource_attr.sprites;
-
-      resource_attr.meshes = attr->resource_args->meshes ?
-        STRDUP(attr->resource_args->meshes) : resource_attr.meshes;
+      resource_attr.images = attr->resource_args->images ?
+        (const utf8_t*)STRDUP((const char*)attr->resource_args->images) : (const utf8_t*)resource_attr.images;
     }
 
-    resource_dir = fs::path(resource_attr.dir);
+    resource_dir = resource_path / fs::path(resource_attr.resources);
   }
   
   // Initialize Lua before PrivateUniverse is constructed because the Lua VM
@@ -137,7 +170,16 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     universe_->enabled = 0xFFFF;
   }
   if (universe_->enabled & QB_FEATURE_LOGGER) {
-    log_initialize();
+    qbLoggingAttr_ logs_attr = {
+      .logs = u8"logs"
+    };
+
+    if (attr->logging_args) {
+      logs_attr.logs = attr->logging_args->logs ?
+        (const utf8_t*)STRDUP((const char*)attr->logging_args->logs) : logs_attr.logs;
+    }
+
+    log_initialize(logs_attr);
   }
   if (universe_->enabled & QB_FEATURE_INPUT) {
     input_initialize();
@@ -183,8 +225,8 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 
 qbResult qb_start() {
   game_loop.t = 0.0;
-  game_loop.current_time = qb_timer_query() * 0.000000001;
-  game_loop.start_time = (double)qb_timer_query();
+  game_loop.current_time = qb_time() * 0.000000001;
+  game_loop.start_time = (double)qb_time();
   game_loop.accumulator = 0.0;
   game_loop.is_running = true;
   return AS_PRIVATE(start());
@@ -205,6 +247,10 @@ qbResult qb_stop() {
     
   universe_ = nullptr;
   return ret;
+}
+
+const utf8_t* qb_dir() {
+  return cwd_dir_str.c_str();
 }
 
 qbBool qb_running() {
@@ -233,7 +279,7 @@ qbResult loop(qbLoopCallbacks callbacks,
   qb_timer_start(fps_timer);
 
   const static double extra_render_time = universe_->enabled & QB_FEATURE_GRAPHICS ? 0.0 : game_loop.dt;
-  double new_time = qb_timer_query() * 0.000000001;
+  double new_time = qb_time() * 0.000000001;
   double frame_time = new_time - game_loop.current_time;
   frame_time = std::min(0.25, frame_time);
   game_loop.current_time = new_time;
@@ -897,9 +943,9 @@ void qb_coro_wait(double seconds) {
   if (seconds == 0) {
     seconds = 1e-9;
   }
-  double start = (double)qb_timer_query() / 1e9;
+  double start = (double)qb_time() / 1e9;
   double end = start + seconds;
-  while ((double)qb_timer_query() / 1e9 < end) {
+  while ((double)qb_time() / 1e9 < end) {
     qb_coro_yield(qbFuture);
   }
 }
@@ -961,12 +1007,12 @@ qbVar qbStruct(qbSchema schema, void* buf) {
   return v;
 }
 
-qbVar qbString(const utf8_t* s) {  
+qbVar qbString(const char* s) {  
   qbVar v{};
   v.tag = QB_TAG_STRING;
   if (s) {
     size_t len = strlen(s) + 1;
-    utf8_t* str = (utf8_t*)malloc(len);
+    char* str = (char*)malloc(len);
     STRCPY(str, len, s);
     v.s = str;
     v.size = len;
@@ -975,7 +1021,7 @@ qbVar qbString(const utf8_t* s) {
   return v;
 }
 
-qbVar qbCString(utf8_t* s) {
+qbVar qbCString(char* s) {
   qbVar v{};
   v.tag = QB_TAG_CSTRING;
   v.s = s;
@@ -1713,7 +1759,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
       bytes_read = qb_buffer_readstr(buf, pos, &v->size, &v->s);
       qbVar str = qbString(nullptr);
       str.size = v->size;
-      str.s = (utf8_t*)malloc(v->size * sizeof(utf8_t));
+      str.s = (char*)malloc(v->size);
       memcpy(str.s, v->s, str.size);
       *v = str;
 
@@ -1740,7 +1786,7 @@ size_t qb_var_unpack(qbVar* v, const qbBuffer_* buf, ptrdiff_t* pos) {
 
     case QB_TAG_STRUCT:
     {      
-      utf8_t* name;
+      char* name;
       size_t len;
 
       bytes_read = qb_buffer_readll(buf, pos, (int64_t*)&v->size);

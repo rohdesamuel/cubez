@@ -29,14 +29,17 @@
 #include <cubez/render_pipeline.h>
 #include <cubez/memory.h>
 #include <cubez/common.h>
+#include <cubez/log.h>
+#include <cubez/time.h>
+
 #include <algorithm>
 #include <mutex>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cubez/time.h>
 #include <vector>
 #include <assert.h>
+#include <filesystem>
 
 #include "async_internal.h"
 #include "inline_shaders.h"
@@ -275,7 +278,7 @@ void qb_shadermodule_destroy(qbShaderModule* shader) {
 }
 
 void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
-  *buffer_ref = new qbGpuBuffer_;
+  *buffer_ref = new qbGpuBuffer_{};
   qbGpuBuffer buffer = *buffer_ref;
   buffer->size = attr->size;
   buffer->elem_size = attr->elem_size;
@@ -458,7 +461,7 @@ void qb_meshbuffer_attachvertices(qbMeshBuffer buffer, qbGpuBuffer vertices[], s
                               binding->stride,
                               vattr->offset);
         if (binding->input_rate) {
-          glVertexAttribDivisor(vattr->location, 1);
+          glVertexAttribDivisor(vattr->location, binding->input_rate);
         }
         CHECK_GL();
       }
@@ -715,45 +718,64 @@ const char* qb_image_name(qbImage image) {
   return image->name;
 }
 
-void qb_image_load(qbImage* image_ref, qbImageAttr attr, const char* file) {
+void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
   qbImage image = *image_ref = new qbImage_{};
   image->type = attr->type;
   
+  std::filesystem::path image_path = std::filesystem::path(qb_dir()) / file;
+  if (!std::filesystem::exists(image_path)) {
+    qb_fatal("Could not find image: %s", image_path.u8string().c_str());
+    return;
+  }
+
   // Load the image from the file into SDL's surface representation
   int w, h, n;
-  unsigned char* pixels = stbi_load(file, &w, &h, &n, 0);
+  unsigned char* pixels = stbi_load((char*)file, &w, &h, &n, 0);
 
   if (!pixels) {
-    std::cout << "Could not load texture " << file << ": " << stbi_failure_reason() << std::endl;
+    qb_err("Could not load image: %s\n Caused By: %s", image_path.u8string().c_str(), stbi_failure_reason());
     return;
   }
 
   image->width = w;
   image->height = h;
 
+  qbPixelFormat qb_pixel_format;
+  if (attr->pixel_format == QB_PIXEL_FORMAT_UNKNOWN) {
+    switch (n) {
+      case 1: qb_pixel_format = QB_PIXEL_FORMAT_R8; break;
+      case 2: qb_pixel_format = QB_PIXEL_FORMAT_RG8; break;
+      case 3: qb_pixel_format = QB_PIXEL_FORMAT_RGB8; break;
+      case 4: qb_pixel_format = QB_PIXEL_FORMAT_RGBA8; break;
+      default: FATAL("Received an unsupported amount of channels");
+    }
+  }
+
+  qbPixelFormat qb_internal_format;
+  if (attr->internal_format == QB_PIXEL_FORMAT_UNKNOWN) {
+    switch (n) {
+      case 1: qb_internal_format = QB_PIXEL_FORMAT_R8; break;
+      case 2: qb_internal_format = QB_PIXEL_FORMAT_RG8; break;
+      case 3: qb_internal_format = QB_PIXEL_FORMAT_RGB8; break;
+      case 4: qb_internal_format = QB_PIXEL_FORMAT_RGBA8; break;
+      default: FATAL("Received an unsupported amount of channels");
+    }
+  }
+
   GLenum image_type = TranslateQbImageTypeToOpenGl(attr->type);
-  
+  GLenum internal_format = TranslateQbPixelFormatToInternalOpenGl(qb_internal_format);
+  GLenum format = TranslateQbPixelFormatToOpenGl(qb_pixel_format);
+  GLenum pixel_type = TranslateQbPixelFormatToOpenGlSize(qb_pixel_format);
+
   glGenTextures(1, &image->id);
   glBindTexture(image_type, image->id);
-
   if (image_type == GL_TEXTURE_1D) {
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8, w * h, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+    glTexImage1D(image_type, 0, internal_format, w * h, 0, format, pixel_type, pixels);
   } else if (image_type == GL_TEXTURE_2D) {
-    if (n == 1) {
-      image->format = qbPixelFormat::QB_PIXEL_FORMAT_R8;
-      glTexImage2D(image_type, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
-    } else if (n == 2) {
-      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RG8;
-      glTexImage2D(image_type, 0, GL_RG, w, h, 0, GL_RG, GL_UNSIGNED_BYTE, pixels);
-    } else if (n == 3) {
-      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RGB8;
-      glTexImage2D(image_type, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-    } else if (n == 4) {
-      image->format = qbPixelFormat::QB_PIXEL_FORMAT_RGBA8;
-      glTexImage2D(image_type, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    } else {
-      assert(false && "Received an unsupported amount of channels");
-    }
+    image->format = qb_pixel_format;
+    glTexImage2D(image_type, 0, internal_format, w, h, 0, format, pixel_type, pixels);
+  } else {
+    FATAL("Unsupported image type: " << image->type);
   }
   if (attr->generate_mipmaps) {
     glGenerateMipmap(image_type);
@@ -1150,7 +1172,7 @@ void qb_swapchain_present(qbSwapchain swapchain, qbDrawPresentInfo present_info)
 
 void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_set, qbShaderResourceLayoutAttr attr) {
   (*resource_set) = new qbShaderResourceLayout_();
-  for (uint32_t i = 0; i < attr->binding_count; ++i) {
+  for (uint32_t i = 0; i < attr->bindings_count; ++i) {
     (*resource_set)->bindings.push_back(attr->bindings[i]);
     qbShaderResourceBinding_& new_binding = (*resource_set)->bindings[i];
     const qbShaderResourceBinding_& old_binding = attr->bindings[i];
@@ -1182,16 +1204,26 @@ void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t 
   }
 }
 
+void qb_shaderresourceset_readuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer* buffer) {
+  DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
+  *buffer = resource_set->uniforms[resource_set->binding_indices[binding]];
+}
+
+void qb_shaderresourceset_readimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage* image) {
+  DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
+  *image = resource_set->images[resource_set->binding_indices[binding]];
+}
+
 void qb_shaderresourcepipelinelayout_create(qbShaderResourcePipelineLayout* layout, qbShaderResourcePipelineLayoutAttr attr) {
   (*layout) = new qbShaderResourcePipelineLayout_();
-  for (uint32_t i = 0; i < attr->layout_count; ++i) {
+  for (uint32_t i = 0; i < attr->layouts_count; ++i) {
     (*layout)->layouts.push_back(attr->layouts[i]);
   }
 
   // OpenGL only. OpenGL doesn't allow for manually setting binding points on
   // texture samplers in version 3.3. Texture slots are then allocated here.
   uint32_t texture_slot = 0;
-  for (uint32_t i = 0; i < attr->layout_count; ++i) {
+  for (uint32_t i = 0; i < attr->layouts_count; ++i) {
     qbShaderResourceLayout layout = attr->layouts[i];
     for (qbShaderResourceBinding_& binding : layout->bindings) {
       if (binding.resource_type == QB_SHADER_RESOURCE_TYPE_IMAGE_SAMPLER) {
@@ -1222,6 +1254,11 @@ void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderReso
       resource_set[i]->samplers.push_back({});
     }
   }
+}
+
+void qb_shaderresourceset_destroy(qbShaderResourceSet* resource_set) {
+  delete *resource_set;
+  *resource_set = nullptr;
 }
 
 void qb_shaderresourceset_updateuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer) {
@@ -1260,10 +1297,22 @@ void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo beg
   if (begin_info->render_pass) {
     assert(begin_info->render_pass->attachments.size() >= begin_info->clear_values_count);
   }
-
   cmd_buf->begin_pass(begin_info);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BEGIN };
   c.command.begin = qbRenderCommandBegin_{};
+  qbRenderCommandBegin_& begin_cmd = c.command.begin;
+
+  begin_cmd.clear_values_count = begin_info->clear_values_count;
+  if (begin_cmd.clear_values_count > 0) {
+    begin_cmd.clear_values = cmd_buf->allocate<qbClearValue_>(begin_cmd.clear_values_count);
+    std::copy(
+      begin_info->clear_values,
+      begin_info->clear_values + begin_cmd.clear_values_count,
+      begin_cmd.clear_values);
+  } else {
+    begin_cmd.clear_values = nullptr;
+  }
 
   cmd_buf->queue_command(&c);
 }
@@ -1318,13 +1367,13 @@ QB_API void qb_drawcmd_updateshaderresource(qbDrawCommandBuffer cmd_buf, uint32_
   cmd_buf->queue_command(&c);
 }
 
-QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32_t binding_count,
+QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32_t bindings_count,
   uint32_t bindings[], qbImage images[], qbGpuBuffer uniforms[], qbShaderResourceSet resource_set) {
     
-  uint32_t* bindings_copy = cmd_buf->allocate<uint32_t>(binding_count);
-  qbImage* images_copy = images ? cmd_buf->allocate<qbImage>(binding_count) : nullptr;
-  qbGpuBuffer* buffers_copy = uniforms ? cmd_buf->allocate<qbGpuBuffer>(binding_count) : nullptr;
-  for (size_t i = 0; i < binding_count; ++i) {
+  uint32_t* bindings_copy = cmd_buf->allocate<uint32_t>(bindings_count);
+  qbImage* images_copy = images ? cmd_buf->allocate<qbImage>(bindings_count) : nullptr;
+  qbGpuBuffer* buffers_copy = uniforms ? cmd_buf->allocate<qbGpuBuffer>(bindings_count) : nullptr;
+  for (size_t i = 0; i < bindings_count; ++i) {
     bindings_copy[i] = bindings[i];
 
     if (images) {
@@ -1339,7 +1388,7 @@ QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_UPDATESHADERRESOURCES };
   c.command.update_shaderresources =
     qbRenderCommandUpdateShaderResources_{
-      .binding_count = binding_count,
+      .bindings_count = bindings_count,
       .bindings = bindings_copy,
       .images = images_copy,
       .buffers = buffers_copy,
@@ -1376,22 +1425,57 @@ void qb_drawcmd_bindshaderresourcesets(
   cmd_buf->queue_command(&c);
 }
 
-void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t binding_count, qbGpuBuffer* buffers) {
-  qbGpuBuffer* buffers_copy = cmd_buf->allocate<qbGpuBuffer>(binding_count);
-  for (size_t i = 0; i < binding_count; ++i) {
+void qb_drawcmd_bindframebuffer(qbDrawCommandBuffer cmd_buf, qbFrameBuffer fbo) {
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDFRAMEBUFFER };
+  c.command.bind_framebuffer = qbRenderCommandBindFrameBuffer_{ .fbo = fbo };
+
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_bindframebuffers(qbDrawCommandBuffer cmd_buf, uint32_t count, qbFrameBuffer fbos[]) {
+  DEBUG_OP(
+    for (size_t i = 0; i < count; ++i) {
+      DEBUG_ASSERT(fbos[i] != nullptr, QB_ERROR_NULL_POINTER);
+    }
+  );
+
+  qbFrameBuffer* fbos_copy = cmd_buf->allocate<qbFrameBuffer>(count);
+  for (size_t i = 0; i < count; ++i) {
+    fbos_copy[i] = fbos[i];
+  }
+
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDFRAMEBUFFERS };
+  c.command.bind_framebuffers = qbRenderCommandBindFrameBuffers_{
+    .count = count,
+    .fbos = fbos_copy };
+
+  cmd_buf->queue_command(&c);
+}
+
+void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t bindings_count, qbGpuBuffer buffers[]) {
+  DEBUG_OP(
+    for (size_t i = 0; i < bindings_count; ++i) {
+      DEBUG_ASSERT(buffers[i] != nullptr, QB_ERROR_NULL_POINTER);
+    }
+  );
+
+  qbGpuBuffer* buffers_copy = cmd_buf->allocate<qbGpuBuffer>(bindings_count);
+  for (size_t i = 0; i < bindings_count; ++i) {
     buffers_copy[i] = buffers[i];
   }
 
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDVERTEXBUFFERS };
   c.command.bind_vertexbuffers =
     qbRenderCommandBindVertexBuffers_{ .first_binding = first_binding,
-        .binding_count = binding_count,
+        .bindings_count = bindings_count,
         .buffers = buffers_copy };
 
   cmd_buf->queue_command(&c);
 }
 
 void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer) {
+  DEBUG_ASSERT(buffer != nullptr, QB_ERROR_NULL_POINTER);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_BINDINDEXBUFFER };
   c.command.bind_indexbuffer = qbRenderCommandBindIndexBuffer_{ .buffer = buffer};
 
@@ -1430,6 +1514,8 @@ void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intp
 }
 
 void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw) {
+  DEBUG_ASSERT(to_draw != nullptr, QB_ERROR_NULL_POINTER);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_SUBCOMMANDS };
   c.command.sub_commands = qbRenderCommandSubCommands_{ .cmd_buf = to_draw };
 
@@ -1437,18 +1523,33 @@ void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_
 }
 
 void qb_drawcmd_refcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer* to_draw, qbSemaphore opt_semaphore, uint64_t wait_n) {
+  DEBUG_ASSERT(to_draw != nullptr, QB_ERROR_NULL_POINTER);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_REFCOMMANDS };
   c.command.ref_commands = qbRenderCommandRefCommands_{ .cmd_buf = to_draw, .opt_sem = opt_semaphore, .wait_n = wait_n };
   cmd_buf->queue_command(&c);
 }
 
+void qb_drawcmd_addcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw) {
+  DEBUG_ASSERT(to_draw != nullptr, QB_ERROR_NULL_POINTER);
+
+  qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_ADDCOMMANDS };
+  c.command.add_commands = qbRenderCommandAddCommands_{ .cmd_buf = to_draw };
+
+  cmd_buf->queue_command(&c);
+}
+
 void qb_drawcmd_signal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n) {
+  DEBUG_ASSERT(semaphore != nullptr, QB_ERROR_NULL_POINTER);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_SIGNAL};
   c.command.signal = qbRenderCommandSignal_{ .semaphore = semaphore, .n = n };
   cmd_buf->queue_command(&c);
 }
 
 void qb_drawcmd_wait(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n) {
+  DEBUG_ASSERT(semaphore != nullptr, QB_ERROR_NULL_POINTER);
+
   qbRenderCommand_ c{ .type = QB_RENDER_COMMAND_WAIT };
   c.command.wait = qbRenderCommandWait_{ .semaphore = semaphore, .n = n };
   cmd_buf->queue_command(&c);

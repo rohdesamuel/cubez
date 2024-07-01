@@ -753,7 +753,7 @@ std::filesystem::path directory;
 std::filesystem::path entrypoint;
 
 void lua_bindings_initialize(struct qbScriptAttr_* attr) {
-  directory = std::filesystem::path(qb_resources()->dir) / qb_resources()->scripts;
+  directory = std::filesystem::path(qb_resources()->resources) / qb_resources()->scripts;
   entrypoint = attr->entrypoint ? directory / attr->entrypoint : directory / "main.lua";
 
   lua_input_initialize();

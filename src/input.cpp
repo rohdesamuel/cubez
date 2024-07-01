@@ -31,6 +31,7 @@
 #include <SDL2/SDL_mouse.h>
 
 #include "input_internal.h"
+#include "render_internal.h"
 #include "nuklear_sdl_gl3.h"
 
 qbEvent keyboard_event;
@@ -267,6 +268,10 @@ qbBool qb_mouse_ispressed(qbButton mouse_button) {
 
 void qb_mouse_getposition(int* x, int* y) {
   SDL_GetMouseState(x, y);
+}
+
+void qb_mouse_setposition(int x, int y) {
+  SDL_WarpMouseInWindow(render_curwindow(), x, y);
 }
 
 void qb_mouse_getrelposition(int* relx, int* rely) {

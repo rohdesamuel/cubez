@@ -17,9 +17,11 @@
 */
 
 #include <cubez/mesh.h>
+#include <cubez/log.h>
 #include <cubez/renderer.h>
 #include "mesh_builder.h"
 #include "shader.h"
+#include "assimp/Importer.hpp"
 
 #include <GL/glew.h>
 
@@ -42,20 +44,28 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
 #else
 #define CHECK_GL()
 #endif
 
-qbMesh qb_mesh_load(const char* mesh_name, const char* filename) {
+// Make sure that the vectors are byte compatible.
+static_assert(sizeof(vec3s) == sizeof(aiVector3f));
+
+static inline vec3s pos_to_world(vec3s p, const qbTransform_* t) {
+  return glms_vec3_add(p, t->position);
+}
+
+qbMesh qb_mesh_load(const char* mesh_name, const utf8_t* filename) {
   auto resources = qb_resources();
-  std::filesystem::path path{};
+  std::filesystem::path path = std::filesystem::path(qb_dir()) / qb_resources()->resources;
   if (resources->meshes) {
-    path = std::filesystem::path(qb_resources()->dir) / qb_resources()->meshes;
-  }
-  else {
-    path = std::filesystem::path(qb_resources()->dir);
+    path = path /qb_resources()->meshes;
   }
 
   path = path / filename;
@@ -65,6 +75,9 @@ qbMesh qb_mesh_load(const char* mesh_name, const char* filename) {
   MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
   qbMesh ret = builder.Mesh(QB_DRAW_MODE_TRIANGLES);
 
+  Assimp::Importer importer;
+  const aiScene* scene = importer.ReadFile(path.string(), 0);
+  
   qbRenderer r = qb_renderer();
   if (r) {
     r->mesh_create(r, ret);
@@ -73,20 +86,241 @@ qbMesh qb_mesh_load(const char* mesh_name, const char* filename) {
   return ret;
 }
 
-qbModel qb_model_load(const char* model_name, const char* filename) {
-  auto resources = qb_resources();
-  std::filesystem::path path{};
-  if (resources->meshes) {
-    path = std::filesystem::path(qb_resources()->dir) / qb_resources()->meshes;
+namespace {
+
+qbMesh aimesh_to_qbmesh(const aiMesh* mesh) {
+  if (mesh->GetNumUVChannels() > 1) {
+    qb_err("qbMesh only supports at most 1-channel UV coordinates. Received %d "
+           "channels.", mesh->GetNumUVChannels());
+    return nullptr;
   }
-  else {
-    path = std::filesystem::path(qb_resources()->dir);
+
+  qbMesh copy = new qbMesh_{};
+  copy->mode = QB_DRAW_MODE_TRIANGLES;
+  copy->vertex_count = mesh->mNumVertices;
+  copy->vertices = new vec3s[copy->vertex_count];
+  memcpy(copy->vertices, mesh->mVertices, sizeof(vec3s) * copy->vertex_count);
+
+  if (mesh->mNormals) {
+    copy->normals = new vec3s[copy->vertex_count];
+    memcpy(copy->normals, mesh->mNormals, sizeof(vec3s) * copy->vertex_count);
+  }
+
+  if (mesh->mTextureCoords) {
+    copy->uvs = new vec2s[copy->vertex_count];
+    for (size_t i = 0; i < mesh->mNumVertices; ++i) {
+      copy->uvs[i] = vec2s{ mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
+    }
+  }
+
+  if (mesh->mColors && mesh->GetNumColorChannels() > 0) {
+    // 4 because Assimp uses vec4 as the color type.
+    copy->color_channels = 4 * mesh->GetNumColorChannels();
+    copy->colors = new float[copy->vertex_count * copy->color_channels];
+
+    for (size_t i = 0; i < mesh->GetNumColorChannels(); ++i) {
+      if (mesh->mColors[i]) {
+        for (int j = 0; j < mesh->mNumVertices; ++j) {
+          copy->colors[j * copy->color_channels + i * 4 + 0] = mesh->mColors[i][j].r;
+          copy->colors[j * copy->color_channels + i * 4 + 1] = mesh->mColors[i][j].g;
+          copy->colors[j * copy->color_channels + i * 4 + 2] = mesh->mColors[i][j].b;
+          copy->colors[j * copy->color_channels + i * 4 + 3] = mesh->mColors[i][j].a;
+        }
+      }
+    }
+  }
+
+  if (mesh->mFaces) {
+    // Assuming that the importer used the "aiProcess_Triangulate" flag, the
+    // number of indices in each face is 3.
+    copy->index_count = mesh->mNumFaces * 3;
+    copy->indices = new uint32_t[copy->index_count];
+    for (size_t i = 0; i < mesh->mNumFaces; i++) {
+      aiFace face = mesh->mFaces[i];
+      for (size_t j = 0; j < face.mNumIndices; j++) {
+        copy->indices[i * 3 + j] = face.mIndices[j];
+      }
+    }
+  }
+
+  return copy;
+}
+
+qbMaterial aimaterial_to_qbmaterial(const char* material_name, const aiMaterial* material) {
+  qbMaterialAttr_ attr = {};
+
+  aiColor3D col = {};
+  ai_real real = 0.f;
+
+  if (material->Get(AI_MATKEY_COLOR_DIFFUSE, col) == aiReturn_SUCCESS) {
+    attr.color = { col.r, col.g, col.b };
+  }
+
+  if (material->Get(AI_MATKEY_COLOR_AMBIENT, col) == aiReturn_SUCCESS) {
+    attr.ambient = { col.r, col.g, col.b };
+  }
+
+  if (material->Get(AI_MATKEY_COLOR_SPECULAR, col) == aiReturn_SUCCESS) {
+    attr.specular = { col.r, col.g, col.b };
+  }
+
+  if (material->Get(AI_MATKEY_COLOR_EMISSIVE, col) == aiReturn_SUCCESS) {
+    attr.emissive = { col.r, col.g, col.b };
+  }
+
+  if (material->Get(AI_MATKEY_METALLIC_FACTOR, real) == aiReturn_SUCCESS) {
+    attr.metallic = real;
+  }
+
+  if (material->Get(AI_MATKEY_ROUGHNESS_FACTOR, real) == aiReturn_SUCCESS) {
+    attr.roughness = real;
+  }
+
+  // TODO: add shaders as materials.
+  // AI_MATKEY_SHADER_VERTEX
+  // AI_MATKEY_SHADER_FRAGMENT
+
+  aiString color_map_name;
+  qbImageAttr_ image_attr = { .type = QB_IMAGE_TYPE_2D };
+  if (material->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), color_map_name) == aiReturn_SUCCESS ||
+    material->Get(AI_MATKEY_BASE_COLOR, color_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.color_map, &image_attr, (utf8_t*)color_map_name.C_Str());
+  }
+
+  aiString ambient_map_name;
+  if (material->Get(AI_MATKEY_TEXTURE_AMBIENT(0), ambient_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.ambient_map, &image_attr, (utf8_t*)ambient_map_name.C_Str());
+  }
+
+  aiString specular_map_name;
+  if (material->Get(AI_MATKEY_TEXTURE_SPECULAR(0), specular_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.specular_map, &image_attr, (utf8_t*)specular_map_name.C_Str());
+  }
+
+  aiString emissive_map_name;
+  if (material->Get(AI_MATKEY_TEXTURE_EMISSIVE(0), emissive_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.emissive_map, &image_attr, (utf8_t*)emissive_map_name.C_Str());
+  }
+
+  aiString normal_map_name;
+  if (material->Get(AI_MATKEY_TEXTURE_NORMALS(0), normal_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.normal_map, &image_attr, (utf8_t*)normal_map_name.C_Str());
+  }
+
+  aiString metallic_map_name;
+  if (material->Get(AI_MATKEY_USE_METALLIC_MAP(0), metallic_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.metallic_map, &image_attr, (utf8_t*)metallic_map_name.C_Str());
+  }
+
+  aiString roughness_map_name;
+  if (material->Get(AI_MATKEY_USE_ROUGHNESS_MAP(0), roughness_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.roughness_map, &image_attr, (utf8_t*)roughness_map_name.C_Str());
+  }
+
+  aiString shininess_map_name;
+  if (material->Get(AI_MATKEY_SHININESS(0), shininess_map_name) == aiReturn_SUCCESS ||
+    material->Get(AI_MATKEY_TEXTURE_SHININESS(0), shininess_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.shininess_map, &image_attr, (utf8_t*)shininess_map_name.C_Str());
+  }
+  
+  aiString ao_map_name;
+  if (material->Get(AI_MATKEY_USE_AO_MAP(0), ao_map_name) == aiReturn_SUCCESS) {
+    qb_image_load(&attr.ao_map, &image_attr, (utf8_t*)ao_map_name.C_Str());
+  }
+
+  qbMaterial ret;
+  qb_material_create(&ret, &attr, material_name);
+
+  return ret;
+}
+
+}
+
+qbModel qb_model_load(const char* model_name, const utf8_t* filename) {
+  auto resources = qb_resources();
+  std::filesystem::path path(qb_dir());
+  if (resources->meshes) {
+    path = path / std::filesystem::path(qb_resources()->resources) / qb_resources()->meshes;
+  } else {
+    path = path / std::filesystem::path(qb_resources()->resources);
   }
 
   path = path / filename;
 
-  MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
-  return builder.Model(QB_DRAW_MODE_TRIANGLES);
+  qbModelAttr_ attr = {};
+  qbModel ret = nullptr;
+  Assimp::Importer importer{};
+  const aiScene* scene = importer.ReadFile(path.string().c_str(), aiProcess_Triangulate | aiProcess_FlipUVs);
+  if (!scene || !scene->HasMeshes()) {
+    goto cleanup;
+  }
+
+  attr.mesh_count = scene->mNumMeshes;
+  attr.meshes = (qbMesh*)alloca(sizeof(qbMesh) * attr.mesh_count);
+  attr.material_binding_count = attr.mesh_count;
+  attr.material_bindings = (uint32_t*)alloca(sizeof(uint32_t) * attr.material_binding_count);
+  memset(attr.meshes, 0, sizeof(qbMesh) * attr.mesh_count);
+  memset(attr.material_bindings, 0, sizeof(uint32_t) * attr.material_binding_count);
+  for (size_t i = 0; i < scene->mNumMeshes; ++i) {
+    aiMesh* mesh = scene->mMeshes[i];
+    attr.meshes[i] = aimesh_to_qbmesh(mesh);
+    attr.material_bindings[i] = mesh->mMaterialIndex;
+    if (!attr.meshes[i]) {
+      goto cleanup;
+    }
+  }
+
+  attr.collider_count = scene->mNumMeshes;
+  attr.colliders = (qbCollider*)alloca(sizeof(qbCollider) * attr.collider_count);
+  memset(attr.colliders, 0, sizeof(qbCollider) * attr.collider_count);
+  for (size_t i = 0; i < scene->mNumMeshes; ++i) {
+    qbCollider collider = nullptr;
+    qb_collider_frommesh(&collider, attr.meshes[i]);
+    attr.colliders[i] = collider;
+    if (!attr.colliders[i]) {
+      goto cleanup;
+    }
+  }
+
+  attr.material_count = scene->mNumMaterials;
+  attr.materials = (qbMaterial*)alloca(sizeof(qbMaterial) * attr.material_count);
+  memset(attr.materials, 0, sizeof(qbMaterial) * attr.material_count);
+  for (size_t i = 0; i < attr.material_count; ++i) {
+    qbMaterial material = nullptr;
+    aiMaterial* ai_material = scene->mMaterials[i];
+    material = aimaterial_to_qbmaterial(i == 0 ? "default_material" : ai_material->GetName().C_Str(), ai_material);
+    attr.materials[i] = material;
+    if (!attr.materials[i]) {
+      goto cleanup;
+    }
+  }
+
+  qb_model_create(&ret, &attr);
+
+  return ret;
+
+cleanup:
+  qb_err("Could not import mesh \"%s\"", path.string().c_str());
+
+  for (size_t i = 0; i < attr.mesh_count; ++i) {
+    if (attr.meshes[i]) {
+      qb_mesh_destroy(&attr.meshes[i]);
+    }
+  }
+
+  for (size_t i = 0; i < attr.collider_count; ++i) {
+    if (attr.colliders[i]) {
+      qb_collider_destroy(&attr.colliders[i]);
+    }
+  }
+
+  for (size_t i = 0; i < attr.material_count; ++i) {
+    if (attr.materials[i]) {
+      qb_material_destroy(&attr.materials[i]);
+    }
+  }
+
+  return nullptr;
 }
 
 void qb_model_create(qbModel* model_ref, qbModelAttr attr) {
@@ -100,6 +334,14 @@ void qb_model_create(qbModel* model_ref, qbModelAttr attr) {
   model->mesh_count = attr->mesh_count;
   model->meshes = new qbMesh[model->mesh_count];
   memcpy(model->meshes, attr->meshes, (model->mesh_count) * sizeof(qbMesh));
+
+  model->material_count = attr->material_count;
+  model->materials = new qbMaterial[model->material_count];
+  memcpy(model->materials, attr->materials, (model->material_count) * sizeof(qbMaterial));
+
+  model->material_binding_count = attr->material_binding_count;
+  model->material_bindings = new uint32_t[model->material_binding_count];
+  memcpy(model->material_bindings, attr->material_bindings, (model->material_binding_count) * sizeof(uint32_t));
   (*model_ref)->mode = attr->meshes[0]->mode;
 }
 
@@ -117,6 +359,13 @@ void qb_model_destroy(qbModel* model) {
       qb_collider_destroy(&m->colliders[i]);
     }
     delete[] m->colliders;
+  }
+
+  if (m->materials) {
+    for (uint32_t i = 0; i < (*model)->material_count; ++i) {
+      qb_material_destroy(&m->materials[i]);
+    }
+    delete[] m->materials;
   }
   delete *model;
   *model = nullptr;
@@ -143,6 +392,7 @@ qbResult qb_mesh_destroy(qbMesh* mesh) {
   delete[](*mesh)->indices;
   delete[](*mesh)->normals;
   delete[](*mesh)->uvs;
+  delete[](*mesh)->colors;
   delete *mesh;
   *mesh = nullptr;
   return QB_OK;
@@ -152,18 +402,26 @@ qbResult qb_material_create(qbMaterial* material, qbMaterialAttr attr, const cha
   qbMaterial m = *material = new qbMaterial_;
   m->name = STRDUP(material_name);
   m->ext = attr->ext;
+  
+  m->color_map = attr->color_map;
+  m->ambient_map = attr->ambient_map;
+  m->specular_map = attr->specular_map;
+  m->emissive_map = attr->emissive_map;
 
-  m->albedo_map = attr->albedo_map;
   m->normal_map = attr->normal_map;
   m->metallic_map = attr->metallic_map;
   m->roughness_map = attr->roughness_map;
+  m->shininess_map = attr->shininess_map;
   m->ao_map = attr->ao_map;
-  m->emission_map = attr->emission_map;
 
-  m->albedo = attr->albedo;
+  m->color = attr->color;
+  m->ambient = attr->ambient;
+  m->specular = attr->specular;
+  m->emissive = attr->emissive;
+
   m->metallic = attr->metallic;
   m->roughness = attr->roughness;
-  m->emission = attr->emission;
+  m->shininess = attr->shininess;
 
   return QB_OK;
 }
@@ -181,22 +439,25 @@ qbResult qb_material_destroy(qbMaterial* material) {
 vec3s qb_collider_support(const qbCollider_* collider, const qbTransform_* transform, vec3s dir) {
   // Rotate dir to match the orientation of the collider.
   mat4s inv_rot = glms_mat4_inv(transform->orientation);
-  dir = glms_vec3(glms_mat4_mulv(inv_rot, glms_vec4(dir, 0.f)));
+  dir = glms_mat4_mulv3(inv_rot, dir, 0.f);
 
-  float max_dot = std::numeric_limits<float>::lowest();
-  int found = 0;
-  for (int i = 0; i < collider->vertex_count; ++i) {
-    float dot = glms_vec3_dot(collider->vertices[i], dir);
-    if (dot > max_dot) {
-      max_dot = dot;
-      found = i;
+  vec3s support = {};
+  if (collider->vertices) {
+    float max_dot = std::numeric_limits<float>::lowest();
+    int found = 0;
+    for (int i = 0; i < collider->vertex_count; ++i) {
+      float dot = glms_vec3_dot(collider->vertices[i], dir);
+      if (dot > max_dot) {
+        max_dot = dot;
+        found = i;
+      }
     }
+
+    support = collider->vertices[found];
+  } else {
+    support = collider->support(collider, dir);    
   }
-
-  vec3s s_local = collider->vertices[found];
-
-  // Returned support in world-space.
-  return glms_vec3_add(glms_vec3(glms_mat4_mulv(transform->orientation, glms_vec4(s_local, 0.f))), transform->position);
+  return glms_mat4_mulv3(transform->orientation, glms_vec3_mul(transform->scale, support), 0.f);
 }
 
 struct qbPortal_ {
@@ -221,7 +482,7 @@ float plane_plane_distance(const vec3s* p1, const vec3s* p2, const vec3s* n) {
 }
 
 qbBool qb_collider_checkaabb(const qbCollider_* a, const qbCollider_* b,
-                           const qbTransform_* a_t, const qbTransform_* b_t) {
+                             const qbTransform_* a_t, const qbTransform_* b_t) {
   return
     a_t->position.x + a->min.x <= b_t->position.x + b->max.x &&
     a_t->position.x + a->max.x >= b_t->position.x + b->min.x &&
@@ -320,8 +581,13 @@ qbBool qb_ray_checkobb(const qbCollider_* c, const qbTransform_* t, const qbRay_
   return qb_ray_checkaabb(c, t, &local_ray, tmin, tmax);
 }
 
+qbResult qb_collider_frommesh(qbCollider* collider, qbMesh mesh) {
+  *collider = MeshBuilder::Collider(mesh);
+  return QB_OK;
+}
+
 qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
-                     const qbTransform_* a_transform, const qbTransform_* b_transform) {
+                       const qbTransform_* a_transform, const qbTransform_* b_transform) {
   const static float kEpsilon = 0.0000001f;
 
   MinkowskiDifference m = { a, b, a_transform, b_transform };
@@ -329,8 +595,8 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
   auto mpr_phase_one = [&m](qbPortal_* out) {
     vec3s v = glms_vec3_sub(glms_vec3_add(m.a_transform->position, m.a->center),
                             glms_vec3_add(m.b_transform->position, m.b->center));
-    vec3s a = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, glms_vec3_negate(v)),
-                            qb_collider_support(m.b, m.b_transform, v));
+    vec3s a = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, glms_vec3_negate(v)), m.a_transform),
+                            pos_to_world(qb_collider_support(m.b, m.b_transform, v), m.b_transform));
     
     vec3s v_a = glms_vec3_cross(v, a);
     if (glms_vec3_eq_eps(v_a, 0.f)) {
@@ -341,16 +607,16 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
       }
     }
 
-    vec3s b = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, v_a),
-                            qb_collider_support(m.b, m.b_transform, glms_vec3_negate(v_a)));
+    vec3s b = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, v_a), m.a_transform),
+                            pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(v_a)), m.b_transform));
     
     vec3s avb = glms_vec3_cross(glms_vec3_sub(a, v), glms_vec3_sub(b, v));
     if (glms_vec3_eq_eps(avb, 0.0f)) {
       return -1;
     }
 
-    vec3s c = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, avb),
-                            qb_collider_support(m.b, m.b_transform, glms_vec3_negate(avb)));
+    vec3s c = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, avb), m.a_transform),
+                            pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(avb)), m.b_transform));
     out->v0 = v;
     out->v1 = a;
     out->v2 = b;
@@ -364,33 +630,33 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
     bool done;
     do {
       done = true;
-      vec3s n_vab = glms_vec3_cross(glms_vec3_sub(p->v1, p->v0),
-                                    glms_vec3_sub(p->v2, p->v0));
+      vec3s n_vab = glms_vec3_normalize(glms_vec3_cross(glms_vec3_sub(p->v1, p->v0),
+                                        glms_vec3_sub(p->v2, p->v0)));
 
-      vec3s n_vbc = glms_vec3_cross(glms_vec3_sub(p->v2, p->v0),
-                                    glms_vec3_sub(p->v3, p->v0));
+      vec3s n_vbc = glms_vec3_normalize(glms_vec3_cross(glms_vec3_sub(p->v2, p->v0),
+                                        glms_vec3_sub(p->v3, p->v0)));
 
-      vec3s n_vca = glms_vec3_cross(glms_vec3_sub(p->v3, p->v0),
-                                    glms_vec3_sub(p->v1, p->v0));
+      vec3s n_vca = glms_vec3_normalize(glms_vec3_cross(glms_vec3_sub(p->v3, p->v0),
+                                        glms_vec3_sub(p->v1, p->v0)));
 
       if (glms_vec3_dot(r, n_vab) > 0.f) {
         done = false;
-        p->v3 = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, n_vab),
-                              qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vab)));
+        p->v3 = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, n_vab), m.a_transform),
+                              pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vab)), m.b_transform));
         vec3s tmp = p->v1;
         p->v1 = p->v2;
         p->v2 = tmp;
       } else if (glms_vec3_dot(r, n_vbc) > 0.f) {
         done = false;
-        p->v1 = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, n_vbc),
-                              qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vbc)));
+        p->v1 = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, n_vbc), m.a_transform),
+                              pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vbc)), m.b_transform));
         vec3s tmp = p->v2;
         p->v2 = p->v3;
         p->v3 = tmp;
       } else if (glms_vec3_dot(r, n_vca) > 0.f) {
         done = false;
-        p->v2 = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, n_vca),
-                              qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vca)));
+        p->v2 = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, n_vca), m.a_transform),
+                              pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n_vca)), m.b_transform));
         vec3s tmp = p->v3;
         p->v3 = p->v1;
         p->v1 = tmp;
@@ -399,9 +665,9 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
   };
 
   auto mpr_phase_three = [&m](qbPortal_* p) {
-    while (true) {
-      vec3s n = glms_vec3_cross(glms_vec3_sub(p->v3, p->v1),
-                                glms_vec3_sub(p->v2, p->v1));
+    for (int i = 0; i < 1000; ++i) {
+      vec3s n = glms_vec3_normalize(glms_vec3_cross(glms_vec3_sub(p->v3, p->v1),
+                                    glms_vec3_sub(p->v2, p->v1)));
       if (glms_vec3_dot(p->v1, n) > 0.f) {
         return true;
       }
@@ -410,8 +676,8 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
         return false;
       }
 
-      vec3s p_ = glms_vec3_sub(qb_collider_support(m.a, m.a_transform, n),
-                               qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n)));
+      vec3s p_ = glms_vec3_sub(pos_to_world(qb_collider_support(m.a, m.a_transform, n), m.a_transform),
+                               pos_to_world(qb_collider_support(m.b, m.b_transform, glms_vec3_negate(n)), m.b_transform));
 
       if (glms_vec3_dot(p_, n) < 0.f) {
         return false;
@@ -431,6 +697,7 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
         }
       }
     }
+    return false;
   };
 
   qbPortal_ portal;
@@ -446,7 +713,7 @@ qbBool qb_collider_mpr(const qbCollider_* a, const qbCollider_* b,
 }
 
 qbBool qb_collider_checkmesh(const qbCollider_* a, const qbCollider_* b,
-                      const qbTransform_* a_t, const qbTransform_* b_t) {
+                             const qbTransform_* a_t, const qbTransform_* b_t) {
   return qb_collider_mpr(a, b, a_t, b_t);
 }
 
@@ -470,7 +737,7 @@ qbBool qb_ray_checkplane(const qbRay_* ray, const qbRay_* plane, float* t) {
   return QB_FALSE;
 }
 
-qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform, const qbRay_* r, float* t) {  
+qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform, const qbRay_* r, float max_dis, float* t) {  
   // Intersection of a Line and a Convex Hull of Points Cloud
   // Author: R. P. Koptelov
   // http://www.m-hikari.com/ams/ams-2013/ams-101-104-2013/koptelovAMS101-104-2013.pdf
@@ -478,7 +745,16 @@ qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform,
     return QB_FALSE;
   }
 
-  if (c->vertex_count == 0) {
+  if (!c->vertices) {
+    if (!c->support) {
+      return QB_TRUE;
+    }
+
+    qbCollider_ ray_c;
+    qbTransform_ ray_t = qb_transform_identity;
+    ray_t.position = r->orig;
+    qb_collider_ray(&ray_c, r->dir, max_dis);
+    qb_collider_checkmesh(c, &ray_c, transform, &ray_t);
     return QB_TRUE;
   }
 
@@ -571,19 +847,11 @@ qbBool qb_collider_checkray(const qbCollider_* c, const qbTransform_* transform,
 
 void qb_collider_sphere(qbCollider collider, float r) {
   *collider = {};
-  collider->max = {  r * 0.5f,  r * 0.5f,  r * 0.5f };
-  collider->min = { -r * 0.5f, -r * 0.5f, -r * 0.5f };
+  collider->max = {  r,  r,  r };
+  collider->min = { -r, -r, -r };
   collider->r = r;
-  collider->support = [](const qbCollider_* self, const vec3s* dir, const qbTransform_* transform) {
-    if (!transform) {
-      return glms_vec3_add(transform->position, glms_vec3_scale(*dir, self->r));
-    }
-
-    mat4s inv_rot = glms_mat4_inv(transform->orientation);
-    vec3s local_dir = glms_vec3(glms_mat4_mulv(inv_rot, glms_vec4(*dir, 1.f)));
-
-    // Returned support in world-space.
-    return glms_vec3_add(transform->position, glms_vec3_scale(local_dir, self->r));
+  collider->support = [](const qbCollider_* self, const vec3s dir) {
+    return glms_vec3_scale(dir, self->r);
   };
 }
 
@@ -599,14 +867,44 @@ void qb_collider_aabb(qbCollider collider, vec3s max, vec3s min, vec3s center) {
   collider->center = center;
   collider->r = std::max(glms_vec3_norm(glms_vec3_sub(max, center)),
                          glms_vec3_norm(glms_vec3_sub(min, center)));
-
-  collider->support = [](const qbCollider_* self, const vec3s* dir, const qbTransform_* transform) {
-    return glms_vec3_add(transform->position, glms_vec3_scale(*dir, self->r));
+  collider->support = [](const qbCollider_* self, const vec3s dir) {
+    return vec3s{
+      dir.x < 0 ? self->min.x : self->max.x,
+      dir.y < 0 ? self->min.y : self->max.y,
+      dir.z < 0 ? self->min.z : self->max.z,
+    };
   };
 }
 
-void qb_collider_obb(qbCollider collider, vec3s max, vec3s min, vec3s center) {
+void qb_collider_line(qbCollider collider, vec3s from, vec3s to) {
   *collider = {};
+  collider->max = to;
+  collider->min = from;
+  collider->center = GLMS_VEC3_ZERO_INIT;
+
+  float from_len = glms_vec3_norm(from);
+  float to_len = glms_vec3_norm(to);
+  collider->r = std::max(to_len, from_len);
+  collider->support = [](const qbCollider_* self, const vec3s dir) {
+    vec3s r = glms_vec3_sub(self->max, self->min);
+
+    // If the segment and the given `dir` are pointing in the same direction,
+    // then return the max otherwise min.
+    return glms_vec3_dot(r, dir) < 0 ? self->min : self->max;
+  };
+}
+
+void qb_collider_ray(qbCollider collider, vec3s dir, float t) {
+  *collider = {};
+  collider->max = { t, t, t };
+  collider->min = { -t, -t, -t };
+  collider->center = GLMS_VEC3_ZERO_INIT;
+  collider->r = t;
+  collider->support = [](const qbCollider_* self, const vec3s dir) {
+    // If the segment and the given `dir` are pointing in the same direction,
+    // then return the max otherwise min.
+    return glms_vec3_dot(self->max, dir) <= 0 ? self->min : self->max;
+  };
 }
 
 void qb_collider_pill(qbCollider collider, float r, float h) {
@@ -620,3 +918,9 @@ void qb_collider_cylinder(qbCollider collider, float r, float h) {
 void qb_collider_cone(qbCollider collider, float r, float h) {
   *collider = {};
 }
+
+qbTransform_ qb_transform_identity = {
+  .orientation = GLMS_MAT4_IDENTITY_INIT,
+  .position = GLMS_VEC3_ZERO_INIT,
+  .scale = GLMS_VEC3_ONE_INIT,
+};

@@ -226,7 +226,7 @@ struct ComparableVar {
     }
 
     if (v.tag == QB_TAG_STRING || v.tag == QB_TAG_CSTRING) {
-      return strcmp(v.s, other.v.s) == 0;
+      return strcmp((char*)v.s, (char*)other.v.s) == 0;
     } else if (v.tag == QB_TAG_BYTES) {
       if (v.size != other.v.size) {
         return false;
@@ -258,11 +258,11 @@ struct hash<ComparableVar> {
         return hash<double>()(k.v.d);
       
       case QB_TAG_CSTRING:
-        return hash<char*>()(k.v.s);
+        return hash<char*>()((char*)k.v.s);
 
       case QB_TAG_STRING:
       {
-        utf8_t* str = k.v.s;
+        char* str = k.v.s;
         unsigned long hash = 5381;
         int c;
 

@@ -30,6 +30,7 @@
 #include <cubez/sprite.h>
 #include "inline_shaders.h"
 #include "sprite_internal.h"
+#include "assimp/types.h"
 
 #include <atomic>
 
@@ -157,6 +158,10 @@ qbEvent qb_render_event() {
   return render_event;
 }
 
+struct SDL_Window* render_curwindow() {
+  return win;
+}
+
 qbResult do_render(qbRenderEvent event,
                    void(*on_render)(struct qbRenderEvent_*, qbVar),
                    void(*on_postrender)(struct qbRenderEvent_*, qbVar),
@@ -195,7 +200,7 @@ void initialize_context(const RenderSettings& settings) {
     SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-  win = SDL_CreateWindow(settings.title,
+  win = SDL_CreateWindow((char*)settings.title,
                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                          settings.width, settings.height,
                          SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
@@ -223,6 +228,8 @@ void initialize_context(const RenderSettings& settings) {
   glGetError();
   SDL_GL_SwapWindow(win);
   nk_sdl_init(win);
+
+  static_assert(sizeof(ai_real) == sizeof(float), "Assimp ai_real should be a float.");
 }
 
 void renderer_initialize(const RenderSettings& settings) {
@@ -430,8 +437,8 @@ qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s
   qbCameraInternal ret = new qbCameraInternal_{
     .camera = {
       .aspect = width / height,
-      .near = -1.f,
-      .far = 1.f,
+      .near_plane = -1.f,
+      .far_plane = 1.f,
       .fov = 1.f,
 
       .eye = {width / 2, height / 2, 0.f},
@@ -446,18 +453,19 @@ qbCamera qb_camera_ortho(float left, float right, float bottom, float top, vec2s
 }
 
 qbCamera qb_camera_perspective(
-  float fov, float aspect, float near, float far,
+  float fov_deg, float aspect, float near, float far,
   vec3s eye, vec3s center, vec3s up) {
 
+  float fov_rad = GLM_PIf * (fov_deg / 180.f);
   mat4s view = glms_lookat(eye, center, up);
-  mat4s proj = glms_perspective(fov, aspect, near, far);
+  mat4s proj = glms_perspective(fov_rad, aspect, near, far);
 
   qbCameraInternal ret = new qbCameraInternal_{
     .camera = {
       .aspect = aspect,
-      .near = near,
-      .far = far,
-      .fov = fov,
+      .near_plane = near,
+      .far_plane = far,
+      .fov = fov_deg,
 
       .eye = eye,
       .view_mat = view,
@@ -495,7 +503,7 @@ void qb_camera_resize(qbCamera camera_ref, uint32_t width, uint32_t height) {
     camera->projection_mat = glms_ortho(-aspect * fov, aspect * fov, -fov, fov, -1.f, 1.f);
 
   } else {
-    camera->projection_mat = glms_perspective(camera->fov, camera->aspect, camera->near, camera->far);
+    camera->projection_mat = glms_perspective(camera->fov, camera->aspect, camera->near_plane, camera->far_plane);
   }  
 }
 

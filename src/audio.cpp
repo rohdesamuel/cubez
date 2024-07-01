@@ -116,7 +116,7 @@ void audio_shutdown() {
 }
 
 qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr) {
-  fs::path path = fs::path(qb_resources()->dir) / fs::path(qb_resources()->sounds) / file;
+  fs::path path = fs::path(qb_resources()->resources) / fs::path(qb_resources()->sounds) / file;
   if (fs::exists(path)) {
     std::lock_guard<decltype(loaded_mu_)> l(loaded_mu_);
     qbAudioBuffer ret = new qbAudioBuffer_{ sound_id, cs_load_wav(path.string().c_str()) };

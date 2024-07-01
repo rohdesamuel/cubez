@@ -24,6 +24,10 @@ uint64_t qb_rand() {
 	return qb_xorshift(&state);
 }
 
+float qb_randf() {
+	return (float)((uint32_t)(qb_xorshift(&state) >> 32)) / 0xFFFFFFFF;
+}
+
 uint64_t qb_splitmix(qbSplitmix state) {
 	uint64_t result = (state->s += 0x9E3779B97f4A7C15);
 	result = (result ^ (result >> 30)) * 0xBF58476D1CE4E5B9;

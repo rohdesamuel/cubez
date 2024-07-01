@@ -54,9 +54,9 @@ typedef struct qbSprite_ {
   qbSpriteAnimator animator;
 } qbSprite_, *qbSprite;
 
-QB_API qbSprite qb_sprite_load(const char* filename);
+QB_API qbSprite qb_sprite_load(const utf8_t* filename);
 
-QB_API qbSprite qb_spritesheet_load(const char* filename, int tw, int th, int margin);
+QB_API qbSprite qb_spritesheet_load(const utf8_t* filename, int tw, int th, int margin);
 
 QB_API qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy);
 
@@ -116,7 +116,7 @@ typedef struct qbSpriteAnimationAttr_ {
 
 QB_API qbSpriteAnimation qb_spriteanimation_create(qbSpriteAnimationAttr attr);
 
-QB_API qbSpriteAnimation qb_spriteanimation_loaddir(const char* dir, qbSpriteAnimationAttr attr);
+QB_API qbSpriteAnimation qb_spriteanimation_loaddir(const utf8_t* dir, qbSpriteAnimationAttr attr);
 
 QB_API qbSpriteAnimation qb_spriteanimation_fromsheet(qbSpriteAnimationAttr attr, qbSprite sheet,
                                           int index_start, int index_end);

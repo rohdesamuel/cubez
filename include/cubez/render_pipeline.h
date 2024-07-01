@@ -49,11 +49,13 @@ typedef struct qbRenderExt_ {
 } qbRenderExt_, *qbRenderExt;
 
 typedef enum {
+  QB_PIXEL_FORMAT_UNKNOWN,
   QB_PIXEL_FORMAT_R8,
   QB_PIXEL_FORMAT_RG8,
   QB_PIXEL_FORMAT_RGB8,
   QB_PIXEL_FORMAT_RGBA8,
   QB_PIXEL_FORMAT_R16F,
+
   QB_PIXEL_FORMAT_RG16F,
   QB_PIXEL_FORMAT_RGB16F,
   QB_PIXEL_FORMAT_RGBA16F,
@@ -61,6 +63,10 @@ typedef enum {
   QB_PIXEL_FORMAT_RG32F,
   QB_PIXEL_FORMAT_RGB32F,
   QB_PIXEL_FORMAT_RGBA32F,
+
+  QB_PIXEL_FORMAT_SRGB8,
+  QB_PIXEL_FORMAT_SRGBA8,
+
   QB_PIXEL_FORMAT_D32,
   QB_PIXEL_FORMAT_D24_S8,
   QB_PIXEL_FORMAT_S8
@@ -73,7 +79,10 @@ typedef enum {
 } qbGpuBufferType;
 
 typedef enum {
+  // The vertex attribute is advanced once per vertex.
   QB_VERTEX_INPUT_RATE_VERTEX,
+
+  // The vertex attribute is advanced QB_VERTEX_INPUT_RATE_INSTANCE + n per vertex.
   QB_VERTEX_INPUT_RATE_INSTANCE,
 } qbVertexInputRate;
 
@@ -116,8 +125,8 @@ typedef struct qbFramebufferAttachmentRef_ {
 typedef struct {
   qbRenderPass render_pass;
 
-  qbFramebufferAttachment_* attachments;
   size_t attachments_count;
+  qbFramebufferAttachment_* attachments;
 
   uint32_t width, height;
   uint32_t layers;
@@ -139,6 +148,12 @@ typedef struct {
 
   qbImageType type;
   qbBool generate_mipmaps;
+
+  // The pixel format of the data to upload. Leave as QB_PIXEL_FORMAT_UNKNOWN
+  // for loading images from disk to auto-select based off of the image
+  // extension and metadata.
+  qbPixelFormat pixel_format;
+  qbPixelFormat internal_format;
 
   qbRenderExt ext;
 } qbImageAttr_, *qbImageAttr;
@@ -280,9 +295,9 @@ typedef enum {
 } qbDrawMode;
 
 typedef enum {
-  QB_POLYGON_MODE_POINT,
-  QB_POLYGON_MODE_LINE,
   QB_POLYGON_MODE_FILL,
+  QB_POLYGON_MODE_LINE,
+  QB_POLYGON_MODE_POINT,
 } qbPolygonMode;
 
 typedef enum {
@@ -315,8 +330,15 @@ typedef enum {
 } qbBufferAccess;
 
 typedef struct qbDepthStencilState_ {
+  // When true, enables discarding fragments based on written depth. Otherwise,
+  // fragments are rendered based on order.
   qbBool depth_test_enable;
+
+  // When true, enables writing depth value to the depth buffer to use for
+  // testing. Otherwise, does not write new depth values.
   qbBool depth_write_enable;
+
+  // The function that is used to keep fragments.
   qbRenderTestFunc depth_compare_op;
 
   qbBool stencil_test_enable;
@@ -340,12 +362,12 @@ typedef struct qbRasterizationInfo_ {
 
 } qbRasterizationInfo_, *qbRasterizationInfo;
 
-typedef struct {
-  qbBufferBinding bindings;
+typedef struct qbGeometryDescriptor_ {
   size_t bindings_count;
+  qbBufferBinding bindings;
 
-  qbVertexAttribute attributes;
   size_t attributes_count;
+  qbVertexAttribute attributes;
 
   qbDrawMode mode;
 } qbGeometryDescriptor_, *qbGeometryDescriptor;
@@ -363,8 +385,8 @@ typedef struct {
 typedef struct qbRenderPassAttr_ {
   const char* name;
 
-  qbFramebufferAttachmentRef_* attachments;
   uint32_t attachments_count;
+  qbFramebufferAttachmentRef_* attachments;
 
   qbRenderExt ext;
 } qbRenderPassAttr_, *qbRenderPassAttr;
@@ -437,7 +459,7 @@ typedef struct qbViewportState_ {
 } qbViewportState_, *qbViewportState;
 
 typedef struct qbShaderResourceLayoutAttr_ {
-  uint32_t binding_count;
+  uint32_t bindings_count;
   qbShaderResourceBinding bindings;
 } qbShaderResourceLayoutAttr_, *qbShaderResourceLayoutAttr;
 
@@ -445,7 +467,7 @@ typedef struct qbShaderResourceLayout_* qbShaderResourceLayout;
 QB_API void qb_shaderresourcelayout_create(qbShaderResourceLayout* resource_layout, qbShaderResourceLayoutAttr attr);
 
 typedef struct qbShaderResourcePipelineLayoutAttr_ {
-  uint32_t layout_count;
+  uint32_t layouts_count;
   qbShaderResourceLayout* layouts;
 } qbShaderResourcePipelineLayoutAttr_, *qbShaderResourcePipelineLayoutAttr;
 
@@ -458,7 +480,12 @@ typedef struct qbShaderResourceSetAttr_ {
 } qbShaderResourceSetAttr_, *qbShaderResourceSetAttr;
 
 typedef struct qbShaderResourceSet_* qbShaderResourceSet;
+
+// Creates `attr.create_count` number of resource sets. Does not take ownership of the linked resources.
 QB_API void qb_shaderresourceset_create(qbShaderResourceSet* resource_set, qbShaderResourceSetAttr attr);
+
+// Destroys the given resource set. Does not destroy the linked resources.
+QB_API void qb_shaderresourceset_destroy(qbShaderResourceSet* resource_set);
 
 typedef struct qbWriteShaderResource_ {
   qbShaderResourceSet dst_set;
@@ -468,6 +495,8 @@ typedef struct qbWriteShaderResource_ {
 QB_API void qb_shaderresourceset_write(qbShaderResourceSet resource_set, uint32_t write_count, qbWriteShaderResource writes);
 QB_API void qb_shaderresourceset_writeuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer buffer);
 QB_API void qb_shaderresourceset_writeimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage image, qbImageSampler sampler);
+QB_API void qb_shaderresourceset_readuniform(qbShaderResourceSet resource_set, uint32_t binding, qbGpuBuffer* buffer);
+QB_API void qb_shaderresourceset_readimage(qbShaderResourceSet resource_set, uint32_t binding, qbImage* image);
 
 typedef struct qbRenderPipelineAttr_ {
   const char* name;
@@ -542,7 +571,7 @@ QB_API void qb_image_create(qbImage* image, qbImageAttr attr, qbPixelMap pixel_m
 QB_API void qb_image_raw(qbImage* image, qbImageAttr attr, qbPixelFormat format, uint32_t width, uint32_t height, void* pixels);
 QB_API void qb_image_destroy(qbImage* image);
 QB_API const char* qb_image_name(qbImage image);
-QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const char* file);
+QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const utf8_t* file);
 QB_API void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data);
 QB_API int qb_image_width(qbImage image);
 QB_API int qb_image_height(qbImage image);
@@ -599,6 +628,8 @@ typedef struct qbDrawPresentInfo_ {
 
 typedef struct qbSwapchain_* qbSwapchain;
 QB_API void qb_swapchain_create(qbSwapchain* swapchain, qbSwapchainAttr attr);
+
+// Destroys the swapchain and associated images.
 QB_API void qb_swapchain_destroy(qbSwapchain* swapchain);
 QB_API void qb_swapchain_images(qbSwapchain swapchain, size_t* count, qbImage* images);
 QB_API uint32_t qb_swapchain_waitforframe(qbSwapchain swapchain);
@@ -630,10 +661,11 @@ QB_API void qb_drawcmd_destroy(qbDrawCommandBuffer* cmd_buf, size_t count);
 // Clears all commands from `cmd_buf` and clears the allocator.
 QB_API void qb_drawcmd_clear(qbDrawCommandBuffer cmd_buf);
 
-// Begins the render pass by clearing the attached frame buffers.
+// Begins the render pass by clearing the attached frame buffers. Must be
+// called at least once as the first command
 QB_API void qb_drawcmd_beginpass(qbDrawCommandBuffer cmd_buf, qbBeginRenderPassInfo begin_info);
 
-// Clears all background state.
+// Finishes the pass.
 QB_API void qb_drawcmd_endpass(qbDrawCommandBuffer cmd_buf);
 
 QB_API void qb_drawcmd_setcull(qbDrawCommandBuffer cmd_buf, qbFace cull_face);
@@ -648,13 +680,15 @@ QB_API void qb_drawcmd_bindpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipelin
 QB_API void qb_drawcmd_beginpipeline(qbDrawCommandBuffer cmd_buf, qbRenderPipeline pipeline);
 QB_API void qb_drawcmd_bindshaderresourceset(qbDrawCommandBuffer cmd_buf, qbShaderResourceSet resource_set);
 QB_API void qb_drawcmd_bindshaderresourcesets(qbDrawCommandBuffer cmd_buf, uint32_t resource_set_count, qbShaderResourceSet* resource_sets);
-QB_API void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t binding_count, qbGpuBuffer* buffers);
+QB_API void qb_drawcmd_bindframebuffer(qbDrawCommandBuffer cmd_buf, qbFrameBuffer fbo);
+QB_API void qb_drawcmd_bindframebuffers(qbDrawCommandBuffer cmd_buf, uint32_t count, qbFrameBuffer fbos[]);
+QB_API void qb_drawcmd_bindvertexbuffers(qbDrawCommandBuffer cmd_buf, uint32_t first_binding, uint32_t bindings_count, qbGpuBuffer buffers[]);
 QB_API void qb_drawcmd_bindindexbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer);
 QB_API void qb_drawcmd_draw(qbDrawCommandBuffer cmd_buf, uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance);
 QB_API void qb_drawcmd_drawindexed(qbDrawCommandBuffer cmd_buf, uint32_t index_count, uint32_t instance_count, uint32_t vertex_offset, uint32_t first_instance);
 
 QB_API void qb_drawcmd_updateshaderresource(qbDrawCommandBuffer cmd_buf, uint32_t binding, qbImage image, qbGpuBuffer uniform, qbShaderResourceSet resource_set);
-QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32_t binding_count, uint32_t bindings[], qbImage images[], qbGpuBuffer uniforms[], qbShaderResourceSet resource_set);
+QB_API void qb_drawcmd_updateshaderresources(qbDrawCommandBuffer cmd_buf, uint32_t bindings_count, uint32_t bindings[], qbImage images[], qbGpuBuffer uniforms[], qbShaderResourceSet resource_set);
 
 // Queues the given data to update the contents of the buffer on the GPU .
 QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
@@ -662,13 +696,18 @@ QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buf
 // Allocates `size` bytes and copies `data` with the buffer's allocator.
 QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 
-// Adds the given buffer to draw.
+// Adds the given buffer to draw, each qbDrawCommandBuffer utilizes the parent
+// state.
 QB_API void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw);
 
 // Adds the given reference to a buffer to draw. This buffer can be NULL and
 // can be replaced. If given, waits for the given semaphore, then dereferences
-// the given buffer, and finally executes the buffer.
+// the given buffer, and finally executes the buffer. Each qbDrawCommandBuffer
+// utilizes the parent state.
 QB_API void qb_drawcmd_refcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer* to_draw, qbSemaphore opt_semaphore, uint64_t wait_n);
+
+// Adds the given buffer to draw. Eeach qbDrawCommandBuffer utilizes its own state.
+QB_API void qb_drawcmd_addcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw);
 
 // Queues the semaphore to signal with the given n.
 QB_API void qb_drawcmd_signal(qbDrawCommandBuffer cmd_buf, qbSemaphore semaphore, uint64_t n);
@@ -682,8 +721,8 @@ QB_API void qb_drawcmd_resetsignal(qbDrawCommandBuffer cmd_buf, qbSemaphore sema
 
 typedef struct qbDrawCommandSubmitInfo_ {
   // List of semaphores to reset.
-  qbSemaphore* semaphores;
   uint64_t semaphores_count;
+  qbSemaphore* semaphores;
 } qbDrawCommandSubmitInfo_, *qbDrawCommandSubmitInfo;
 
 // Runs all commands in `cmd_buf`, clears the allocator, presents the image, and swaps with the back buffer.

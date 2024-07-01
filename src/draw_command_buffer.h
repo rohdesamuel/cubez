@@ -12,8 +12,6 @@ typedef struct qbDrawState_ {
   qbRenderPipeline pipeline = nullptr;
   qbRenderPass render_pass = nullptr;
   qbFrameBuffer framebuffer = nullptr;
-  qbClearValue clear_values = nullptr;
-  uint32_t clear_values_count = 0;
 } qbDrawState_, * qbDrawState;
 
 struct RenderCommandQueue {
@@ -24,6 +22,7 @@ struct RenderCommandQueue {
 
   void clear();
   void execute();
+  void execute(qbDrawState state);
 };
 
 struct qbDrawCommandBuffer_ {
@@ -34,6 +33,7 @@ struct qbDrawCommandBuffer_ {
   // Executes /all/ commands and clears the queued commands.
   qbTask flush();
   void execute();
+  void execute(qbDrawState state);
 
   void clear();
   void begin_pass(qbBeginRenderPassInfo begin_info);
@@ -60,7 +60,6 @@ private:
   std::vector<RenderCommandQueue*> allocated_queues_ = {};
 
   qbMemoryAllocator allocator_ = nullptr;
-  qbMemoryAllocator state_allocator_ = nullptr;
 
   void queue_pass();
 

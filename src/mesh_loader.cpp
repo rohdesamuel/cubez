@@ -6,13 +6,13 @@
 #include <iostream>
 #include <unordered_map>
 
-struct Vertex {
+struct InternalVertex {
   vec3s pos;
   vec3s normal;
   vec2s tex;
 };
 
-bool operator==(const Vertex& lhs, const Vertex& rhs) {
+bool operator==(const InternalVertex& lhs, const InternalVertex& rhs) {
   return glms_vec3_eqv(lhs.pos, rhs.pos) &&
     glms_vec3_eqv(lhs.normal, rhs.normal) &&
     glm_vec2_eqv((float*)lhs.tex.raw, (float*)rhs.tex.raw);
@@ -49,8 +49,8 @@ struct hash<vec2s> {
   }
 };
 
-template<> struct hash<Vertex> {
-  size_t operator()(Vertex const& vertex) const {
+template<> struct hash<InternalVertex> {
+  size_t operator()(InternalVertex const& vertex) const {
     return ((hash<vec3s>()(vertex.pos) ^
             (hash<vec3s>()(vertex.normal) << 1)) >> 1) ^
             (hash<vec2s>()(vertex.tex) << 1);
@@ -126,14 +126,14 @@ qbMesh MeshLoader::ToQbMesh(const tinyobj::shape_t& shape, const tinyobj::attrib
   qbMesh ret = new qbMesh_;
 
   std::vector<uint32_t> indices;
-  std::vector<Vertex> vertices;
-  std::unordered_map<Vertex, uint32_t> unique_vertices;
+  std::vector<InternalVertex> vertices;
+  std::unordered_map<InternalVertex, uint32_t> unique_vertices;
 
   indices.reserve(shape.mesh.indices.size());
   vertices.reserve(shape.mesh.indices.size());
 
   for (auto idx : shape.mesh.indices) {
-    Vertex vertex = {};
+    InternalVertex vertex = {};
     
     vertex.pos = {
       attrib.vertices[3 * idx.vertex_index + 0],

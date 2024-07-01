@@ -31,13 +31,25 @@
 #include <string>
 #include <iostream>
 #include <cglm/struct/vec3.h>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "meshoptimizer/meshoptimizer.h"
 
+namespace {
 size_t hash_combine(size_t seed, size_t hash) {
   hash += 0x9e3779b9 + (seed << 6) + (seed >> 2);
   return seed ^ hash;
+}
+
+struct Vertex {
+  vec3s v;
+  vec3s vt;
+  vec3s vn;
+  float* vc;
+  int color_channels;
+};
+
 }
 
 namespace std {
@@ -45,7 +57,7 @@ template<>
 struct hash<vec3s> {
   size_t operator()(const vec3s& v) const {
     size_t seed = 0;
-    hash<float> hasher;
+    static hash<float> hasher;
     seed = hash_combine(seed, hasher(v.x));
     seed = hash_combine(seed, hasher(v.y));
     seed = hash_combine(seed, hasher(v.z));
@@ -57,13 +69,33 @@ template<>
 struct hash<mat3s> {
   size_t operator()(const mat3s& m) const {
     size_t seed = 0;
-    hash<vec3s> hasher;
+    static hash<vec3s> hasher;
     seed = hash_combine(seed, hasher(m.col[0]));
     seed = hash_combine(seed, hasher(m.col[1]));
     seed = hash_combine(seed, hasher(m.col[2]));
     return seed;
   }
 };
+
+template<>
+struct hash<Vertex> {
+  size_t operator()(const Vertex& v) const {
+    size_t seed = 0;
+    static hash<vec3s> v_hasher{};
+    static hash<float> f_hasher{};
+    seed = hash_combine(seed, v_hasher(v.v));
+    seed = hash_combine(seed, v_hasher(v.vt));
+    seed = hash_combine(seed, v_hasher(v.vn));
+    for (int i = 0; i < v.color_channels; ++i) {
+      seed = hash_combine(seed, f_hasher(v.vc[i]));
+    }
+    return seed;
+  }
+};
+
+bool operator==(const Vertex& a, const Vertex& b) {
+  return memcmp(&a, &b, sizeof(Vertex)) == 0;
+}
 }
 
 struct VectorCompare {
@@ -192,10 +224,14 @@ struct qbMeshBuilder_ {
   MeshBuilder builder;
 };
 
+MeshBuilder::MeshBuilder(qbMeshBuilderAttr attr): color_channels_(attr->color_channels) { }
+
 MeshBuilder MeshBuilder::FromFile(const std::string& filename) {
   std::ifstream file;
   file.open(filename, std::ios::in);
-  MeshBuilder builder;
+
+  qbMeshBuilderAttr_ attr{ .color_channels = 3 };
+  MeshBuilder builder(&attr);
   if (file.is_open()) {
     std::string line;
     while (getline(file, line)) {
@@ -248,6 +284,14 @@ int MeshBuilder::AddNormal(vec3s vn) {
   return (int)vn_.size() - 1;
 }
 
+int MeshBuilder::AddColor(float color[]) {
+  int pos = colors_.size();
+  colors_.resize(pos + color_channels_);
+  memcpy(colors_.data() + pos, color, sizeof(float) * color_channels_);
+
+  return pos;
+}
+
 int MeshBuilder::AddFace(Face face) {
   f_.push_back(face);
   return (int)f_.size() - 1;
@@ -272,7 +316,7 @@ int MeshBuilder::AddFace(std::vector<vec3s>&& vertices,
   return (int)f_.size() - 1;
 }
 
-int MeshBuilder::AddFace(int vertices[], int normals[], int uvs[]) {
+int MeshBuilder::AddFace(int vertices[], int normals[], int uvs[], int cols[]) {
   Face f = {};
   memcpy(f.v, vertices, sizeof(int) * 3);
 
@@ -288,12 +332,21 @@ int MeshBuilder::AddFace(int vertices[], int normals[], int uvs[]) {
     f.vt[0] = f.vt[1] = f.vt[2] = -1;
   }
 
+  if (cols) {
+    size_t pos = face_colors_.size();
+    face_colors_.resize(pos + 3);
+    memcpy(face_colors_.data() + pos, cols, sizeof(int) * 3);
+    f.cols_idx = (int32_t)pos;
+  } else {
+    f.cols_idx = -1;
+  }
+
   f.count = 3;
   f_.push_back(std::move(f));
   return (int)f_.size() - 1;
 }
 
-int MeshBuilder::AddLine(int vertices[], int normals[], int uvs[]) {
+int MeshBuilder::AddLine(int vertices[], int normals[], int uvs[], int cols[]) {
   Face f = {};
   memcpy(f.v, vertices, sizeof(int) * 2);
 
@@ -309,13 +362,23 @@ int MeshBuilder::AddLine(int vertices[], int normals[], int uvs[]) {
     f.vt[0] = f.vt[1] = f.vt[2] = -1;
   }
 
+  if (cols) {
+    size_t pos = face_colors_.size();
+    face_colors_.resize(pos + 2);
+    memcpy(face_colors_.data() + pos, cols, sizeof(int) * 2);
+    f.cols_idx = (int32_t)pos;
+  } else {
+    f.cols_idx = -1;
+  }
+
   f.count = 2;
   f_.push_back(std::move(f));
   return (int)f_.size() - 1;
 }
 
 MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
-  MeshBuilder builder;
+  qbMeshBuilderAttr_ attr{ .color_channels = 0 };
+  MeshBuilder builder(&attr);
   float zdir_step = 180.0f / zslices;
   float dir_step = 360.0f / slices;
   for (float zdir = 0; zdir < 180; zdir += zdir_step) {
@@ -396,7 +459,8 @@ MeshBuilder MeshBuilder::Sphere(float radius, int slices, int zslices) {
 }
 
 MeshBuilder MeshBuilder::Box(float x, float y, float z) {
-  MeshBuilder builder;
+  qbMeshBuilderAttr_ attr{ .color_channels = 0 };
+  MeshBuilder builder(&attr);
   
   vec3s center = glms_vec3_scale(vec3s{ x, y, z }, 0.5f);
   int p1 = builder.AddVertexWithOffset(vec3s{ 0, 0, z }, center);
@@ -507,7 +571,8 @@ MeshBuilder MeshBuilder::Box(float x, float y, float z) {
 }
 
 MeshBuilder MeshBuilder::Rect(float x, float y) {
-  MeshBuilder builder;
+  qbMeshBuilderAttr_ attr{ .color_channels = 0 };
+  MeshBuilder builder(&attr);
 
   int p1 = builder.AddVertex(vec3s{ 0, 0, 0 });
   int p2 = builder.AddVertex(vec3s{ 0, y, 0 });
@@ -536,8 +601,37 @@ MeshBuilder MeshBuilder::Rect(float x, float y) {
   return builder;
 }
 
+vec3s mesh_support(const qbCollider_* collider, vec3s dir) {
+  vec3s support = {};
+  float max_dot = std::numeric_limits<float>::lowest();
+  int found = 0;
+  for (int i = 0; i < collider->vertex_count; ++i) {
+    float dot = glms_vec3_dot(collider->vertices[i], dir);
+    if (dot > max_dot) {
+      max_dot = dot;
+      found = i;
+    }
+  }
+
+  return collider->vertices[found];
+}
+
 qbCollider MeshBuilder::Collider(qbMesh mesh) {
   qbCollider collider = new qbCollider_;
+  collider->support = [](const qbCollider_ * collider, vec3s dir) -> vec3s {
+    vec3s support = {};
+    float max_dot = std::numeric_limits<float>::lowest();
+    int found = 0;
+    for (int i = 0; i < collider->vertex_count; ++i) {
+      float dot = glms_vec3_dot(collider->vertices[i], dir);
+      if (dot > max_dot) {
+        max_dot = dot;
+        found = i;
+      }
+    }
+
+    return collider->vertices[found];
+  };
 
   std::unordered_set<VectorCompare> vertex_deduper;
   for (size_t i = 0; i < mesh->vertex_count; ++i) {
@@ -564,7 +658,7 @@ qbCollider MeshBuilder::Collider(qbMesh mesh) {
     size_t vertex_count = meshopt_simplifyPoints(indices.data(),
       (float*)c_mesh.vertices, c_mesh.nvertices, sizeof(vec3s), target_vertex_count);
 
-    assert(vertex_count <= target_vertex_count && "Could not simplify mesh below 255 vertices.");
+    DEBUG_ASSERT(vertex_count <= target_vertex_count && "Could not simplify mesh below 255 vertices.", -1);
 
     std::vector<vec3s> vertices(c_mesh.nvertices);
     vertex_count = meshopt_optimizeVertexFetch(
@@ -633,14 +727,17 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   std::vector<vec3s> normals;
   std::vector<vec2s> uvs;
   std::vector<uint32_t> indices;
+  std::vector<float> colors;
 
   if (render_mode == QB_DRAW_MODE_TRIANGLES) {
-    std::map<MatrixCompare, uint32_t> mapped_indices;
+    std::unordered_map<Vertex, uint32_t> mapped_indices;
     for (const Face& face : f_) {
       for (int i = 0; i < 3; ++i) {
         const vec3s& v = v_[face.v[i]];
         vec2s vt = {};
         vec3s vn = {};
+        float* cols = nullptr;
+
         if (face.vt[i] >= 0) {
           vt = vt_[face.vt[i]];
         }
@@ -649,14 +746,18 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
           vn = vn_[face.vn[i]];
         }
 
+        if (face.cols_idx >= 0) {
+          cols = colors_.data() + face_colors_[face.cols_idx + i];
+        }
+
         mat3s mat;
         mat.col[0] = v;
         mat.col[1] = vec3s{ vt.x, vt.y, 0.0f };
         mat.col[2] = vn;
 
-        MatrixCompare mc{ mat };
+        Vertex vert{ v, vec3s{vt.x, vt.y, 1.f}, vn, cols, color_channels_};
 
-        auto it = mapped_indices.find(mc);
+        auto it = mapped_indices.find(vert);
         if (it == mapped_indices.end()) {
           if (face.vt[i] >= 0) {
             uvs.push_back(vt);
@@ -664,11 +765,16 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
           if (face.vn[i] >= 0) {
             normals.push_back(vn);
           }
+          if (face.cols_idx >= 0) {
+            size_t pos = colors.size();
+            colors.resize(pos + color_channels_);
+            memcpy(colors.data() + pos, cols, sizeof(float) * color_channels_);
+          }
           vertices.push_back(v);          
 
           uint32_t new_index = (uint32_t)vertices.size() - 1;
           indices.push_back(new_index);
-          mapped_indices[mc] = new_index;
+          mapped_indices[vert] = new_index;
         } else {
           indices.push_back(it->second);
         }
@@ -761,9 +867,11 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
   assert(indices.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max index count.");
   assert(normals.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max normal count.");
   assert(uvs.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max uv count.");
+  assert(colors.size() < (uint32_t)(0xFFFFFFFF) && "Mesh exceeds max color count.");
 
   assert((vertices.size() == normals.size() || normals.empty()) && "Normal count must match vertex count.");
   assert((vertices.size() == uvs.size() || uvs.empty()) && "UV count must match vertex count.");
+  assert((vertices.size() * color_channels_ == colors.size() || colors.empty()) && "UV count must match vertex count.");
 
   qbMesh mesh = new qbMesh_{};
   mesh->vertex_count = (uint32_t)vertices.size();
@@ -789,6 +897,15 @@ qbMesh MeshBuilder::Mesh(qbDrawMode render_mode) {
       memcpy(mesh->uvs, uvs.data(), mesh->vertex_count * sizeof(vec2));
     }
   }
+
+  mesh->colors = nullptr;
+  if (!colors.empty()) {
+    if (mesh->vertex_count > 0) {
+      mesh->colors = new float[mesh->vertex_count * color_channels_];
+      memcpy(mesh->colors, colors.data(), mesh->vertex_count * sizeof(float) * color_channels_);
+    }
+    mesh->color_channels = color_channels_;
+  }
   mesh->mode = render_mode;
 
   return mesh;
@@ -806,14 +923,18 @@ void MeshBuilder::Reset() {
   std::swap(f_, empty_f);
 }
 
-qbResult qb_meshbuilder_create(qbMeshBuilder* builder) {
-  *builder = new qbMeshBuilder_{};
+qbResult qb_meshbuilder_create(qbMeshBuilder* builder, qbMeshBuilderAttr attr) {
+  *builder = new qbMeshBuilder_{ MeshBuilder(attr) };
   return QB_OK;
 }
 
 qbResult qb_meshbuilder_destroy(qbMeshBuilder* builder) {
   delete *builder;
   return QB_OK;
+}
+
+void qb_meshbuilder_clear(qbMeshBuilder builder) {
+  builder->builder.Reset();
 }
 
 qbResult qb_meshbuilder_build(qbMeshBuilder builder, qbDrawMode mode,
@@ -848,10 +969,14 @@ int qb_meshbuilder_addvn(qbMeshBuilder builder, vec3s vn) {
   return builder->builder.AddNormal(vn);
 }
 
-int qb_meshbuilder_addline(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]) {
-  return builder->builder.AddLine(vertices, normals, uvs);
+int qb_meshbuilder_addvc(qbMeshBuilder builder, float colors[]) {
+  return builder->builder.AddColor(colors);
 }
 
-int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[]) {
-  return builder->builder.AddFace(vertices, normals, uvs);
+int qb_meshbuilder_addline(qbMeshBuilder builder, int vertices[], int normals[], int uvs[], int cols[]) {
+  return builder->builder.AddLine(vertices, normals, uvs, cols);
+}
+
+int qb_meshbuilder_addtri(qbMeshBuilder builder, int vertices[], int normals[], int uvs[], int cols[]) {
+  return builder->builder.AddFace(vertices, normals, uvs, cols);
 }

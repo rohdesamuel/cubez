@@ -91,7 +91,7 @@ uint64_t convert_to_time(uint64_t count) {
   return count * kTimeUnits / kClockFrequency;
 }
 
-int64_t qb_timer_query() {
+int64_t qb_time() {
   int64_t ret = 0;
 #ifdef __COMPILE_AS_WINDOWS__
   LARGE_INTEGER now;

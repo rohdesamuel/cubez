@@ -24,7 +24,7 @@
 typedef struct qbTimer_* qbTimer;
 
 // Returns a strictly increasing monotonic timestamp with units of nanoseconds.
-QB_API int64_t qb_timer_query();
+QB_API int64_t qb_time();
 
 QB_API qbResult qb_timer_create(qbTimer* timer, uint8_t window_size);
 QB_API qbResult qb_timer_destroy(qbTimer* timer);

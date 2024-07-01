@@ -67,9 +67,11 @@ GLenum TranslateQbImageTypeToOpenGl(qbImageType type) {
 GLenum TranslateQbPixelFormatToInternalOpenGl(qbPixelFormat format) {
   switch (format) {
     case QB_PIXEL_FORMAT_R8: return GL_R8;
-    case QB_PIXEL_FORMAT_RG8: return GL_RGBA8;
-    case QB_PIXEL_FORMAT_RGB8: return GL_RGBA8;
+    case QB_PIXEL_FORMAT_RG8: return GL_RG8;
+    case QB_PIXEL_FORMAT_RGB8: return GL_RGB8;
     case QB_PIXEL_FORMAT_RGBA8: return GL_RGBA8;
+    case QB_PIXEL_FORMAT_SRGB8: return GL_SRGB8;
+    case QB_PIXEL_FORMAT_SRGBA8: return GL_SRGB8_ALPHA8;
     case QB_PIXEL_FORMAT_R16F: return GL_R16F;
     case QB_PIXEL_FORMAT_RG16F: return GL_RG16F;
     case QB_PIXEL_FORMAT_RGB16F: return GL_RGB16F;
@@ -92,6 +94,8 @@ GLenum TranslateQbPixelFormatToOpenGl(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_RG8: return GL_RG;
     case QB_PIXEL_FORMAT_RGB8: return GL_RGB;
     case QB_PIXEL_FORMAT_RGBA8: return GL_RGBA;
+    case QB_PIXEL_FORMAT_SRGB8: return GL_RGB;
+    case QB_PIXEL_FORMAT_SRGBA8: return GL_RGBA;
     case QB_PIXEL_FORMAT_R16F: return GL_RED;
     case QB_PIXEL_FORMAT_RG16F: return GL_RG;
     case QB_PIXEL_FORMAT_RGB16F: return GL_RGB;
@@ -113,7 +117,9 @@ GLenum TranslateQbPixelFormatToOpenGlSize(qbPixelFormat format) {
     case QB_PIXEL_FORMAT_R8:
     case QB_PIXEL_FORMAT_RG8:
     case QB_PIXEL_FORMAT_RGB8:
-    case QB_PIXEL_FORMAT_RGBA8: return GL_UNSIGNED_BYTE;
+    case QB_PIXEL_FORMAT_RGBA8:
+    case QB_PIXEL_FORMAT_SRGB8:
+    case QB_PIXEL_FORMAT_SRGBA8: return GL_UNSIGNED_BYTE;
     case QB_PIXEL_FORMAT_R16F:
     case QB_PIXEL_FORMAT_RG16F:
     case QB_PIXEL_FORMAT_RGB16F:

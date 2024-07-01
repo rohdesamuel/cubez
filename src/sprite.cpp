@@ -146,7 +146,7 @@ qbComponent sprite_component;
 
 std::array<std::array<qbShaderResourceSet, MAX_BATCH_TEXTURE_UNITS>, 2> sprite_textures;
 
-qbSprite qb_spritesheet_load(const char* filename, int tw, int th, int margin) {
+qbSprite qb_spritesheet_load(const utf8_t* filename, int tw, int th, int margin) {
   qbSprite sheet = qb_sprite_load(filename);
   sheet->tw = tw;
   sheet->th = th;
@@ -170,14 +170,12 @@ qbSprite qb_sprite_fromsheet(qbSprite sheet, int ix, int iy) {
   return ret;
 }
 
-qbSprite qb_sprite_load(const char* filename) {
-  std::filesystem::path path = std::filesystem::path(qb_resources()->dir) / std::filesystem::path(qb_resources()->sprites) / filename;
-
+qbSprite qb_sprite_load(const utf8_t* filename) {
   qbImage img{};
   qbImageAttr_ attr{};
   attr.type = qbImageType::QB_IMAGE_TYPE_2D;
 
-  qb_image_load(&img, &attr, path.string().c_str());
+  qb_image_load(&img, &attr, filename);
 
   qbSprite ret = new qbSprite_{};
   ret->w = qb_image_width(img);
@@ -217,19 +215,13 @@ qbSprite qb_sprite_fromimage(qbImage image) {
   return ret;
 }
 
-qbSpriteAnimation qb_spriteanimation_loaddir(const char* dir, qbSpriteAnimationAttr attr) {
-  thread_local static char buf[512];
-
-  const std::filesystem::path path = std::filesystem::path(qb_resources()->dir) / std::filesystem::path(qb_resources()->sprites) / dir;
+qbSpriteAnimation qb_spriteanimation_loaddir(const utf8_t* dir, qbSpriteAnimationAttr attr) {
+  std::filesystem::path dir_path(dir);
 
   std::vector<qbSprite> frames;
-  for (const auto& entry : std::filesystem::directory_iterator(path)) {    
-    size_t written = wcstombs(buf, (std::filesystem::path(dir) / entry.path().filename()).c_str(), sizeof(buf));
-    if (written == sizeof(buf)) {
-      buf[sizeof(buf) - 1] = '\0';
-    }
-
-    frames.push_back(qb_sprite_load(buf));
+  for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+    std::filesystem::path sprite_path = dir_path / entry.path().filename();
+    frames.push_back(qb_sprite_load(sprite_path.u8string().c_str()));
   }
 
   std::vector<double> durations;
@@ -595,11 +587,11 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
   }
 
   qbGeometryDescriptor_ geometry_descriptor = {
-    .bindings = &binding,
     .bindings_count = 1,
+    .bindings = &binding,
 
-    .attributes = attributes,
     .attributes_count = sizeof(attributes) / sizeof(attributes[0]),
+    .attributes = attributes,
 
     .mode = QB_DRAW_MODE_TRIANGLES
   };
@@ -632,15 +624,15 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
       }
 
       qbShaderResourceLayoutAttr_ attr = {
-        .binding_count = (uint32_t)resources.size(),
-        .bindings = resources.data()
+        .bindings_count = (uint32_t)resources.size(),
+        .bindings = resources.data(),
       };
       qb_shaderresourcelayout_create(&sprite_resource_layout, &attr);
     }
 
     {
       qbShaderResourcePipelineLayoutAttr_ attr = {
-        .layout_count = 1,
+        .layouts_count = 1,
         .layouts = &sprite_resource_layout,
       };
       qb_shaderresourcepipelinelayout_create(&sprite_render_pipeline_layout, &attr);
@@ -741,8 +733,8 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
     };
 
     qbRenderPassAttr_ attr{
+      .attachments_count = 2,
       .attachments = attachments,
-      .attachments_count = 2
     };
 
     qb_renderpass_create(&sprite_render_pass, &attr);
@@ -753,7 +745,7 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
 
 void sprite_initialize(uint32_t width, uint32_t height) {
   sprite_render_pipeline = sprite_create_renderpipeline(width, height);
-  sprite_path = std::filesystem::path(qb_resources()->dir) / qb_resources()->sprites;
+  sprite_path = std::filesystem::path(qb_resources()->resources) / qb_resources()->images;
 
   {
     qbComponentAttr attr;
@@ -815,7 +807,7 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
   {
     qbShaderResourceSetAttr_ attr = {
       .create_count = 1,
-      .layout = sprite_resource_layout
+      .layout = sprite_resource_layout,
     };
 
     qb_shaderresourceset_create(&resource_set, &attr);

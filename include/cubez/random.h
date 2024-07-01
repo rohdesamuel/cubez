@@ -3,6 +3,8 @@
 
 #include <cubez/common.h>
 
+#define QB_MAX_RAND ((uint64_t)0xFFFFFFFFFFFFFFFF)
+
 typedef struct qbSplitmix_ {
   uint64_t s;
 } qbSplitmix_, *qbSplitmix;
@@ -21,6 +23,7 @@ typedef struct qbXoshiro256ss_ {
 
 QB_API void qb_seed(uint64_t s);
 QB_API uint64_t qb_rand();
+QB_API float qb_randf();
 
 QB_API uint64_t qb_splitmix(qbSplitmix state);
 QB_API uint64_t qb_xorshift(qbXorshift state);

@@ -20,12 +20,16 @@
 #include <cubez/time.h>
 #include <cubez/log.h>
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <string.h>
 #include <cstdarg>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <stdlib.h>
+
+#include "log_internal.h"
 
 const int MAX_CHARS = 256;
 
@@ -35,40 +39,55 @@ qbId program_id;
 qbQueue log_queue;
 
 struct LogEntry {
-  const char* filename;
+  std::filesystem::path filename;
   uint64_t fileline;
-  int64_t timestamp_ms;
+  int64_t timestamp_us;
 
   qbLogLevel level;
   std::string log_entry;
+
+  void print(std::ostream& stream) const {
+    switch (level) {
+      case qbLogLevel::QB_DEBUG:
+        stream << "[DEBUG] ";
+        break;
+      case qbLogLevel::QB_INFO:
+        stream << "[INFO] ";
+        break;
+      case qbLogLevel::QB_WARN:
+        stream << "[WARN] ";
+        break;
+      case qbLogLevel::QB_ERR:
+        stream << "[ERR] ";
+        break;
+    }
+    stream << "[" << timestamp_us << "] [" << filename.filename().string() << ":" << fileline << "]: " << log_entry;
+  }
 };
 
-void log_initialize() {
+namespace {
+
+std::ostream& operator<<(std::ostream& stream, const LogEntry& log_entry) {
+  log_entry.print(stream);
+  return stream;
+}
+
+std::filesystem::path logs_dir;
+std::ostream* log_output;
+std::unique_ptr<std::ifstream> log_fstream;
+
+std::mutex flush_mu;
+}
+
+void log_initialize(qbLoggingAttr_ log_attr) {
   qb_queue_create(&log_queue);
+
+  log_output = &std::cout;
 
   qb_task_async([](qbTask, qbVar) {
     while (qb_running()) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      qbVar log;
-      while (qb_queue_tryread(log_queue, &log)) {
-        LogEntry* entry = (LogEntry*)log.p;
-        switch (entry->level) {
-          case qbLogLevel::QB_DEBUG:
-            std::cout << "[DEBUG] " << entry->log_entry << std::endl;
-            break;
-          case qbLogLevel::QB_INFO:
-            std::cout << "[INFO] " << entry->log_entry << std::endl;
-            break;
-          case qbLogLevel::QB_WARN:
-            std::cout << "[WARN] " << entry->log_entry << std::endl;
-            break;
-          case qbLogLevel::QB_ERR:
-            std::cout << "[ERR] " << entry->log_entry << std::endl;
-            break;
-        }
-
-        delete entry;
-      }      
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      qb_log_flush();
     }
     return qbNil;
   }, qbNil);
@@ -77,20 +96,30 @@ void log_initialize() {
 void qb_log_ex(qbLogLevel level, const char* filename, uint64_t fileline, const char* format, ...) {
   va_list args;
   va_start(args, format);
-
-  char buf[1024] = { 0 };
-
-  vsprintf_s(buf, sizeof(buf), format, args);
-  buf[1023] = 0;
-  std::string s(buf);
+  va_list copy;
+  va_copy(copy, args);
+  int len = vsnprintf(nullptr, 0, format, copy) + 1;
+  std::string buf(len, '\0');
+  vsnprintf(buf.data(), len, format, args);
 
   LogEntry* entry = new LogEntry{
     .filename = filename,
     .fileline = fileline,
-    .timestamp_ms = time(nullptr),
+    .timestamp_us = qb_time() / 1000,
     .level = level,
-    .log_entry = std::move(s)
+    .log_entry = std::move(buf)
   };
 
   qb_queue_write(log_queue, qbPtr(entry));
+}
+
+void qb_log_flush() {
+  std::lock_guard<decltype(flush_mu)> l(flush_mu);
+
+  qbVar log;
+  while (qb_queue_tryread(log_queue, &log)) {
+    LogEntry* entry = (LogEntry*)log.p;
+    std::cout << *entry << std::endl;
+    delete entry;
+  }
 }

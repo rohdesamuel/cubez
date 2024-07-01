@@ -31,14 +31,15 @@ void rendercmd_setcull(qbDrawState state, qbRenderCommand c) {
 void rendercmd_beginpass(qbDrawState state, qbRenderCommand c) {
   qbFrameBuffer framebuffer = state->framebuffer;
   qbRenderPass render_pass = state->render_pass;
+  const qbRenderCommandBegin_& begin_cmd = c->command.begin;
 
-  if (!framebuffer) {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (framebuffer) {
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->id);
+  } else {
     return;
   }
 
-  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->id);
-  if (state->clear_values_count == 0) {
+  if (begin_cmd.clear_values_count == 0) {
     return;
   }
 
@@ -47,7 +48,7 @@ void rendercmd_beginpass(qbDrawState state, qbRenderCommand c) {
     if (ref->attachment == QB_UNUSED_FRAMEBUFFER_ATTACHMENT) continue;
 
     qbFramebufferAttachment attachment = &framebuffer->attachments[i];
-    qbClearValue clear_value = &state->clear_values[i];
+    qbClearValue clear_value = &begin_cmd.clear_values[i];
 
     switch (ref->aspect) {
       case QB_COLOR_ASPECT:
@@ -77,15 +78,6 @@ void rendercmd_beginpass(qbDrawState state, qbRenderCommand c) {
 }
 
 void rendercmd_endpass(qbDrawState state, qbRenderCommand c) {
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glDisable(GL_SCISSOR_TEST);
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_DEPTH_CLAMP);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_BLEND);
-
-  CHECK_GL();
 }
 
 void rendercmd_setviewport(qbDrawState state, qbRenderCommand c) {
@@ -257,7 +249,7 @@ void rendercmd_updateshaderresources(qbDrawState state, qbRenderCommand c) {
   qbRenderCommandUpdateShaderResources_* cmd = &c->command.update_shaderresources;
   qbShaderResourceSet resource_set = cmd->resource_set;
 
-  for (size_t i = 0; i < cmd->binding_count; ++i) {
+  for (size_t i = 0; i < cmd->bindings_count; ++i) {
     uint32_t binding = cmd->bindings[i];
 
     DEBUG_ASSERT(binding < resource_set->binding_indices.size(), 1);
@@ -286,14 +278,25 @@ void rendercmd_bindshaderresourcesets(qbDrawState state, qbRenderCommand c) {
   bind_shaderresourcesets(state, resource_set_count, resource_sets);
 }
 
+void rendercmd_bindframebuffer(qbDrawState state, qbRenderCommand c) {
+  glBindBuffer(GL_FRAMEBUFFER, c->command.bind_framebuffer.fbo->id);
+}
+
+void rendercmd_bindframebuffers(qbDrawState state, qbRenderCommand c) {
+  uint32_t count = c->command.bind_framebuffers.count;
+  for (uint32_t i = 0; i < count; ++i) {
+    glBindBuffer(GL_FRAMEBUFFER, c->command.bind_framebuffers.fbos[i]->id);
+  }
+}
+
 void rendercmd_bindvertexbuffers(qbDrawState state, qbRenderCommand c) {
   uint32_t first_binding = c->command.bind_vertexbuffers.first_binding;
-  uint32_t binding_count = c->command.bind_vertexbuffers.binding_count;
+  uint32_t bindings_count = c->command.bind_vertexbuffers.bindings_count;
   qbGpuBuffer* buffers = c->command.bind_vertexbuffers.buffers;
 
   qbGeometryDescriptor geometry = state->pipeline->geometry;
 
-  for (uint32_t count = 0; count < binding_count; ++count) {
+  for (uint32_t count = 0; count < bindings_count; ++count) {
     uint32_t binding = first_binding + count;
     qbGpuBuffer buffer = buffers[count];
 
@@ -377,7 +380,7 @@ void rendercmd_updatebuffer(qbDrawState state, qbRenderCommand c) {
 
 void rendercmd_subcommands(qbDrawState state, qbRenderCommand c) {
   qbDrawCommandBuffer buf = c->command.sub_commands.cmd_buf;
-  buf->execute();
+  buf->execute(state);
 }
 
 void rendercmd_refcommands(qbDrawState state, qbRenderCommand c) {
@@ -389,8 +392,13 @@ void rendercmd_refcommands(qbDrawState state, qbRenderCommand c) {
   
   qbDrawCommandBuffer* buf = cmd.cmd_buf;
   if (*buf) {
-    (*buf)->execute();
+    (*buf)->execute(state);
   }
+}
+
+void rendercmd_addcommands(qbDrawState state, qbRenderCommand c) {
+  qbDrawCommandBuffer buf = c->command.add_commands.cmd_buf;
+  buf->execute();
 }
 
 void rendercmd_signal(qbDrawState state, qbRenderCommand c) {
@@ -407,28 +415,31 @@ void rendercmd_resetsignal(qbDrawState state, qbRenderCommand c) {
 
 // WARNING: The order of the jump table must match the enums in `qbRenderCommandType_`.
 RenderCommandFn render_command_jump_table[] = {
-  rendercmd_noop,
-  rendercmd_beginpass,
-  rendercmd_endpass,
-  rendercmd_bindpipeline,
-  rendercmd_beginpipeline,
-  rendercmd_setcull,
-  rendercmd_setviewport,
-  rendercmd_setscissor,
-  rendercmd_updateshaderresource,
-  rendercmd_updateshaderresources,
-  rendercmd_bindshaderresourceset,
-  rendercmd_bindshaderresourcesets,
-  rendercmd_bindvertexbuffers,
-  rendercmd_bindindexbuffer,
-  rendercmd_draw,
-  rendercmd_drawindexed,
-  rendercmd_updatebuffer,
-  rendercmd_subcommands,
-  rendercmd_refcommands,
-  rendercmd_signal,
-  rendercmd_wait,
-  rendercmd_resetsignal,
+  rendercmd_noop,                    // QB_RENDER_COMMAND_NOOP
+  rendercmd_beginpass,               // QB_RENDER_COMMAND_BEGIN
+  rendercmd_endpass,                 // QB_RENDER_COMMAND_END
+  rendercmd_bindpipeline,            // QB_RENDER_COMMAND_BINDPIPELINE
+  rendercmd_beginpipeline,           // QB_RENDER_COMMAND_BEGINPIPELINE
+  rendercmd_setcull,                 // QB_RENDER_COMMAND_SETCULL
+  rendercmd_setviewport,             // QB_RENDER_COMMAND_SETVIEWPORT
+  rendercmd_setscissor,              // QB_RENDER_COMMAND_SETSCISSOR
+  rendercmd_updateshaderresource,    // QB_RENDER_COMMAND_UPDATESHADERRESOURCE
+  rendercmd_updateshaderresources,   // QB_RENDER_COMMAND_UPDATESHADERRESOURCES
+  rendercmd_bindshaderresourceset,   // QB_RENDER_COMMAND_BINDSHADERRESOURCESET
+  rendercmd_bindshaderresourcesets,  // QB_RENDER_COMMAND_BINDSHADERRESOURCESETS
+  rendercmd_bindframebuffer,         // QB_RENDER_COMMAND_BINDFRAMEBUFFER
+  rendercmd_bindframebuffers,        // QB_RENDER_COMMAND_BINDFRAMEBUFFERS
+  rendercmd_bindvertexbuffers,       // QB_RENDER_COMMAND_BINDVERTEXBUFFERS
+  rendercmd_bindindexbuffer,         // QB_RENDER_COMMAND_BINDINDEXBUFFER
+  rendercmd_draw,                    // QB_RENDER_COMMAND_DRAW
+  rendercmd_drawindexed,             // QB_RENDER_COMMAND_DRAWINDEXED
+  rendercmd_updatebuffer,            // QB_RENDER_COMMAND_UPDATEBUFFER
+  rendercmd_subcommands,             // QB_RENDER_COMMAND_SUBCOMMANDS
+  rendercmd_refcommands,             // QB_RENDER_COMMAND_REFCOMMANDS
+  rendercmd_addcommands,             // QB_RENDER_COMMAND_ADDCOMMANDS
+  rendercmd_signal,                  // QB_RENDER_COMMAND_SIGNAL
+  rendercmd_wait,                    // QB_RENDER_COMMAND_WAIT
+  rendercmd_resetsignal,             // QB_RENDER_COMMAND_RESETSIGNAL
 };
 
 void RenderCommandQueue::clear() {
@@ -444,9 +455,13 @@ void RenderCommandQueue::execute() {
   }
 }
 
+void RenderCommandQueue::execute(qbDrawState state) {
+  for (auto& c : queued_commands) {
+    (*render_command_jump_table[c.type])(state, &c);
+  }
+}
+
 qbDrawCommandBuffer_::qbDrawCommandBuffer_(qbMemoryAllocator allocator) : allocator_(allocator) {
-  // TODO: Change this to an object pool.
-  state_allocator_ = qb_memallocator_default();
 }
 
 qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
@@ -460,6 +475,12 @@ qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
 void qbDrawCommandBuffer_::execute() {
   for (RenderCommandQueue* queue : queued_passes_) {
     queue->execute();
+  }
+}
+
+void qbDrawCommandBuffer_::execute(qbDrawState state) {
+  for (RenderCommandQueue* queue : queued_passes_) {
+    queue->execute(state);
   }
 }
 
@@ -491,18 +512,6 @@ void qbDrawCommandBuffer_::begin_pass(qbBeginRenderPassInfo begin_info) {
 
   builder_->task_bundle = allocate_bundle();
   builder_->allocator = allocate_allocator();  
-  builder_->state.clear_values_count = begin_info->clear_values_count;
-
-  if (builder_->state.clear_values_count > 0) {
-    builder_->state.clear_values = allocate<qbClearValue_>(builder_->state.clear_values_count);
-    std::copy(
-      begin_info->clear_values,
-      begin_info->clear_values + builder_->state.clear_values_count,
-      builder_->state.clear_values);
-  } else {
-    builder_->state.clear_values = nullptr;
-  }
-
   builder_->state.framebuffer = begin_info->framebuffer;
   builder_->state.render_pass = begin_info->render_pass;
 

@@ -39,10 +39,10 @@
 #define QB_FEATURE_GAME_LOOP 0x0010
 typedef uint32_t qbFeature;
 
-// Macro to abstract away Windows-specific WinMain.
+// Macro to abstract away OS-specific entrypoints.
 // Usage:
 // int qb_main(int argc, char* argv[]) { ... }
-#if defined(_DEBUG) || defined(__COPMILE_AS_LINUX__)
+#if defined(_DEBUG) || defined(__COPMILE_AS_LINUX__) 
 #define qb_main(argc, argv) \
 __qb_main(argc, argv); \
 int main(int _argc, char* _argv[]) { \
@@ -63,6 +63,10 @@ int WINAPI wWinMain( \
 // Holds the game engine state
 typedef struct qbUniverse {
   void* self;
+
+  int argc;
+  char** argv;
+  wchar_t** wargv;
 
   qbFeature enabled;
   uint64_t frame;
@@ -87,22 +91,26 @@ typedef struct qbSchedulerAttr_ {
 
 typedef struct qbResourceAttr_ {
   // Relative path from binary to load resources from.
-  // Default "resources".
-  const char* dir;
+  // Default is the directory where the executable runs from.
+  const utf8_t* resources;
 
   // All the following paths default to load directly from the "resources" directory.
   // If specified, are relative from the "resources" directory.
-  const char* scripts;
-  const char* fonts;
-  const char* sounds;
-  const char* sprites;
-  const char* textures;
-  const char* meshes;
-
+  const utf8_t* scripts;
+  const utf8_t* fonts;
+  const utf8_t* sounds;
+  const utf8_t* images;
+  const utf8_t* meshes;  
 } qbResourceAttr_, *qbResourceAttr;
 
+typedef struct qbLoggingAttr_ {
+  // Path to the directory to write game logs.
+  // Default is "logs".
+  const utf8_t* logs;
+} qbLoggingAttr_, *qbLoggingAttr;
+
 typedef struct {
-  const char* title;
+  const utf8_t* title;
   uint32_t width;
   uint32_t height;
 
@@ -113,6 +121,7 @@ typedef struct {
   struct qbScriptAttr_* script_args;
   struct qbSchedulerAttr_* scheduler_args;
   struct qbResourceAttr_* resource_args;
+  struct qbLoggingAttr_* logging_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
@@ -120,6 +129,7 @@ QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
 QB_API qbBool qb_running();
 QB_API const qbResourceAttr_* qb_resources();
+QB_API const utf8_t* qb_dir();
 
 typedef struct qbLoopCallbacks_ {
   void(*on_update)(uint64_t frame, qbVar);

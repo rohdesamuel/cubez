@@ -37,6 +37,8 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_UPDATESHADERRESOURCES,
   QB_RENDER_COMMAND_BINDSHADERRESOURCESET,
   QB_RENDER_COMMAND_BINDSHADERRESOURCESETS,
+  QB_RENDER_COMMAND_BINDFRAMEBUFFER,
+  QB_RENDER_COMMAND_BINDFRAMEBUFFERS,
   QB_RENDER_COMMAND_BINDVERTEXBUFFERS,
   QB_RENDER_COMMAND_BINDINDEXBUFFER,
   QB_RENDER_COMMAND_DRAW,
@@ -44,13 +46,15 @@ typedef enum qbRenderCommandType_ {
   QB_RENDER_COMMAND_UPDATEBUFFER,
   QB_RENDER_COMMAND_SUBCOMMANDS,
   QB_RENDER_COMMAND_REFCOMMANDS,
+  QB_RENDER_COMMAND_ADDCOMMANDS,
   QB_RENDER_COMMAND_SIGNAL,
   QB_RENDER_COMMAND_WAIT,
   QB_RENDER_COMMAND_RESETSIGNAL,
 } qbRenderCommandType_;
 
 typedef struct qbRenderCommandBegin_ {
-  uint64_t reserved;
+  qbClearValue clear_values;
+  uint32_t clear_values_count;
 } qbRenderCommandBegin_;
 
 typedef struct qbRenderCommandEnd_ {
@@ -85,7 +89,7 @@ typedef struct qbRenderCommandUpdateShaderResource_ {
 } qbRenderCommandUpdateShaderResource_;
 
 typedef struct qbRenderCommandUpdateShaderResources_{
-  size_t binding_count;
+  size_t bindings_count;
   uint32_t* bindings;
   qbImage* images;
   qbGpuBuffer* buffers;
@@ -103,7 +107,7 @@ typedef struct qbRenderCommandBindShaderResourceSets_ {
 
 typedef struct qbRenderCommandBindVertexBuffers_ {
   uint32_t first_binding;
-  uint32_t binding_count;
+  uint32_t bindings_count;
   qbGpuBuffer* buffers;
 } qbRenderCommandBindVertexBuffers_;
 
@@ -142,6 +146,11 @@ typedef struct qbRenderCommandRefCommands_ {
   uint64_t wait_n;
 } qbRenderCommandRefCommands_;
 
+typedef struct qbRenderCommandAddCommands_ {
+  qbDrawCommandBuffer cmd_buf;
+} qbRenderCommandAddCommands_;
+
+
 typedef struct qbRenderCommandSignal_ {
   qbSemaphore semaphore;
   uint64_t n;
@@ -155,6 +164,15 @@ typedef struct qbRenderCommandWait_ {
 typedef struct qbRenderCommandResetSignal_ {
   qbSemaphore semaphore;
 } qbRenderCommandResetSignal_;
+
+typedef struct qbRenderCommandBindFrameBuffer_ {
+  qbFrameBuffer fbo;
+} qbRenderCommandBindFrameBuffer_;
+
+typedef struct qbRenderCommandBindFrameBuffers_ {
+  uint32_t count;
+  qbFrameBuffer* fbos;
+} qbRenderCommandBindFrameBuffers_;
 
 typedef struct qbRenderCommand_ {
   qbRenderCommandType_ type;
@@ -170,6 +188,8 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandUpdateShaderResources_ update_shaderresources;
     qbRenderCommandBindShaderResourceSet_ bind_shaderresourceset;
     qbRenderCommandBindShaderResourceSets_ bind_shaderresourcesets;
+    qbRenderCommandBindFrameBuffer_ bind_framebuffer;
+    qbRenderCommandBindFrameBuffers_ bind_framebuffers;
     qbRenderCommandBindVertexBuffers_ bind_vertexbuffers;
     qbRenderCommandBindIndexBuffer_ bind_indexbuffer;
     qbRenderCommandDraw_ draw;
@@ -177,6 +197,7 @@ typedef struct qbRenderCommand_ {
     qbRenderCommandUpdateBuffer_ update_buffer;
     qbRenderCommandSubCommands_ sub_commands;
     qbRenderCommandRefCommands_ ref_commands;
+    qbRenderCommandAddCommands_ add_commands;
     qbRenderCommandSignal_ signal;
     qbRenderCommandWait_ wait;
     qbRenderCommandResetSignal_ reset_signal;

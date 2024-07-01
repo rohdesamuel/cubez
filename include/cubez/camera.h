@@ -26,8 +26,8 @@
 
 typedef struct qbCamera_ {
   float aspect;
-  float near;
-  float far;
+  float near_plane;
+  float far_plane;
   float fov;
 
   vec3s eye;
@@ -43,7 +43,7 @@ QB_API qbCamera qb_camera_ortho(float left, float right, float bottom, float top
 // Returns a camera with a perspective projection. If just the perspective
 // projection matrix is needed, use glms_perspective or glm_perspective from
 // <cglm/struct/cam.h> or <cglm/cam.h>, respectively.
-QB_API qbCamera qb_camera_perspective(float fov, float aspect, float near, float far, vec3s eye, vec3s center, vec3s up);
+QB_API qbCamera qb_camera_perspective(float fov_deg, float aspect, float near, float far, vec3s eye, vec3s center, vec3s up);
 
 // Destroys the given camera.
 QB_API void qb_camera_destroy(qbCamera* camera);

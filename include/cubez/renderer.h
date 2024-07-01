@@ -47,8 +47,6 @@ typedef struct qbRenderer_ {
   void(*mesh_destroy)(struct qbRenderer_* self, struct qbMesh_* mesh);
 
   const char* title;
-  qbRenderPipeline render_pipeline;
-
   void* state;
 } qbRenderer_, * qbRenderer;
 

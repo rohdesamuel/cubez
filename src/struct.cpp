@@ -225,7 +225,7 @@ size_t qb_schema_unpack(qbSchema* schema, const qbBuffer_* buf, ptrdiff_t* pos) 
     goto incomplete_read;
   }
 
-  utf8_t* name;
+  char* name;
   size_t len;
 
   bytes_read = qb_buffer_readstr(buf, pos, &len, &name);
