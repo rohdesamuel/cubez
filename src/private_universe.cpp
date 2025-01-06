@@ -264,38 +264,20 @@ qbResult PrivateUniverse::do_query(qbQuery query, qbVar arg) {
 }
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
-  qbProgram* p = programs_->GetProgram(attr->program);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  return ProgramImpl::FromRaw(p)->CreateEvent(event, attr);
+  return WorkingScene()->CreateEvent(event, attr);
 }
 
 qbResult PrivateUniverse::event_destroy(qbEvent*) {
 	return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::event_flushall(qbProgram program) {
-  DEBUG_OP(
-    qbResult err = runner_.assert_in_state(RunState::RUNNING);
-    if (err != QB_OK) {
-      return err;
-    }
-  );
-
-  qbProgram* p = programs_->GetProgram(program.id);
-  DEBUG_ASSERT(p, QB_ERROR_NULL_POINTER);
-  ProgramImpl::FromRaw(p)->FlushAllEvents(ActiveScene());
+qbResult PrivateUniverse::event_subscribe(qbEvent event, qbEventFn fn, qbVar arg) {
+  WorkingScene()->SubscribeTo(event, fn, arg);
 	return qbResult::QB_OK;
 }
 
-qbResult PrivateUniverse::event_subscribe(qbEvent event, qbSystem system) {
-  qbProgram* p = programs_->GetProgram(event->program);
-  ProgramImpl::FromRaw(p)->SubscribeTo(event, system);
-	return qbResult::QB_OK;
-}
-
-qbResult PrivateUniverse::event_unsubscribe(qbEvent event, qbSystem system) {
-  qbProgram* p = programs_->GetProgram(event->program);
-  ProgramImpl::FromRaw(p)->UnsubscribeFrom(event, system);
+qbResult PrivateUniverse::event_unsubscribe(qbEvent event, qbEventFn fn) {
+  WorkingScene()->UnsubscribeFrom(event, fn);
 	return qbResult::QB_OK;
 }
 
@@ -360,13 +342,13 @@ qbSchema PrivateUniverse::component_schema(qbComponent component) {
   return components_->FindSchema(component);
 }
 
-qbResult PrivateUniverse::component_oncreate(qbComponent component, qbSystem system) {
-  WorkingScene()->ComponentSubscribeToOnCreate(system, component);
+qbResult PrivateUniverse::component_oncreate(qbComponent component, qbEventFn fn, qbVar arg) {
+  WorkingScene()->ComponentSubscribeToOnCreate(fn, arg, component);
   return QB_OK;
 }
 
-qbResult PrivateUniverse::component_ondestroy(qbComponent component, qbSystem system) {
-  WorkingScene()->ComponentSubscribeToOnDestroy(system, component);
+qbResult PrivateUniverse::component_ondestroy(qbComponent component, qbEventFn fn, qbVar arg) {
+  WorkingScene()->ComponentSubscribeToOnDestroy(fn, arg, component);
   return QB_OK;
 }
 
@@ -396,24 +378,14 @@ qbResult PrivateUniverse::instance_oncreate(qbComponent component,
   fn_state->on_create = on_create;
   fn_state->state = state;
 
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, fn_state);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame, qbVar) {
-    qbInstanceOnCreateEvent_* event =
-      (qbInstanceOnCreateEvent_*)frame->event;
-    qbInstanceOnCreateState* fn_state = (qbInstanceOnCreateState*)frame->state;
-    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
-      event->entity, event->component);
-    fn_state->on_create(&instance, fn_state->state);
-    return qbNil;
-  });
-  qbSystem system;
-  qb_system_create(&system, attr);
+  WorkingScene()->ComponentSubscribeToOnCreate([](void* event_msg, qbVar arg) {
+    qbInstanceOnCreateEvent_* event = (qbInstanceOnCreateEvent_*)event_msg;
+    qbInstanceOnCreateState* fn_state = (qbInstanceOnCreateState*)arg.p;
+    qbInstance_ instance = event->component->FindInstance(event->entity);
 
-  WorkingScene()->ComponentSubscribeToOnCreate(system, component);
-  qb_systemattr_destroy(&attr);
+    fn_state->on_create(&instance, fn_state->state);
+  }, qbPtr(fn_state), component);
+
   return QB_OK;
 }
 
@@ -429,24 +401,13 @@ qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
   fn_state->on_destroy = on_destroy;
   fn_state->state = state;
 
-  qbSystemAttr attr;
-  qb_systemattr_create(&attr);
-  qb_systemattr_settrigger(attr, qbTrigger::QB_TRIGGER_EVENT);
-  qb_systemattr_setuserstate(attr, fn_state);
-  qb_systemattr_setcallback(attr, [](qbFrame* frame, qbVar) {
-    qbInstanceOnDestroyEvent_* event =
-      (qbInstanceOnDestroyEvent_*)frame->event;
-    qbInstanceOnDestroyState* fn_state = (qbInstanceOnDestroyState*)frame->state;
-    qbInstance_ instance = SystemImpl::FromRaw(frame->system)->FindInstance(
-      event->entity, event->component);
-    fn_state->on_destroy(&instance, fn_state->state);
-    return qbNil;
-  });
-  qbSystem system;
-  qb_system_create(&system, attr);
+  WorkingScene()->ComponentSubscribeToOnDestroy([](void* event_msg, qbVar arg) {
+    qbInstanceOnDestroyEvent_* event = (qbInstanceOnDestroyEvent_*)event_msg;
+    qbInstanceOnDestroyState* fn_state = (qbInstanceOnDestroyState*)arg.p;
+    qbInstance_ instance = event->component->FindInstance(event->entity);
 
-  WorkingScene()->ComponentSubscribeToOnDestroy(system, component);
-  qb_systemattr_destroy(&attr);
+    fn_state->on_destroy(&instance, fn_state->state);
+  }, qbPtr(fn_state), component);
 
   return QB_OK;
 }
@@ -512,7 +473,8 @@ qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
   qbScene ret = new qbScene_();
   ret->state = new GameState(std::make_unique<EntityRegistry>(),
                              std::make_unique<InstanceRegistry>(*components_),
-                             components_.get());
+                             components_.get(),
+                             std::make_unique<EventRegistry>());
   if (name) {
     const size_t kNameBufLen = 128;
     const size_t kMaxNameLen = kNameBufLen - 1;

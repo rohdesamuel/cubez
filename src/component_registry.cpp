@@ -93,18 +93,18 @@ qbSchema ComponentRegistry::FindSchema(qbComponent component) const {
   return components_defs_[component].schema;
 }
 
-qbResult ComponentRegistry::SubcsribeToOnCreate(qbSystem system,
+qbResult ComponentRegistry::SubcsribeToOnCreate(qbEventFn fn, qbVar arg,
                                                 qbComponent component) {
   Create(component);
   return qb_event_subscribe(
-    instance_create_events_[component], system);
+    instance_create_events_[component], fn, arg);
 }
 
-qbResult ComponentRegistry::SubcsribeToOnDestroy(qbSystem system,
+qbResult ComponentRegistry::SubcsribeToOnDestroy(qbEventFn fn, qbVar arg,
                                                  qbComponent component) {
   Create(component);
   return qb_event_subscribe(
-    instance_destroy_events_[component], system);
+    instance_destroy_events_[component], fn, arg);
 }
 
 qbResult ComponentRegistry::SendInstanceCreateNotification(

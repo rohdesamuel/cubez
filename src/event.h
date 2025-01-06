@@ -24,11 +24,12 @@
 #include "byte_vector.h"
 #include "byte_queue.h"
 #include "memory_pool.h"
-#include "game_state.h"
 
 #include <mutex>
 #include <queue>
 #include <set>
+
+class GameState;
 
 class Event {
  public:
@@ -37,7 +38,7 @@ class Event {
     size_t index;
   };
 
-  Event(qbId program, qbId id, ByteQueue* message_queue, size_t size = 1);
+  Event(qbId id, ByteQueue* message_queue, size_t size = 1);
 
   // Thread-safe.
   qbResult SendMessage(void* message);
@@ -46,10 +47,10 @@ class Event {
   qbResult SendMessageSync(void* message, GameState* state);
 
   // Not thread-safe.
-  void AddHandler(qbSystem s);
+  void AddHandler(qbEventFn fn, qbVar arg);
 
   // Not thread-safe.
-  void RemoveHandler(qbSystem s);
+  void RemoveHandler(qbEventFn fn);
 
   // Not thread-safe.
   void Flush(size_t index, GameState* state);
@@ -62,8 +63,8 @@ class Event {
   // Thread-safe.
   void FreeMessage(size_t index);
 
-  std::vector<qbSystem> handlers_;
-  qbId program_;
+  std::vector<qbEventFn> handlers_;
+  std::vector<qbVar> handler_args_;
   qbId id_;
   ByteQueue* message_queue_;
   size_t size_;

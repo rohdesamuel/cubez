@@ -183,3 +183,12 @@ size_t Component::Unpack(qbBuffer_* write, ptrdiff_t* pos) {
 size_t Component::Unpack(const void* read, qbBuffer_* write, ptrdiff_t* pos) {
   return onunpack_(id_, read, write, pos);
 }
+
+qbInstance_ Component::FindInstance(qbEntity entity) {
+  qbInstance_ ret = {};
+  ret.component = this;
+  ret.entity = entity;
+  ret.data = (*this)[entity];
+
+  return ret;
+}

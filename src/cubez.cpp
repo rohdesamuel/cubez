@@ -588,12 +588,12 @@ size_t qb_component_unpack(qbComponent component, const qbBuffer_* read,
   return AS_PRIVATE(component_unpack(component, read, write, pos));
 }
 
-qbResult qb_component_oncreate(qbComponent component, qbSystem system) {
-  return AS_PRIVATE(component_oncreate(component, system));
+qbResult qb_component_oncreate(qbComponent component, qbEventFn fn, qbVar arg) {
+  return AS_PRIVATE(component_oncreate(component, fn, arg));
 }
 
-qbResult qb_component_ondestroy(qbComponent component, qbSystem system) {
-  return AS_PRIVATE(component_ondestroy(component, system));
+qbResult qb_component_ondestroy(qbComponent component, qbEventFn fn, qbVar arg) {
+  return AS_PRIVATE(component_ondestroy(component, fn, arg));
 }
 
 qbResult qb_entityattr_create(qbEntityAttr* attr) {
@@ -826,16 +826,12 @@ qbResult qb_event_destroy(qbEvent* event) {
 	return AS_PRIVATE(event_destroy(event));
 }
 
-qbResult qb_event_flushall(qbProgram program) {
-	return AS_PRIVATE(event_flushall(program));
+qbResult qb_event_subscribe(qbEvent event, qbEventFn fn, qbVar arg) {
+	return AS_PRIVATE(event_subscribe(event, fn, arg));
 }
 
-qbResult qb_event_subscribe(qbEvent event, qbSystem system) {
-	return AS_PRIVATE(event_subscribe(event, system));
-}
-
-qbResult qb_event_unsubscribe(qbEvent event, qbSystem system) {
-	return AS_PRIVATE(event_unsubscribe(event, system));
+qbResult qb_event_unsubscribe(qbEvent event, qbEventFn fn) {
+	return AS_PRIVATE(event_unsubscribe(event, fn));
 }
 
 qbResult qb_event_send(qbEvent event, void* message) {
@@ -2112,11 +2108,11 @@ qbScene qb_scene_global() {
   return AS_PRIVATE(scene_global());
 }
 
-qbResult qb_scene_save(qbScene* scene, const char* file) {
+qbResult qb_scene_save(qbScene* scene, const utf8_t* file) {
   return QB_OK;
 }
 
-qbResult qb_scene_load(qbScene* scene, const char* name, const char* file) {
+qbResult qb_scene_load(qbScene* scene, const char* name, const utf8_t* file) {
   return QB_OK;
 }
 

@@ -227,6 +227,7 @@ typedef struct qbScene_* qbScene;
 typedef struct qbCoro_* qbCoro;
 typedef struct qbAsync_* qbAsync;
 typedef struct qbAlarm_* qbAlarm;
+typedef void(*qbEventFn)(void*, qbVar);
 
 ///////////////////////////////////////////////////////////
 ///////////////////////  Components  //////////////////////
@@ -325,8 +326,8 @@ QB_API size_t        qb_component_pack(qbComponent component, const qbBuffer_* r
 QB_API size_t        qb_component_unpack(qbComponent component, const qbBuffer_* read,
                                          qbBuffer_* write, ptrdiff_t* pos);
 
-QB_API qbResult      qb_component_oncreate(qbComponent component, qbSystem system);
-QB_API qbResult      qb_component_ondestroy(qbComponent component, qbSystem system);
+QB_API qbResult      qb_component_oncreate(qbComponent component, qbEventFn fn, qbVar arg);
+QB_API qbResult      qb_component_ondestroy(qbComponent component, qbEventFn fn, qbVar arg);
 
 
 ///////////////////////////////////////////////////////////
@@ -550,7 +551,6 @@ QB_API qbResult      qb_systemattr_setcondition(qbSystemAttr attr,
 // ======== qbTrigger ========
 typedef enum qbTrigger {
   QB_TRIGGER_LOOP = 0,
-  QB_TRIGGER_EVENT
 } qbTrigger;
 // Sets the trigger for the system. Systems by default are triggered by the
 // main execution loop with "qb_loop()". To detach a system to only be run
@@ -637,19 +637,17 @@ QB_API qbResult      qb_eventattr_create(qbEventAttr* attr);
 // Destroys the specified attributes.
 QB_API qbResult      qb_eventattr_destroy(qbEventAttr* attr);
 
-// Sets which program to associate the event with. The event will only trigger
-// inside the specified program.
-QB_API qbResult      qb_eventattr_setprogram(qbEventAttr attr,
-                                             qbId program);
-
 // Sets the size of each message to be allocated to send.
 QB_API qbResult      qb_eventattr_setmessagesize(qbEventAttr attr, size_t size);
 #define qb_eventattr_setmessagetype(attr, type) \
     qb_eventattr_setmessagesize(attr, sizeof(type))
 
 // ======== qbEvent ========
-// A qbEvent is a way of passing messages between systems in a single program.
-// Sending messages is not thread-safe.
+// A qbEvent is a way of asynchronously executing callbacks at the end of a
+// frame. Events are defined per `qbScene`; events defined in one scene will
+// not be run once the active scene changes. Events are run in the order in
+// which they were added (FIFO).
+// Sending messages to a given event is not thread-safe.
 // Creates a new qbEvent with the specified attributes.
 QB_API qbResult      qb_event_create(qbEvent* event,
                                      qbEventAttr attr);
@@ -657,26 +655,24 @@ QB_API qbResult      qb_event_create(qbEvent* event,
 // Destroys the specified event.
 QB_API qbResult      qb_event_destroy(qbEvent* event);
 
-// Flushes all events from the specified program.
-QB_API qbResult      qb_event_flushall(qbProgram program);
+// The callback function when an event is triggered.
+typedef void(*qbEventFn)(void* event, qbVar arg);
 
-// Subscribes the specified system to the event. This system will execute any
-// time the event is triggered. The system must have a trigger of
-// QB_TRIGGER_EVENT.
+// Subscribes the specified event handler to the event.
 QB_API qbResult      qb_event_subscribe(qbEvent event,
-                                        qbSystem system);
+                                        qbEventFn fn,
+                                        qbVar arg);
 
-// Unsubscribes the specified system from the event.
+// Unsubscribes the specified handler from the event.
 QB_API qbResult      qb_event_unsubscribe(qbEvent event,
-                                          qbSystem system);
+                                          qbEventFn fn);
 
-// Sends a messages on the event. This triggers all subscribed systems before
-// the next frame is run.
+// Sends a messages on the event. This triggers all subscribed event handlers
+// before the next frame is run.
 QB_API qbResult      qb_event_send(qbEvent event,
                                    void* message);
 
-// Sends a messages on the event. This immediately triggers all subscribed
-// systems.
+// Sends a messages on the event. This immediately triggers all event handlers.
 QB_API qbResult      qb_event_sendsync(qbEvent event,
                                        void* message);
 
@@ -692,12 +688,12 @@ QB_API qbResult      qb_scene_create(qbScene* scene,
 
 // Unimplemented.
 QB_API qbResult      qb_scene_save(qbScene* scene,
-                                   const char* file);
+                                   const utf8_t* file);
 
 // Unimplemented.
 QB_API qbResult      qb_scene_load(qbScene* scene,
                                    const char* name,
-                                   const char* file);
+                                   const utf8_t* file);
 
 // Destroys the given scene. Order of operations:
 // 1. Calls the ondestroy event on the given scene

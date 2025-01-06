@@ -18,9 +18,8 @@
 
 #include "event_registry.h"
 
-EventRegistry::EventRegistry(qbId program)
-  : program_(program),
-    message_queue_(
+EventRegistry::EventRegistry()
+  : message_queue_(
       new ByteQueue(sizeof(Event::Message))) { }
 
 EventRegistry::~EventRegistry() { }
@@ -28,20 +27,20 @@ EventRegistry::~EventRegistry() { }
 qbResult EventRegistry::CreateEvent(qbEvent* event, qbEventAttr attr) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
   qbId event_id = events_.size();
-  events_.push_back(new Event(program_, event_id, message_queue_,
+  events_.push_back(new Event(event_id, message_queue_,
                               attr->message_size));
   AllocEvent(event_id, event, events_[event_id]);
   return qbResult::QB_OK;
 }
 
-void EventRegistry::Subscribe(qbEvent event, qbSystem system) {
+void EventRegistry::Subscribe(qbEvent event, qbEventFn fn, qbVar arg) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-  FindEvent(event)->AddHandler(system);
+  FindEvent(event)->AddHandler(fn, arg);
 }
 
-void EventRegistry::Unsubscribe(qbEvent event, qbSystem system) {
+void EventRegistry::Unsubscribe(qbEvent event, qbEventFn fn) {
   std::lock_guard<decltype(state_mutex_)> lock(state_mutex_);
-  FindEvent(event)->RemoveHandler(system);
+  FindEvent(event)->RemoveHandler(fn);
 }
 
 void EventRegistry::FlushAll(GameState* state) {
@@ -56,7 +55,6 @@ void EventRegistry::FlushAll(GameState* state) {
 void EventRegistry::AllocEvent(qbId id, qbEvent* qb_event, Event* event) {
   *qb_event = (qbEvent)calloc(1, sizeof(qbEvent_));
   *(qbId*)(&(*qb_event)->id) = id;
-  *(qbId*)(&(*qb_event)->program) = program_;
   (*qb_event)->event = event;
 }
 

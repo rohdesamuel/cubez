@@ -20,8 +20,7 @@
 #include "system_impl.h"
 
 ProgramImpl::ProgramImpl(qbProgram* program)
-    : program_(program),
-      events_(program->id) {}
+    : program_(program) {}
 
 ProgramImpl* ProgramImpl::FromRaw(qbProgram* program) {
   return (ProgramImpl*)program->self;
@@ -56,8 +55,6 @@ qbResult ProgramImpl::EnableSystem(qbSystem system) {
   if (system->policy.trigger == qbTrigger::QB_TRIGGER_LOOP) {
     loop_systems_.push_back(system);
     std::sort(loop_systems_.begin(), loop_systems_.end());
-  } else if (system->policy.trigger == qbTrigger::QB_TRIGGER_EVENT) {
-    event_systems_.insert(system);
   } else {
     return QB_ERROR_UNKNOWN_TRIGGER_POLICY;
   }
@@ -69,30 +66,12 @@ qbResult ProgramImpl::DisableSystem(qbSystem system) {
   auto found = std::find(loop_systems_.begin(), loop_systems_.end(), system);
   if (found != loop_systems_.end()) {
     loop_systems_.erase(found);
-  } else {
-    event_systems_.erase(system);
   }
   return QB_OK;
 }
 
 bool ProgramImpl::HasSystem(qbSystem system) {
   return std::find(systems_.begin(), systems_.end(), system) != systems_.end();
-}
-
-qbResult ProgramImpl::CreateEvent(qbEvent* event, qbEventAttr attr) {
-  return events_.CreateEvent(event, attr);
-}
-
-void ProgramImpl::FlushAllEvents(GameState* state) {
-  events_.FlushAll(state);
-}
-
-void ProgramImpl::SubscribeTo(qbEvent event, qbSystem system) {
-  events_.Subscribe(event, system);
-}
-
-void ProgramImpl::UnsubscribeFrom(qbEvent event, qbSystem system) {
-  events_.Unsubscribe(event, system);
 }
 
 void ProgramImpl::SubscribeToOnReady(void(*onready)(qbProgram* program, qbVar), qbVar state) {
@@ -106,7 +85,6 @@ void ProgramImpl::Ready() {
 }
 
 void ProgramImpl::Run(GameState* state, lua_State* lua_state) {
-  events_.FlushAll(state);
   for(qbSystem p : loop_systems_) {
     SystemImpl::FromRaw(p)->Run(state);
   }

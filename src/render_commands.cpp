@@ -469,6 +469,9 @@ qbTask qbDrawCommandBuffer_::submit(qbDrawCommandSubmitInfo submit_info) {
   for (uint64_t i = 0; i < submit_info->semaphores_count; ++i) {
     qb_semaphore_reset(submit_info->semaphores[i]);
   }
+  if (clear_on_submit_) {
+    clear();
+  }
   return qbInvalidHandle;
 }
 

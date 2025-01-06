@@ -41,8 +41,8 @@ public:
   qbSchema FindSchema(const std::string& name) const;
   qbSchema FindSchema(qbComponent component) const;
 
-  qbResult SubcsribeToOnCreate(qbSystem system, qbComponent component);
-  qbResult SubcsribeToOnDestroy(qbSystem system, qbComponent component);
+  qbResult SubcsribeToOnCreate(qbEventFn fn, qbVar arg, qbComponent component);
+  qbResult SubcsribeToOnDestroy(qbEventFn fn, qbVar arg, qbComponent component);
 
   qbResult SendInstanceCreateNotification(qbEntity entity, Component* component, GameState* state) const;
   qbResult SendInstanceDestroyNotification(qbEntity entity, Component* component, GameState* state) const;

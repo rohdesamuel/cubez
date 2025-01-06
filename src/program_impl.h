@@ -40,14 +40,6 @@ class ProgramImpl {
 
   bool HasSystem(qbSystem system);
 
-  qbResult CreateEvent(qbEvent* event, qbEventAttr attr);
-
-  void FlushAllEvents(GameState* state);
-
-  void SubscribeTo(qbEvent event, qbSystem system);
-
-  void UnsubscribeFrom(qbEvent event, qbSystem system);
-
   void SubscribeToOnReady(void(*onready)(qbProgram* program, qbVar), qbVar state);
 
   void Ready();
@@ -61,12 +53,10 @@ class ProgramImpl {
   qbSystem AllocSystem(qbId id, const qbSystemAttr_& attr);
 
   qbProgram* program_;
-  EventRegistry events_;
 
   std::set<qbComponent> mutables_;
   std::vector<qbSystem> systems_;
   std::vector<qbSystem> loop_systems_;
-  std::set<qbSystem> event_systems_;
 
   std::vector<std::pair<void(*)(qbProgram* program, qbVar), qbVar>> onready_fns_;
 };

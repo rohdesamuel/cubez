@@ -646,6 +646,11 @@ typedef struct qbBeginRenderPassInfo_ {
 typedef struct qbDrawCommandBufferAttr_ {
   uint64_t count;
   struct qbMemoryAllocator_* allocator;
+
+  // If set, then `qb_drawcmd_clear()` is called after
+  // `qb_drawcmd_submit()` finishes. If `clear_after_submit` is false, then
+  // no commands are cleared and no memory is deallocated.
+  qbBool clear_after_submit;
 } qbDrawCommandBufferAttr_, *qbDrawCommandBufferAttr;
 
 typedef struct qbDrawCommandBuffer_* qbDrawCommandBuffer;
@@ -725,7 +730,12 @@ typedef struct qbDrawCommandSubmitInfo_ {
   qbSemaphore* semaphores;
 } qbDrawCommandSubmitInfo_, *qbDrawCommandSubmitInfo;
 
-// Runs all commands in `cmd_buf`, clears the allocator, presents the image, and swaps with the back buffer.
+// Runs all commands in `cmd_buf`. If the command buffer was created with
+// `clear_after_submit`, then `qb_drawcmd_clear()` is called on the given
+// buffer after execution. Because this clears any allocated memory, ensure
+// that any synchronization is done before the end of the queue. If the command
+// buffer has `clear_after_submit` as false, then no commands are cleared and
+// no memory is deallocated.
 QB_API qbTask qb_drawcmd_submit(qbDrawCommandBuffer cmd_buf, qbDrawCommandSubmitInfo submit_info);
 
 // Runs all commands in `cmd_buf` and finally clears all queued commands. Does not free any allocated memory.

@@ -22,24 +22,24 @@
 #include "event.h"
 #include "defs.h"
 #include "byte_queue.h"
-#include "game_state.h"
 
 #include <mutex>
 #include <unordered_map>
 
+class GameState;
 class EventRegistry {
  public:
-  EventRegistry(qbId program);
+  EventRegistry();
   ~EventRegistry();
 
   // Thread-safe.
   qbResult CreateEvent(qbEvent* event, qbEventAttr attr);
 
   // Thread-safe.
-  void Subscribe(qbEvent event, qbSystem system);
+  void Subscribe(qbEvent event, qbEventFn fn, qbVar arg);
 
   // Thread-safe.
-  void Unsubscribe(qbEvent event, qbSystem system);
+  void Unsubscribe(qbEvent event, qbEventFn fn);
 
   void FlushAll(GameState* state);
 
@@ -49,7 +49,6 @@ class EventRegistry {
   // Requires state_mutex_.
   Event* FindEvent(qbEvent event);
 
-  qbId program_;
   std::mutex state_mutex_;
   std::vector<Event*> events_;
   ByteQueue* message_queue_;

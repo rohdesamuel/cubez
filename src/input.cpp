@@ -94,14 +94,14 @@ void input_initialize() {
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setmessagetype(attr, qbKeyEvent);
+    qb_eventattr_setmessagetype(attr, qbKeyEvent_);
     qb_event_create(&keyboard_event, attr);
     qb_eventattr_destroy(&attr);
   }
   {
     qbEventAttr attr;
     qb_eventattr_create(&attr);
-    qb_eventattr_setmessagetype(attr, qbMouseEvent);
+    qb_eventattr_setmessagetype(attr, qbMouseEvent_);
     qb_event_create(&mouse_event, attr);
     qb_eventattr_destroy(&attr);
   }
@@ -145,8 +145,6 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
           input_event.key_event.is_pressed);
 
         input_event.key_event.was_pressed = key_states[(int)input_event.key_event.key];
-
-        qb_send_key_event(&input_event.key_event);
       }
     }
 
@@ -246,12 +244,40 @@ void qb_send_mouse_scroll_event(qbMouseScrollEvent event) {
   qb_event_send(mouse_event, &e);
 }
 
-qbResult qb_on_key_event(qbSystem system) {
-  return qb_event_subscribe(keyboard_event, system);
+qbResult qb_on_key_event(qbKeyEventFn_ fn, qbVar arg) {
+  struct qbOnKeyEvent {
+    qbKeyEventFn_ on_key;
+    qbVar state;
+  };
+  
+  qbOnKeyEvent* fn_state = new qbOnKeyEvent();
+  fn_state->on_key = fn;
+  fn_state->state = arg;
+
+  return qb_event_subscribe(keyboard_event, [](void* event_msg, qbVar arg) {
+    qbInputEvent event = (qbInputEvent)event_msg;
+    qbOnKeyEvent* fn_state = (qbOnKeyEvent*)arg.p;
+
+    fn_state->on_key(&event->key_event, fn_state->state);
+  }, qbPtr(fn_state));
 }
 
-qbResult qb_on_mouse_event(qbSystem system) {
-  return qb_event_subscribe(mouse_event, system);
+qbResult qb_on_mouse_event(qbMouseEventFn_ fn, qbVar arg) {
+  struct qbOnMouseEvent {
+    qbMouseEventFn_ on_mouse;
+    qbVar state;
+  };
+
+  qbOnMouseEvent* fn_state = new qbOnMouseEvent();
+  fn_state->on_mouse = fn;
+  fn_state->state = arg;
+
+  return qb_event_subscribe(mouse_event, [](void* event_msg, qbVar arg) {
+    qbInputEvent event = (qbInputEvent)event_msg;
+    qbOnMouseEvent* fn_state = (qbOnMouseEvent*)arg.p;
+
+    fn_state->on_mouse(&event->mouse_event, fn_state->state);
+  }, qbPtr(fn_state));
 }
 
 qbBool qb_scancode_ispressed(qbScanCode scan_code) {

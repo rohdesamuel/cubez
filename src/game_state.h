@@ -21,6 +21,7 @@
 
 #include "instance_registry.h"
 #include "entity_registry.h"
+#include "event_registry.h"
 #include <memory>
 #include "sparse_map.h"
 
@@ -29,7 +30,8 @@ class GameState {
 public:
   GameState(std::unique_ptr<EntityRegistry> entities,
             std::unique_ptr<InstanceRegistry> instances,
-            ComponentRegistry* components);
+            ComponentRegistry* components,
+            std::unique_ptr<EventRegistry> events);
   ~GameState();
 
   void Flush();
@@ -46,14 +48,19 @@ public:
   EntityRegistry& Entities();
 
   // Component manipulation.
-  qbResult ComponentSubscribeToOnCreate(qbSystem system, qbComponent component);
-  qbResult ComponentSubscribeToOnDestroy(qbSystem system, qbComponent component);
+  qbResult ComponentSubscribeToOnCreate(qbEventFn fn, qbVar arg, qbComponent component);
+  qbResult ComponentSubscribeToOnDestroy(qbEventFn fn, qbVar arg, qbComponent component);
   
   void* ComponentGetEntityData(qbComponent component, qbEntity entity);
   size_t ComponentGetCount(qbComponent component);
   void ComponentLock(qbComponent component, bool is_mutable);
   void ComponentUnlock(qbComponent component, bool is_mutable);
   Component* ComponentGet(qbComponent component);
+
+  qbResult CreateEvent(qbEvent* event, qbEventAttr attr);
+  void SubscribeTo(qbEvent event, qbEventFn fn, qbVar arg);
+  void UnsubscribeFrom(qbEvent event, qbEventFn fn);
+
 
 private:
   
@@ -62,6 +69,7 @@ private:
 
   std::unique_ptr<EntityRegistry> entities_;
   std::unique_ptr<InstanceRegistry> instances_;
+  std::unique_ptr<EventRegistry> events_;
   ComponentRegistry* components_;
   SparseSet mutable_components_;
 

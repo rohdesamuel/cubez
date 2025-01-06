@@ -63,6 +63,8 @@ class Component {
   size_t Unpack(qbBuffer_* write, ptrdiff_t* pos);
   size_t Unpack(const void* read, qbBuffer_* write, ptrdiff_t* pos);
 
+  qbInstance_ FindInstance(qbEntity entity);
+
   iterator begin();
   iterator end();
 

@@ -140,10 +140,9 @@ class PrivateUniverse {
   qbResult event_destroy(qbEvent* event);
 
   qbResult event_flush(qbEvent event);
-  qbResult event_flushall(qbProgram event);
 
-  qbResult event_subscribe(qbEvent event, qbSystem system);
-  qbResult event_unsubscribe(qbEvent event, qbSystem system);
+  qbResult event_subscribe(qbEvent event, qbEventFn fn, qbVar arg);
+  qbResult event_unsubscribe(qbEvent event, qbEventFn fn);
 
   qbResult event_send(qbEvent event, void* message);
   qbResult event_sendsync(qbEvent event, void* message);
@@ -175,8 +174,8 @@ class PrivateUniverse {
   size_t component_getcount(qbComponent component);
   qbComponent component_find(const char* name);
   qbSchema component_schema(qbComponent component);
-  qbResult component_oncreate(qbComponent component, qbSystem system);
-  qbResult component_ondestroy(qbComponent component, qbSystem system);
+  qbResult component_oncreate(qbComponent component, qbEventFn fn, qbVar arg);
+  qbResult component_ondestroy(qbComponent component, qbEventFn fn, qbVar arg);
   size_t component_pack(qbComponent component, const qbBuffer_* read,
                         qbBuffer_* write, ptrdiff_t* pos);
   size_t component_unpack(qbComponent component, const qbBuffer_* read,

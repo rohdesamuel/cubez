@@ -60,6 +60,7 @@ private:
   std::vector<RenderCommandQueue*> allocated_queues_ = {};
 
   qbMemoryAllocator allocator_ = nullptr;
+  qbBool clear_on_submit_ = QB_FALSE;
 
   void queue_pass();
 

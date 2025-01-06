@@ -728,6 +728,9 @@ typedef struct {
   qbInputEventType type;
 } qbInputEvent_, *qbInputEvent;
 
+typedef void(*qbKeyEventFn_)(qbKeyEvent event, qbVar arg);
+typedef void(*qbMouseEventFn_)(qbMouseEvent event, qbVar arg);
+
 QB_API void qb_send_key_event(qbKeyEvent event);
 QB_API void qb_send_mouse_click_event(qbMouseButtonEvent event);
 QB_API void qb_send_mouse_move_event(qbMouseMotionEvent event);
@@ -735,8 +738,8 @@ QB_API void qb_send_mouse_scroll_event(qbMouseScrollEvent event);
 
 QB_API void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, uint32_t width, uint32_t height), qbVar shutdown_arg, qbVar resize_arg);
 
-QB_API qbResult qb_on_key_event(qbSystem system);
-QB_API qbResult qb_on_mouse_event(qbSystem system);
+QB_API qbResult qb_on_key_event(qbKeyEventFn_ fn, qbVar arg);
+QB_API qbResult qb_on_mouse_event(qbMouseEventFn_ fn, qbVar arg);
 
 QB_API qbBool qb_scancode_ispressed(qbScanCode scan_code);
 QB_API qbBool qb_key_ispressed(qbKey key);

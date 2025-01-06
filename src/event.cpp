@@ -21,10 +21,8 @@
 
 #include <cstring>
 
-Event::Event(qbId program, qbId id, ByteQueue* message_queue,
-             size_t size)
-  : program_(program),
-    id_(id),
+Event::Event(qbId id, ByteQueue* message_queue, size_t size)
+  : id_(id),
     message_queue_(message_queue),
     size_(size),
     mem_buffer_(size) {
@@ -56,26 +54,32 @@ qbResult Event::SendMessage(void* message) {
 }
 
 qbResult Event::SendMessageSync(void* message, GameState* state) {
-  for (const auto& handler : handlers_) {
-    (SystemImpl::FromRaw(handler))->Run(state, message);
+  for (size_t i = 0; i < handlers_.size(); ++i) {
+    handlers_[i](message, handler_args_[i]);
   }
-
   return qbResult::QB_OK;
 }
 
-void Event::AddHandler(qbSystem s) {
-  handlers_.push_back(s);
+void Event::AddHandler(qbEventFn fn, qbVar arg) {
+  handlers_.push_back(fn);
+  handler_args_.push_back(arg);
 }
 
-void Event::RemoveHandler(qbSystem s) {
-  handlers_.erase(std::find(handlers_.begin(), handlers_.end(), s));
+void Event::RemoveHandler(qbEventFn fn) {
+  for (size_t i = 0; i < handlers_.size(); ++i) {
+    if (handlers_[i] == fn) {
+      handlers_.erase(handlers_.begin() + i);
+      handler_args_.erase(handler_args_.begin() + i);
+    }
+  }
 }
 
 void Event::Flush(size_t index, GameState* state) {
-  for (const auto& handler : handlers_) {
-    void* m = mem_buffer_[index];
-    SystemImpl::FromRaw(handler)->Run(state, m);
+  void* m = mem_buffer_[index];
+  for (size_t i = 0; i < handlers_.size(); ++i) {
+    handlers_[i](m, handler_args_[i]);
   }
+
   FreeMessage(index);
 }
 

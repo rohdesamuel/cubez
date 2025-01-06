@@ -21,10 +21,12 @@
 
 GameState::GameState(std::unique_ptr<EntityRegistry> entities,
                      std::unique_ptr<InstanceRegistry> instances,
-                     ComponentRegistry* components)
+                     ComponentRegistry* components,
+                     std::unique_ptr<EventRegistry> events)
   : entities_(std::move(entities)),
     instances_(std::move(instances)),
-    components_(components) {
+    components_(components),
+    events_(std::move(events)) {
   destroyed_entities_.resize(10);
   removed_components_.resize(10);
 }
@@ -36,6 +38,8 @@ GameState::~GameState() {
 }
 
 void GameState::Flush() {
+  events_->FlushAll(this);
+
   for (auto& removed_components : removed_components_) {
     while (!removed_components.empty()) {
       auto& removed = removed_components.back();
@@ -101,14 +105,14 @@ qbResult GameState::EntityRemoveComponentInternal(qbEntity entity, qbComponent c
   return instances_->DestroyInstanceFor(entity, component, this) == 1 ? QB_OK : QB_UNKNOWN;
 }
 
-qbResult GameState::ComponentSubscribeToOnCreate(qbSystem system,
+qbResult GameState::ComponentSubscribeToOnCreate(qbEventFn fn, qbVar arg,
                                                  qbComponent component) {
-  return components_->SubcsribeToOnCreate(system, component);
+  return components_->SubcsribeToOnCreate(fn, arg, component);
 }
 
-qbResult GameState::ComponentSubscribeToOnDestroy(qbSystem system,
+qbResult GameState::ComponentSubscribeToOnDestroy(qbEventFn fn, qbVar arg,
                                                   qbComponent component) {
-  return components_->SubcsribeToOnDestroy(system, component);
+  return components_->SubcsribeToOnDestroy(fn, arg, component);
 }
 
 Component* GameState::ComponentGet(qbComponent component) {
@@ -129,4 +133,17 @@ void* GameState::ComponentGetEntityData(qbComponent component, qbEntity entity) 
 
 size_t GameState::ComponentGetCount(qbComponent component) {
   return instances_->InstanceCount(component);
+}
+
+
+qbResult GameState::CreateEvent(qbEvent* event, qbEventAttr attr) {
+  return events_->CreateEvent(event, attr);
+}
+
+void GameState::SubscribeTo(qbEvent event, qbEventFn fn, qbVar arg) {
+  events_->Subscribe(event, fn, arg);
+}
+
+void GameState::UnsubscribeFrom(qbEvent event, qbEventFn fn) {
+  events_->Unsubscribe(event, fn);
 }
