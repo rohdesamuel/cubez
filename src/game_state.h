@@ -38,6 +38,7 @@ public:
 
   // Entity manipulation.
   qbResult EntityCreate(qbEntity* entity, const qbEntityAttr_& attr);
+  qbResult EntityCreate(qbEntity* entity, size_t count, const qbComponentData_ data[]);
   qbResult EntityDestroy(qbEntity entity);
   qbResult EntityFind(qbEntity* entity, qbId entity_id);
   bool EntityHasComponent(qbEntity entity, qbComponent component);

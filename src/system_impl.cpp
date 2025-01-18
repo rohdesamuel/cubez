@@ -29,30 +29,23 @@ SystemImpl::SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<q
   condition_(attr.condition) {
 
   for(auto component : components_) {
-    qbInstance_ instance;
-    instance.data = nullptr;
-    if (std::find(attr.constants.begin(), attr.constants.end(), component) != attr.constants.end()) {
-      *(bool*)&instance.is_mutable = false;
-    } else {
-      *(bool*)&instance.is_mutable = true;
-    }
-
-    if (qb_component_schema(component)) {
-      *(bool*)&instance.has_schema = true;
-    } else {
-      *(bool*)&instance.has_schema = false;
-    }
-
-    instances_.push_back(instance);
+    bool is_mutable = std::find(attr.constants.begin(), attr.constants.end(), component) == attr.constants.end();
+    component_ismutable_.push_back(is_mutable);
+    component_data_.push_back(NULL);
   }
 
-  for (auto& element : instances_) {
-    instance_data_.push_back(&element);
-  }
+  instance_.data = nullptr;
+  instance_.system = ToRaw(this);
 }
 
+// impl = raw + sizeof(qbSystem)
 SystemImpl* SystemImpl::FromRaw(qbSystem system) {
   return (SystemImpl*)(((char*)system) + sizeof(qbSystem_));
+}
+
+// raw = impl - sizeof(qbSystem)
+qbSystem SystemImpl::ToRaw(SystemImpl* system) {
+  return (qbSystem)((char*)system - sizeof(qbSystem_));
 }
 
 qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
@@ -74,19 +67,19 @@ qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
     if (source_size == 0) {
       Run_0(&frame);
     } else if (source_size == 1) {
-      game_state->ComponentLock(components_[0], instances_[0].is_mutable);
+      game_state->ComponentLock(components_[0], component_ismutable_[0]);
       Component* c = game_state->ComponentGet(components_[0]);
-      c->Lock(instances_[0].is_mutable);
+      c->Lock(component_ismutable_[0]);
       Run_1(c, &frame);
-      c->Unlock(instances_[0].is_mutable);
+      c->Unlock(component_ismutable_[0]);
     } else if (source_size > 1) {
       thread_local static std::vector<Component*> components;
       components.resize(0);
       size_t index = 0;
       for (auto component : components_) {
         Component* c = game_state->ComponentGet(component);
-        c->Lock(instances_[index].is_mutable);
-        components.push_back(c);        
+        c->Lock(component_ismutable_[index]);
+        components.push_back(c);
         ++index;
       }
 
@@ -94,7 +87,7 @@ qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
 
       index = 0;
       for (auto component : components) {
-        component->Unlock(instances_[index].is_mutable);
+        component->Unlock(component_ismutable_[index]);
         ++index;
       }
     }
@@ -111,24 +104,43 @@ qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
 
 qbInstance_ SystemImpl::FindInstance(qbEntity entity, Component* component) {
   qbInstance_ instance;
-  CopyToInstance(component, entity, &instance);
+  CopyToInstance(component, entity);
   return instance;
 }
 
-void SystemImpl::CopyToInstance(Component* component, qbEntity entity,
-                                qbInstance instance) {
-  CopyToInstance(component, entity, (*component)[entity], instance);
+void SystemImpl::InstanceGet(GameState* game_state, qbInstance instance, va_list args) {
+  uintptr_t pbuf = va_arg(args, uintptr_t);
+  for (size_t i = 0; i < component_data_.size() && pbuf != 0xCD; ++i) {
+    *(void**)pbuf = component_data_[i];
+    pbuf = va_arg(args, uintptr_t);
+  }
 }
 
-void SystemImpl::CopyToInstance(Component* component, qbEntity entity,
-                                void* instance_data, qbInstance instance) {
-  instance->entity = entity;
-  instance->data = instance_data;
-  instance->component = component;
+void SystemImpl::InstanceGeti(GameState* game_state, qbInstance instance, size_t index, void* pbuf) {
+  DEBUG_ASSERT(index < component_data_.size());
+  *(void**)pbuf = component_data_[index];
 }
 
-void SystemImpl::RunTransform(qbInstance* instances, qbFrame* frame) {
-  transform_(instances, frame);
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity) {
+  CopyToInstance(entity, (*component)[entity]);
+}
+
+void SystemImpl::CopyToInstance(qbEntity entity, void* instance_data) {
+  instance_.entity = entity;
+  instance_.data = instance_data;
+  component_data_[0] = instance_data;
+}
+
+void SystemImpl::CopyToInstance(Component* component, qbEntity entity, size_t index) {
+  component_data_[index] = (*component)[entity];
+}
+
+void SystemImpl::CopyToInstance(void* pbuf, size_t index) {
+  component_data_[index] = pbuf;
+}
+
+void SystemImpl::RunTransform(qbInstance instance, qbFrame* frame) {
+  transform_(instance, frame);
 }
 
 void SystemImpl::Run_0(qbFrame* f) {
@@ -137,8 +149,8 @@ void SystemImpl::Run_0(qbFrame* f) {
 
 void SystemImpl::Run_1(Component* component, qbFrame* f) {
   for (auto id_component : *component) {
-    CopyToInstance(component, id_component.first, id_component.second, &instances_[0]);
-    RunTransform(instance_data_.data(), f);
+    CopyToInstance(id_component.first, id_component.second);
+    RunTransform(&instance_, f);
   }
 }
 
@@ -172,9 +184,9 @@ void SystemImpl::Run_N(const std::vector<Component*>& components, qbFrame* f) {
         for (size_t i = 0; i < indices.size(); ++i) {
           Component* src = components[i];
           auto it = src->begin() + indices[i];
-          CopyToInstance(src, (*it).first, &instances_[i]);
+          CopyToInstance(src, (*it).first, i);
         }
-        RunTransform(instance_data_.data(), f);
+        RunTransform(&instance_, f);
 
         bool all_zero = true;
         ++indices[0];
@@ -206,13 +218,13 @@ void SystemImpl::Run_N(const std::vector<Component*>& components, qbFrame* f) {
           for (size_t i = 0; i < components_.size(); ++i) {
             Component* c = components[i];
             if (c->Has(entity_id)) {
-              CopyToInstance(c, entity_id, &instances_[i]);
+              CopyToInstance(c, entity_id, i);
             } else {
-              CopyToInstance(c, entity_id, nullptr, &instances_[i]);
+              CopyToInstance(nullptr, i);
             }
           }
 
-          RunTransform(instance_data_.data(), f);
+          RunTransform(&instance_, f);
         }
       }
     }
@@ -230,11 +242,11 @@ void SystemImpl::Run_N(const std::vector<Component*>& components, qbFrame* f) {
             should_continue = true;
             break;
           }
-          CopyToInstance(c, entity_id, &instances_[j]);
+          CopyToInstance(c, entity_id, j);
         }
         if (should_continue) continue;
 
-        RunTransform(instance_data_.data(), f);
+        RunTransform(&instance_, f);
       }
     } break;
     default:

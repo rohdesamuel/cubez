@@ -45,7 +45,7 @@ void InstanceRegistry::Create(qbComponent component) {
 }
 
 qbResult InstanceRegistry::CreateInstancesFor(
-  qbEntity entity, const std::vector<qbComponentInstance_>& instances,
+  qbEntity entity, const std::vector<qbComponentData_>& instances,
   GameState* state) {
   for (auto& instance : instances) {
     Create(instance.component);
@@ -55,6 +55,27 @@ qbResult InstanceRegistry::CreateInstancesFor(
 
   for (auto& instance : instances) {
     Component* component = components_[instance.component];
+    SendInstanceCreateNotification(entity, component, state);
+  }
+
+  return QB_OK;
+}
+
+qbResult InstanceRegistry::CreateInstancesFor(
+  qbEntity entity, size_t count, const qbComponentData_ data[],
+  GameState* state) {
+  for (size_t i = 0; i < count; ++i) {
+    const qbComponentData_* instance = data + i;
+    const qbComponent qb_component = instance->component;
+    void* data = instance->data;
+
+    Create(qb_component);
+    Component* component = components_[qb_component];
+    component->Create(entity, data);
+  }
+
+  for (size_t i = 0; i < count; ++i) {
+    Component* component = components_[data[i].component];
     SendInstanceCreateNotification(entity, component, state);
   }
 

@@ -57,6 +57,7 @@ const qbVar qbNil = { QB_TAG_NIL, 0, 0 };
 const qbVar qbFuture = { QB_TAG_FUTURE, 0, 0 };
 const qbEntity qbInvalidEntity = -1;
 const qbHandle qbInvalidHandle = -1;
+const qbComponent qbInvalidComponent = -1;
 
 static qbUniverse* universe_ = nullptr;
 qbTiming_ timing_info;
@@ -408,6 +409,10 @@ qbResult qb_timing(qbUniverse universe, qbTiming timing) {
   return QB_OK;
 }
 
+uint64_t qb_framenum() {
+  return timing_info.frame;
+}
+
 qbId qb_program_create(const char* name) {
   return AS_PRIVATE(create_program(name));
 }
@@ -640,6 +645,15 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
 
   return QB_OK;
 }
+qbEntity qb_entity_withlen(size_t count, const qbComponentData_ data[]) {
+  qbEntity ret;
+  AS_PRIVATE(entity_create(&ret, count, data));
+
+  uint64_t id = qb_rand();
+  qb_entity_addcomponent(ret, qb_id(), &id);
+
+  return ret;
+}
 
 uint64_t qb_entity_id(qbEntity entity) {
   void* ret = qb_entity_getcomponent(entity, qb_id());
@@ -651,9 +665,8 @@ uint64_t qb_entity_id(qbEntity entity) {
 }
 
 qbEntity qb_entity_empty() {
-  qbEntity ret;
-  qb_entity_create(&ret, nullptr);
-  return ret;
+  qbComponentData_ empty = {};
+  return qb_entity_withlen(0, &empty);
 }
 
 qbResult qb_entity_destroy(qbEntity entity) {
@@ -783,13 +796,49 @@ qbResult qb_system_destroy(qbSystem*) {
 	return qbResult::QB_OK;
 }
 
-qbResult qb_system_foreach(qbComponent* components, size_t component_count,
-                           qbVar state, void(*fn)(qbInstance*, qbVar)) {
+qbResult qb_system_foreach(size_t component_count, qbComponent components[],
+                           qbVar state, void(*fn)(qbInstance, qbVar)) {
   return AS_PRIVATE(foreach_system(components, component_count, state, fn));
 }
 
 qbResult qb_query(qbQuery query, qbVar arg) {
   return AS_PRIVATE(do_query(query, arg));
+}
+
+qbIterator_ qb_component_iterate_(qbComponent component, ...) {
+  va_list components;
+  va_start(components, component);
+
+  qbIterator_ iterator = {0};
+  AS_PRIVATE(component_iterate(component, (qbIteratorImpl_*)&iterator, components));
+  
+  va_end(components);
+  return iterator;
+}
+
+qbBool qb_iterator_next(qbIterator it) {
+  return AS_PRIVATE(iterator_next(it));
+}
+
+void qb_iterator_get_(qbIterator it, ...) {
+  va_list args;
+  va_start(args, it);
+
+  AS_PRIVATE(iterator_get(it, args));
+
+  va_end(args);
+}
+
+qbEntity qb_iterator_entity(qbIterator it) {
+  return AS_PRIVATE(iterator_entity(it));
+}
+
+void qb_iterator_index(qbIterator it, size_t index, void* pbuf) {
+  AS_PRIVATE(iterator_index(it, index, pbuf));
+}
+
+qbBool qb_iterator_component(qbIterator it, qbComponent component, void* pbuf) {
+  return AS_PRIVATE(iterator_component(it, component, pbuf));
 }
 
 qbResult qb_eventattr_create(qbEventAttr* attr) {
@@ -858,14 +907,6 @@ qbEntity qb_instance_entity(qbInstance instance) {
   return instance->entity;
 }
 
-qbResult qb_instance_const(qbInstance instance, void* pbuffer) {
-  return AS_PRIVATE(instance_getconst(instance, pbuffer));
-}
-
-qbResult qb_instance_mutable(qbInstance instance, void* pbuffer) {
-  return AS_PRIVATE(instance_getmutable(instance, pbuffer));
-}
-
 qbResult qb_instance_component(qbInstance instance, qbComponent component, void* pbuffer) {
   return AS_PRIVATE(instance_getcomponent(instance, component, pbuffer));
 }
@@ -874,7 +915,19 @@ qbBool qb_instance_hascomponent(qbInstance instance, qbComponent component) {
   return AS_PRIVATE(instance_hascomponent(instance, component));
 }
 
+void qb_instance_get_(qbInstance instance, ...) {
+  va_list args;
+  va_start(args, instance);
+  AS_PRIVATE(instance_get(instance, args));
+  va_end(args);
+}
+
+void qb_instance_geti(qbInstance instance, size_t index, void* pbuf) {
+  AS_PRIVATE(instance_geti(instance, index, pbuf));
+}
+
 qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
+  DEBUG_ASSERT(entity != qbInvalidEntity, 1);
   return AS_PRIVATE(instance_find(component, entity, pbuffer));
 }
 

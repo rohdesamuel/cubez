@@ -31,6 +31,16 @@
 #include <stdlib.h>
 #endif
 
+namespace {
+
+// Aligns the instance data to a 4 bytes boundary.
+size_t round_to_4_bytes(size_t size) {
+  assert(size != 0 && "Received 0 size.");
+  return ((size + 3) / 4) * 4;
+}
+
+}
+
 class BlockVector {
 public:
   class iterator {
@@ -65,7 +75,7 @@ public:
   BlockVector() : count_(0), capacity_(0), elem_size_(0) {}
 
   BlockVector(size_t element_size) :
-    count_(0), capacity_(0), elem_size_(element_size) {
+    count_(0), capacity_(0), elem_size_(round_to_4_bytes(element_size)) {
     elems_.push_back(alloc_block());
     capacity_ = elem_size_ == 0 ? 0 : page_size_ / elem_size_;
     size_t initial_capacity = 8;

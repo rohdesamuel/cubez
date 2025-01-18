@@ -35,7 +35,11 @@ public:
   InstanceRegistry* Clone();
 
   qbResult CreateInstancesFor(
-    qbEntity entity, const std::vector<qbComponentInstance_>& instances,
+    qbEntity entity, const std::vector<qbComponentData_>& instances,
+    GameState* state);
+
+  qbResult CreateInstancesFor(
+    qbEntity entity, size_t count, const qbComponentData_ data[],
     GameState* state);
 
   qbResult CreateInstanceFor(qbEntity entity, qbComponent component,

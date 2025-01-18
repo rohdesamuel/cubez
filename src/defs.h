@@ -80,6 +80,15 @@ struct qbBarrier_ {
   void* impl;
 };
 
+struct qbIteratorImpl_ {
+  uint32_t index;
+  uint32_t num_components;
+  Component* components[QB_MAX_ITERATOR_COMPONENT_COUNT];
+  char extensions__[1];
+};
+
+static_assert(sizeof(qbIteratorImpl_) <= sizeof(qbIterator_));
+
 struct qbTicket_ {
   void* impl;
   std::function<void(void)> lock;
@@ -129,27 +138,14 @@ struct qbSystem_ {
   qbExecutionPolicy_ policy;
 };
 
-struct qbComponentInstance_ {
-  qbComponent component;
-  void* data;
-};
-
 struct qbEntityAttr_ {
-  std::vector<qbComponentInstance_> component_list;
+  std::vector<qbComponentData_> component_list;
 };
 
 struct qbInstance_ {
-  qbInstance_(bool is_mutable = false,
-              bool has_schema = false) :
-    is_mutable(is_mutable),
-    has_schema(has_schema) {};
-
-  Component* component;
+  qbSystem_* system;
   qbEntity entity;
   void* data;
-
-  const bool is_mutable;
-  const bool has_schema;
 };
 
 struct qbEventAttr_ {
@@ -204,8 +200,6 @@ struct qbStructInternals_ {
     ALLOC,
   } mem_type;
 };
-
-
 
 struct qbStruct_ {
   qbStructInternals_ internals;

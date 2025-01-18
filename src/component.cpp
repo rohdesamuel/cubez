@@ -186,7 +186,6 @@ size_t Component::Unpack(const void* read, qbBuffer_* write, ptrdiff_t* pos) {
 
 qbInstance_ Component::FindInstance(qbEntity entity) {
   qbInstance_ ret = {};
-  ret.component = this;
   ret.entity = entity;
   ret.data = (*this)[entity];
 

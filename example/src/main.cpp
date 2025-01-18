@@ -901,56 +901,56 @@ int qb_main(int argc, char* argv[]) {
 
   int frame = 0;
   qbMaterial_ red_shiny{
-    .albedo = {1.f, 0.1f, 0.1f},
+    .color = {1.f, 0.1f, 0.1f},
     .metallic = 10.f,
   };
 
   qbMaterial_ green_shiny{
-    .albedo = {0.1f, 1.f, 0.1f},
+    .color = {0.1f, 1.f, 0.1f},
     .metallic = 10.f,
   };
 
   qbMaterial_ blue_shiny{
-    .albedo = {0.1f, 0.1f, 1.f},
+    .color = {0.1f, 0.1f, 1.f},
     .metallic = 10.f,
   };
 
   qbMaterial_ magenta_shiny{
-    .albedo = {1.f, 0.1f, 1.f},
+    .color = {1.f, 0.1f, 1.f},
     .metallic = 10.f,
   };
 
   qbMaterial_ white_shiny{
-    .albedo = {1.f, 1.f, 1.f},
+    .color = {1.f, 1.f, 1.f},
     .metallic = 10.f,
   };
   
-  qbMesh ship_mesh = qb_mesh_load("ship", "arrowhead.obj");
+  qbMesh ship_mesh = qb_mesh_load("ship", u8"arrowhead.obj");
   qbImage planet_texture_atlas;
   {
     qbImageAttr_ attr{};
     attr.type = QB_IMAGE_TYPE_2D;
     attr.generate_mipmaps = QB_TRUE;
-    qb_image_load(&planet_texture_atlas, &attr, "resources/planet_texture_atlas.png");
+    qb_image_load(&planet_texture_atlas, &attr, u8"resources/planet_texture_atlas.png");
   }
   
-  qbMesh city_block_mesh = qb_mesh_load("city_block", "city_block.obj");
-  qbMesh iron_ore = qb_mesh_load("iron_ore", "iron_ore.obj");
-  qbMesh crystal_ore = qb_mesh_load("crystal_ore", "crystal_ore.obj");
-  qbMesh rock_ore = qb_mesh_load("rock_ore", "rock_ore.obj");
-  qbMesh hex_tile = qb_mesh_load("hex_tile", "hex_tile.obj");
-  qbMesh power_plant_mesh = qb_mesh_load("power_plant", "power_plant.obj");
-  qbMesh capital_building_mesh = qb_mesh_load("capital_building", "capital_building.obj");
+  qbMesh city_block_mesh = qb_mesh_load("city_block", u8"city_block.obj");
+  qbMesh iron_ore = qb_mesh_load("iron_ore", u8"iron_ore.obj");
+  qbMesh crystal_ore = qb_mesh_load("crystal_ore", u8"crystal_ore.obj");
+  qbMesh rock_ore = qb_mesh_load("rock_ore", u8"rock_ore.obj");
+  qbMesh hex_tile = qb_mesh_load("hex_tile", u8"hex_tile.obj");
+  qbMesh power_plant_mesh = qb_mesh_load("power_plant", u8"power_plant.obj");
+  qbMesh capital_building_mesh = qb_mesh_load("capital_building", u8"capital_building.obj");
 
   qbMaterial_ default_material{};
   qbCamera camera = perspective;
   active_camera = camera;
 
   qbMaterial_ planet_material{
-    .albedo = {1.f, 1.f, 1.f},
-    .metallic = 1.f,
+    .color_map = planet_texture_atlas,
 
-    .albedo_map = planet_texture_atlas
+    .color = {1.f, 1.f, 1.f},
+    .metallic = 1.f,
   };
   
 
@@ -1044,15 +1044,15 @@ int qb_main(int argc, char* argv[]) {
   }
 
   qbMaterial_ iron_ore_material{};
-  iron_ore_material.albedo = { .5f, 0.5f, 0.5f };
+  iron_ore_material.color = { .5f, 0.5f, 0.5f };
   iron_ore_material.metallic = 10.f;
 
   qbMaterial_ crystal_ore_material{};
-  crystal_ore_material.albedo = { 1.f, 0.4f, 1.f };
+  crystal_ore_material.color = { 1.f, 0.4f, 1.f };
   crystal_ore_material.metallic = 10.f;
 
   qbMaterial_ coal_material{};
-  coal_material.albedo = { .2f, 0.2f, 0.2f };
+  coal_material.color = { .2f, 0.2f, 0.2f };
   coal_material.metallic = 2.f;
 
   /*
@@ -1071,11 +1071,11 @@ int qb_main(int argc, char* argv[]) {
   qb_draw_end(cmds);
 
   */
-  qbSprite test_sprite = qb_sprite_load("mine.png");
+  qbSprite test_sprite = qb_sprite_load(u8"mine.png");
   qbSpriteAnimation test_animation;
   {
     qbSpriteAnimationAttr_ attr = { .frame_speed = 100, .repeat = true };
-    test_animation = qb_spriteanimation_loaddir("run_animation", &attr);
+    test_animation = qb_spriteanimation_loaddir(u8"run_animation", &attr);
   }
   qbSprite test_animation_sprite = qb_spriteanimation_play(test_animation);
 

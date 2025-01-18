@@ -227,7 +227,7 @@ qbVar PrivateUniverse::run_system(qbSystem system, qbVar arg) {
 }
 
 qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t component_count,
-                                         qbVar var, void(*fn)(qbInstance*, qbVar)) {
+                                         qbVar var, void(*fn)(qbInstance, qbVar)) {
   qbSystemAttr_ attr = {};
 
   qb_systemattr_setjoin(&attr, QB_JOIN_LEFT);
@@ -241,16 +241,16 @@ qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t compone
   }
 
   struct ForEachState {
-    void(*fn)(qbInstance*, qbVar);
+    void(*fn)(qbInstance, qbVar);
     qbVar var;
   };
 
   ForEachState state{ fn, var };
 
   qb_systemattr_setuserstate(&attr, &state);
-  qb_systemattr_setfunction(&attr, [](qbInstance* insts, qbFrame* frame) {
+  qb_systemattr_setfunction(&attr, [](qbInstance inst, qbFrame* frame) {
     ForEachState* state = (ForEachState*)frame->state;
-    state->fn(insts, state->var);
+    state->fn(inst, state->var);
   });
 
   SystemImpl s(attr, nullptr, components_v);
@@ -261,6 +261,118 @@ qbResult PrivateUniverse::foreach_system(qbComponent* components, size_t compone
 
 qbResult PrivateUniverse::do_query(qbQuery query, qbVar arg) {
   return Query(query, ActiveScene())(arg);
+}
+
+void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* impl, va_list components) {
+  impl->components[0] = WorkingScene()->ComponentGet(component);
+  impl->num_components = 1;
+
+  qbComponent to_join = va_arg(components, qbComponent);
+  for (size_t i = 0; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i){
+    Component* component = WorkingScene()->ComponentGet(to_join);
+    impl->components[impl->num_components] = component;
+    ++impl->num_components;
+
+    to_join = va_arg(components, qbComponent);
+  }
+}
+
+qbBool PrivateUniverse::iterator_next(qbIterator it) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+  Component* component = impl->components[0];
+
+  Component::iterator c_it = component->begin() + impl->index;
+  Component::iterator c_end = component->end();
+  while (c_it != c_end) {
+    auto [id, data] = *c_it;
+    
+    bool has_entity = true;
+    for (size_t i = 1; i < impl->num_components; ++i) {
+      Component* c = impl->components[i];
+      if (!c->Has(id)) {
+        has_entity = false;
+        break;
+      }
+    }
+    ++c_it;
+    ++impl->index;
+
+    if (has_entity) {
+      return QB_TRUE;
+    }
+  }
+
+  return QB_FALSE;
+}
+
+void PrivateUniverse::iterator_get(qbIterator it, va_list args) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+  
+  DEBUG_ASSERT(impl->index > 0, 1);
+  Component* component = impl->components[0];
+  Component::iterator c_it = component->begin() + (impl->index - 1);
+  DEBUG_ASSERT(c_it != component->end(), 1);
+
+  auto [entity, pbuf] = *c_it;
+
+  uintptr_t p  = va_arg(args, uintptr_t);
+  *(void**)p = pbuf;
+  size_t count = 1;
+
+  DEBUG_ASSERT(count < impl->num_components, 1);
+
+  do {
+    p = va_arg(args, uintptr_t);
+    Component* c = impl->components[count];
+    *(void**)p = (*c)[entity];
+
+    ++count;
+  } while (p != 0xCD && count < impl->num_components);
+}
+
+qbBool PrivateUniverse::iterator_component(qbIterator it, qbComponent component, void* pbuf) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+
+  DEBUG_ASSERT(impl->index != 0, 1);
+  Component* comp = impl->components[0];
+  Component::iterator c_it = comp->begin() + (impl->index - 1);
+  DEBUG_ASSERT(c_it != comp->end(), 1);
+
+  auto [entity, _] = *c_it;
+
+  for (size_t i = 0; i < impl->num_components; ++i) {
+    Component* c = impl->components[i];
+    if (c->Id() == component) {
+      *(void**)pbuf = (*c)[entity];
+      return QB_TRUE;
+    }
+  }
+
+  return QB_FALSE;
+}
+
+void PrivateUniverse::iterator_index(qbIterator it, size_t index, void* pbuf) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+
+  DEBUG_ASSERT(impl->index > 0, 1);
+  Component* component = impl->components[0];
+  Component::iterator c_it = component->begin() + (impl->index - 1);
+  DEBUG_ASSERT(c_it != component->end(), 1);
+  DEBUG_ASSERT(index < impl->num_components, 1);
+
+  auto [entity, d] = *c_it;
+  *(void**)pbuf = d;
+}
+
+qbEntity PrivateUniverse::iterator_entity(qbIterator it) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+  DEBUG_ASSERT(impl->index > 0, 1);
+  Component* component = impl->components[0];
+  Component::iterator c_it = component->begin() + (impl->index - 1);
+  DEBUG_ASSERT(c_it != component->end(), 1);
+
+  auto [entity, _] = *c_it;
+  return entity;
 }
 
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
@@ -290,10 +402,11 @@ qbResult PrivateUniverse::event_sendsync(qbEvent event, void* message) {
 }
 
 qbResult PrivateUniverse::entity_create(qbEntity* entity, const qbEntityAttr_& attr) {
-  if (!ActiveScene()) {
-    return ActiveScene()->EntityCreate(entity, attr);
-  }
   return WorkingScene()->EntityCreate(entity, attr);
+}
+
+qbResult PrivateUniverse::entity_create(qbEntity* entity, size_t count, const qbComponentData_ data[]) {
+  return WorkingScene()->EntityCreate(entity, count, data);
 }
 
 qbResult PrivateUniverse::entity_destroy(qbEntity entity) {
@@ -312,8 +425,7 @@ void* PrivateUniverse::entity_getcomponent(qbEntity entity, qbComponent componen
 qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
                                               qbComponent component,
                                               void* instance_data) {
-  return WorkingScene()->EntityAddComponent(entity, component,
-                                                       instance_data);
+  return WorkingScene()->EntityAddComponent(entity, component, instance_data);
 }
 
 qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
@@ -412,37 +524,31 @@ qbResult PrivateUniverse::instance_ondestroy(qbComponent component,
   return QB_OK;
 }
 
-qbResult PrivateUniverse::instance_getconst(qbInstance instance, void* pbuffer) {
-  if (instance->is_mutable) {
-    *(void**)pbuffer = nullptr;
-  } else {
-    if (instance->has_schema) {
-      *(void**)pbuffer = &((qbStruct_*)instance->data)->data;
-    } else {
-      *(void**)pbuffer = instance->data;
-    }
-  }
-  return QB_OK;
-}
-
-qbResult PrivateUniverse::instance_getmutable(qbInstance instance, void* pbuffer) {
-  if (instance->is_mutable) {
-    if (instance->has_schema) {
-      *(void**)pbuffer = &((qbStruct_*)instance->data)->data;
-    } else {
-      *(void**)pbuffer = instance->data;
-    }
-  } else {
-    *(void**)pbuffer = nullptr;
-  }
-  return QB_OK;
-}
-
 qbResult PrivateUniverse::instance_getcomponent(qbInstance instance,
                                                 qbComponent component,
                                                 void* pbuffer) {
   *(void**)pbuffer = WorkingScene()->ComponentGetEntityData(component, instance->entity);
   return QB_OK;
+}
+
+void PrivateUniverse::instance_get(qbInstance instance, va_list args) {
+  qbSystem system = instance->system;
+  if (!system) {
+    return;
+  }
+
+  auto s = SystemImpl::FromRaw(system);
+  s->InstanceGet(WorkingScene(), instance, args);
+}
+
+void PrivateUniverse::instance_geti(qbInstance instance, size_t index, void* pbuf) {
+  qbSystem system = instance->system;
+  if (!system) {
+    return;
+  }
+
+  auto s = SystemImpl::FromRaw(system);
+  s->InstanceGeti(WorkingScene(), instance, index, pbuf);
 }
 
 bool PrivateUniverse::instance_hascomponent(qbInstance instance, qbComponent component) {

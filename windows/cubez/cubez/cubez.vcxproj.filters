@@ -333,6 +333,12 @@
     <ClInclude Include="..\..\..\src\gl_translate_utils.h">
       <Filter>Header Files\rendering</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\instance_map.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\cubez\hash.h">
+      <Filter>Header Files\cubez</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\cubez.cpp">
@@ -589,6 +595,12 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\render_commands.cpp">
       <Filter>Source Files\rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\instance_map.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\hash.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

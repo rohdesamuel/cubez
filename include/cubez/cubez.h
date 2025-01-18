@@ -164,6 +164,8 @@ typedef struct qbTiming_ {
 } qbTiming_, *qbTiming;
 QB_API qbResult qb_timing(qbUniverse universe, qbTiming timing);
 
+QB_API uint64_t qb_framenum();
+
 // Unimplemented.
 QB_API qbResult qb_save(const char* file);
 
@@ -235,11 +237,13 @@ typedef void(*qbEventFn)(void*, qbVar);
 
 // ======== qbComponentType ========
 typedef enum qbComponentType {
-  // A piece of serializable memory.
+  // A piece of serializable memory. Freeing of any allocations must be handled
+  // by the user.
   QB_COMPONENT_TYPE_RAW = 0,
 
   // A pointer to a piece of memory. Will be freed when instance is destroyed.
-  // Pointer must not be allocated with new or new[] operators.
+  // Pointer must not be allocated with new or new[] operators when used with
+  // C++.
   QB_COMPONENT_TYPE_POINTER,
 
   // A struct only comprised of "qbEntity"s as its members. Will destroy all
@@ -295,6 +299,8 @@ QB_API qbResult      qb_componentattr_onunpack(qbComponentAttr attr,
     qb_componentattr_setdatasize(attr, sizeof(type))
 
 // ======== qbComponent ========
+
+QB_API extern const qbComponent qbInvalidComponent;
 
 // Creates a new qbComponent with the specified attributes.
 QB_API qbResult      qb_component_create(qbComponent* component,
@@ -359,31 +365,21 @@ QB_API qbResult      qb_instance_find(qbComponent component,
 // Returns the entity that contains this component instance.
 QB_API qbEntity      qb_instance_entity(qbInstance instance);
 
-// Fills pbuffer with component instance data. If the parent component is
-// shared, this locks the reader lock. If the instance's component has a
-// schema, then the pointer to the schema's data is returned.
-QB_API qbResult      qb_instance_const(qbInstance instance,
-                                          void* pbuffer);
-
-// Fills pbuffer with component instance data. If the parent component is
-// shared, this locks the writer lock. If the instance's component has a
-// schema, then the pointer to the schema's data is returned.
-QB_API qbResult     qb_instance_mutable(qbInstance instance,
-                                           void* pbuffer);
-
 // Fills pbuffer with component instance data. The memory is mutable.
 QB_API qbResult     qb_instance_component(qbInstance instance,
-                                             qbComponent component,
-                                             void* pbuffer);
+                                          qbComponent component,
+                                          void* pbuffer);
 
 // Returns true if the entity containing the instance also contains a specified
 // component.
 QB_API qbBool       qb_instance_hascomponent(qbInstance instance,
-                                            qbComponent component);
+                                             qbComponent component);
 
-// Returns a qbRef to the memory pointed at by key in the struct. Assumes that
-// the instance has a schema.
-QB_API qbRef       qb_instance_at(qbInstance instance, const char* key);
+// Fills the given variadic arguments with the corresponding component.
+// This is only supported to be called from qbSystems.
+#define qb_instance_get(QB_INSTANCE, ...) qb_instance_get_(QB_INSTANCE, __VA_ARGS__, 0xCD)
+QB_API void        qb_instance_get_(qbInstance instance, ...);
+QB_API void        qb_instance_geti(qbInstance instance, size_t index, void* pbuf);
 
 QB_API qbVar       qb_instance_struct(qbInstance instance);
 
@@ -427,6 +423,22 @@ QB_API extern const qbEntity qbInvalidEntity;
 // components, created with the `qb_componentattr_setshared` method.
 QB_API qbResult      qb_entity_create(qbEntity* entity,
                                       qbEntityAttr attr);
+
+typedef struct qbComponentData_ {
+  qbComponent component;
+  void* data;
+} qbComponentData_;
+
+// Creates a new qbEntity with the specified components and returns the created entity.
+// A convience method for qb_entity_withlen.
+// Assumes that the parameter is an array defined on the stack.
+#define qb_entity_with(QB_COMPONENT_DATA_ARRAY) \
+  qb_entity_withlen(sizeof(QB_COMPONENT_DATA_ARRAY) / sizeof((QB_COMPONENT_DATA_ARRAY)[0]), QB_COMPONENT_DATA_ARRAY)
+
+// Creates a new qbEntity with the specified components and returns the created entity.
+// This is only thread-safe if all of the attached components are "shared"
+// components, created with the `qb_componentattr_setshared` method.
+QB_API qbEntity      qb_entity_withlen(size_t count, const qbComponentData_ data[]);
 
 // Creates a new empty qbEntity.
 QB_API qbEntity      qb_entity_empty();
@@ -533,7 +545,7 @@ QB_API qbResult      qb_systemattr_setprogram(qbSystemAttr attr,
 // Sets the transform to run during execution. The specified transform will be
 // run on every component instance that was added with "addconst" and
 // "addmutable".
-typedef void(*qbTransformFn)(qbInstance* instances, qbFrame* frame);
+typedef void(*qbTransformFn)(qbInstance instance, qbFrame* frame);
 QB_API qbResult      qb_systemattr_setfunction(qbSystemAttr attr,
                                                qbTransformFn transform);
 
@@ -596,8 +608,8 @@ QB_API qbResult      qb_system_disable(qbSystem system);
 // Runs the given system. Not thread-safe when run concurrently with qb_loop().
 QB_API qbVar         qb_system_run(qbSystem system, qbVar arg);
 
-QB_API qbResult      qb_system_foreach(qbComponent* components, size_t component_count,
-                                       qbVar state, void(*fn)(qbInstance*, qbVar));
+QB_API qbResult      qb_system_foreach(size_t component_count, qbComponent components[],
+                                       qbVar state, void(*fn)(qbInstance, qbVar));
 
 typedef enum qbQueryResult {
   QB_QUERY_RESULT_DONE,
@@ -625,6 +637,61 @@ typedef struct qbQuery_ {
 } qbQuery_, *qbQuery;
 
 QB_API qbResult      qb_query(qbQuery query, qbVar arg);
+
+// ======== qbIterator ========
+// A qbIterator is a simplified way to query for entities with a given set of
+// components.
+typedef struct qbIterator_ {
+  char __state__[96];
+} *qbIterator;
+
+// A maximum of 8 components can be queried in a single iterator.
+#define QB_MAX_ITERATOR_COMPONENT_COUNT 8
+
+// Creates an iterator querying for entities with all of the given components.
+// The variadic argument is a list of qbComponents.
+// An iterator is created in an invalid state and qb_iterator_next must be
+// called first.
+// 
+// Example:
+// qbIterator_ it = qb_component_iterator(position_component, velocity_component);
+// while(qb_iterator_next(&it)) {
+//   vec2* pos;
+//   qb_iterator_get(&it, &pos);
+// }
+//
+#define qb_component_iterate(QB_COMPONENT, ...) qb_component_iterate_(QB_COMPONENT, __VA_ARGS__, qbInvalidComponent)
+
+// This method should not be called directly. You should call
+// qb_component_iterate instead.
+QB_API qbIterator_  qb_component_iterate_(qbComponent component, ...);
+
+// Increments the iterator and returns QB_TRUE if the iterator is at the end.
+// An iterator is created in an invalid state and qb_iterator_next must be
+// called first.
+QB_API qbBool       qb_iterator_next(qbIterator it);
+
+// Retrieve the queried components from the iterator.
+// Example:
+// vec3 *pos, *vel;
+// qb_iterator_get(&it, &pos, &vel);
+#define qb_iterator_get(QB_ITERATOR, ...) qb_iterator_get_(QB_ITERATOR, __VA_ARGS__, 0xCD)
+
+// This method should not be called directly. You should call qb_iterator_get
+// instead.
+QB_API void         qb_iterator_get_(qbIterator it, ...);
+
+// Returns the entity the iterator is pointing to.
+QB_API qbEntity     qb_iterator_entity(qbIterator it);
+
+// Retrieve the component at the given index.
+// The index is the index for the wanted component in the same position in the
+// call to qb_component_iterate.
+// Throws a debug assertion if the index is out-of-bounds.
+QB_API void         qb_iterator_index(qbIterator it, size_t index, void* pbuf);
+
+// Retrieve the given component from the iterator, returns QB_TRUE if successful.
+QB_API qbBool       qb_iterator_component(qbIterator it, qbComponent component, void* pbuf);
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////

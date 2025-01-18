@@ -25,28 +25,33 @@
 
 #include <algorithm>
 #include <cstring>
+#include <stdarg.h>
 
 class SystemImpl {
  public:
   SystemImpl(const qbSystemAttr_& attr, qbSystem system, std::vector<qbComponent> components);
 
   static SystemImpl* FromRaw(qbSystem system);
+  static qbSystem ToRaw(SystemImpl* system);
 
   qbVar Run(GameState* game_state, void* event=nullptr, qbVar var=qbNil);
 
   qbInstance_ FindInstance(qbEntity entity, Component* component);
 
- private:
-  void CopyToInstance(Component* component, qbEntity entity,
-                      qbInstance instance);
-  void CopyToInstance(Component* component, qbEntity entity,
-                      void* instance_data, qbInstance instance);
+  void InstanceGet(GameState* game_state, qbInstance instance, va_list args);
+  void InstanceGeti(GameState* game_state, qbInstance instance, size_t index, void* pbuf);
+
+private:
+  void CopyToInstance(qbEntity entity, void* instance_data);
+  void CopyToInstance(Component* component, qbEntity entity);
+  void CopyToInstance(Component* component, qbEntity entity, size_t index);
+  void CopyToInstance(void* pbuf, size_t index);
 
   void Run_0(qbFrame* f);
   void Run_1(Component* component, qbFrame* f);
   void Run_N(const std::vector<Component*>& components, qbFrame* f);
 
-  void RunTransform(qbInstance* instances, qbFrame* frame);
+  void RunTransform(qbInstance instance, qbFrame* frame);
 
   qbSystem system_;
   std::vector<qbComponent> components_;
@@ -54,8 +59,9 @@ class SystemImpl {
   qbComponentJoin join_;
   void* user_state_;
 
-  std::vector<qbInstance> instance_data_;
-  std::vector<qbInstance_> instances_;  
+  qbInstance_ instance_;
+  std::vector<void*> component_data_;
+  std::vector<bool> component_ismutable_;
   std::vector<qbTicket_*> tickets_;
 
   qbTransformFn transform_;

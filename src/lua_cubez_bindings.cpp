@@ -225,7 +225,7 @@ int component_create(lua_State* L) {
     lua_pop(L, 1);
 
     qbStruct_* buf;
-    qb_instance_const(instance, &buf);
+    qb_instance_get(instance, &buf);
     *(qbStruct_**)lua_newuserdata(L, sizeof(qbStruct_*)) = buf;
 
     int userdata = lua_gettop(L);
@@ -266,7 +266,7 @@ int component_create(lua_State* L) {
     lua_pop(L, 1);
 
     qbStruct_* buf;
-    qb_instance_const(instance, &buf);
+    qb_instance_get(instance, &buf);
     *(qbStruct_**)lua_newuserdata(L, sizeof(qbStruct_*)) = buf;
 
     int userdata = lua_gettop(L);
@@ -434,18 +434,18 @@ int system_create(lua_State* L) {
       qb_systemattr_addconst(attr, component);
     }
 
-    qb_systemattr_setfunction(attr, [](qbInstance* insts, qbFrame* frame) {
+    qb_systemattr_setfunction(attr, [](qbInstance inst, qbFrame* frame) {
       qbLuaFunction* f = (qbLuaFunction*)frame->state;
       lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->function_ref);
       lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->entity_arg_ref);
-      lua_pushinteger(f->l, qb_instance_entity(insts[0]));
+      lua_pushinteger(f->l, qb_instance_entity(inst));
       lua_setfield(f->l, -2, "id");
 
       for (size_t i = 0; i < f->components.size(); ++i) {
         qbSchema schema = qb_component_schema(f->components[i]);
 
         qbVar* vars;
-        qb_instance_const(insts[i], &vars);
+        qb_instance_geti(inst, i, &vars);
         lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->instance_tables[i]);
         for (size_t i = 0; i < schema->fields.size(); ++i) {
           const auto& field = schema->fields[i];
@@ -511,7 +511,7 @@ int system_create(lua_State* L) {
         qbSchema schema = qb_component_schema(f->components[i]);
 
         qbVar* vars;
-        qb_instance_const(insts[i], &vars);
+        qb_instance_geti(inst, i, &vars);
 
         lua_rawgeti(f->l, LUA_REGISTRYINDEX, f->instance_tables[i]);
         for (size_t j = 0; j < schema->fields.size(); ++j) {

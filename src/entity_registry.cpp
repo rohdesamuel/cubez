@@ -42,8 +42,7 @@ EntityRegistry* EntityRegistry::Clone() {
 
 // Creates an entity. Entity will be available for use next frame. Sends a
 // ComponentCreateEvent after all components have been created.
-qbResult EntityRegistry::CreateEntity(qbEntity* entity,
-                                      const qbEntityAttr_& /** attr */) {
+qbResult EntityRegistry::CreateEntity(qbEntity* entity) {
   qbId new_id = AllocEntity();
   entities_.insert(new_id);
 

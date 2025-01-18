@@ -27,6 +27,7 @@
 #include "lua_bindings.h"
 
 #include <mutex>
+#include <stdarg.h>
 
 #define LOG_VAR(var) std::cout << #var << " = " << var << std::endl
 
@@ -132,7 +133,7 @@ class PrivateUniverse {
   qbVar run_system(qbSystem system, qbVar arg);
 
   qbResult foreach_system(qbComponent* components, size_t component_count,
-                          qbVar state, void(*fn)(qbInstance*, qbVar));
+                          qbVar state, void(*fn)(qbInstance, qbVar));
   qbResult do_query(qbQuery query, qbVar arg);
 
   // Events.
@@ -149,6 +150,7 @@ class PrivateUniverse {
 
   // Entity manipulation.
   qbResult entity_create(qbEntity* entity, const qbEntityAttr_& attr);
+  qbResult entity_create(qbEntity* entity, size_t count, const qbComponentData_ data[]);
   qbResult entity_destroy(qbEntity entity);
   bool entity_hascomponent(qbEntity entity, qbComponent component);
   void* entity_getcomponent(qbEntity entity, qbComponent component);
@@ -168,6 +170,8 @@ class PrivateUniverse {
   qbResult instance_getconst(qbInstance instance, void* pbuffer);
   qbResult instance_getmutable(qbInstance instance, void* pbuffer);
   qbResult instance_find(qbComponent component, qbEntity entity, void* pbuffer);
+  void instance_get(qbInstance instance, va_list args);
+  void instance_geti(qbInstance instance, size_t index, void* pbuf);
 
   // Component manipulation.
   qbResult component_create(qbComponent* component, qbComponentAttr attr);
@@ -180,6 +184,14 @@ class PrivateUniverse {
                         qbBuffer_* write, ptrdiff_t* pos);
   size_t component_unpack(qbComponent component, const qbBuffer_* read,
                           qbBuffer_* write, ptrdiff_t* pos);
+
+  // Iterator methods.
+  void component_iterate(qbComponent component, qbIteratorImpl_* impl, va_list components);
+  qbBool iterator_next(qbIterator it);
+  void iterator_get(qbIterator it, va_list args);
+  qbBool iterator_component(qbIterator it, qbComponent component, void* pbuf);
+  void iterator_index(qbIterator it, size_t index, void* pbuf);
+  qbEntity iterator_entity(qbIterator it);
 
   // Schema manipulation.
   qbSchema schema_find(const char* name);
@@ -227,7 +239,7 @@ class PrivateUniverse {
 
   // If the user explicity called qb_scene_set, then working_scene will be set
   // and all state change in this thread will be done on the working_scene.
-  GameState* ActiveScene() {
+  GameState* ActiveScene() const {
     return !working_scene ? active_->state : working_scene->state;
   }
 

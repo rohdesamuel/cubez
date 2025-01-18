@@ -42,7 +42,7 @@ class EntityRegistry {
 
   // Creates an entity. Entity will be available for use next frame. Sends a
   // ComponentCreateEvent after all components have been created.
-  qbResult CreateEntity(qbEntity* entity, const qbEntityAttr_& attr);
+  qbResult CreateEntity(qbEntity* entity);
 
   // Destroys an entity and frees all components. Entity and components will be
   // destroyed next frame. Sends a ComponentDestroyEvent before components are

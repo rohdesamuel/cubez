@@ -58,8 +58,14 @@ void GameState::Flush() {
 }
 
 qbResult GameState::EntityCreate(qbEntity* entity, const qbEntityAttr_& attr) {
-  qbResult result = entities_->CreateEntity(entity, attr);
+  qbResult result = entities_->CreateEntity(entity);
   instances_->CreateInstancesFor(*entity, attr.component_list, this);
+  return result;
+}
+
+qbResult GameState::EntityCreate(qbEntity* entity, size_t count, const qbComponentData_ data[]) {
+  qbResult result = entities_->CreateEntity(entity);
+  instances_->CreateInstancesFor(*entity, count, data, this);
   return result;
 }
 

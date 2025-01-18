@@ -243,13 +243,13 @@ public:
       return *this;
     }
 
-    iterator operator+(size_t delta) {
-      index_ = std::min(map_->size(), index_ + delta);
-      return *this;
+    iterator operator+(size_t delta) const {
+      return iterator(map_, std::min(map_->size(), index_ + delta));
     }
 
     iterator operator+=(size_t delta) {
-      return *this + delta;
+      index_ = std::min(map_->size(), index_ + delta);
+      return *this;
     }
 
     bool operator==(const iterator& other) const {
@@ -280,13 +280,13 @@ public:
       return *this;
     }
 
-    const_iterator operator+(size_t delta) {
-      index_ = std::min(map_->size(), index_ + delta);
-      return *this;
+    const_iterator operator+(size_t delta) const {
+      return const_iterator(map_, std::min(map_->size(), index_ + delta));
     }
 
     const_iterator operator+=(size_t delta) {
-      return *this + delta;
+      index_ = std::min(map_->size(), index_ + delta);
+      return *this;
     }
 
     bool operator==(const const_iterator& other) const {
