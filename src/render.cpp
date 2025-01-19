@@ -107,6 +107,7 @@ qbComponent qb_modelgroup_ = 0;
 qbComponent qb_material_ = 0;
 qbComponent qb_transform_ = 0;
 qbComponent qb_collider_ = 0;
+qbComponent qb_shaderresourceset_ = 0;
 
 // Nuklear SDL rendering parameters.
 #define MAX_VERTEX_MEMORY 512 * 1024
@@ -132,6 +133,10 @@ qbComponent qb_transform() {
 
 qbComponent qb_collider() {
   return qb_collider_;
+}
+
+qbComponent qb_shaderresourceset() {
+  return qb_shaderresourceset_;
 }
 
 bool check_for_gl_errors() {
@@ -255,6 +260,7 @@ void render_initialize(RenderSettings* settings) {
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, qbRenderable_);
     qb_component_create(&qb_renderable_, "qbRenderable", attr);
     qb_componentattr_destroy(&attr);
   }
@@ -270,6 +276,13 @@ void render_initialize(RenderSettings* settings) {
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, qbMaterial);
     qb_component_create(&qb_material_, "qbMaterial", attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, qbShaderResourceSet);
+    qb_component_create(&qb_shaderresourceset_, "qbShaderResourceSet", attr);
     qb_componentattr_destroy(&attr);
   }
   {

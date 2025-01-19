@@ -55,7 +55,6 @@ qbResult EntityRegistry::CreateEntity(qbEntity* entity) {
 // destroyed next frame. Sends a ComponentDestroyEvent before components are
 // removed. Frees entity memory after all components have been destroyed.
 qbResult EntityRegistry::DestroyEntity(qbEntity entity) {
-  INFO("Destroying instances for " << (entity) << "\n");
   if (entities_.has(entity)) {
     entities_.erase(entity);
     free_entity_ids_.push_back(entity);

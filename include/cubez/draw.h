@@ -200,7 +200,7 @@ QB_API size_t qb_light_getmax(qbLightType light_type);
 
 QB_API qbEvent qb_render_event();
 
-// Component type: tag
+// Component type: qbRenderable_
 QB_API qbComponent qb_renderable();
 
 // Component type: qbModelGroup

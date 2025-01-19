@@ -741,4 +741,7 @@ QB_API qbTask qb_drawcmd_submit(qbDrawCommandBuffer cmd_buf, qbDrawCommandSubmit
 // Runs all commands in `cmd_buf` and finally clears all queued commands. Does not free any allocated memory.
 QB_API qbTask qb_drawcmd_flush(qbDrawCommandBuffer cmd_buf);
 
+// Component type: qbShaderResourceSet
+QB_API qbComponent qb_shaderresourceset();
+
 #endif  // CUBEZ_RENDER_PIPELINE__H

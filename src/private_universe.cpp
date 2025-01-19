@@ -316,15 +316,19 @@ void PrivateUniverse::iterator_get(qbIterator it, va_list args) {
   auto [entity, pbuf] = *c_it;
 
   uintptr_t p  = va_arg(args, uintptr_t);
-  *(void**)p = pbuf;
+  if (p) {
+    *(void**)p = pbuf;
+  }
   size_t count = 1;
 
   DEBUG_ASSERT(count < impl->num_components, 1);
 
   do {
     p = va_arg(args, uintptr_t);
-    Component* c = impl->components[count];
-    *(void**)p = (*c)[entity];
+    if (p) {
+      Component* c = impl->components[count];
+      *(void**)p = (*c)[entity];
+    }
 
     ++count;
   } while (p != 0xCD && count < impl->num_components);

@@ -35,7 +35,9 @@ namespace {
 
 // Aligns the instance data to a 4 bytes boundary.
 size_t round_to_4_bytes(size_t size) {
-  assert(size != 0 && "Received 0 size.");
+  if (size == 0) {
+    return 0;
+  }
   return ((size + 3) / 4) * 4;
 }
 
