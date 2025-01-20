@@ -19,8 +19,6 @@
 #include "component.h"
 #include "defs.h"
 
-#include <omp.h>
-
 size_t default_onpack(qbComponent component, const void* read, qbBuffer_* write, ptrdiff_t* pos) {
   return 0;
 }
@@ -38,6 +36,11 @@ Component::Component(qbId id, size_t instance_size, bool is_shared, qbComponentT
 Component* Component::Clone() {
   Component* ret = new Component(id_, instances_.element_size(), is_shared_, type_, onpack_, onunpack_);
   ret->instances_ = instances_;
+  return ret;
+}
+
+Component* Component::CloneEmpty() {
+  Component* ret = new Component(id_, instances_.element_size(), is_shared_, type_, onpack_, onunpack_);
   return ret;
 }
 
@@ -86,6 +89,11 @@ const void* Component::at(qbId entity) const {
 
 bool Component::Has(qbId entity) const {
   return instances_.has(entity);
+}
+
+void Component::Set(qbId entity, void* value) {
+  void* data = instances_[entity];
+  memcpy(data, value, ElementSize());
 }
 
 bool Component::Empty() const {

@@ -202,6 +202,8 @@
     <ClInclude Include="..\..\..\src\defs.h" />
     <ClInclude Include="..\..\..\src\draw_command_buffer.h" />
     <ClInclude Include="..\..\..\src\entity_registry.h" />
+    <ClInclude Include="..\..\..\src\entity_set.h" />
+    <ClInclude Include="..\..\..\src\entity_table.h" />
     <ClInclude Include="..\..\..\src\event.h" />
     <ClInclude Include="..\..\..\src\event_registry.h" />
     <ClInclude Include="..\..\..\src\fast_math.h" />
@@ -246,10 +248,12 @@
     <ClInclude Include="..\..\..\src\inline_shaders.h" />
     <ClInclude Include="..\..\..\src\stb_image.h" />
     <ClInclude Include="..\..\..\src\system_impl.h" />
+    <ClInclude Include="..\..\..\src\table_registry.h" />
     <ClInclude Include="..\..\..\src\task.h" />
     <ClInclude Include="..\..\..\src\thread_pool.h" />
     <ClInclude Include="..\..\..\src\tiny_obj_loader.h" />
     <ClInclude Include="..\..\..\src\utf8.h" />
+    <ClInclude Include="..\..\..\src\utils.h" />
     <ClInclude Include="..\..\..\src\utils_internal.h" />
     <ClInclude Include="..\..\..\src\tls.h" />
   </ItemGroup>
@@ -285,6 +289,8 @@
     <ClCompile Include="..\..\..\src\cute_sound.cpp" />
     <ClCompile Include="..\..\..\src\draw.cpp" />
     <ClCompile Include="..\..\..\src\entity_registry.cpp" />
+    <ClCompile Include="..\..\..\src\entity_set.cpp" />
+    <ClCompile Include="..\..\..\src\entity_table.cpp" />
     <ClCompile Include="..\..\..\src\event.cpp" />
     <ClCompile Include="..\..\..\src\event_registry.cpp" />
     <ClCompile Include="..\..\..\src\fast_math.cpp" />
@@ -336,6 +342,7 @@
     <ClCompile Include="..\..\..\src\stb_image.cpp" />
     <ClCompile Include="..\..\..\src\struct.cpp" />
     <ClCompile Include="..\..\..\src\system_impl.cpp" />
+    <ClCompile Include="..\..\..\src\table_registry.cpp" />
     <ClCompile Include="..\..\..\src\task.cpp" />
     <ClCompile Include="..\..\..\src\thread_pool.cpp" />
     <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp" />

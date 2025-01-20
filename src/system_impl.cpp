@@ -117,7 +117,7 @@ void SystemImpl::InstanceGet(GameState* game_state, qbInstance instance, va_list
 }
 
 void SystemImpl::InstanceGeti(GameState* game_state, qbInstance instance, size_t index, void* pbuf) {
-  DEBUG_ASSERT(index < component_data_.size());
+  DEBUG_ASSERT(index < component_data_.size(), 1);
   *(void**)pbuf = component_data_[index];
 }
 

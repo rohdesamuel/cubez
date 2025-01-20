@@ -20,6 +20,9 @@
 #include "system_impl.h"
 #include "snapshot.h"
 #include "query.h"
+#include "entity_table.h"
+
+#include <stdarg.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #undef CreateEvent
@@ -118,8 +121,8 @@ PrivateUniverse::PrivateUniverse() {
   programs_ = std::make_unique<ProgramRegistry>();
   components_ = std::make_unique<ComponentRegistry>();
 
-  scene_create(&baseline_, "");
-  working_scene = active_ = baseline_;
+  scene_create(&working_scene, "");
+  baseline_ = active_ = working_scene;
 
   // Create the default program.
   create_program("");
@@ -264,11 +267,12 @@ qbResult PrivateUniverse::do_query(qbQuery query, qbVar arg) {
 }
 
 void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* impl, va_list components) {
+  *impl = qbIteratorImpl_{};
   impl->components[0] = WorkingScene()->ComponentGet(component);
   impl->num_components = 1;
 
   qbComponent to_join = va_arg(components, qbComponent);
-  for (size_t i = 0; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i){
+  for (size_t i = 1; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i){
     Component* component = WorkingScene()->ComponentGet(to_join);
     impl->components[impl->num_components] = component;
     ++impl->num_components;
@@ -379,6 +383,35 @@ qbEntity PrivateUniverse::iterator_entity(qbIterator it) {
   return entity;
 }
 
+qbResult PrivateUniverse::table_create(qbEntityTable* table, qbEntityTableAttr attr) {
+  return WorkingScene()->TableCreate(table, attr);
+}
+
+qbResult PrivateUniverse::table_destroy(qbEntityTable* table) {
+  return WorkingScene()->TableDestroy(table);
+}
+
+void PrivateUniverse::table_iterate(qbEntityTable table, qbIteratorImpl_* impl, va_list components) {
+  *impl = qbIteratorImpl_{};
+  qbComponent to_join = va_arg(components, qbComponent);
+  DEBUG_ASSERT(to_join != qbInvalidComponent, 1);
+
+  EntityTable* entity_table = EntityTable::FromRaw(table);
+
+  for (size_t i = 0; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i) {
+    Component* component = nullptr;
+    if (entity_table->has_component(to_join)) {
+      component = entity_table->component(to_join);
+    } else {
+      component = WorkingScene()->ComponentGet(to_join);
+    }
+    impl->components[impl->num_components] = component;
+    ++impl->num_components;
+
+    to_join = va_arg(components, qbComponent);
+  }
+}
+
 qbResult PrivateUniverse::event_create(qbEvent* event, qbEventAttr attr) {
   return WorkingScene()->CreateEvent(event, attr);
 }
@@ -430,6 +463,10 @@ qbResult PrivateUniverse::entity_addcomponent(qbEntity entity,
                                               qbComponent component,
                                               void* instance_data) {
   return WorkingScene()->EntityAddComponent(entity, component, instance_data);
+}
+
+qbResult PrivateUniverse::entity_addcomponents(qbEntity entity, size_t count, const qbComponentData_ data[]) {
+  return WorkingScene()->EntityAddComponents(entity, count, data);
 }
 
 qbResult PrivateUniverse::entity_removecomponent(qbEntity entity,
@@ -581,10 +618,18 @@ qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
   }
 
   qbScene ret = new qbScene_();
-  ret->state = new GameState(std::make_unique<EntityRegistry>(),
-                             std::make_unique<InstanceRegistry>(*components_),
-                             components_.get(),
-                             std::make_unique<EventRegistry>());
+  TableRegistry* table_registry;
+  {
+    auto entities = std::make_unique<EntityRegistry>();
+    auto tables = std::make_unique<TableRegistry>(components_.get());
+    auto instances = std::make_unique<InstanceRegistry>(*components_, *tables);
+    auto events = std::make_unique<EventRegistry>();
+    table_registry = tables.get();
+    ret->state = new GameState(
+      std::move(entities), std::move(instances), components_.get(),
+      std::move(events), std::move(tables));
+  }
+
   if (name) {
     const size_t kNameBufLen = 128;
     const size_t kMaxNameLen = kNameBufLen - 1;
@@ -600,6 +645,9 @@ qbResult PrivateUniverse::scene_create(qbScene* scene, const char* name) {
     ret->name = new char('\0');
   }
   *scene = ret;
+  
+  table_registry->Init();
+
   return QB_OK;
 }
 

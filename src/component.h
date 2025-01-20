@@ -20,14 +20,12 @@
 #define COMPONENT__H
 
 #include <cubez/cubez.h>
-#include "sparse_map.h"
-#include "sparse_set.h"
+#include "instance_map.h"
 
 #include <shared_mutex>
 
 // Not thread-safe. 
 class Component {
-  typedef SparseMap<void, BlockVector> InstanceMap;
  public:
   typedef typename InstanceMap::iterator iterator;
   typedef typename InstanceMap::const_iterator const_iterator;
@@ -37,6 +35,7 @@ class Component {
   Component(qbId id, size_t instance_size, bool is_shared, qbComponentType type, OnPack onpack, OnUnpack onunpack);
 
   Component* Clone();
+  Component* CloneEmpty();
   void Merge(const Component& other);
 
   qbResult Create(qbId entity, void* value);
@@ -47,6 +46,7 @@ class Component {
   const void* at(qbId entity) const;
 
   bool Has(qbId entity) const;
+  void Set(qbId entity, void* value);
 
   bool Empty() const;
   size_t Size() const;

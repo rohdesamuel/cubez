@@ -22,6 +22,7 @@
 #include "defs.h"
 #include "sparse_map.h"
 #include "component_registry.h"
+#include "table_registry.h"
 
 #include <atomic>
 #include <unordered_map>
@@ -29,7 +30,7 @@
 class GameState;
 class InstanceRegistry {
 public:
-  InstanceRegistry(const ComponentRegistry& component_registry);
+  InstanceRegistry(const ComponentRegistry& component_registry, TableRegistry& table_registry);
   ~InstanceRegistry();
 
   InstanceRegistry* Clone();
@@ -73,6 +74,7 @@ private:
   void Create(qbComponent component);
 
   const ComponentRegistry& component_registry_;
+  TableRegistry& table_registry_;
   SparseMap<Component*, TypedBlockVector<Component*>> components_;
 };
 

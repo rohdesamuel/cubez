@@ -1,0 +1,7 @@
+#ifndef UTILS__H
+#define UTILS__H
+
+#define ENTITY_TABLE_ID(ENTITY) ((0xFFFF000000000000ull & ENTITY) >> 48)
+#define ENTITY_ID(ENTITY) (0x0000FFFFFFFFFFFFull & ENTITY)
+
+#endif  // UTILS__H

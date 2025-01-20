@@ -6,18 +6,9 @@
 
 #include <vector>
 
+#include "utils.h"
+
 class InstanceMap {
-private:
-  size_t round_to_4_bytes(size_t size) {
-    assert(size != 0 && "Received 0 size.");
-    return ((size + 3) / 4) * 4;
-  }
-
-  struct Slot {
-    qbId id;
-    char data[1];
-  };
-
 public:
   typedef uint64_t Key;
 
@@ -57,6 +48,7 @@ public:
 
     friend class InstanceMap;
   };
+
   class const_iterator {
   public:
     const_iterator operator++() {
@@ -99,27 +91,21 @@ public:
   InstanceMap(InstanceMap&& other);
 
   InstanceMap& operator=(const InstanceMap& other);
-
   InstanceMap& operator=(InstanceMap&& other);
 
   void reserve(size_t size);
 
   void* operator[](uint64_t key);
-
   const void* operator[](uint64_t key) const;
 
   iterator begin();
   iterator end();
-
   const_iterator begin() const;
   const_iterator end() const;
 
   void insert(uint64_t key, void* value);
-
   void erase(uint64_t key);
-
   void clear();
-
   bool has(uint64_t key) const;
 
   uint64_t size() const;
@@ -131,11 +117,10 @@ private:
   void move(const InstanceMap& other);
 
   size_t element_size_;
-  size_t slot_size_;
-
   std::vector<qbId> sparse_;
   BlockVector dense_values_;
   std::vector<uint64_t> dense_;
 };
+
 
 #endif  // INSTANCE_MAP__H

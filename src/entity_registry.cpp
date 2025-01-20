@@ -22,6 +22,8 @@
 #include <iostream>
 
 #include "game_state.h"
+#include "utils.h"
+
 EntityRegistry::EntityRegistry()
     : id_(0) {
   entities_.reserve(128);

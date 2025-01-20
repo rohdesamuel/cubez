@@ -23,6 +23,7 @@
 #include "component.h"
 #include "sparse_map.h"
 #include "coro.h"
+#include "instance_map.h"
 
 #include <vector>
 #include <functional>
@@ -42,6 +43,14 @@ struct qbScene_ {
   
   std::vector<const char*> keys;
   std::vector<void*> values;
+};
+
+struct qbEntityTableAttr_ {
+  std::vector<qbComponent> components;
+};
+
+struct qbEntityTable_ {
+  void* impl;
 };
 
 struct qbCoro_ {
@@ -81,10 +90,9 @@ struct qbBarrier_ {
 };
 
 struct qbIteratorImpl_ {
-  uint32_t index;
-  uint32_t num_components;
-  Component* components[QB_MAX_ITERATOR_COMPONENT_COUNT];
-  char extensions__[1];
+  uint32_t index = 0;
+  uint32_t num_components = 0;
+  Component* components[QB_MAX_ITERATOR_COMPONENT_COUNT] = { NULL };
 };
 
 static_assert(sizeof(qbIteratorImpl_) <= sizeof(qbIterator_));

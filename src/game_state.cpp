@@ -22,11 +22,13 @@
 GameState::GameState(std::unique_ptr<EntityRegistry> entities,
                      std::unique_ptr<InstanceRegistry> instances,
                      ComponentRegistry* components,
-                     std::unique_ptr<EventRegistry> events)
+                     std::unique_ptr<EventRegistry> events,
+                     std::unique_ptr<TableRegistry> tables)
   : entities_(std::move(entities)),
     instances_(std::move(instances)),
     components_(components),
-    events_(std::move(events)) {
+    events_(std::move(events)),
+    tables_(std::move(tables)) {
   destroyed_entities_.resize(10);
   removed_components_.resize(10);
 }
@@ -97,6 +99,10 @@ qbResult GameState::EntityAddComponent(qbEntity entity, qbComponent component,
   return instances_->CreateInstanceFor(entity, component, instance_data, this);
 }
 
+qbResult GameState::EntityAddComponents(qbEntity entity, size_t count, const qbComponentData_ data[]) {
+  return instances_->CreateInstancesFor(entity, count, data, this);
+}
+
 EntityRegistry& GameState::Entities() {
   return *entities_;
 }
@@ -152,4 +158,12 @@ void GameState::SubscribeTo(qbEvent event, qbEventFn fn, qbVar arg) {
 
 void GameState::UnsubscribeFrom(qbEvent event, qbEventFn fn) {
   events_->Unsubscribe(event, fn);
+}
+
+qbResult GameState::TableCreate(qbEntityTable* table, qbEntityTableAttr attr) {
+  return tables_->Create(table, attr, this);
+}
+
+qbResult GameState::TableDestroy(qbEntityTable* table) {
+  return tables_->Destroy(table);
 }

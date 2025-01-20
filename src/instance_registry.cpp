@@ -20,8 +20,12 @@
 
 #include "component.h"
 #include "game_state.h"
-InstanceRegistry::InstanceRegistry(const ComponentRegistry& component_registry) :
-  component_registry_(component_registry) {}
+#include "utils.h"
+#include "entity_table.h"
+
+InstanceRegistry::InstanceRegistry(const ComponentRegistry& component_registry, TableRegistry& table_registry) :
+  component_registry_(component_registry),
+  table_registry_(table_registry) {}
 
 InstanceRegistry::~InstanceRegistry() {
   for (auto c_pair : components_) {
@@ -30,7 +34,7 @@ InstanceRegistry::~InstanceRegistry() {
 }
 
 InstanceRegistry* InstanceRegistry::Clone() {
-  InstanceRegistry* ret = new InstanceRegistry(component_registry_);
+  InstanceRegistry* ret = new InstanceRegistry(component_registry_, table_registry_);
   for (auto c_pair : components_) {
     ret->components_[c_pair.first] = c_pair.second->Clone();
   }
@@ -47,10 +51,12 @@ void InstanceRegistry::Create(qbComponent component) {
 qbResult InstanceRegistry::CreateInstancesFor(
   qbEntity entity, const std::vector<qbComponentData_>& instances,
   GameState* state) {
+  qbEntity entity_id = ENTITY_ID(entity);
+
   for (auto& instance : instances) {
     Create(instance.component);
     Component* component = components_[instance.component];
-    component->Create(entity, instance.data);
+    component->Create(entity_id, instance.data);
   }
 
   for (auto& instance : instances) {
@@ -64,6 +70,8 @@ qbResult InstanceRegistry::CreateInstancesFor(
 qbResult InstanceRegistry::CreateInstancesFor(
   qbEntity entity, size_t count, const qbComponentData_ data[],
   GameState* state) {
+  qbEntity entity_id = ENTITY_ID(entity);
+
   for (size_t i = 0; i < count; ++i) {
     const qbComponentData_* instance = data + i;
     const qbComponent qb_component = instance->component;
@@ -71,7 +79,7 @@ qbResult InstanceRegistry::CreateInstancesFor(
 
     Create(qb_component);
     Component* component = components_[qb_component];
-    component->Create(entity, data);
+    component->Create(entity_id, data);
   }
 
   for (size_t i = 0; i < count; ++i) {
@@ -87,25 +95,34 @@ qbResult InstanceRegistry::CreateInstanceFor(qbEntity entity,
                                               void* instance_data,
                                               GameState* state) {
   Create(component);
+  qbEntity entity_id = ENTITY_ID(entity);
   Component* c = components_[component];
-  c->Create(entity, instance_data);
+  c->Create(entity_id, instance_data);
   SendInstanceCreateNotification(entity, c, state);
   return QB_OK;
 }
 
 int InstanceRegistry::DestroyInstancesFor(qbEntity entity, GameState* state) {
+  qbEntity entity_id = ENTITY_ID(entity);
+  qbId table_id = ENTITY_TABLE_ID(entity);
+
+  if (table_id) {
+    EntityTable* table = table_registry_.Find(table_id);
+    table->destroy_entity(entity);
+  }
+
   int destroyed_instances = 0;
   for (auto component_pair : components_) {
     Component* component = component_pair.second;
-    if (component->Has(entity)) {
+    if (component->Has(entity_id)) {
       SendInstanceDestroyNotification(entity, component, state);
     }
   }
 
   for (auto component_pair : components_) {
     Component* component = component_pair.second;
-    if (component->Has(entity)) {
-      component->Destroy(entity);
+    if (component->Has(entity_id)) {
+      component->Destroy(entity_id);
       ++destroyed_instances;
     }
   }
@@ -115,10 +132,18 @@ int InstanceRegistry::DestroyInstancesFor(qbEntity entity, GameState* state) {
 int InstanceRegistry::DestroyInstanceFor(qbEntity entity,
                                           qbComponent component,
                                           GameState* state) {
+  qbEntity entity_id = ENTITY_ID(entity);
+  qbId table_id = ENTITY_TABLE_ID(entity);
+
+  if (table_id) {
+    EntityTable* table = table_registry_.Find(table_id);
+    table->destroy_entity(entity);
+  }
+
   Component* c = components_[component];
-  if (c->Has(entity)) {
+  if (c->Has(entity_id)) {
     SendInstanceDestroyNotification(entity, c, state);
-    c->Destroy(entity);
+    c->Destroy(entity_id);
     return 1;
   }
   return 0;
@@ -133,10 +158,29 @@ qbResult InstanceRegistry::SendInstanceDestroyNotification(qbEntity entity, Comp
 }
 
 bool InstanceRegistry::InstanceHas(qbEntity entity, qbComponent component) {
-  return (*this)[component].Has(entity);
+  qbId table_id = ENTITY_TABLE_ID(entity);
+  qbId entity_id = ENTITY_ID(entity);
+
+  bool has_component = true;
+  if (table_id) {
+    EntityTable* table = table_registry_.Find(table_id);
+    has_component = has_component || (table->has_entity(entity) && table->has_component(component));
+  }
+  has_component = has_component || (*this)[component].Has(entity_id);
+  return has_component;
 }
 
 void* InstanceRegistry::InstanceData(qbEntity entity, qbComponent component) {
+  qbId table_id = ENTITY_TABLE_ID(entity);
+  qbId entity_id = ENTITY_ID(entity);
+
+  bool has_component = true;
+  if (table_id) {
+    EntityTable* table = table_registry_.Find(table_id);
+    if (table->has_component(component)) {
+      return table->at(entity_id, component);
+    }
+  }
   return (*this)[component][entity];
 }
 

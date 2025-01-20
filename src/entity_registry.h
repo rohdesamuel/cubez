@@ -22,7 +22,7 @@
 #include "defs.h"
 #include "memory_pool.h"
 #include "component_registry.h"
-#include "sparse_set.h"
+#include "entity_set.h"
 
 #include <algorithm>
 #include <atomic>
@@ -32,8 +32,8 @@
 class GameState;
 class EntityRegistry {
  public:
-  typedef SparseSet::iterator iterator;
-  typedef SparseSet::const_iterator const_iterator;
+  typedef EntitySet::iterator iterator;
+  typedef EntitySet::const_iterator const_iterator;
 
   EntityRegistry();
 
@@ -71,7 +71,7 @@ class EntityRegistry {
   qbId AllocEntity();
 
   std::atomic_long id_;
-  SparseSet entities_;
+  EntitySet entities_;
   std::vector<size_t> free_entity_ids_;
 
 };

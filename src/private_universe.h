@@ -156,6 +156,7 @@ class PrivateUniverse {
   void* entity_getcomponent(qbEntity entity, qbComponent component);
   qbResult entity_addcomponent(qbEntity entity, qbComponent component,
                                void* instance_data);
+  qbResult entity_addcomponents(qbEntity entity, size_t count, const qbComponentData_ data[]);
   qbResult entity_removecomponent(qbEntity entity, qbComponent component);
 
   // Instance manipulation.
@@ -192,6 +193,11 @@ class PrivateUniverse {
   qbBool iterator_component(qbIterator it, qbComponent component, void* pbuf);
   void iterator_index(qbIterator it, size_t index, void* pbuf);
   qbEntity iterator_entity(qbIterator it);
+
+  // Table methods.
+  qbResult table_create(qbEntityTable* table, qbEntityTableAttr attr);
+  qbResult table_destroy(qbEntityTable* table);
+  void table_iterate(qbEntityTable table, qbIteratorImpl_* impl, va_list components);
 
   // Schema manipulation.
   qbSchema schema_find(const char* name);

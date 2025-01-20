@@ -24,6 +24,8 @@
 #include "event_registry.h"
 #include <memory>
 #include "sparse_map.h"
+#include "sparse_set.h"
+#include "table_registry.h"
 
 // Not thread-safe. Assumed to run in a single program.
 class GameState {
@@ -31,7 +33,8 @@ public:
   GameState(std::unique_ptr<EntityRegistry> entities,
             std::unique_ptr<InstanceRegistry> instances,
             ComponentRegistry* components,
-            std::unique_ptr<EventRegistry> events);
+            std::unique_ptr<EventRegistry> events,
+            std::unique_ptr<TableRegistry> tables);
   ~GameState();
 
   void Flush();
@@ -45,6 +48,7 @@ public:
   void* EntityGetComponent(qbEntity entity, qbComponent component);
   qbResult EntityAddComponent(qbEntity entity, qbComponent component,
                                void* instance_data);
+  qbResult EntityAddComponents(qbEntity entity, size_t count, const qbComponentData_ data[]);
   qbResult EntityRemoveComponent(qbEntity entity, qbComponent component);
   EntityRegistry& Entities();
 
@@ -62,6 +66,9 @@ public:
   void SubscribeTo(qbEvent event, qbEventFn fn, qbVar arg);
   void UnsubscribeFrom(qbEvent event, qbEventFn fn);
 
+  // Table methods.
+  qbResult TableCreate(qbEntityTable* table, qbEntityTableAttr attr);
+  qbResult TableDestroy(qbEntityTable* table);
 
 private:
   
@@ -71,6 +78,8 @@ private:
   std::unique_ptr<EntityRegistry> entities_;
   std::unique_ptr<InstanceRegistry> instances_;
   std::unique_ptr<EventRegistry> events_;
+  std::unique_ptr<TableRegistry> tables_;
+
   ComponentRegistry* components_;
   SparseSet mutable_components_;
 

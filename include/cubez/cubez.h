@@ -459,6 +459,14 @@ QB_API qbResult      qb_entity_addcomponent(qbEntity entity,
                                             qbComponent component,
                                             void* instance_data);
 
+// This allocates a new instance copies the instance_data to the newly
+// allocated memory. This calls the instance's OnCreate function immediately.
+// This is only thread-safe if the component is a "shared" component, created
+// with the `qb_componentattr_setshared` method.
+QB_API qbResult      qb_entity_addcomponents(qbEntity entity,
+                                             size_t count,
+                                             const qbComponentData_ data[]);
+
 // Removes the specified component from the entity. Does not remove the
 // component until after the current frame has completed. This calls the
 // instance's OnDestroy function after the current frame has completed.
@@ -660,7 +668,8 @@ typedef struct qbIterator_ {
 //   qb_iterator_get(&it, &pos);
 // }
 //
-#define qb_component_iterate(QB_COMPONENT, ...) qb_component_iterate_(QB_COMPONENT, __VA_ARGS__, qbInvalidComponent)
+#define qb_component_iterate(QB_COMPONENT, ...) \
+    qb_component_iterate_(QB_COMPONENT, __VA_ARGS__, qbInvalidComponent)
 
 // This method should not be called directly. You should call
 // qb_component_iterate instead.
@@ -692,6 +701,73 @@ QB_API void         qb_iterator_index(qbIterator it, size_t index, void* pbuf);
 
 // Retrieve the given component from the iterator, returns QB_TRUE if successful.
 QB_API qbBool       qb_iterator_component(qbIterator it, qbComponent component, void* pbuf);
+
+// ======== qbEntityTable ========
+// A qbEntityTable is a way to create a separate table of entities. This table
+// is not globally queryable and the components can only be accessed by the set
+// of qb_entitytable_* functions.
+// qbEntityTables help in a few ways:
+//   * One, creating a "private" set of components that cannot be accessed.
+//   * Two, creating a set of entities that are all contiguous in memory.
+
+typedef struct qbEntityTableAttr_* qbEntityTableAttr;
+typedef struct qbEntityTable_* qbEntityTable;
+
+#define QB_MAX_TABLES_COUNT 65536
+
+QB_API qbResult qb_entitytableattr_create(qbEntityTableAttr* attr);
+QB_API qbResult qb_entitytableattr_destroy(qbEntityTableAttr* attr);
+
+// Adds the given component to the qbEntityTable. All ordered iterator
+// accesses will have the same order as added components.
+QB_API qbResult qb_entitytableattr_add(qbEntityTableAttr attr, qbComponent component);
+
+// Creates a qbEntityTable. The maximum amount of tables at any given time is
+// QB_MAX_TABLES_COUNT. The result will be QB_OK if successfully created.
+QB_API qbResult qb_entitytable_create(qbEntityTable* table, qbEntityTableAttr attr);
+
+// Destroys the given qbEntityTable.
+// This also destroys all the entities within the table.
+QB_API qbResult qb_entitytable_destroy(qbEntityTable* table);
+
+// A special Component type that destroys the table and its entities when the
+// original entity is destroyed.
+QB_API qbComponent qb_entitytable_component();
+
+// Returns the number of entities in the table.
+QB_API size_t qb_entitytable_count(qbEntityTable table);
+
+// Creates an iterator querying for entities with all of the given components.
+// If the component is in the table, then the table will be queried. Can mix
+// and match components in and not in the table.
+// 
+// The variadic argument is a list of qbComponents.
+// An iterator is created in an invalid state and qb_iterator_next must be
+// called first.
+// 
+// Example:
+// qbIterator_ it = qb_entitytable_iterate(position_component, velocity_component);
+// while(qb_iterator_next(&it)) {
+//   vec2* pos;
+//   qb_iterator_get(&it, &pos);
+// }
+#define qb_entitytable_iterate(QB_ENTITYTABLE, ...) \
+    qb_entitytable_iterate_(QB_ENTITYTABLE, __VA_ARGS__, qbInvalidComponent)
+
+// This method should not be called directly. You should call
+// qb_entitytable_iterate instead.
+QB_API qbIterator_ qb_entitytable_iterate_(qbEntityTable table, ...);
+
+// Inserts the given component data into the table. The components added
+// should be in the same order as the order of
+// qb_entitytableattr_addcomponent() calls.
+#define qb_entitytable_insert(QB_ENTITYTABLE, ...) \
+    qb_entitytable_insert_(QB_ENTITYTABLE, __VA_ARGS__, 0xCD)
+
+// This method should not be called directly. You should call
+// qb_entitytable_insert instead.
+QB_API qbEntity qb_entitytable_insert_(qbEntityTable table, ...);
+
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////

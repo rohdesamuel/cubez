@@ -48,6 +48,7 @@
 #include "memory_internal.h"
 #include "async_internal.h"
 #include "sprite_internal.h"
+#include "entity_table.h"
 
 namespace fs = std::filesystem;
 
@@ -220,6 +221,8 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qb_component_create(&qb_id_component, "id", attr);
     qb_componentattr_destroy(&attr);
   }
+
+  EntityTable::Initialize();
 
   return ret;
 }
@@ -686,12 +689,12 @@ qbResult qb_entity_addcomponent(qbEntity entity, qbComponent component,
   return AS_PRIVATE(entity_addcomponent(entity, component, instance_data));
 }
 
-qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
-  return AS_PRIVATE(entity_removecomponent(entity, component));
+qbResult qb_entity_addcomponents(qbEntity entity, size_t count, const qbComponentData_ data[]) {
+  return AS_PRIVATE(entity_addcomponents(entity, count, data));
 }
 
-qbId qb_entity_getid(qbEntity entity) {
-  return entity;
+qbResult qb_entity_removecomponent(qbEntity entity, qbComponent component) {
+  return AS_PRIVATE(entity_removecomponent(entity, component));
 }
 
 qbResult qb_barrier_create(qbBarrier* barrier) {
@@ -839,6 +842,61 @@ void qb_iterator_index(qbIterator it, size_t index, void* pbuf) {
 
 qbBool qb_iterator_component(qbIterator it, qbComponent component, void* pbuf) {
   return AS_PRIVATE(iterator_component(it, component, pbuf));
+}
+
+qbResult qb_entitytableattr_create(qbEntityTableAttr* attr) {
+  *attr = new qbEntityTableAttr_{};
+  return QB_OK;
+}
+
+qbResult qb_entitytableattr_destroy(qbEntityTableAttr* attr) {
+  delete *attr;
+  *attr = nullptr;
+  return QB_OK;
+}
+
+qbResult qb_entitytableattr_add(qbEntityTableAttr attr, qbComponent component) {
+  attr->components.push_back(component);
+  return QB_OK;
+}
+
+qbResult qb_entitytable_create(qbEntityTable* table, qbEntityTableAttr attr) {
+  return AS_PRIVATE(table_create(table, attr));
+}
+
+qbResult qb_entitytable_destroy(qbEntityTable* table) {
+  return AS_PRIVATE(table_destroy(table));
+}
+
+qbComponent qb_entitytable_component() {
+  return EntityTable::Component();
+}
+
+qbIterator_ qb_entitytable_iterate_(qbEntityTable table, ...) {
+  va_list args;
+  va_start(args, table);
+
+  qbIterator_ it{};
+  AS_PRIVATE(table_iterate(table, (qbIteratorImpl_*)&it, args));
+  
+  va_end(args);
+
+  return it;
+}
+
+qbEntity qb_entitytable_insert_(qbEntityTable table, ...) {
+  va_list args;
+  va_start(args, table);
+
+  EntityTable* impl = EntityTable::FromRaw(table);
+  qbEntity ret = impl->insert(args);
+
+  va_end(args);
+  return ret;
+}
+
+size_t qb_entitytable_count(qbEntityTable table) {
+  return EntityTable::FromRaw(table)->count();
 }
 
 qbResult qb_eventattr_create(qbEventAttr* attr) {

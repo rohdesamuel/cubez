@@ -7,19 +7,16 @@
 
 #include "fast_math.h"
 
-
 InstanceMap::InstanceMap(size_t element_size)
-  : element_size_(element_size),
-  slot_size_(round_to_4_bytes(sizeof(qbId) + element_size)),
-  sparse_(16, -1),
-  dense_values_(slot_size_) {
+    : element_size_(element_size), sparse_(16, -1),
+  dense_values_(element_size) {
 }
 
-InstanceMap::InstanceMap(const InstanceMap& other) : dense_values_(other.slot_size_) {
+InstanceMap::InstanceMap(const InstanceMap& other) : dense_values_(other.element_size_) {
   copy(other);
 }
 
-InstanceMap::InstanceMap(InstanceMap&& other) : dense_values_(other.slot_size_) {
+InstanceMap::InstanceMap(InstanceMap&& other) : dense_values_(other.element_size_) {
   move(other);
 }
 
@@ -44,6 +41,7 @@ void InstanceMap::reserve(size_t size) {
 }
 
 void* InstanceMap::operator[](uint64_t key) {
+  key = ENTITY_ID(key);
   if (!has(key)) {
     insert(key, nullptr);
   }
@@ -51,6 +49,7 @@ void* InstanceMap::operator[](uint64_t key) {
 }
 
 const void* InstanceMap::operator[](uint64_t key) const {
+  key = ENTITY_ID(key);
   return dense_values_[sparse_[key]];
 }
 
@@ -67,25 +66,24 @@ InstanceMap::const_iterator InstanceMap::begin() const {
 }
 
 InstanceMap::const_iterator InstanceMap::end() const {
-  return InstanceMap::const_iterator{ *this, size() };
+  return const_iterator{ *this, size() };
 }
 
 void InstanceMap::insert(uint64_t key, void* value) {
+  key = ENTITY_ID(key);
   if (key >= sparse_.size()) {
     sparse_.resize(key + 1, -1);
   }
   sparse_[key] = dense_.size();
   dense_.push_back(key);
-
-  dense_values_.resize(dense_values_.size() + 1);
-  Slot* slot = (Slot*)dense_values_.back();
-  slot->id = key;
-  memmove(&slot->data, value, element_size_);
+  dense_values_.push_back(value);
 }
 
 void InstanceMap::erase(uint64_t key) {
+  key = ENTITY_ID(key);
+
   // Erase the old value.
-  memmove(dense_values_[sparse_[key]], dense_values_.back(), slot_size_);
+  memmove(dense_values_[sparse_[key]], dense_values_.back(), element_size_);
   dense_values_.pop_back();
 
   // Erase from the sparse set.
@@ -102,6 +100,8 @@ void InstanceMap::clear() {
 }
 
 bool InstanceMap::has(uint64_t key) const {
+  key = ENTITY_ID(key);
+
   if (key >= sparse_.size()) {
     return false;
   }
