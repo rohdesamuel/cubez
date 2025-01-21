@@ -53,6 +53,10 @@ const void* InstanceMap::operator[](uint64_t key) const {
   return dense_values_[sparse_[key]];
 }
 
+void* InstanceMap::at(uint64_t key) {
+  return dense_values_[sparse_[ENTITY_ID(key)]];
+}
+
 InstanceMap::iterator InstanceMap::begin() {
   return iterator{ this, 0 };
 }

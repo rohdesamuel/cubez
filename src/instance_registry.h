@@ -62,11 +62,11 @@ public:
 
   Component& operator[](qbId component) {
     Create(component);
-    return *(Component*)components_[component];
+    return *(Component*)components_.at(component);
   }
 
   const Component& operator[](qbId component) const {
-    return *(Component*)components_[component];
+    return *(Component*)components_.at(component);
   }
 
 private:

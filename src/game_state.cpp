@@ -90,7 +90,7 @@ bool GameState::EntityHasComponent(qbEntity entity, qbComponent component) {
   return instances_->InstanceHas(entity, component);  
 }
 
-void * GameState::EntityGetComponent(qbEntity entity, qbComponent component) {
+void* GameState::EntityGetComponent(qbEntity entity, qbComponent component) {
   return instances_->InstanceData(entity, component);
 }
 

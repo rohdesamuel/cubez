@@ -97,6 +97,7 @@ public:
 
   void* operator[](uint64_t key);
   const void* operator[](uint64_t key) const;
+  void* at(uint64_t key);
 
   iterator begin();
   iterator end();

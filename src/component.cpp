@@ -83,8 +83,8 @@ const void* Component::operator[](qbId entity) const {
   return instances_[entity];
 }
 
-const void* Component::at(qbId entity) const {
-  return (*this)[entity];
+void* Component::at(qbId entity) {
+  return instances_.at(entity);
 }
 
 bool Component::Has(qbId entity) const {

@@ -43,7 +43,7 @@ class Component {
 
   void* operator[](qbId entity);
   const void* operator[](qbId entity) const;
-  const void* at(qbId entity) const;
+  void* at(qbId entity);
 
   bool Has(qbId entity) const;
   void Set(qbId entity, void* value);

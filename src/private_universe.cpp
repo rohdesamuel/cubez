@@ -283,6 +283,10 @@ void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* 
 
 qbBool PrivateUniverse::iterator_next(qbIterator it) {
   qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+  if (impl->num_components == 0) {
+    return QB_FALSE;
+  }
+
   Component* component = impl->components[0];
 
   Component::iterator c_it = component->begin() + impl->index;
@@ -323,19 +327,14 @@ void PrivateUniverse::iterator_get(qbIterator it, va_list args) {
   if (p) {
     *(void**)p = pbuf;
   }
-  size_t count = 1;
 
-  DEBUG_ASSERT(count < impl->num_components, 1);
-
-  do {
-    p = va_arg(args, uintptr_t);
+  for (size_t i = 1; i < impl->num_components && p != 0xCD; ++i) {
     if (p) {
-      Component* c = impl->components[count];
-      *(void**)p = (*c)[entity];
+      Component* c = impl->components[i];
+      *(void**)p = c->at(entity);
     }
-
-    ++count;
-  } while (p != 0xCD && count < impl->num_components);
+    p = va_arg(args, uintptr_t);
+  }
 }
 
 qbBool PrivateUniverse::iterator_component(qbIterator it, qbComponent component, void* pbuf) {
@@ -394,7 +393,9 @@ qbResult PrivateUniverse::table_destroy(qbEntityTable* table) {
 void PrivateUniverse::table_iterate(qbEntityTable table, qbIteratorImpl_* impl, va_list components) {
   *impl = qbIteratorImpl_{};
   qbComponent to_join = va_arg(components, qbComponent);
-  DEBUG_ASSERT(to_join != qbInvalidComponent, 1);
+  if (to_join == qbInvalidComponent) {
+    return;
+  }
 
   EntityTable* entity_table = EntityTable::FromRaw(table);
 

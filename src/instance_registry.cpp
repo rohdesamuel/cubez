@@ -181,7 +181,7 @@ void* InstanceRegistry::InstanceData(qbEntity entity, qbComponent component) {
       return table->at(entity_id, component);
     }
   }
-  return (*this)[component][entity];
+  return (*this)[component].at(entity);
 }
 
 size_t InstanceRegistry::InstanceCount(qbComponent component) {

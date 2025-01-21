@@ -145,6 +145,14 @@ public:
     return dense_values_[sparse_[key]];
   }
 
+  Value& at(uint64_t key) {
+    return dense_values_[sparse_[key]];
+  }
+
+  const Value& at(uint64_t key) const {
+    return dense_values_[sparse_[key]];
+  }
+
   iterator begin() {
     return iterator{ this, 0 };
   }
