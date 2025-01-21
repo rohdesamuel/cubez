@@ -1,13 +1,23 @@
 #include <cubez/cubez.h>
 #include <cubez/time.h>
+#include <cubez/random.h>
 
 #include <omp.h>
 #include <unordered_map>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <glm/glm.hpp>
 
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 typedef std::vector<glm::vec3> Vectors;
+
+struct EntityRefComponent {
+  qbEntity ref;
+};
 
 struct PositionComponent {
   glm::vec2 p;
@@ -17,33 +27,33 @@ struct DirectionComponent {
   glm::vec2 dir;
 };
 
-struct ComflabulationComponent {
+struct RandomComponent {
   float thingy;
   int dingy;
   bool mingy;
   std::string stringy;
 };
 
+qbComponent entityref_component;
 qbComponent position_component;
 qbComponent direction_component;
-qbComponent comflabulation_component;
+qbComponent random_component;
 
-void move(qbInstance* insts, qbFrame* f) {
+void move(qbInstance inst, qbFrame* f) {
   PositionComponent* p;
   DirectionComponent* d;
-  qb_instance_mutable(insts[0], &p);
-  qb_instance_const(insts[1], &d);
+  qb_instance_get(inst, &p, &d);
 
   float dt = *(float*)(f->state);
   p->p += d->dir * dt;
 }
 
-void comflab(qbInstance* insts, qbFrame*) {
-  ComflabulationComponent* comflab;
-  qb_instance_mutable(insts[0], &comflab);
-  comflab->thingy *= 1.000001f;
-  comflab->mingy = !comflab->mingy;
-  comflab->dingy++;
+void do_random(qbInstance inst, qbFrame*) {
+  RandomComponent* random;
+  qb_instance_get(inst, &random);
+  random->thingy *= 1.000001f;
+  random->mingy = !random->mingy;
+  random->dingy++;
 }
 
 double create_entities_benchmark(uint64_t count, uint64_t /** iterations */) {
@@ -95,11 +105,11 @@ double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iteration
     qb_systemattr_create(&attr);
     qb_systemattr_addconst(attr, position_component);
     qb_systemattr_setfunction(attr,
-      [](qbInstance* instance, qbFrame*) {        
+      [](qbInstance inst, qbFrame*) {        
 
-        PositionComponent p;
-        qb_instance_const(*instance, &p);
-        *Count() += (uint64_t)p.p.x ^ 0x12983;
+        PositionComponent* p;
+        qb_instance_get(inst, &p);
+        *Count() += (uint64_t)p->p.x ^ 0x12983;
       });
 
     qbSystem system;
@@ -124,8 +134,179 @@ double iterate_unpack_one_component_benchmark(uint64_t count, uint64_t iteration
   qb_loop(0, 0);
   qb_timer_start(timer);
   for (uint64_t i = 0; i < iterations; ++i) {
-    qb_loop(0, 0);
+    //qb_loop(0, 0);
     //qb_query(&query, qbNil);
+    qbIterator_ it = qb_component_iterate(position_component);
+    while (qb_iterator_next(&it)) {
+      PositionComponent* p;
+      qb_iterator_get(&it, &p);
+      *Count() += (uint64_t)p->p.x ^ 0x12983;
+    }
+  }
+  qb_timer_stop(timer);
+  std::cout << "Count = " << *Count() << std::endl;
+
+  double elapsed = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+  return elapsed;
+}
+
+double iterate_unpack_two_component_benchmark(uint64_t count, uint64_t iterations) {
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+  {
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    PositionComponent p;
+    DirectionComponent d;
+    qb_entityattr_addcomponent(attr, position_component, &p);
+    qb_entityattr_addcomponent(attr, direction_component, &d);
+
+    for (uint64_t i = 0; i < count; ++i) {
+      qbEntity entity;
+      p.p.x++;
+      d.dir.y++;
+      qb_entity_create(&entity, attr);
+    }
+
+    qb_entityattr_destroy(&attr);
+  }
+
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addconst(attr, position_component);
+    qb_systemattr_addconst(attr, direction_component);
+    qb_systemattr_setfunction(attr,
+      [](qbInstance inst, qbFrame*) {        
+        PositionComponent* p;
+        DirectionComponent* d;
+        qb_instance_get(inst, &p, &d);
+        *Count() += (uint64_t)(p->p.x * d->dir.y)^ 0x12983;
+      });
+
+    qbSystem system;
+    qb_system_create(&system, attr);
+    qb_systemattr_destroy(&attr);
+  }
+
+  qb_loop(0, 0);
+  qb_timer_start(timer);
+  for (uint64_t i = 0; i < iterations; ++i) {
+    //qb_loop(0, 0);
+    //qb_query(&query, qbNil);
+    qbIterator_ it = qb_component_iterate(position_component, direction_component);
+    while (qb_iterator_next(&it)) {
+      PositionComponent p;
+      DirectionComponent d;
+      qb_iterator_get(&it, &p, &d);
+      *Count() += (uint64_t)(p.p.x * d.dir.y) ^ 0x12983;
+    }
+  }
+  qb_timer_stop(timer);
+  std::cout << "Count = " << *Count() << std::endl;
+
+  double elapsed = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+  return elapsed;
+}
+
+double random_iteration_benchmark(uint64_t count, uint64_t iterations) {
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+  {
+    qbEntityAttr attr;
+    qb_entityattr_create(&attr);
+    EntityRefComponent ref_c = { .ref = rand() % count};
+    PositionComponent p;
+    DirectionComponent d;
+    qb_entityattr_addcomponent(attr, entityref_component, &ref_c);
+    qb_entityattr_addcomponent(attr, position_component, &p);
+    qb_entityattr_addcomponent(attr, direction_component, &d);
+
+    for (uint64_t i = 0; i < count; ++i) {
+      qbEntity entity;
+      p.p.x++;
+      d.dir.y++;
+      qb_entity_create(&entity, attr);
+    }
+
+    qb_entityattr_destroy(&attr);
+  }
+  {
+    qbSystemAttr attr;
+    qb_systemattr_create(&attr);
+    qb_systemattr_addconst(attr, entityref_component);
+    qb_systemattr_setfunction(attr,
+      [](qbInstance inst, qbFrame*) {
+        EntityRefComponent* ref;
+        qb_instance_get(inst, &ref);
+
+        PositionComponent* p;
+        DirectionComponent* d;
+        qb_instance_find(position_component, ref->ref, &p);
+        qb_instance_find(direction_component, ref->ref, &d);
+        *Count() += (uint64_t)(p->p.x * d->dir.y) ^ 0x12983;
+      });
+
+    qbSystem system;
+    qb_system_create(&system, attr);
+    qb_systemattr_destroy(&attr);
+  }
+
+  qb_loop(0, 0);
+  qb_timer_start(timer);
+  for (uint64_t i = 0; i < iterations; ++i) {
+    // qb_loop(0, 0);
+    qbIterator_ it = qb_component_iterate(entityref_component);
+    while (qb_iterator_next(&it)) {
+      EntityRefComponent* ref;
+      qb_iterator_get(&it, &ref);
+
+      PositionComponent* p;
+      DirectionComponent* d;
+      qb_instance_find(position_component, ref->ref, &p);
+      qb_instance_find(direction_component, ref->ref, &d);
+      *Count() += (uint64_t)(p->p.x * d->dir.y) ^ 0x12983;
+    }
+  }
+  qb_timer_stop(timer);
+  std::cout << "Count = " << *Count() << std::endl;
+
+  double elapsed = qb_timer_elapsed(timer);
+  qb_timer_destroy(&timer);
+  return elapsed;
+}
+
+double table_iteration_single_component_benchmark(uint64_t count, uint64_t iterations) {
+  qbTimer timer;
+  qb_timer_create(&timer, 0);
+  qbEntityTable table;
+  {
+    qbEntityTableAttr attr;
+    qb_entitytableattr_create(&attr);
+    qb_entitytableattr_add(attr, position_component);
+    qb_entitytable_create(&table, attr);
+    qb_entitytableattr_destroy(&attr);
+  }
+
+  for (uint64_t i = 0; i < count; ++i) {
+    PositionComponent p{
+      .p = {i, 0}
+    };
+    qb_entitytable_insert(table, &p);
+  }
+
+  qb_loop(0, 0);
+  qb_timer_start(timer);
+  for (uint64_t i = 0; i < iterations; ++i) {
+    // qb_loop(0, 0);
+    qbIterator_ it = qb_entitytable_iterate(table, position_component);
+    while (qb_iterator_next(&it)) {
+      PositionComponent* p;
+      qb_iterator_get(&it, &p);
+      *Count() += (uint64_t)p->p.x ^ 0x12983;
+    }
   }
   qb_timer_stop(timer);
   std::cout << "Count = " << *Count() << std::endl;
@@ -166,7 +347,10 @@ double coroutine_overhead_benchmark(uint64_t count, uint64_t iterations) {
 
 template<class F>
 void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, uint64_t test_iterations) {
-  std::cout << "Running benchmark: " << name << "\n";
+  std::ofstream benchmarkOutput;
+  benchmarkOutput.open("benchmark_output.txt");
+
+  benchmarkOutput << "Running benchmark: " << name << "\n";
   uint64_t elapsed = 0;
   for (uint64_t i = 0; i < test_iterations; ++i) {
     uint64_t before = elapsed;
@@ -178,17 +362,19 @@ void do_benchmark(const char* name, F f, uint64_t count, uint64_t iterations, ui
 
     qb_scene_destroy(&test_scene);
     if (before > elapsed) {
-      std::cout << "overflow\n";
+      benchmarkOutput << "overflow\n";
     }
   }
-  std::cout << "Finished benchmark\n";
-  std::cout << "Total elapsed: " << elapsed << "ns\n";
-  std::cout << "Elapsed per iteration: " << elapsed / test_iterations << "ns\n";
-  std::cout << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
-  std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / test_iterations << "s\n";
+  benchmarkOutput << "Finished benchmark\n";
+  benchmarkOutput << "Total elapsed: " << elapsed << "ns\n";
+  benchmarkOutput << "Elapsed per iteration: " << elapsed / test_iterations << "ns\n";
+  benchmarkOutput << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
+  benchmarkOutput << "Elapsed per iteration: " << ((double)elapsed / 1e9) / test_iterations << "s\n";
   if (count) {
-    std::cout << "Elapsed per iteration per obj: " << ((double)elapsed) / test_iterations / count << "ns\n";
+    benchmarkOutput << "Elapsed per iteration per obj: " << ((double)elapsed) / test_iterations / count << "ns\n";
   }
+  
+  benchmarkOutput.close();
 }
 
 qbSchema pos_schema;
@@ -481,14 +667,18 @@ double small_map_lookup_benchmark(uint64_t count, uint64_t iterations) {
   return elapsed;
 }
 
-int main() {
+int qb_main(int argc, char* argv[]) {
   std::cout << "Number of processors: " << omp_get_max_threads() << std::endl;
   omp_set_num_threads(omp_get_max_threads());
   //omp_set_num_threads(1);
 
-  qbUniverse uni;
-  qbUniverseAttr_ attr = {};
-  attr.enabled = (qbFeature)(QB_FEATURE_GAME_LOOP | QB_FEATURE_LOGGER);
+  qbUniverse uni = { .argc = argc, .argv = (char**)__wargv, .wargv = __wargv};
+  //qbUniverse uni = { .argc = argc, .argv = argv, .wargv = __wargv };
+  qbUniverseAttr_ attr = {
+    .width = 1024,
+    .height = 780
+  };
+  //attr.enabled = (qbFeature)(QB_FEATURE_GAME_LOOP | QB_FEATURE_LOGGER | QB_FEATURE_ALL);
   
   qbScriptAttr_ script_attr = {};
   attr.script_args = &script_attr;
@@ -499,8 +689,14 @@ int main() {
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, EntityRefComponent);
+    qb_component_create(&entityref_component, "EntityRefComponent", attr);
+    qb_componentattr_destroy(&attr);
+  }
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, PositionComponent);
-
     qb_component_create(&position_component, "Pos", attr);
     qb_componentattr_destroy(&attr);
   }
@@ -514,42 +710,18 @@ int main() {
   {
     qbComponentAttr attr;
     qb_componentattr_create(&attr);
-    qb_componentattr_setdatatype(attr, ComflabulationComponent);
-    qb_component_create(&comflabulation_component, "Comfabulation", attr);
+    qb_componentattr_setdatatype(attr, RandomComponent);
+    qb_component_create(&random_component, "Comfabulation", attr);
     qb_componentattr_destroy(&attr);
   }
   uint64_t count = 1000000;
   uint64_t iterations = 500;
   uint64_t test_iterations = 1;
+
 #if 0
   pos_component = qb_component_find("Position", &pos_schema);
   vel_component = qb_component_find("Velocity", &vel_schema);
 
-  {
-    qbSystemAttr attr;
-    qb_systemattr_create(&attr);
-    qb_systemattr_addconst(attr, pos_component);
-    qb_systemattr_addconst(attr, vel_component);
-    qb_systemattr_setfunction(attr, [](qbInstance* insts, qbFrame*) {
-      std::pair<double, double>* p;
-      qb_instance_const(insts[0], &p);
-
-      std::pair<double, double>* v;
-      qb_instance_const(insts[1], &v);
-      
-      p->first += v->first;
-      p->second += v->second;
-    });
-    qbSystem s;
-    qb_system_create(&s, attr);
-
-    qb_systemattr_destroy(&attr);
-  }
-
-
-
-
-  
   qbTimer timer;
   qb_timer_create(&timer, 0);
   
@@ -564,21 +736,34 @@ int main() {
     std::cout << i << "] " << e / 1e9 << "s, " << elapsed / i / count << ", " << e / count << std::endl;
   }
   
-  std::cout << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
-  std::cout << "Elapsed per iteration: " << ((double)elapsed / 1e9) / iterations << "s\n";
-  std::cout << "Elapsed per object: " << ((double)elapsed / 1e9) / iterations / count << "s\n";
-  std::cout << "Elapsed per object: " << ((double)elapsed) / iterations / count << "ns\n";
+  {
+    std::ofstream benchmarkOutput;
+    benchmarkOutput.open("benchmark_output.txt");
+    benchmarkOutput << "Total elapsed: " << (double)elapsed / 1e9 << "s\n";
+    benchmarkOutput << "Elapsed per iteration: " << ((double)elapsed / 1e9) / iterations << "s\n";
+    benchmarkOutput << "Elapsed per object: " << ((double)elapsed / 1e9) / iterations / count << "s\n";
+    benchmarkOutput << "Elapsed per object: " << ((double)elapsed) / iterations / count << "ns\n";
+    benchmarkOutput.close();
+  }
   qb_timer_destroy(&timer);
 #endif  
 
   
   //do_benchmark("Create entities benchmark",
   //             create_entities_benchmark, count, iterations, 1);
-  /*do_benchmark("Unpack one component benchmark",
-    iterate_unpack_one_component_benchmark, count, iterations, test_iterations);*/
+  //do_benchmark("Unpack one components benchmark",
+  //  iterate_unpack_one_component_benchmark, count, iterations, test_iterations);
+  do_benchmark("Unpack two components benchmark",
+    iterate_unpack_two_component_benchmark, count, iterations, test_iterations);
+  //do_benchmark("Random access components benchmark",
+  //  random_iteration_benchmark, count, iterations, test_iterations);
+  //do_benchmark("Table iteration one components benchmark",
+  //  table_iteration_single_component_benchmark, count, iterations, test_iterations);
+  
   /*do_benchmark("coroutine_overhead_benchmark",
                coroutine_overhead_benchmark, 1, 1000000, 1);*/
 
+#if 0
   for (int num_keys = 64; num_keys <= 64; ++num_keys) {
     std::cout << "num_keys = " << num_keys << std::endl;
     do_benchmark("small_map_creation_benchmark",
@@ -589,10 +774,10 @@ int main() {
   int num_keys = 64;
   std::cout << "num_keys = " << num_keys << std::endl;
   do_benchmark("small_map_lookup_benchmark", small_map_lookup_benchmark, num_keys, 1000, 100);
-  
+#endif
 
   qb_stop();
-  while (1);
+  return 0;
 }
 
 /*
@@ -667,4 +852,20 @@ Total elapsed: 66839651ns
 Elapsed per iteration: 66839651ns
 Total elapsed: 0.0668397s
 Elapsed per iteration: 0.0668397s
+
+Running benchmark: Unpack one component benchmark (system)
+Finished benchmark
+Total elapsed: 787969ns
+Elapsed per iteration: 787969ns
+Total elapsed: 0.000787969s
+Elapsed per iteration: 0.000787969s
+Elapsed per iteration per obj: 0.787969ns
+
+Running benchmark: Unpack one component benchmark (iterator)
+Finished benchmark
+Total elapsed: 6091544ns
+Elapsed per iteration: 6091544ns
+Total elapsed: 0.00609154s
+Elapsed per iteration: 0.00609154s
+Elapsed per iteration per obj: 6.09154ns
 */

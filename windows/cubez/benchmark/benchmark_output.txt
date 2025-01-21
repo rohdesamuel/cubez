@@ -1,0 +1,7 @@
+Running benchmark: Unpack two components benchmark
+Finished benchmark
+Total elapsed: 8747978ns
+Elapsed per iteration: 8747978ns
+Total elapsed: 0.00874798s
+Elapsed per iteration: 0.00874798s
+Elapsed per iteration per obj: 8.74798ns
