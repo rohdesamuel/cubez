@@ -251,7 +251,11 @@ qbModel qb_model_load(const char* model_name, const utf8_t* filename) {
   qbModel ret = nullptr;
   Assimp::Importer importer{};
   const aiScene* scene = importer.ReadFile(path.string().c_str(), aiProcess_Triangulate | aiProcess_FlipUVs);
-  if (!scene || !scene->HasMeshes()) {
+  if (!scene) {
+    qb_err("Could not find file: \"%s\"", path.string().c_str());
+    goto cleanup;
+  } else if (!scene->HasMeshes()) {
+    qb_err("OBJ file had no meshes: \"%s\"", path.string().c_str());
     goto cleanup;
   }
 
