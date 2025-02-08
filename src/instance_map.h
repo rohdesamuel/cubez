@@ -14,6 +14,8 @@ public:
 
   class iterator {
   public:
+    iterator() = default;
+
     iterator operator++() {
       ++index_;
       return *this;
@@ -43,8 +45,8 @@ public:
   private:
     iterator(InstanceMap* map, size_t index) : map_(map), index_(index) {}
 
-    InstanceMap* map_;
-    size_t index_;
+    InstanceMap* map_ = nullptr;
+    size_t index_ = 0;
 
     friend class InstanceMap;
   };
