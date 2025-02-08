@@ -196,7 +196,6 @@ typedef struct {
 
   void* data;
   size_t size;
-  size_t elem_size;
 
   qbGpuBufferType buffer_type;
 
@@ -702,7 +701,9 @@ QB_API void qb_drawcmd_updatebuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buf
 QB_API void qb_drawcmd_pushbuffer(qbDrawCommandBuffer cmd_buf, qbGpuBuffer buffer, intptr_t offset, size_t size, void* data);
 
 // Adds the given buffer to draw, each qbDrawCommandBuffer utilizes the parent
-// state.
+// state. The given buffer can be modified but must be valid at the time of rendering.
+// The command can be synchronized with a use of a qbSemaphore and the
+// `qb_drawcmd_signal`, `qb_drawcmd_wait`, and `qb_drawcmd_resetsignal` commands.
 QB_API void qb_drawcmd_subcommands(qbDrawCommandBuffer cmd_buf, qbDrawCommandBuffer to_draw);
 
 // Adds the given reference to a buffer to draw. This buffer can be NULL and

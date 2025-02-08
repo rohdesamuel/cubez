@@ -89,7 +89,6 @@ typedef struct qbGpuBuffer_ {
   qbRenderExt ext;
 
   size_t size;
-  size_t elem_size;
 
   uint32_t id;
   qbGpuBufferType buffer_type;

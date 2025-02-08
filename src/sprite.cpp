@@ -777,7 +777,6 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
   {
     qbGpuBufferAttr_ attr = {
       .size = sizeof(float) * MAX_NUM_SPRITES_PER_BATCH * 4,
-      .elem_size = sizeof(float),
       .buffer_type = QB_GPU_BUFFER_TYPE_VERTEX,
     };
     qb_gpubuffer_create(&batch_vbo, &attr);
@@ -786,7 +785,6 @@ qbSpriteRenderState qb_spriterenderstate_create(float width, float height) {
   {
     qbGpuBufferAttr_ attr = {
       .size = sizeof(uint32_t) * MAX_NUM_SPRITES_PER_BATCH * 6,
-      .elem_size = sizeof(uint32_t),
       .buffer_type = QB_GPU_BUFFER_TYPE_INDEX,
     };
     qb_gpubuffer_create(&batch_ibo, &attr);

@@ -281,7 +281,6 @@ void qb_gpubuffer_create(qbGpuBuffer* buffer_ref, qbGpuBufferAttr attr) {
   *buffer_ref = new qbGpuBuffer_{};
   qbGpuBuffer buffer = *buffer_ref;
   buffer->size = attr->size;
-  buffer->elem_size = attr->elem_size;
   buffer->buffer_type = attr->buffer_type;
   buffer->sharing_type = attr->sharing_type;
   buffer->name = STRDUP(attr->name);
