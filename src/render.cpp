@@ -601,6 +601,22 @@ size_t qb_light_getmax(qbLightType light_type) {
   return r->light_max(r, light_type);
 }
 
+versors qb_vec3_rotateto(vec3s from, vec3s to) {
+  versors q{};
+  vec3s a = glms_vec3_cross(from, to);
+  q.imag = a;
+  q.w = sqrt((glms_vec3_norm2(from) * glms_vec3_norm2(to))) + glms_vec3_dot(from, to);
+  glm_vec4_normalize(q.raw);
+
+  return q;
+}
+
+mat4s qb_vec3_rotateto_m4(vec3s from, vec3s to) {
+  vec3s axis = glms_vec3_normalize(glms_vec3_cross(from, to));
+  float angle = acos(glms_vec3_dot(from, to));
+  return glms_rotate(GLMS_MAT4_IDENTITY_INIT, angle, axis);
+}
+
 qbShaderModule render_present_shader() {
   return present_pass_shader;
 }

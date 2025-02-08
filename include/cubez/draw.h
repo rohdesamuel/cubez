@@ -74,6 +74,9 @@ QB_API qbDrawCommandBuffer qb_commandbatch_cmds(qbCommandBatch batch, uint32_t i
 QB_API qbBool qb_commandbatch_isdynamic(qbCommandBatch batch);
 QB_API qbBool qb_commandbatch_isstatic(qbCommandBatch batch);
 
+QB_API versors qb_vec3_rotateto(vec3s from, vec3s to);
+QB_API mat4s qb_vec3_rotateto_m4(vec3s from, vec3s to);
+
 typedef enum qbDrawCommandType_ {
   QB_DRAW_NOOP,
   QB_DRAW_BEGIN,
