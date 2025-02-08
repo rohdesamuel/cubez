@@ -47,7 +47,7 @@ void initialize_universe(qbUniverse* uni) {
   uint32_t height = 800;
 
   qbUniverseAttr_ uni_attr = {};
-  uni_attr.title = "Cubez example";
+  uni_attr.title = u8"Cubez example";
   uni_attr.width = width;
   uni_attr.height = height;
 
@@ -66,9 +66,9 @@ void initialize_universe(qbUniverse* uni) {
   uni_attr.script_args = &script_attr;
 
   qbResourceAttr_ resource_attr = {};
-  resource_attr.scripts = "scripts";
-  resource_attr.fonts = "fonts";
-  resource_attr.meshes = "models";
+  resource_attr.scripts = u8"scripts";
+  resource_attr.fonts = u8"fonts";
+  resource_attr.meshes = u8"models";
   uni_attr.resource_args = &resource_attr;
 
   qb_init(uni, &uni_attr);
