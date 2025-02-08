@@ -21,6 +21,7 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <cubez/log.h>
 #include <cubez/gui.h>
 #include <cubez/nuklear.h>
 #include <cubez/window.h>
@@ -125,6 +126,7 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
   // Reset the scroll wheel when it stops moving.
   nk_input_begin(nk_sdl_ctx());
   bool wheel_updated = false;
+  bool mouse_motion_updated = false;
   while (SDL_PollEvent(&e)) {
     qbInputEvent_ input_event;
 
@@ -157,6 +159,8 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
 
         mouse_states[input_event.mouse_event.button.button] = input_event.mouse_event.button.state;
       } else if (e.type == SDL_MOUSEMOTION) {
+        mouse_motion_updated = true;
+
         input_event.type = QB_INPUT_EVENT_MOUSE;
         input_event.mouse_event.type = QB_MOUSE_EVENT_MOTION;
         input_event.mouse_event.motion.x = e.motion.x;
@@ -216,6 +220,11 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
   if (!wheel_updated) {
     wheel_x = 0;
     wheel_y = 0;
+  }
+
+  if (!mouse_motion_updated) {
+    mouse_dx = 0;
+    mouse_dy = 0;
   }
 }
 
