@@ -161,7 +161,7 @@ bool InstanceRegistry::InstanceHas(qbEntity entity, qbComponent component) {
   qbId table_id = ENTITY_TABLE_ID(entity);
   qbId entity_id = ENTITY_ID(entity);
 
-  bool has_component = true;
+  bool has_component = false;
   if (table_id) {
     EntityTable* table = table_registry_.Find(table_id);
     has_component = has_component || (table->has_entity(entity) && table->has_component(component));
@@ -174,7 +174,6 @@ void* InstanceRegistry::InstanceData(qbEntity entity, qbComponent component) {
   qbId table_id = ENTITY_TABLE_ID(entity);
   qbId entity_id = ENTITY_ID(entity);
 
-  bool has_component = true;
   if (table_id) {
     EntityTable* table = table_registry_.Find(table_id);
     if (table->has_component(component)) {
