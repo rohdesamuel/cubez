@@ -48,6 +48,11 @@ struct Vertex {
   vec3s vn;
   float* vc;
   int color_channels;
+
+  bool operator==(const Vertex& other) const {
+    return memcmp(this, &other, sizeof(Vertex)) == 0;
+  }
+
 };
 
 }
@@ -93,8 +98,8 @@ struct hash<Vertex> {
   }
 };
 
-bool operator==(const Vertex& a, const Vertex& b) {
-  return memcmp(&a, &b, sizeof(Vertex)) == 0;
+bool operator==(const ::Vertex& a, const ::Vertex& b) {
+  return memcmp((void*)&a, (void*)&b, sizeof(::Vertex)) == 0;
 }
 }
 
