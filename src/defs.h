@@ -92,6 +92,7 @@ struct qbBarrier_ {
 struct qbIteratorImpl_ {
   uint32_t index = 0;
   uint32_t num_components = 0;
+  uint32_t table_id = 0;
   Component* components[QB_MAX_ITERATOR_COMPONENT_COUNT] = { NULL };
 };
 

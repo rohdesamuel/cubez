@@ -328,12 +328,30 @@ void PrivateUniverse::iterator_get(qbIterator it, va_list args) {
     *(void**)p = pbuf;
   }
 
-  for (size_t i = 1; i < impl->num_components && p != 0xCD; ++i) {
+  for (size_t i = 0; i < impl->num_components && p != 0xCD; ++i) {
     if (p) {
       Component* c = impl->components[i];
       *(void**)p = c->at(entity);
     }
     p = va_arg(args, uintptr_t);
+  }
+}
+
+void PrivateUniverse::iterator_get(qbIterator it, size_t count, void* pbufs[]) {
+  qbIteratorImpl_* impl = (qbIteratorImpl_*)it;
+
+  DEBUG_ASSERT(impl->index > 0, 1);
+  Component* component = impl->components[0];
+  Component::iterator c_it = component->begin() + (impl->index - 1);
+  DEBUG_ASSERT(c_it != component->end(), 1);
+
+  auto [entity, pbuf] = *c_it;
+  for (size_t i = 0; i < impl->num_components; ++i) {
+    void* p = pbufs[i];
+    if (p) {
+      Component* c = impl->components[i];
+      *(void**)p = c->at(entity);
+    }
   }
 }
 
@@ -379,6 +397,10 @@ qbEntity PrivateUniverse::iterator_entity(qbIterator it) {
   DEBUG_ASSERT(c_it != component->end(), 1);
 
   auto [entity, _] = *c_it;
+  if (impl->table_id) {
+    entity = SET_ENTITY_TABLE_ID(impl->table_id, entity);
+  }
+
   return entity;
 }
 
@@ -398,6 +420,7 @@ void PrivateUniverse::table_iterate(qbEntityTable table, qbIteratorImpl_* impl, 
   }
 
   EntityTable* entity_table = EntityTable::FromRaw(table);
+  impl->table_id = entity_table->Id();
 
   for (size_t i = 0; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i) {
     Component* component = nullptr;
@@ -410,6 +433,25 @@ void PrivateUniverse::table_iterate(qbEntityTable table, qbIteratorImpl_* impl, 
     ++impl->num_components;
 
     to_join = va_arg(components, qbComponent);
+  }
+}
+
+void PrivateUniverse::table_iterate(qbEntityTable table, qbIteratorImpl_* impl, size_t count, qbComponent components[]) {
+  *impl = qbIteratorImpl_{};
+  impl->num_components = count;
+
+  EntityTable* entity_table = EntityTable::FromRaw(table);
+  impl->table_id = entity_table->Id();
+
+  for (size_t i = 0; i < count; ++i) {
+    qbComponent to_join = components[i];
+    Component* component = nullptr;
+    if (entity_table->has_component(to_join)) {
+      component = entity_table->component(to_join);
+    } else {
+      component = WorkingScene()->ComponentGet(to_join);
+    }
+    impl->components[i] = component;
   }
 }
 
@@ -591,6 +633,16 @@ void PrivateUniverse::instance_geti(qbInstance instance, size_t index, void* pbu
 
   auto s = SystemImpl::FromRaw(system);
   s->InstanceGeti(WorkingScene(), instance, index, pbuf);
+}
+
+void PrivateUniverse::instance_getn(qbInstance instance, size_t count, void* pbufs[]) {
+  qbSystem system = instance->system;
+  if (!system) {
+    return;
+  }
+
+  auto s = SystemImpl::FromRaw(system);
+  s->InstanceGetn(WorkingScene(), instance, count, pbufs);
 }
 
 bool PrivateUniverse::instance_hascomponent(qbInstance instance, qbComponent component) {

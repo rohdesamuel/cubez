@@ -644,7 +644,7 @@ qbResult qb_entity_create(qbEntity* entity, qbEntityAttr attr) {
   }
 
   uint64_t id = qb_rand();
-  qb_entity_addcomponent(*entity, qb_id(), &id);
+  qb_entity_addcomponent(*entity, qb_uid(), &id);
 
   return QB_OK;
 }
@@ -653,13 +653,13 @@ qbEntity qb_entity_withlen(size_t count, const qbComponentData_ data[]) {
   AS_PRIVATE(entity_create(&ret, count, data));
 
   uint64_t id = qb_rand();
-  qb_entity_addcomponent(ret, qb_id(), &id);
+  qb_entity_addcomponent(ret, qb_uid(), &id);
 
   return ret;
 }
 
 uint64_t qb_entity_id(qbEntity entity) {
-  void* ret = qb_entity_getcomponent(entity, qb_id());
+  void* ret = qb_entity_getcomponent(entity, qb_uid());
   if (!ret) {
     return qbInvalidEntity;
   }
@@ -832,6 +832,10 @@ void qb_iterator_get_(qbIterator it, ...) {
   va_end(args);
 }
 
+void qb_iterator_getn(qbIterator it, size_t count, void* pbufs[]) {
+  AS_PRIVATE(iterator_get(it, count, pbufs));
+}
+
 qbEntity qb_iterator_entity(qbIterator it) {
   return AS_PRIVATE(iterator_entity(it));
 }
@@ -884,6 +888,13 @@ qbIterator_ qb_entitytable_iterate_(qbEntityTable table, ...) {
   return it;
 }
 
+qbIterator_ qb_entitytable_iteraten(qbEntityTable table, size_t count, qbComponent components[]) {
+  qbIterator_ it{};
+  AS_PRIVATE(table_iterate(table, (qbIteratorImpl_*)&it, count, components));
+
+  return it;
+}
+
 qbEntity qb_entitytable_insert_(qbEntityTable table, ...) {
   va_list args;
   va_start(args, table);
@@ -893,6 +904,23 @@ qbEntity qb_entitytable_insert_(qbEntityTable table, ...) {
 
   va_end(args);
   return ret;
+}
+
+qbEntity qb_entitytable_insertn(qbEntityTable table, size_t count, void* pbufs[]) {
+  EntityTable* impl = EntityTable::FromRaw(table);
+  return impl->insert(count, pbufs);
+}
+
+void qb_entitytable_reserve(qbEntityTable table, size_t count) {
+  EntityTable::FromRaw(table)->reserve(count);
+}
+
+void qb_entitytable_erase(qbEntityTable table, qbEntity entity) {
+  EntityTable::FromRaw(table)->erase(entity);
+}
+
+void qb_entitytable_clear(qbEntityTable table) {
+  return EntityTable::FromRaw(table)->erase_all();
 }
 
 size_t qb_entitytable_count(qbEntityTable table) {
@@ -982,6 +1010,10 @@ void qb_instance_get_(qbInstance instance, ...) {
 
 void qb_instance_geti(qbInstance instance, size_t index, void* pbuf) {
   AS_PRIVATE(instance_geti(instance, index, pbuf));
+}
+
+void qb_instance_getn(qbInstance instance, size_t count, void* pbufs[]) {
+  AS_PRIVATE(instance_getn(instance, count, pbufs));
 }
 
 qbResult qb_instance_find(qbComponent component, qbEntity entity, void* pbuffer) {
@@ -2360,6 +2392,6 @@ size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* b
   return read_size;
 }
 
-qbComponent qb_id() {
+qbComponent qb_uid() {
   return qb_id_component;
 }

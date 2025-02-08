@@ -60,18 +60,30 @@ qbEntity EntityTable::insert(qbComponent component, void* data) {
   return entity;
 }
 
+qbEntity EntityTable::insert(size_t count, void* pbufs[]) {
+  qbEntity entity;
+  game_state_->Entities().CreateEntity(&entity);
+  entity = SET_ENTITY_TABLE_ID(id_, entity);
+
+  size_t i = 0;
+  for (auto [_, c] : components_) {
+    if (i >= count) break;
+    c->Create(entity, pbufs[i++]);
+  }
+
+  return entity;
+}
+
 qbEntity EntityTable::insert(va_list args) {
   qbEntity entity;
   game_state_->Entities().CreateEntity(&entity);
+  entity = SET_ENTITY_TABLE_ID(id_, entity);
 
   uintptr_t p = va_arg(args, uintptr_t);
   for (auto [_, c] : components_) {
-    if (p == 0xCD) {
-      c->Create(entity, NULL);
-    } else {
-      c->Create(entity, (void*)p);
-      p = va_arg(args, uintptr_t);
-    }
+    if (p == 0xCD) break;
+    c->Create(entity, (void*)p);
+    p = va_arg(args, uintptr_t);
   }
 
   return entity;
@@ -107,6 +119,12 @@ void* EntityTable::at(qbEntity entity, qbComponent component) {
     return (*components_[component])[entity];
   }
   return NULL;
+}
+
+void EntityTable::reserve(size_t count) {
+  for (auto [_, c] : components_) {
+    c->Reserve(count);
+  }
 }
 
 size_t EntityTable::count() const {

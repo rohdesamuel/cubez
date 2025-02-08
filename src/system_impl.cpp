@@ -67,7 +67,6 @@ qbVar SystemImpl::Run(GameState* game_state, void* event, qbVar var) {
     if (source_size == 0) {
       Run_0(&frame);
     } else if (source_size == 1) {
-      game_state->ComponentLock(components_[0], component_ismutable_[0]);
       Component* c = game_state->ComponentGet(components_[0]);
       c->Lock(component_ismutable_[0]);
       Run_1(c, &frame);
@@ -119,6 +118,12 @@ void SystemImpl::InstanceGet(GameState* game_state, qbInstance instance, va_list
 void SystemImpl::InstanceGeti(GameState* game_state, qbInstance instance, size_t index, void* pbuf) {
   DEBUG_ASSERT(index < component_data_.size(), 1);
   *(void**)pbuf = component_data_[index];
+}
+
+void SystemImpl::InstanceGetn(GameState* game_state, qbInstance instance, size_t count, void* pbufs[]) {
+  for (size_t i = 0; i < component_data_.size() && i < count; ++i) {
+    *(void**)pbufs[i] = component_data_[i];
+  }
 }
 
 void SystemImpl::CopyToInstance(Component* component, qbEntity entity) {

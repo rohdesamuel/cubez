@@ -40,6 +40,7 @@ class SystemImpl {
 
   void InstanceGet(GameState* game_state, qbInstance instance, va_list args);
   void InstanceGeti(GameState* game_state, qbInstance instance, size_t index, void* pbuf);
+  void InstanceGetn(GameState* game_state, qbInstance instance, size_t count, void* pbufs[]);
 
 private:
   void CopyToInstance(qbEntity entity, void* instance_data);

@@ -380,6 +380,7 @@ QB_API qbBool       qb_instance_hascomponent(qbInstance instance,
 #define qb_instance_get(QB_INSTANCE, ...) qb_instance_get_(QB_INSTANCE, __VA_ARGS__, 0xCD)
 QB_API void        qb_instance_get_(qbInstance instance, ...);
 QB_API void        qb_instance_geti(qbInstance instance, size_t index, void* pbuf);
+QB_API void        qb_instance_getn(qbInstance instance, size_t count, void* pbufs[]);
 
 QB_API qbVar       qb_instance_struct(qbInstance instance);
 
@@ -489,7 +490,7 @@ QB_API void*         qb_entity_getcomponent(qbEntity entity,
 
 // Returns the persistable id of the given entity.
 // This is short-hand for `qb_entity_getcomponent(entity, qb_id())`.
-QB_API uint64_t      qb_entity_id(qbEntity entity);
+QB_API uint64_t      qb_entity_uid(qbEntity entity);
 
 ///////////////////////////////////////////////////////////
 ////////////////////////  Systems  ////////////////////////
@@ -651,7 +652,7 @@ QB_API qbResult      qb_query(qbQuery query, qbVar arg);
 // components.
 typedef struct qbIterator_ {
   char __state__[96];
-} *qbIterator;
+} qbIterator_, *qbIterator;
 
 // A maximum of 8 components can be queried in a single iterator.
 #define QB_MAX_ITERATOR_COMPONENT_COUNT 8
@@ -689,6 +690,9 @@ QB_API qbBool       qb_iterator_next(qbIterator it);
 // This method should not be called directly. You should call qb_iterator_get
 // instead.
 QB_API void         qb_iterator_get_(qbIterator it, ...);
+
+// Retrieve the queried components from the iterator.
+QB_API void         qb_iterator_getn(qbIterator it, size_t count, void* pbufs[]);
 
 // Returns the entity the iterator is pointing to.
 QB_API qbEntity     qb_iterator_entity(qbIterator it);
@@ -732,6 +736,7 @@ QB_API qbResult qb_entitytable_destroy(qbEntityTable* table);
 
 // A special Component type that destroys the table and its entities when the
 // original entity is destroyed.
+// Component type: qbEntityTable_*
 QB_API qbComponent qb_entitytable_component();
 
 // Returns the number of entities in the table.
@@ -746,7 +751,7 @@ QB_API size_t qb_entitytable_count(qbEntityTable table);
 // called first.
 // 
 // Example:
-// qbIterator_ it = qb_entitytable_iterate(position_component, velocity_component);
+// qbIterator_ it = qb_entitytable_iterate(table, position_component, velocity_component);
 // while(qb_iterator_next(&it)) {
 //   vec2* pos;
 //   qb_iterator_get(&it, &pos);
@@ -758,6 +763,24 @@ QB_API size_t qb_entitytable_count(qbEntityTable table);
 // qb_entitytable_iterate instead.
 QB_API qbIterator_ qb_entitytable_iterate_(qbEntityTable table, ...);
 
+// Creates an iterator querying for entities with all of the given components.
+// If the component is in the table, then the table will be queried. Can mix
+// and match components in and not in the table.
+// 
+// An iterator is created in an invalid state and qb_iterator_next must be
+// called first.
+// 
+// Example:
+// qbComponent components[] = { position_component, velocity_component };
+// qbIterator_ it = qb_entitytable_iterate(
+//     table, sizeof(components) / sizeof(components[0]), components);
+// while(qb_iterator_next(&it)) {
+//   vec2* pos;
+//   qb_iterator_get(&it, &pos);
+// }
+QB_API qbIterator_ qb_entitytable_iteraten(qbEntityTable table, size_t count,
+                                           qbComponent components[]);
+
 // Inserts the given component data into the table. The components added
 // should be in the same order as the order of
 // qb_entitytableattr_addcomponent() calls.
@@ -768,6 +791,20 @@ QB_API qbIterator_ qb_entitytable_iterate_(qbEntityTable table, ...);
 // qb_entitytable_insert instead.
 QB_API qbEntity qb_entitytable_insert_(qbEntityTable table, ...);
 
+// Inserts the given component data into the table. The components added
+// should be in the same order as the order of
+// qb_entitytableattr_addcomponent() calls.
+QB_API qbEntity qb_entitytable_insertn(qbEntityTable table, size_t count, void* pbufs[]);
+
+// If the amount is larger than the current capacity, this allocates the given
+// number of entities.
+QB_API void qb_entitytable_reserve(qbEntityTable table, size_t count);
+
+// Removes and destroys the given entity and its associated components from the table.
+QB_API void qb_entitytable_erase(qbEntityTable table, qbEntity entity);
+
+// Removes and destroys all entity and its associated components from the table.
+QB_API void qb_entitytable_clear(qbEntityTable table);
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
@@ -966,6 +1003,6 @@ QB_API qbVar      qb_coro_peek(qbCoro coro);
 QB_API qbBool     qb_coro_done(qbCoro coro);
 
 // Component type: uint64_t
-QB_API qbComponent qb_id();
+QB_API qbComponent qb_uid();
 
 #endif  // #ifndef CUBEZ__H

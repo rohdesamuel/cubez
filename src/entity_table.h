@@ -21,6 +21,7 @@ public:
   static EntityTable* FromRaw(qbEntityTable table);
 
   qbEntity insert(qbComponent component, void* data);
+  qbEntity insert(size_t count, void* pbufs[]);
   qbEntity insert(va_list args);
 
   // Destroys the given entity and its associated components.
@@ -42,6 +43,8 @@ public:
 
   // Returns the entity from the given component.
   void* at(qbEntity entity, qbComponent component);
+
+  void reserve(size_t count);
 
   // Returns the number of entities (rows) in the table.
   size_t count() const;
