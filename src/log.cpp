@@ -111,6 +111,10 @@ void qb_log_ex(qbLogLevel level, const char* filename, uint64_t fileline, const 
   };
 
   qb_queue_write(log_queue, qbPtr(entry));
+
+  if (level == QB_ERR) {
+    qb_log_flush();
+  }
 }
 
 void qb_log_flush() {
