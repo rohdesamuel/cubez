@@ -36,6 +36,7 @@
 #endif
 
 #ifdef __ENGINE_DEBUG__
+#include <iostream>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
