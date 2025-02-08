@@ -868,4 +868,57 @@ Elapsed per iteration: 6091544ns
 Total elapsed: 0.00609154s
 Elapsed per iteration: 0.00609154s
 Elapsed per iteration per obj: 6.09154ns
+
+Running benchmark: Unpack two components benchmark
+Finished benchmark
+Total elapsed: 928960ns
+Elapsed per iteration: 928960ns
+Total elapsed: 0.00092896s
+Elapsed per iteration: 0.00092896s
+Elapsed per iteration per obj: 0.92896ns
+
+Running benchmark: Unpack two components benchmark
+Finished benchmark (iterator)
+Total elapsed: 10302414ns
+Elapsed per iteration: 10302414ns
+Total elapsed: 0.0103024s
+Elapsed per iteration: 0.0103024s
+Elapsed per iteration per obj: 10.3024ns
+
+Running benchmark: Random access components benchmark (system)
+Finished benchmark
+Total elapsed: 1704940ns
+Elapsed per iteration: 1704940ns
+Total elapsed: 0.00170494s
+Elapsed per iteration: 0.00170494s
+Elapsed per iteration per obj: 1.70494ns
+
+Running benchmark: Random access components benchmark (iterator)
+Finished benchmark
+Total elapsed: 48705702ns
+Elapsed per iteration: 48705702ns
+Total elapsed: 0.0487057s
+Elapsed per iteration: 0.0487057s
+Elapsed per iteration per obj: 48.7057ns
+
+Running benchmark: Table iteration one components benchmark
+Finished benchmark
+Total elapsed: 6562776ns
+Elapsed per iteration: 6562776ns
+Total elapsed: 0.00656278s
+Elapsed per iteration: 0.00656278s
+Elapsed per iteration per obj: 6.56278ns
+
+
+# Optimizations
+# Optimization 1 (use InstanceMap::at)
+Running benchmark: Random access components benchmark
+Finished benchmark
+Total elapsed: 30082499ns
+Elapsed per iteration: 30082499ns
+Total elapsed: 0.0300825s
+Elapsed per iteration: 0.0300825s
+Elapsed per iteration per obj: 30.0825ns
+
+
 */
