@@ -189,6 +189,7 @@ class PrivateUniverse {
 
   // Iterator methods.
   void component_iterate(qbComponent component, qbIteratorImpl_* impl, va_list components);
+  void component_iterate(qbComponent component, qbIteratorImpl_* impl, size_t count, qbComponent components[]);
   qbBool iterator_next(qbIterator it);
   qbBool iterator_hasnext(qbIterator it);
   void iterator_get(qbIterator it, va_list args);

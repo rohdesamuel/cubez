@@ -135,7 +135,11 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
       return;
     }
 
-    nk_sdl_handle_event(&e);
+    // Don't let NK handle any input event when there is not mouse pointer (relative mode is on).
+    if (qb_mouse_getrelative() == 0) {
+      nk_sdl_handle_event(&e);
+    }
+
     if (nk_sdl_consume_keyboard(nk_sdl_ctx()) == 0) {
       if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
         input_event.type = QB_INPUT_EVENT_KEY;

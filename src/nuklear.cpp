@@ -468,11 +468,18 @@ int nk_sdl_consume_keyboard(struct nk_context* ctx) {
 int nk_sdl_consume_mouse(struct nk_context* ctx) {
   static unsigned sdl_previous_button_state = 0;
   static int nk_consume_mouse_at_button_press = 0;
+
   unsigned sdl_current_button_state = SDL_GetMouseState(nullptr, nullptr);
   if (sdl_previous_button_state == 0 && sdl_current_button_state != 0) {
     nk_consume_mouse_at_button_press = nk_item_is_any_active(ctx);
   }
   sdl_previous_button_state = sdl_current_button_state;
+
+  // If the mouse is hidden, then NK can't consume any mouse event.
+  if (SDL_GetRelativeMouseMode() == 1) {
+    return 0;
+  }
+
   if (sdl_current_button_state != 0)
     return nk_consume_mouse_at_button_press;
   else

@@ -272,12 +272,25 @@ void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* 
   impl->num_components = 1;
 
   qbComponent to_join = va_arg(components, qbComponent);
-  for (size_t i = 1; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i){
+  for (size_t i = 1; i < QB_MAX_ITERATOR_COMPONENT_COUNT && to_join != qbInvalidComponent; ++i) {
     Component* component = WorkingScene()->ComponentGet(to_join);
     impl->components[impl->num_components] = component;
     ++impl->num_components;
 
     to_join = va_arg(components, qbComponent);
+  }
+}
+
+void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* impl,
+  size_t count, qbComponent components[]) {
+
+  *impl = qbIteratorImpl_{};
+  impl->components[0] = WorkingScene()->ComponentGet(component);
+  impl->num_components = 1;
+
+  for (size_t i = 1; i < QB_MAX_ITERATOR_COMPONENT_COUNT && i - 1 < count; ++i){
+    Component* component = WorkingScene()->ComponentGet(components[i]);
+    impl->components[impl->num_components++] = component;
   }
 }
 

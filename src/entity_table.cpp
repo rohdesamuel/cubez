@@ -35,6 +35,7 @@ EntityTable::EntityTable(qbId id, qbEntityTableAttr attr, GameState* game_state,
     ::Component* c = game_state->ComponentGet(component)->CloneEmpty();
     components_.insert(c->Id(), c);
   }
+  main_component_ = components_[attr->components.front()];
 }
 
 qbComponent EntityTable::Component() {
@@ -48,6 +49,7 @@ EntityTable* EntityTable::FromRaw(qbEntityTable table) {
 qbEntity EntityTable::insert(qbComponent component, void* data) {
   qbEntity entity;
   game_state_->Entities().CreateEntity(&entity);
+  entity = SET_ENTITY_TABLE_ID(id_, entity);
 
   for (auto [id, c] : components_) {
     if (id == component) {
@@ -107,7 +109,7 @@ void EntityTable::destroy_entity(qbEntity entity) {
 }
 
 bool EntityTable::has_entity(qbEntity entity) {
-  return components_[0]->Has(entity);
+  return main_component_->Has(entity);
 }
 
 bool EntityTable::has_component(qbComponent component) {

@@ -676,6 +676,24 @@ typedef struct qbIterator_ {
 // qb_component_iterate instead.
 QB_API qbIterator_  qb_component_iterate_(qbComponent component, ...);
 
+// Creates an iterator querying for entities with all of the given components.
+// 
+// An iterator is created in an invalid state and qb_iterator_next must be
+// called first.
+// 
+// Example:
+// qbComponent components[] = { position_component, velocity_component };
+// qbIterator_ it = qb_component_iteraten(
+//     blocks_component, sizeof(components) / sizeof(components[0]), components);
+// while(qb_iterator_next(&it)) {
+//   Block* block;
+//   vec2* pos;
+//   qb_iterator_get(&it, &block, &pos);
+// }
+QB_API qbIterator_ qb_component_iteraten(qbComponent component, size_t count,
+                                         qbComponent components[]);
+
+
 // Increments the iterator and returns QB_TRUE if the iterator is at the end.
 // An iterator is created in an invalid state and qb_iterator_next must be
 // called first.

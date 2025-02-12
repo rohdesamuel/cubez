@@ -819,6 +819,12 @@ qbIterator_ qb_component_iterate_(qbComponent component, ...) {
   return iterator;
 }
 
+qbIterator_ qb_component_iteraten(qbComponent component, size_t count, qbComponent components[]) {
+  qbIterator_ iterator = { 0 };
+  AS_PRIVATE(component_iterate(component, (qbIteratorImpl_*)&iterator, count, components));
+  return iterator;
+}
+
 qbBool qb_iterator_next(qbIterator it) {
   return AS_PRIVATE(iterator_next(it));
 }

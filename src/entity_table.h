@@ -56,6 +56,7 @@ private:
 
   GameState* game_state_;
   ComponentRegistry* component_registry_;
+  ::Component* main_component_;
   SparseMap<::Component*, std::vector<::Component*>> components_;
 };
 
