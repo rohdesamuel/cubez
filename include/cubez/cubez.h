@@ -824,6 +824,9 @@ QB_API void qb_entitytable_erase(qbEntityTable table, qbEntity entity);
 // Removes and destroys all entity and its associated components from the table.
 QB_API void qb_entitytable_clear(qbEntityTable table);
 
+// Finds the given entity and component in the given table and places the pointer to the data in pbuf.
+QB_API qbResult qb_entitytable_find(qbEntityTable table, qbEntity entity, qbComponent component, void* pbuf);
+
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
 ///////////////////////////////////////////////////////////

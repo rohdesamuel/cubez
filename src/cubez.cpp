@@ -929,6 +929,10 @@ void qb_entitytable_clear(qbEntityTable table) {
   return EntityTable::FromRaw(table)->erase_all();
 }
 
+qbResult qb_entitytable_find(qbEntityTable table, qbEntity entity, qbComponent component, void* pbuf) {
+  return EntityTable::FromRaw(table)->find(entity, component, pbuf);
+}
+
 size_t qb_entitytable_count(qbEntityTable table) {
   return EntityTable::FromRaw(table)->count();
 }

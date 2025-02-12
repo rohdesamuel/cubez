@@ -49,6 +49,8 @@ public:
   // Returns the number of entities (rows) in the table.
   size_t count() const;
 
+  qbResult find(qbEntity entity, qbComponent component, void* pbuf);
+
   ::Component* component(qbComponent c);
 
 private:

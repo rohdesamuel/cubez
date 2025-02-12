@@ -133,6 +133,14 @@ size_t EntityTable::count() const {
   return (*components_.begin()).second->Size();
 }
 
+qbResult EntityTable::find(qbEntity entity, qbComponent component, void* pbuf) {
+  DEBUG_ASSERT(components_.has(component));
+  DEBUG_ASSERT(components_[component]->Has(entity));
+
+  *(void**)pbuf = (*components_[component])[entity];
+  return QB_OK;
+}
+
 Component* EntityTable::component(qbComponent c) {
   return components_[c];
 }
