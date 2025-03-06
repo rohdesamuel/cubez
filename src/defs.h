@@ -47,6 +47,7 @@ struct qbScene_ {
 
 struct qbEntityTableAttr_ {
   std::vector<qbComponent> components;
+  std::vector<qbComponent> nullable;
 };
 
 struct qbEntityTable_ {

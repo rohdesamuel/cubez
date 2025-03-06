@@ -744,6 +744,8 @@ QB_API qbResult qb_entitytableattr_destroy(qbEntityTableAttr* attr);
 // accesses will have the same order as added components.
 QB_API qbResult qb_entitytableattr_add(qbEntityTableAttr attr, qbComponent component);
 
+QB_API qbResult qb_entitytableattr_addnullable(qbEntityTableAttr attr, qbComponent component);
+
 // Creates a qbEntityTable. The maximum amount of tables at any given time is
 // QB_MAX_TABLES_COUNT. The result will be QB_OK if successfully created.
 QB_API qbResult qb_entitytable_create(qbEntityTable* table, qbEntityTableAttr attr);
@@ -814,6 +816,10 @@ QB_API qbEntity qb_entitytable_insert_(qbEntityTable table, ...);
 // qb_entitytableattr_addcomponent() calls.
 QB_API qbEntity qb_entitytable_insertn(qbEntityTable table, size_t count, void* pbufs[]);
 
+QB_API qbEntity qb_entitytable_insertc(qbEntityTable table, size_t count, const qbComponentData_ data[]);
+
+QB_API qbResult qb_entitytable_add(qbEntityTable table, qbEntity entity, size_t count, const qbComponentData_ data[]);
+
 // If the amount is larger than the current capacity, this allocates the given
 // number of entities.
 QB_API void qb_entitytable_reserve(qbEntityTable table, size_t count);
@@ -826,6 +832,7 @@ QB_API void qb_entitytable_clear(qbEntityTable table);
 
 // Finds the given entity and component in the given table and places the pointer to the data in pbuf.
 QB_API qbResult qb_entitytable_find(qbEntityTable table, qbEntity entity, qbComponent component, void* pbuf);
+
 
 ///////////////////////////////////////////////////////////
 //////////////////  Events and Messaging  /////////////////
@@ -876,7 +883,6 @@ QB_API qbResult      qb_event_send(qbEvent event,
 // Sends a messages on the event. This immediately triggers all event handlers.
 QB_API qbResult      qb_event_sendsync(qbEvent event,
                                        void* message);
-
 
 ///////////////////////////////////////////////////////////
 /////////////////////////  Scenes  ////////////////////////
@@ -1025,5 +1031,8 @@ QB_API qbBool     qb_coro_done(qbCoro coro);
 
 // Component type: uint64_t
 QB_API qbComponent qb_uid();
+
+// Component type: qbEntity
+QB_API qbComponent qb_entity();
 
 #endif  // #ifndef CUBEZ__H

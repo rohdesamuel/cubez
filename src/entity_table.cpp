@@ -35,6 +35,10 @@ EntityTable::EntityTable(qbId id, qbEntityTableAttr attr, GameState* game_state,
     ::Component* c = game_state->ComponentGet(component)->CloneEmpty();
     components_.insert(c->Id(), c);
   }
+  for (qbComponent component : attr->nullable) {
+    ::Component* c = game_state->ComponentGet(component)->CloneEmpty();
+    nullable_.insert(c->Id(), c);
+  }
   main_component_ = components_[attr->components.front()];
 }
 
@@ -57,6 +61,7 @@ qbEntity EntityTable::insert(qbComponent component, void* data) {
     } else {
       c->Create(entity, nullptr);
     }
+    component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
   }
 
   return entity;
@@ -71,6 +76,7 @@ qbEntity EntityTable::insert(size_t count, void* pbufs[]) {
   for (auto [_, c] : components_) {
     if (i >= count) break;
     c->Create(entity, pbufs[i++]);
+    component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
   }
 
   return entity;
@@ -85,7 +91,43 @@ qbEntity EntityTable::insert(va_list args) {
   for (auto [_, c] : components_) {
     if (p == 0xCD) break;
     c->Create(entity, (void*)p);
+    component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
     p = va_arg(args, uintptr_t);
+  }
+
+  return entity;
+}
+
+void EntityTable::add(qbEntity entity, size_t count, const qbComponentData_ data[]) {
+  DEBUG_ASSERT(has_entity(entity), 1);
+  for (size_t i = 0; i < count; ++i) {
+    ::Component* c = nullable_[data[i].component];
+    c->Create(entity, data[i].data);
+    component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
+  }
+}
+
+qbEntity EntityTable::insert(size_t count, const qbComponentData_ data[]) {
+  qbEntity entity;
+  game_state_->Entities().CreateEntity(&entity);
+  entity = SET_ENTITY_TABLE_ID(id_, entity);
+
+  for (auto [_, c] : components_) {
+    c->Create(entity, nullptr);
+    component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
+  }
+
+  for (size_t i = 0; i < count; ++i) {
+    qbComponent component = data[i].component;
+    void* ent_data = data[i].data;
+    if (components_.has(component)) {
+      ::Component* c = components_[component];
+      c->Set(entity, ent_data);
+    } else {
+      ::Component* c = nullable_[component];
+      c->Create(entity, ent_data);
+      component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
+    }
   }
 
   return entity;
@@ -134,8 +176,8 @@ size_t EntityTable::count() const {
 }
 
 qbResult EntityTable::find(qbEntity entity, qbComponent component, void* pbuf) {
-  DEBUG_ASSERT(components_.has(component));
-  DEBUG_ASSERT(components_[component]->Has(entity));
+  DEBUG_ASSERT(components_.has(component), 1);
+  DEBUG_ASSERT(components_[component]->Has(entity), 1);
 
   *(void**)pbuf = (*components_[component])[entity];
   return QB_OK;

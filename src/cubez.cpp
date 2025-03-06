@@ -76,6 +76,7 @@ fs::path resource_dir;
 qbResourceAttr_ resource_attr{};
 
 static qbComponent qb_id_component;
+static qbComponent qb_entity_component;
 
 struct GameLoop {
   const double kClockResolution = 1e9;
@@ -219,6 +220,14 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
     qb_componentattr_create(&attr);
     qb_componentattr_setdatatype(attr, uint64_t);
     qb_component_create(&qb_id_component, "id", attr);
+    qb_componentattr_destroy(&attr);
+  }
+
+  {
+    qbComponentAttr attr;
+    qb_componentattr_create(&attr);
+    qb_componentattr_setdatatype(attr, uint64_t);
+    qb_component_create(&qb_entity_component, "qbEntity", attr);
     qb_componentattr_destroy(&attr);
   }
 
@@ -870,6 +879,11 @@ qbResult qb_entitytableattr_add(qbEntityTableAttr attr, qbComponent component) {
   return QB_OK;
 }
 
+qbResult qb_entitytableattr_addnullable(qbEntityTableAttr attr, qbComponent component) {
+  attr->nullable.push_back(component);
+  return QB_OK;
+}
+
 qbResult qb_entitytable_create(qbEntityTable* table, qbEntityTableAttr attr) {
   return AS_PRIVATE(table_create(table, attr));
 }
@@ -915,6 +929,17 @@ qbEntity qb_entitytable_insert_(qbEntityTable table, ...) {
 qbEntity qb_entitytable_insertn(qbEntityTable table, size_t count, void* pbufs[]) {
   EntityTable* impl = EntityTable::FromRaw(table);
   return impl->insert(count, pbufs);
+}
+
+qbEntity qb_entitytable_insertc(qbEntityTable table, size_t count, const qbComponentData_ data[]) {
+  EntityTable* impl = EntityTable::FromRaw(table);
+  return impl->insert(count, data);
+}
+
+qbResult qb_entitytable_add(qbEntityTable table, qbEntity entity, size_t count, const qbComponentData_ data[]) {
+  EntityTable* impl = EntityTable::FromRaw(table);
+  impl->add(entity, count, data);
+  return QB_OK;
 }
 
 void qb_entitytable_reserve(qbEntityTable table, size_t count) {
@@ -2404,4 +2429,8 @@ size_t qb_buffer_read(const qbBuffer_* buf, ptrdiff_t* pos, size_t size, void* b
 
 qbComponent qb_uid() {
   return qb_id_component;
+}
+
+qbComponent qb_entity() {
+  return qb_entity_component;
 }

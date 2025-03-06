@@ -288,7 +288,7 @@ void PrivateUniverse::component_iterate(qbComponent component, qbIteratorImpl_* 
   impl->components[0] = WorkingScene()->ComponentGet(component);
   impl->num_components = 1;
 
-  for (size_t i = 1; i < QB_MAX_ITERATOR_COMPONENT_COUNT && i - 1 < count; ++i){
+  for (size_t i = 0; i < QB_MAX_ITERATOR_COMPONENT_COUNT && i < count; ++i){
     Component* component = WorkingScene()->ComponentGet(components[i]);
     impl->components[impl->num_components++] = component;
   }

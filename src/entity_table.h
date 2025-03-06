@@ -23,6 +23,8 @@ public:
   qbEntity insert(qbComponent component, void* data);
   qbEntity insert(size_t count, void* pbufs[]);
   qbEntity insert(va_list args);
+  qbEntity insert(size_t count, const qbComponentData_ data[]);
+  void add(qbEntity entity, size_t count, const qbComponentData_ data[]);
 
   // Destroys the given entity and its associated components.
   void erase(qbEntity entity);
@@ -60,6 +62,7 @@ private:
   ComponentRegistry* component_registry_;
   ::Component* main_component_;
   SparseMap<::Component*, std::vector<::Component*>> components_;
+  SparseMap<::Component*, std::vector<::Component*>> nullable_;
 };
 
 #endif  // ENTITY_TABLE__H

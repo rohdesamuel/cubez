@@ -168,8 +168,6 @@ class PrivateUniverse {
                               qbVar state);
   bool instance_hascomponent(qbInstance instance, qbComponent component);
   qbResult instance_getcomponent(qbInstance instance, qbComponent component, void* pbuffer);
-  qbResult instance_getconst(qbInstance instance, void* pbuffer);
-  qbResult instance_getmutable(qbInstance instance, void* pbuffer);
   qbResult instance_find(qbComponent component, qbEntity entity, void* pbuffer);
   void instance_get(qbInstance instance, va_list args);
   void instance_geti(qbInstance instance, size_t index, void* pbuf);
@@ -191,7 +189,6 @@ class PrivateUniverse {
   void component_iterate(qbComponent component, qbIteratorImpl_* impl, va_list components);
   void component_iterate(qbComponent component, qbIteratorImpl_* impl, size_t count, qbComponent components[]);
   qbBool iterator_next(qbIterator it);
-  qbBool iterator_hasnext(qbIterator it);
   void iterator_get(qbIterator it, va_list args);
   void iterator_get(qbIterator it, size_t count, void* pbufs[]);
 
