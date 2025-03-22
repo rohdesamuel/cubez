@@ -37,10 +37,10 @@
 typedef struct qbTimer_ {
 #ifdef __COMPILE_AS_WINDOWS__
   // Units of count.
-  uint64_t start_;
+  int64_t start_;
 
   // Units of count.
-  uint64_t end_;
+  int64_t end_;
 
 #elif defined (__COMPILE_AS_LINUX__)
   timespec start_;
@@ -57,7 +57,9 @@ typedef struct qbTimer_ {
 // 1e9 converts to ns
 // 1e6 converts to us
 const int64_t kTimeUnits = (int64_t)1000000000;
-uint64_t kStartTime = 0;
+int64_t kStartTime = 0;
+std::atomic_int64_t time_paused = 0;
+qbTimer pause_timer = {};
 
 #ifdef __COMPILE_AS_WINDOWS__
 int64_t kClockFrequency = 0;
@@ -85,13 +87,29 @@ void utils_initialize() {
   LARGE_INTEGER now;
   QueryPerformanceCounter(&now);
   kStartTime = now.QuadPart;
+
+  qb_timer_create(&pause_timer, 1);
 }
 
-uint64_t convert_to_time(uint64_t count) {
+void pause_time() {
+  qb_timer_start(pause_timer);
+}
+
+void unpause_time() {
+  qb_timer_stop(pause_timer);
+  time_paused += qb_timer_elapsed(pause_timer);
+  qb_timer_reset(pause_timer);
+}
+
+int64_t convert_to_time(int64_t count) {
   return count * kTimeUnits / kClockFrequency;
 }
 
 int64_t qb_time() {
+  return qb_systime() - time_paused;
+}
+
+int64_t qb_systime() {
   int64_t ret = 0;
 #ifdef __COMPILE_AS_WINDOWS__
   LARGE_INTEGER now;
@@ -195,7 +213,7 @@ int64_t qb_timer_average(qbTimer timer) {
     return qb_timer_elapsed(timer);
   }
 
-  uint64_t accum = 0;
+  int64_t accum = 0;
   for (auto& n : timer->window_) {
     accum += n;
   }

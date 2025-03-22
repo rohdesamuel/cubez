@@ -20,5 +20,7 @@
 #define UTILS_INTERNAL__H
 
 void utils_initialize();
+void pause_time();
+void unpause_time();
 
 #endif  // UTILS_INTERNAL__H

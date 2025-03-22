@@ -127,6 +127,9 @@ typedef struct {
 QB_API qbResult qb_init(qbUniverse* universe, qbUniverseAttr attr);
 QB_API qbResult qb_start();
 QB_API qbResult qb_stop();
+QB_API void qb_pause();
+QB_API void qb_resume();
+
 QB_API qbBool qb_running();
 QB_API const qbResourceAttr_* qb_resources();
 QB_API const utf8_t* qb_dir();
@@ -151,6 +154,7 @@ QB_API qbResult qb_loop(qbLoopCallbacks callbacks, qbLoopArgs args);
 
 typedef struct qbTiming_ {
   uint64_t frame;
+  int64_t frametime_ns;
   double udpate_fps;
   double render_fps;
   double total_fps;
@@ -165,6 +169,8 @@ typedef struct qbTiming_ {
 QB_API qbResult qb_timing(qbUniverse universe, qbTiming timing);
 
 QB_API uint64_t qb_framenum();
+
+QB_API int64_t  qb_frametime_ns();
 
 // Unimplemented.
 QB_API qbResult qb_save(const char* file);
