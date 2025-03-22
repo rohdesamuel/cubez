@@ -74,10 +74,10 @@ public:
   typedef const iterator const_iterator;
   typedef uint64_t Index;
 
-  BlockVector() : count_(0), capacity_(0), elem_size_(0) {}
+  BlockVector() : count_(0), capacity_(0), elem_size_(0), block_size_(0) {}
 
   BlockVector(size_t element_size) :
-    count_(0), capacity_(0), elem_size_(round_to_4_bytes(element_size)) {
+    count_(0), capacity_(0), elem_size_(round_to_4_bytes(element_size)), block_size_(page_size_ - elem_size_) {
     elems_.push_back(alloc_block());
     capacity_ = elem_size_ == 0 ? 0 : page_size_ / elem_size_;
     size_t initial_capacity = 8;
@@ -85,12 +85,12 @@ public:
   }
 
   BlockVector(const BlockVector& other)
-      : elem_size_(other.elem_size_), page_size_(other.page_size_) {
+      : elem_size_(other.elem_size_), page_size_(other.page_size_), block_size_(page_size_ - elem_size_) {
     copy(other);
   }
 
   BlockVector(BlockVector&& other)
-      : elem_size_(other.elem_size_), page_size_(other.page_size_) {
+      : elem_size_(other.elem_size_), page_size_(other.page_size_), block_size_(page_size_ - elem_size_) {
     move(std::move(other));
   }
 
@@ -115,14 +115,14 @@ public:
   }
 
   void* operator[](Index index) {
-    size_t block = (index * elem_size_) / (page_size_ - elem_size_);
-    size_t block_index = (index * elem_size_) % (page_size_ - elem_size_);
+    size_t block = (index * elem_size_) / block_size_;
+    size_t block_index = (index * elem_size_) % block_size_;
     return (uint8_t*)(elems_[block]) + block_index;
   }
 
   const void* operator[](Index index) const {
-    size_t block = (index * elem_size_) / (page_size_ - elem_size_);
-    size_t block_index = (index * elem_size_) % (page_size_ - elem_size_);
+    size_t block = (index * elem_size_) / block_size_;
+    size_t block_index = (index * elem_size_) % block_size_;
     return (uint8_t*)(elems_[block]) + block_index;
   }
 
@@ -239,8 +239,8 @@ private:
       count = 8;
     }
 
-    if ((count * elem_size_) > elems_.size() * (page_size_ - elem_size_) && elem_size_ > 0) {
-      while (elems_.size() <= (count * elem_size_) / (page_size_ - elem_size_)) {
+    if ((count * elem_size_) > elems_.size() * block_size_ && elem_size_ > 0) {
+      while (elems_.size() <= (count * elem_size_) / block_size_) {
         capacity_ += page_size_ / elem_size_;
         elems_.push_back(alloc_block());
       }
@@ -284,6 +284,7 @@ private:
   size_t capacity_;
   const size_t elem_size_;
   const size_t page_size_ = 4096;
+  const size_t block_size_;
 };
 
 template<class Ty_>
