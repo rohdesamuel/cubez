@@ -206,10 +206,7 @@ public:
   }
 
   bool has(uint64_t key) {
-    if (key >= sparse_.size()) {
-      return false;
-    }
-    return sparse_[key] != -1;
+    return key < sparse_.size() && sparse_[key] != -1;
   }
 
   uint64_t size() const {

@@ -106,10 +106,7 @@ void InstanceMap::clear() {
 bool InstanceMap::has(uint64_t key) const {
   key = ENTITY_ID(key);
 
-  if (key >= sparse_.size()) {
-    return false;
-  }
-  return sparse_[key] != -1;
+  return key < sparse_.size() && sparse_[key] != -1;
 }
 
 uint64_t InstanceMap::size() const {
