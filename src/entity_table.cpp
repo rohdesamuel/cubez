@@ -121,10 +121,10 @@ qbEntity EntityTable::insert(size_t count, const qbComponentData_ data[]) {
     qbComponent component = data[i].component;
     void* ent_data = data[i].data;
     if (components_.has(component)) {
-      ::Component* c = components_[component];
+      ::Component* c = components_.at(component);
       c->Set(entity, ent_data);
     } else {
-      ::Component* c = nullable_[component];
+      ::Component* c = nullable_.at(component);
       c->Create(entity, ent_data);
       component_registry_->SendInstanceCreateNotification(entity, c, game_state_);
     }
@@ -160,7 +160,7 @@ bool EntityTable::has_component(qbComponent component) {
 
 void* EntityTable::at(qbEntity entity, qbComponent component) {
   if (components_.has(component)) {
-    return (*components_[component])[entity];
+    return components_.at(component)->at(entity);
   }
   return NULL;
 }
@@ -179,10 +179,10 @@ qbResult EntityTable::find(qbEntity entity, qbComponent component, void* pbuf) {
   DEBUG_ASSERT(components_.has(component), 1);
   DEBUG_ASSERT(components_[component]->Has(entity), 1);
 
-  *(void**)pbuf = (*components_[component])[entity];
+  *(void**)pbuf = components_.at(component)->at(entity);
   return QB_OK;
 }
 
 Component* EntityTable::component(qbComponent c) {
-  return components_[c];
+  return components_.at(c);
 }
