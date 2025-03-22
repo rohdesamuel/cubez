@@ -137,7 +137,16 @@ void qb_handle_input(void(*on_shutdown)(qbVar arg), void(*on_resize)(qbVar arg, 
 
     // Don't let NK handle any input event when there is not mouse pointer (relative mode is on).
     if (qb_mouse_getrelative() == 0) {
-      nk_sdl_handle_event(&e);
+      // There's a bug when using Nuklear that mouse wheels aren't getting
+      // consumed correctly and are being emitted even when nothing is active.
+      // So make sure to only forward when an item is active.
+      if (e.type == SDL_MOUSEWHEEL) {
+        if (nk_item_is_any_active(nk_sdl_ctx())) {
+          nk_sdl_handle_event(&e);
+        }
+      } else {
+        nk_sdl_handle_event(&e);
+      }
     }
 
     if (nk_sdl_consume_keyboard(nk_sdl_ctx()) == 0) {
