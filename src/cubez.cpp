@@ -87,6 +87,7 @@ struct GameLoop {
   double start_time;
   double accumulator;
   volatile std::atomic_bool is_running{ false };
+  volatile std::atomic_bool is_paused{ false };
 } game_loop;
 
 namespace {
@@ -262,6 +263,16 @@ qbResult qb_stop() {
   return ret;
 }
 
+void qb_pause() {
+  game_loop.is_paused = true;
+  pause_time();
+}
+
+void qb_resume() {
+  unpause_time();
+  game_loop.is_paused = false;
+}
+
 const utf8_t* qb_dir() {
   return cwd_dir_str.c_str();
 }
@@ -291,8 +302,10 @@ qbResult loop(qbLoopCallbacks callbacks,
 
   qb_timer_start(fps_timer);
 
+  timing_info.frametime_ns = qb_time();
+
   const static double extra_render_time = universe_->enabled & QB_FEATURE_GRAPHICS ? 0.0 : game_loop.dt;
-  double new_time = qb_time() * 0.000000001;
+  double new_time = timing_info.frametime_ns * 0.000000001;
   double frame_time = new_time - game_loop.current_time;
   frame_time = std::min(0.25, frame_time);
   game_loop.current_time = new_time;
@@ -329,20 +342,30 @@ qbResult loop(qbLoopCallbacks callbacks,
 
   if (callbacks && callbacks->on_fixedupdate) {
     callbacks->on_fixedupdate(universe_->frame, args->fixed_update);
-  }
-
-  while (game_loop.accumulator >= game_loop.dt) {
-    qb_timer_start(update_timer);
-    if (callbacks && callbacks->on_update) {
-      callbacks->on_update(universe_->frame, args->update);
+    if (!game_loop.is_running) {
+      return QB_DONE;
     }
-    qbResult result = AS_PRIVATE(loop());
-    coro_scheduler->run_sync();
+  }
+  
+  if (!game_loop.is_paused) {
+    while (game_loop.accumulator >= game_loop.dt) {
+      qb_timer_start(update_timer);
+      if (callbacks && callbacks->on_update) {
+        callbacks->on_update(universe_->frame, args->update);
+        if (!game_loop.is_running) {
+          return QB_DONE;
+        }
+      }
+      qbResult result = AS_PRIVATE(loop());
+      coro_scheduler->run_sync();
 
-    elapsed_update_samples.push_back((double)qb_timer_add(update_timer));
+      elapsed_update_samples.push_back((double)qb_timer_add(update_timer));
 
-    game_loop.accumulator -= game_loop.dt;
-    game_loop.t += game_loop.dt;
+      game_loop.accumulator -= game_loop.dt;
+      game_loop.t += game_loop.dt;
+    }
+  } else {
+    game_loop.accumulator = 0;
   }
 
   qb_timer_start(render_timer);
@@ -2433,4 +2456,8 @@ qbComponent qb_uid() {
 
 qbComponent qb_entity() {
   return qb_entity_component;
+}
+
+int64_t  qb_frametime_ns() {
+  return timing_info.frametime_ns;
 }
