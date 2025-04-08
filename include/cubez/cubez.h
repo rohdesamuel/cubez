@@ -33,11 +33,10 @@
 ///////////////////////////////////////////////////////////
 
 #define QB_FEATURE_ALL 0x0000
-#define QB_FEATURE_LOGGER 0x0001
-#define QB_FEATURE_INPUT 0x0002
-#define QB_FEATURE_GRAPHICS 0x0004
-#define QB_FEATURE_AUDIO 0x0008
-#define QB_FEATURE_GAME_LOOP 0x0010
+#define QB_FEATURE_INPUT 0x0001
+#define QB_FEATURE_GRAPHICS 0x0002
+#define QB_FEATURE_AUDIO 0x0004
+#define QB_FEATURE_GAME_LOOP 0x0008
 typedef uint32_t qbFeature;
 
 // Macro to abstract away OS-specific entrypoints.
@@ -108,6 +107,11 @@ typedef struct qbLoggingAttr_ {
   // Path to the directory to write game logs.
   // Default is "logs".
   const utf8_t* logs;
+  
+  // The maximum size of the log file. Once the limit is passed, no more logs
+  // will be written. If max_log_size is set to 0, then the default size limit
+  // is 1GB.
+  size_t max_log_size;
 } qbLoggingAttr_, *qbLoggingAttr;
 
 typedef struct {

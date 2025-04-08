@@ -159,10 +159,13 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   
   // Initialize Lua before PrivateUniverse is constructed because the Lua VM
   // is initialized per-thread.
+  // TODO: Investigate whether to re-enable Lua.
+#if 0
   {
     qbScriptAttr_ empty_args = {};
     lua_bindings_initialize(attr->script_args ? attr->script_args : &empty_args);
   }
+#endif
 
   universe_->self = new PrivateUniverse();
   coro_scheduler = new CoroScheduler(attr->scheduler_args ? attr->scheduler_args->max_async_coros : 16);
@@ -173,9 +176,10 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   if (universe_->enabled == QB_FEATURE_ALL) {
     universe_->enabled = 0xFFFF;
   }
-  if (universe_->enabled & QB_FEATURE_LOGGER) {
+
+  {
     qbLoggingAttr_ logs_attr = {
-      .logs = u8"logs"
+      .logs = u8"logs.txt"
     };
 
     if (attr->logging_args) {
@@ -185,9 +189,11 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 
     log_initialize(logs_attr);
   }
+
   if (universe_->enabled & QB_FEATURE_INPUT) {
     input_initialize();
   }
+
   if (universe_->enabled & QB_FEATURE_GRAPHICS) {
     RenderSettings render_settings{};
     render_settings.title = attr->title;
@@ -323,8 +329,10 @@ qbResult loop(qbLoopCallbacks callbacks,
       qb_stop();
     }, [](qbVar arg, uint32_t width, uint32_t height) {      
       ResizeState* resize_state = (ResizeState*)arg.p;
+      // TODO: Investigate whether to re-enable Lua.
+#if 0
       lua_resize(AS_PRIVATE(main_lua_state()), width, height);
-
+#endif
       if (resize_state->callbacks->on_resize) {
         resize_state->callbacks->on_resize(width, height, arg);
       }
@@ -380,7 +388,10 @@ qbResult loop(qbLoopCallbacks callbacks,
     //gui_element_updateuniforms();
   }
 
+  // TODO: Investigate whether to re-enable Lua.
+#if 0
   lua_draw(AS_PRIVATE(main_lua_state()));
+#endif
   do_render(&e, callbacks->on_render, callbacks->on_postrender, args->render, args->postrender);
 
   timing_info.render_elapsed_ns = qb_timer_add(render_timer);
