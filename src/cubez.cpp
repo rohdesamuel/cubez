@@ -116,7 +116,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   {
     std::filesystem::path cwd;
 
-    if (__argv) {
+    if (u->argv) {
       std::u8string arg(u->argv[0], u->argv[0] + strlen(u->argv[0]));
       cwd = arg;
     } else {

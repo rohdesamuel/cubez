@@ -29,6 +29,15 @@
 #include <condition_variable>
 #include <stdlib.h>
 
+#ifdef __COMPILE_AS_WINDOWS__
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <Stringapiset.h>
+#include <stdio.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #include "log_internal.h"
 
 const int MAX_CHARS = 256;
@@ -37,6 +46,22 @@ char kStdout[] = "stdout";
 qbId program_id;
 
 qbQueue log_queue;
+
+#ifdef __COMPILE_AS_WINDOWS__
+namespace {
+std::wstring string_to_wstring(const std::string& str) {
+  if constexpr (sizeof(int) < sizeof(size_t)) {
+    assert((str.size() < (1ull << 32)) && "Trying to convert a string that is too big.");
+  }
+
+  int buf_size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.c_str(), (int)str.size(), nullptr, 0);
+  std::wstring buf(buf_size, L'\0');
+
+  assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.c_str(), (int)str.size(), buf.data(), buf.size()) > 0);
+  return buf;
+}
+}  // namespace
+#endif  // __COMPILE_AS_WINDOWS__
 
 struct LogEntry {
   std::filesystem::path filename;
@@ -63,6 +88,27 @@ struct LogEntry {
     }
     stream << "[" << timestamp_us << "] [" << filename.filename().string() << ":" << fileline << "]: " << log_entry;
   }
+
+#ifdef __COMPILE_AS_WINDOWS__
+  void print(std::wostream& stream) const {
+    switch (level) {
+      case qbLogLevel::QB_DEBUG:
+        stream << L"[DEBUG] ";
+        break;
+      case qbLogLevel::QB_INFO:
+        stream << L"[INFO] ";
+        break;
+      case qbLogLevel::QB_WARN:
+        stream << L"[WARN] ";
+        break;
+      case qbLogLevel::QB_ERR:
+        stream << L"[ERR] ";
+        break;
+    }
+    stream << L"[" << timestamp_us << L"] [" << filename.filename().wstring() << L":" << fileline << L"]: " << string_to_wstring(log_entry);
+  }
+#endif  // __COMPILE_AS_WINDOWS__
+
 };
 
 namespace {
@@ -71,6 +117,13 @@ std::ostream& operator<<(std::ostream& stream, const LogEntry& log_entry) {
   log_entry.print(stream);
   return stream;
 }
+
+#ifdef __COMPILE_AS_WINDOWS__
+std::wostream& operator<<(std::wostream& stream, const LogEntry& log_entry) {
+  log_entry.print(stream);
+  return stream;
+}
+#endif  // __COMPILE_AS_WINDOWS__
 
 std::filesystem::path logs_dir;
 std::ostream* log_output;
@@ -85,6 +138,12 @@ void log_initialize(qbLoggingAttr_ log_attr) {
   log_output = &std::cout;
 
   qb_task_async([](qbTask, qbVar) {
+#ifdef __COMPILE_AS_WINDOWS__
+    // Set printing to the console in this thread to utf16. Windows doesn't
+    // output in utf8 by default.
+    _setmode(_fileno(stdout), _O_U16TEXT);
+#endif  // __COMPILE_AS_WINDOWS__
+
     while (qb_running()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
       qb_log_flush();
@@ -93,14 +152,14 @@ void log_initialize(qbLoggingAttr_ log_attr) {
   }, qbNil);
 }
 
-void qb_log_ex(qbLogLevel level, const char* filename, uint64_t fileline, const char* format, ...) {
+void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, const utf8_t* format, ...) {
   va_list args;
   va_start(args, format);
   va_list copy;
   va_copy(copy, args);
-  int len = vsnprintf(nullptr, 0, format, copy) + 1;
+  int len = vsnprintf(nullptr, 0, (char*)format, copy) + 1;
   std::string buf(len, '\0');
-  vsnprintf(buf.data(), len, format, args);
+  vsnprintf(buf.data(), len, (char*)format, args);
 
   LogEntry* entry = new LogEntry{
     .filename = filename,
@@ -123,7 +182,13 @@ void qb_log_flush() {
   qbVar log;
   while (qb_queue_tryread(log_queue, &log)) {
     LogEntry* entry = (LogEntry*)log.p;
+
+    // Windows incorrectly chose utf16, so special case it here for unicode support.
+#ifdef __COMPILE_AS_WINDOWS__
+    std::wcout << *entry << std::endl;
+#else
     std::cout << *entry << std::endl;
+#endif
     delete entry;
   }
 }
