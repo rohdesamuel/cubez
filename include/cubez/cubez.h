@@ -48,7 +48,7 @@ __qb_main(argc, argv); \
 int main(int _argc, char* _argv[]) { \
   return __qb_main(_argc, _argv); \
 } int __qb_main(argc, argv)
-#else
+#elif defined(__COMPILE_AS_WINDOWS__)
 #define qb_main(argc, argv) \
 __qb_main(argc, argv); \
 int WINAPI wWinMain( \

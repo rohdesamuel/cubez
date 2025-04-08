@@ -121,8 +121,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
       cwd = arg;
     } else {
       std::wstring warg(u->wargv[0]);
-      std::u8string arg = wstring_to_utf8(warg);
-      cwd = arg;
+      cwd = warg;
     }
     cwd = cwd.remove_filename();
 
