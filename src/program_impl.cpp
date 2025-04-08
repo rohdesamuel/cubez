@@ -88,7 +88,12 @@ void ProgramImpl::Run(GameState* state, lua_State* lua_state) {
   for(qbSystem p : loop_systems_) {
     SystemImpl::FromRaw(p)->Run(state);
   }
-  lua_update(lua_state);
+
+  // This is null if Lua is not enabled.
+  // TODO: Investigate whether to re-enable Lua.
+  if (lua_state) {
+    lua_update(lua_state);
+  }
 }
 
 void ProgramImpl::Done() {

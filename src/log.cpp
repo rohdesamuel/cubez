@@ -40,10 +40,8 @@
 
 #include "log_internal.h"
 
-const int MAX_CHARS = 256;
-
-char kStdout[] = "stdout";
 qbId program_id;
+size_t max_log_size = 1 << 30;
 
 qbQueue log_queue;
 
@@ -126,7 +124,15 @@ std::wostream& operator<<(std::wostream& stream, const LogEntry& log_entry) {
 #endif  // __COMPILE_AS_WINDOWS__
 
 std::filesystem::path logs_dir;
-std::ostream* log_output;
+
+std::ofstream cur_log_file;
+
+#ifdef __COMPILE_AS_WINDOWS__
+std::wostream* console_output;
+#else
+std::ostream* console_output;
+#endif  // __COMPILE_AS_WINDOWS__
+
 std::unique_ptr<std::ifstream> log_fstream;
 
 std::mutex flush_mu;
@@ -134,8 +140,42 @@ std::mutex flush_mu;
 
 void log_initialize(qbLoggingAttr_ log_attr) {
   qb_queue_create(&log_queue);
+  
+  if (!log_attr.logs) {
+    log_attr.logs = u8"logs.txt";
+  }
 
-  log_output = &std::cout;
+  if (log_attr.max_log_size) {
+    max_log_size = log_attr.max_log_size;
+  }
+
+  {
+#ifdef __COMPILE_AS_WINDOWS__
+    auto str = string_to_wstring(std::string((char*)log_attr.logs));
+    if (str == L"." || str == L"..") {
+      std::wcerr << "Bad log filename: " << str << std::endl;
+    }
+#else
+    auto str = std::string((char*)log_attr.logs);
+    if (str == L"." || str == L"..") {
+      std::cerr << "Bad log filename: " << str << std::endl;
+    }
+#endif  // __COMPILE_AS_WINDOWS__
+  }
+
+  // Windows incorrectly chose utf16, so special case it here for unicode support.
+#ifdef __COMPILE_AS_WINDOWS__
+  console_output = &std::wcout;
+#else
+  console_output = &std::cout;
+#endif  // __COMPILE_AS_WINDOWS__
+
+  auto log_file_path = std::filesystem::path(qb_dir()) / log_attr.logs;
+  if (std::filesystem::exists(log_file_path)) {
+    *console_output << "Warning: log file " << log_file_path << " already exists. Will overwrite file." << std::endl;
+  }
+
+  cur_log_file = std::ofstream(log_file_path, std::ofstream::out | std::ofstream::trunc);
 
   qb_task_async([](qbTask, qbVar) {
 #ifdef __COMPILE_AS_WINDOWS__
@@ -152,7 +192,7 @@ void log_initialize(qbLoggingAttr_ log_attr) {
   }, qbNil);
 }
 
-void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, const utf8_t* format, ...) {
+void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, const char* format, ...) {
   va_list args;
   va_start(args, format);
   va_list copy;
@@ -182,13 +222,16 @@ void qb_log_flush() {
   qbVar log;
   while (qb_queue_tryread(log_queue, &log)) {
     LogEntry* entry = (LogEntry*)log.p;
+    *console_output << *entry << std::endl;
 
-    // Windows incorrectly chose utf16, so special case it here for unicode support.
-#ifdef __COMPILE_AS_WINDOWS__
-    std::wcout << *entry << std::endl;
-#else
-    std::cout << *entry << std::endl;
-#endif
+    if (cur_log_file.is_open()) {
+      cur_log_file << *entry << std::endl;
+    }
+
+    if (cur_log_file.tellp() >= max_log_size) {
+      cur_log_file.close();
+    }
+
     delete entry;
   }
 }

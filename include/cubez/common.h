@@ -36,13 +36,13 @@
 #endif
 
 #define QB_ASSERT(expr, exit_code) \
-do{ if (!(expr)) { qb_fatal(exit_code, "Failed assertion: "#expr);} } while (0)
+do{ if (!(expr)) { qb_fatal_ex(exit_code, "Failed assertion: "#expr);} } while (0)
 
 #ifdef __ENGINE_DEBUG__
 #include <iostream>
 
 #define DEBUG_ASSERT(expr, exit_code) \
-do{ if (!(expr)) { qb_fatal(exit_code, "Failed assertion: "#expr);} } while (0)
+do{ if (!(expr)) { qb_fatal_ex(exit_code, "Failed assertion: "#expr);} } while (0)
 
 #define DEBUG_OP(expr) do{ expr; } while(0)
 

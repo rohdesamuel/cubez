@@ -102,7 +102,7 @@ GLuint ShaderProgram::create_shader(std::string& shader, GLenum shader_type, con
     char* error = new char[log_size];
 
     glGetShaderInfoLog(s, log_size, &log_size, error);
-    qb_fatal(-1, "Unable to compile shader \n %s.\n\tError:%s\n\tLog: %s", shader.c_str(), glErrorString(glGetError()), error);
+    qb_fatal("Unable to compile shader \n %s.\n\tError:%s\n\tLog: %s", shader.c_str(), glErrorString(glGetError()), error);
     delete[] error;
   }
   return s;

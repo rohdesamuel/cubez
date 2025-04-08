@@ -31,8 +31,12 @@ qbId ProgramRegistry::CreateProgram(const char* program) {
   qbProgram* p = AllocProgram(id, program);
   programs_[id] = p;
 
+  // TODO: Investigate whether to re-enable Lua.
+#if 0
   lua_State* lua_state = lua_thread_initialize();
   program_lua_states_[id] = lua_state;
+#endif
+
   if (id > 0) {
     program_threads_[id] = new Task(p);    
   } else {
@@ -96,7 +100,12 @@ void ProgramRegistry::Run(GameState* state) {
 
 qbResult ProgramRegistry::RunProgram(qbId program, GameState* state) {
   ProgramImpl* p = (ProgramImpl*)programs_[program]->self;
+  // TODO: Investigate whether to re-enable Lua.
+#if 0
   p->Run(state, program_lua_states_[program]);
+#else
+  p->Run(state, nullptr);
+#endif
   return QB_OK;
 }
 
