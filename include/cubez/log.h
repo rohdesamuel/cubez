@@ -66,7 +66,11 @@ QB_API extern const char* QB_STD_ERR;
   do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (char*)(format), __VA_ARGS__); qb_log_flush(); exit(exit_code); } while(0)
 #endif
 
+// Logs the formatted string to the console and log file.
+// To log unicode characters, specify the format string with the u8 prefix in C++.
 QB_API void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, const char* format, ...);
+
+// Immediately flush the buffered logs to console and file.
 QB_API void qb_log_flush();
 
 #endif  // CUBEZ_LOG__H

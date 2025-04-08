@@ -222,16 +222,22 @@ void qb_log_flush() {
   qbVar log;
   while (qb_queue_tryread(log_queue, &log)) {
     LogEntry* entry = (LogEntry*)log.p;
-    *console_output << *entry << std::endl;
+    *console_output << *entry << "\n";
 
     if (cur_log_file.is_open()) {
-      cur_log_file << *entry << std::endl;
+      cur_log_file << *entry << "\n";
     }
 
     if (cur_log_file.tellp() >= max_log_size) {
+      cur_log_file << std::flush;
       cur_log_file.close();
     }
 
     delete entry;
+  }
+
+  *console_output << std::flush;
+  if (cur_log_file.is_open()) {
+    cur_log_file << std::flush;
   }
 }
