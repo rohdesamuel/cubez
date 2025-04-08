@@ -19,6 +19,7 @@
 #include <cubez/async.h>
 #include <cubez/time.h>
 #include <cubez/log.h>
+
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -28,6 +29,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <stdlib.h>
+#include <chrono>
+#include <format>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define WIN32_LEAN_AND_MEAN
@@ -45,8 +48,13 @@ size_t max_log_size = 1 << 30;
 
 qbQueue log_queue;
 
-#ifdef __COMPILE_AS_WINDOWS__
 namespace {
+
+std::string timestamp_to_str(std::chrono::time_point<std::chrono::system_clock> now) {
+  return std::format("{:%FT%TZ}", now);
+}
+
+#ifdef __COMPILE_AS_WINDOWS__
 std::wstring string_to_wstring(const std::string& str) {
   if constexpr (sizeof(int) < sizeof(size_t)) {
     assert((str.size() < (1ull << 32)) && "Trying to convert a string that is too big.");
@@ -58,13 +66,13 @@ std::wstring string_to_wstring(const std::string& str) {
   assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.c_str(), (int)str.size(), buf.data(), buf.size()) > 0);
   return buf;
 }
-}  // namespace
 #endif  // __COMPILE_AS_WINDOWS__
+}  // namespace
 
 struct LogEntry {
   std::filesystem::path filename;
   uint64_t fileline;
-  int64_t timestamp_us;
+  std::chrono::time_point<std::chrono::system_clock> timestamp;
 
   qbLogLevel level;
   std::string log_entry;
@@ -84,7 +92,7 @@ struct LogEntry {
         stream << "[ERR] ";
         break;
     }
-    stream << "[" << timestamp_us << "] [" << filename.filename().string() << ":" << fileline << "]: " << log_entry;
+    stream << "[" << timestamp_to_str(timestamp) << "] [" << filename.filename().string() << ":" << fileline << "]: " << log_entry;
   }
 
 #ifdef __COMPILE_AS_WINDOWS__
@@ -103,7 +111,7 @@ struct LogEntry {
         stream << L"[ERR] ";
         break;
     }
-    stream << L"[" << timestamp_us << L"] [" << filename.filename().wstring() << L":" << fileline << L"]: " << string_to_wstring(log_entry);
+    stream << L"[" << string_to_wstring(timestamp_to_str(timestamp)) << L"] [" << filename.filename().wstring() << L":" << fileline << L"]: " << string_to_wstring(log_entry);
   }
 #endif  // __COMPILE_AS_WINDOWS__
 
@@ -204,7 +212,7 @@ void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, cons
   LogEntry* entry = new LogEntry{
     .filename = filename,
     .fileline = fileline,
-    .timestamp_us = qb_time() / 1000,
+    .timestamp = std::chrono::system_clock::now(),
     .level = level,
     .log_entry = std::move(buf)
   };

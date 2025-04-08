@@ -25,7 +25,6 @@ typedef struct qbTimer_* qbTimer;
 
 // Returns an increasing monotonic timestamp measured from the engine start
 // without time spent paused with units of nanoseconds.
-
 // qb_time() -> time of game start - time paused
 QB_API int64_t qb_time();
 
