@@ -102,7 +102,7 @@ GLuint ShaderProgram::create_shader(std::string& shader, GLenum shader_type, con
     char* error = new char[log_size];
 
     glGetShaderInfoLog(s, log_size, &log_size, error);
-    FATAL("Unable to compile shader \n" << shader << ".\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << error);
+    qb_fatal(-1, "Unable to compile shader \n %s.\n\tError:%s\n\tLog: %s", shader.c_str(), glErrorString(glGetError()), error);
     delete[] error;
   }
   return s;
@@ -132,7 +132,7 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const
 
     // Notice that glGetProgramInfoLog, not glGetShaderInfoLog.
     glGetProgramInfoLog(program_, log_size, &log_size, error);
-    FATAL("Unable to link shader.\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << GetProgramLog(program_));
+    qb_fatal("Unable to link shader.\n\tError: %s\n\tLog: %s", glErrorString(glGetError()), GetProgramLog(program_));
 
     delete[] error;
     return;
@@ -208,7 +208,7 @@ ShaderProgram::ShaderProgram(const std::string& vs, const std::string& fs, const
 
     // Notice that glGetProgramInfoLog, not glGetShaderInfoLog.
     glGetProgramInfoLog(program_, log_size, &log_size, error);
-    FATAL("Unable to link shader.\n\tError:" << glErrorString(glGetError()) << "\n\tLog: " << GetProgramLog(program_));
+    qb_fatal("Unable to link shader.\n\tError: %s\n\tLog: %s", glErrorString(glGetError()), GetProgramLog(program_));
 
     delete[] error;
     return;

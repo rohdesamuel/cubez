@@ -402,7 +402,7 @@ qbRenderExt qb_meshbuffer_ext(qbMeshBuffer buffer) {
 
 void qb_meshbuffer_attachimages(qbMeshBuffer buffer, size_t count, uint32_t bindings[], qbImage images[]) {
   if (!buffer->images.empty() != 0) {
-    FATAL("qbMeshBuffer already has attached images. Use qb_meshbuffer_updateimages to change attached images");
+    qb_fatal("qbMeshBuffer already has attached images. Use qb_meshbuffer_updateimages to change attached images");
   }
 
   buffer->sampler_bindings.reserve(count);
@@ -441,7 +441,7 @@ void qb_meshbuffer_attachvertices(qbMeshBuffer buffer, qbGpuBuffer vertices[], s
     qbBufferBinding binding = buffer->descriptor.bindings + i;
     buffer->vertices[i] = vertices[binding->binding];
     if (!vertices[binding->binding]) {
-      FATAL("Vertices[ " << binding->binding << " ] is null");
+      qb_fatal("Vertices[ %u ] is null", binding->binding);
     }
 
     qbGpuBuffer gpu_buffer = buffer->vertices[i];
@@ -746,7 +746,7 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
       case 2: qb_pixel_format = QB_PIXEL_FORMAT_RG8; break;
       case 3: qb_pixel_format = QB_PIXEL_FORMAT_RGB8; break;
       case 4: qb_pixel_format = QB_PIXEL_FORMAT_RGBA8; break;
-      default: FATAL("Received an unsupported amount of channels");
+      default: qb_fatal("Received an unsupported amount of channels");
     }
   }
 
@@ -757,7 +757,7 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
       case 2: qb_internal_format = QB_PIXEL_FORMAT_RG8; break;
       case 3: qb_internal_format = QB_PIXEL_FORMAT_RGB8; break;
       case 4: qb_internal_format = QB_PIXEL_FORMAT_RGBA8; break;
-      default: FATAL("Received an unsupported amount of channels");
+      default: qb_fatal("Received an unsupported amount of channels");
     }
   }
 
@@ -774,7 +774,7 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
     image->format = qb_pixel_format;
     glTexImage2D(image_type, 0, internal_format, w, h, 0, format, pixel_type, pixels);
   } else {
-    FATAL("Unsupported image type: " << image->type);
+    qb_fatal("Unsupported image type: %d", image->type);
   }
   if (attr->generate_mipmaps) {
     glGenerateMipmap(image_type);
@@ -903,7 +903,7 @@ void qb_framebuffer_init(qbFrameBuffer frame_buffer, qbFrameBufferAttr attr) {
   GLenum result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   CHECK_GL();
   if (result != GL_FRAMEBUFFER_COMPLETE) {
-    FATAL("Error creating FBO: " << result);
+    qb_fatal("Error creating FBO: %d", result);
   }
   CHECK_GL();
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

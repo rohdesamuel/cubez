@@ -35,21 +35,14 @@
 #define __COMPILE_AS_LINUX__
 #endif
 
+#define QB_ASSERT(expr, exit_code) \
+do{ if (!(expr)) { qb_fatal(exit_code, "Failed assertion: "#expr);} } while (0)
+
 #ifdef __ENGINE_DEBUG__
 #include <iostream>
 
-#ifdef __COMPILE_AS_WINDOWS__
-#define INFO(x) { std::cerr << "[INFO] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  __debugbreak(); std::cin.get(); exit(-1); }
-#else
-#define INFO(x) { std::cerr << "[INFO] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; }
-#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  std::cin.get(); exit(-1); }
-#endif  // __COMPILE_AS_WINDOWS__
-
 #define DEBUG_ASSERT(expr, exit_code) \
-do{ if (!(expr)) { FATAL("Failed assertion: "#expr);} } while (0)
+do{ if (!(expr)) { qb_fatal(exit_code, "Failed assertion: "#expr);} } while (0)
 
 #define DEBUG_OP(expr) do{ expr; } while(0)
 
@@ -58,20 +51,12 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #else
 
-#define INFO(x)
-#ifdef __COMPILE_AS_WINDOWS__
-#define FATAL(x) { std::cerr << "[FATAL] " << __FUNCSIG__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  __debugbreak(); std::cin.get(); exit(-1); }
-#else
-#define FATAL(x) { std::cerr << "[FATAL] " << __PRETTY_FUNCTION__ << " @ Line " << __LINE__ << ":\n\t" << x << std::endl; \
-  std::cin.get(); exit(-1); }
-#endif  // __COMPILE_AS_WINDOWS__
-
-#define DEBUG_ASSERT(expr, exit_code) do{} while(0)
+#define DEBUG_ASSERT(expr) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
 #define ASSERT_NOT_NULL(var) do {} while(0)
 
 #endif  // __ENGINE_DEBUG__
+
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C extern "C" {

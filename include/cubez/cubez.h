@@ -24,6 +24,7 @@
 #define QB_PATCH_VERSION 0
 
 #include <cubez/common.h>
+#include <cubez/log.h>
 #include <cubez/buffer.h>
 #include <cubez/var.h>
 

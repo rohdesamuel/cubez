@@ -96,7 +96,6 @@ qbResult Runner::assert_in_state(const std::vector<State>& allowed) {
       for (auto state : allowed) {
         allowed_states += state_to_string(state) + "\n";
       }
-      INFO("Runner is in bad state: " << (int)state_ << "\nAllowed to be in { " << allowed_states << "\n");
   );
   
   return QB_ERROR_BAD_RUN_STATE;
@@ -111,7 +110,6 @@ qbResult Runner::assert_in_state(std::vector<State>&& allowed) {
     for (auto state : allowed) {
       allowed_states += state_to_string(state) + "\n";
     }
-  INFO("Runner is in bad state: " << (int)state_ << "\nAllowed to be in { " << allowed_states << "\n");
   );
   
   return QB_ERROR_BAD_RUN_STATE;

@@ -51,13 +51,19 @@ QB_API extern const char* QB_STD_ERR;
 #ifdef __COMPILE_AS_WINDOWS__
 #define qb_fatal(format, ...) \
   do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); __debugbreak(); exit(-1); } while(0)
+#define qb_fatal_ex(exit_code, format, ...) \
+  do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); __debugbreak(); exit(exit_code); } while(0)
 #else
 #define qb_fatal(format, ...) \
   do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); exit(-1); } while (0)
+#define qb_fatal_ex(exit_code, format, ...) \
+  do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); exit(exit_code); } while(0)
 #endif
 #else
 #define qb_fatal(format, ...) \
   do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); exit(-1); } while (0)
+#define qb_fatal_ex(exit_code, format, ...) \
+  do { qb_log_ex(QB_ERR, __QB_FILE_U8__, __LINE__, (utf8_t*)(format), __VA_ARGS__); qb_log_flush(); exit(exit_code); } while(0)
 #endif
 
 QB_API void qb_log_ex(qbLogLevel level, const utf8_t* filename, uint64_t fileline, const utf8_t* format, ...);

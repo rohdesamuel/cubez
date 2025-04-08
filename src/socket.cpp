@@ -16,8 +16,8 @@
 * limitations under the License.
 */
 
+#include <cubez/cubez.h>
 #include <cubez/socket.h>
-#include <cubez/common.h>
 
 #ifdef __COMPILE_AS_WINDOWS__
 #define WIN32_LEAN_AND_MEAN
@@ -114,14 +114,14 @@ int32_t socket_errno() {
 qbSocketError translate_qb_socket_error(int err) {
 #ifdef __COMPILE_AS_WINDOWS__
   switch (err) {
-    case WSANOTINITIALISED: FATAL("Trying to create a socket when network module not initialized.");
-    case WSAENETDOWN: FATAL("Encountered a fatal error when trying to create a socket. "
+    case WSANOTINITIALISED: qb_fatal("Trying to create a socket when network module not initialized.");
+    case WSAENETDOWN: qb_fatal("Encountered a fatal error when trying to create a socket. "
                             "This could be indicative of a serious failure of the network system, "
                             "the network interface, or the local network itself.");
-    case WSAEINVALIDPROVIDER: FATAL("Service provider returned a version number other than 2.2.");
-    case WSAEINVALIDPROCTABLE: FATAL("The service provider returned an invalid or incomplete "
+    case WSAEINVALIDPROVIDER: qb_fatal("Service provider returned a version number other than 2.2.");
+    case WSAEINVALIDPROCTABLE: qb_fatal("The service provider returned an invalid or incomplete "
                                      "procedure table to the WSPStartup.");
-    case WSAEPROVIDERFAILEDINIT: FATAL("The service provider failed to initialize. This error is "
+    case WSAEPROVIDERFAILEDINIT: qb_fatal("The service provider failed to initialize. This error is "
                                        "returned if a layered service provider (LSP) or "
                                        "namespace provider was improperly installed or the "
                                        "provider fails to operate correctly.");

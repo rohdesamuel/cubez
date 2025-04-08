@@ -194,7 +194,7 @@ qbResult do_render(qbRenderEvent event,
 
 void initialize_context(const RenderSettings& settings) {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    FATAL("SDL could not initialize! SDL Error: \n" << SDL_GetError());
+    qb_fatal("SDL could not initialize! SDL Error: %s", SDL_GetError());
   }
   
   // Request an OpenGL 3.3 context
@@ -212,7 +212,7 @@ void initialize_context(const RenderSettings& settings) {
 
   context = SDL_GL_CreateContext(win);
   if (!context) {
-    std::cout << "Could not create OpenGL context: " << SDL_GetError();
+    qb_fatal("Could not create OpenGL context: %s", SDL_GetError());
   }
 
   // Disable vsync.
@@ -221,8 +221,7 @@ void initialize_context(const RenderSettings& settings) {
   glewExperimental = GL_TRUE;
   GLenum glewError = glewInit();
   if (glewError != 0) {
-    std::cout << "Failed to intialize Glew\n"
-              << "Error code: " << glewError;
+    qb_fatal("Failed to intialize Glew. Error code: %d", glewError);
     exit(1);
   }
 
