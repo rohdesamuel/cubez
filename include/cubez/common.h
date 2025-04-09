@@ -51,7 +51,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 
 #else
 
-#define DEBUG_ASSERT(expr) do{} while(0)
+#define DEBUG_ASSERT(expr, exit_code) do{} while(0)
 #define DEBUG_OP(expr) do{} while(0)
 #define ASSERT_NOT_NULL(var) do {} while(0)
 

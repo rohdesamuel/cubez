@@ -56,6 +56,10 @@ std::string timestamp_to_str(std::chrono::time_point<std::chrono::system_clock> 
 
 #ifdef __COMPILE_AS_WINDOWS__
 std::wstring string_to_wstring(const std::string& str) {
+  if (str.empty()) {
+    return std::wstring();
+  }
+
   if constexpr (sizeof(int) < sizeof(size_t)) {
     assert((str.size() < (1ull << 32)) && "Trying to convert a string that is too big.");
   }
@@ -160,13 +164,15 @@ void log_initialize(qbLoggingAttr_ log_attr) {
   {
 #ifdef __COMPILE_AS_WINDOWS__
     auto str = string_to_wstring(std::string((char*)log_attr.logs));
-    if (str == L"." || str == L"..") {
-      std::wcerr << "Bad log filename: " << str << std::endl;
+    if (str == L"." || str == L".." || str.empty()) {
+      std::wcerr << "Bad log filename: \"" << str << "\". Reverting to use \"logs.txt\"." << std::endl;
+      log_attr.logs = u8"logs.txt";
     }
 #else
     auto str = std::string((char*)log_attr.logs);
-    if (str == L"." || str == L"..") {
-      std::cerr << "Bad log filename: " << str << std::endl;
+    if (str == "." || str == ".." || str.empty()) {
+      std::cerr << "Bad log filename: \"" << str << "\". Reverting to use \"logs.txt\"." << std::endl;
+      log_attr.logs = u8"logs.txt";
     }
 #endif  // __COMPILE_AS_WINDOWS__
   }
