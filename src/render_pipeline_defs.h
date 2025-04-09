@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#ifndef _DEBUG
-#define CHECK_GL()  {GLenum err = glGetError(); if (err) FATAL(err) }
+#ifdef _DEBUG
+#define CHECK_GL()  {GLenum err = glGetError(); if (err) qb_fatal("Failed OpenGL check. Error code: %d", err); }
 #else
 #define CHECK_GL()
 #endif   
