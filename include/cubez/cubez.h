@@ -42,7 +42,7 @@ typedef uint32_t qbFeature;
 // Macro to abstract away Win32-specific entrypoint.
 // Usage:
 // int qb_main(int argc, char* argv[]) { ... }
-#if !defined(__BUILDING_DLL__) && !defined(qb_main)
+#if !defined(__BUILDING_DLL__)
 #if defined(_DEBUG) || defined(__COPMILE_AS_LINUX__) 
 #define qb_main(argc, argv) \
 __qb_main(argc, argv); \
@@ -50,7 +50,6 @@ int main(int _argc, char* _argv[]) { \
   return __qb_main(_argc, _argv); \
 } int __qb_main(argc, argv)
 #elif defined(__COMPILE_AS_WINDOWS__)
-#define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 #define qb_main(argc, argv) \
@@ -63,7 +62,7 @@ int WINAPI wWinMain( \
   return __qb_main(__argc, __argv); \
 }; int __qb_main(argc, argv)
 #endif
-#endif
+#endif  // !defined(__BUILDING_DLL__)
 
 // Holds the game engine state
 typedef struct qbUniverse {
