@@ -18,6 +18,7 @@
 
 #include "shader.h"
 #include <filesystem>
+#include <cubez/filesystem.h>
 
 inline char const* glErrorString(GLenum const err) noexcept {
   switch (err) {
@@ -273,35 +274,32 @@ ShaderProgram ShaderProgram::load_from_file(const std::string& vs_file,
   std::string fs = "";
   std::string gs = "";
   {
-    std::ifstream t(std::filesystem::current_path().append(vs_file).generic_string());
+    auto buf_or = qb_fload((utf8_t*)vs_file.c_str());
+    QB_ASSERT(buf_or.has_val);
 
-    t.seekg(0, std::ios::end);   
-    vs.reserve(t.tellg());
-    t.seekg(0, std::ios::beg);
+    auto buf = &buf_or.val;
+    vs.append((char*)buf->bytes, buf->capacity);
 
-    vs.assign(std::istreambuf_iterator<char>(t),
-        std::istreambuf_iterator<char>());
+    qb_ffree(buf);
   }
   {
-    std::ifstream t(std::filesystem::current_path().append(fs_file));
+    auto buf_or = qb_fload((utf8_t*)fs_file.c_str());
+    QB_ASSERT(buf_or.has_val);
 
-    t.seekg(0, std::ios::end);   
-    fs.reserve(t.tellg());
-    t.seekg(0, std::ios::beg);
+    auto buf = &buf_or.val;
+    fs.append((char*)buf->bytes, buf->capacity);
 
-    fs.assign(std::istreambuf_iterator<char>(t),
-        std::istreambuf_iterator<char>());
+    qb_ffree(buf);
   }
 
   if (!gs_file.empty()) {
-    std::ifstream t(std::filesystem::current_path().append(gs_file));
+    auto buf_or = qb_fload((utf8_t*)gs_file.c_str());
+    QB_ASSERT(buf_or.has_val);
 
-    t.seekg(0, std::ios::end);
-    gs.reserve(t.tellg());
-    t.seekg(0, std::ios::beg);
+    auto buf = &buf_or.val;
+    gs.append((char*)buf->bytes, buf->capacity);
 
-    gs.assign(std::istreambuf_iterator<char>(t),
-              std::istreambuf_iterator<char>());
+    qb_ffree(buf);
   }
 
   if (gs.empty()) {

@@ -1,6 +1,5 @@
 #define NK_IMPLEMENTATION
 #define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
@@ -8,6 +7,8 @@
 #define NK_INCLUDE_DEFAULT_FONT
 #define NK_SDL_GL3_IMPLEMENTATION
 #include <cubez/nuklear.h>
+#include <cubez/cubez.h>
+#include <cubez/filesystem.h>
 #include <iostream>
 
 /*
@@ -484,4 +485,66 @@ int nk_sdl_consume_mouse(struct nk_context* ctx) {
     return nk_consume_mouse_at_button_press;
   else
     return nk_item_is_any_active(ctx);
+}
+
+char* nk_file_load(const char* path, nk_size* siz, struct nk_allocator* alloc) {
+  qbFile fp;
+  int32_t ret;
+
+  NK_ASSERT(path);
+  NK_ASSERT(siz);
+  NK_ASSERT(alloc);
+  if (!path || !siz || !alloc)
+    return 0;
+
+  qbResult res = qb_fopen(&fp, (const utf8_t*)path, "rb");
+  if (res != QB_OK) {
+    qb_warn("Could not open file: %s", path);
+    return nullptr;
+  }
+
+  qb_fseek(fp, 0, QB_ORIGIN_END);
+  res = qb_ftell(fp, &ret);
+  if (res != QB_OK) {
+    qb_fclose(fp);
+    return 0;
+  }
+
+  *siz = (nk_size)ret;
+  qb_fseek(fp, 0, QB_ORIGIN_SET);
+  qbBuffer_ buf = {
+    .capacity = *siz,
+    .bytes = (uint8_t*)alloc->alloc(alloc->userdata, 0, *siz),
+  };
+
+  if (!buf.bytes) {
+    qb_fclose(fp);
+    return 0;
+  }
+  qb_fread(fp, &buf, 1, *siz, siz);
+  qb_fclose(fp);
+  return (char*)buf.bytes;
+}
+
+struct nk_font* nk_font_atlas_add_from_file(struct nk_font_atlas* atlas, const char* file_path, float height, const struct nk_font_config* config) {
+  nk_size size;
+  char* memory;
+  struct nk_font_config cfg;
+
+  NK_ASSERT(atlas);
+  NK_ASSERT(atlas->temporary.alloc);
+  NK_ASSERT(atlas->temporary.free);
+  NK_ASSERT(atlas->permanent.alloc);
+  NK_ASSERT(atlas->permanent.free);
+
+  if (!atlas || !file_path) return 0;
+  memory = nk_file_load(file_path, &size, &atlas->permanent);
+  if (!memory) return 0;
+
+  cfg = (config) ? *config : nk_font_config(height);
+  cfg.ttf_blob = memory;
+  cfg.ttf_size = size;
+  cfg.size = height;
+  cfg.ttf_data_owned_by_atlas = 1;
+  return nk_font_atlas_add(atlas, &cfg);
 }

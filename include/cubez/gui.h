@@ -23,4 +23,12 @@
 
 QB_API struct nk_context* nk_ctx();
 
+QB_API void nk_font_stash_begin(struct nk_font_atlas** atlas);
+
+QB_API void nk_font_stash_end(void);
+
+QB_API struct nk_font* nk_font_atlas_add_from_file(struct nk_font_atlas* atlas, const char* file_path, float height, const struct nk_font_config*);
+
+QB_API char* nk_file_load(const char* path, nk_size* siz, struct nk_allocator* alloc);
+
 #endif  // CUBEZ_GUI__H

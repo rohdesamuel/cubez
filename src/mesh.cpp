@@ -17,6 +17,7 @@
 */
 
 #include <cubez/mesh.h>
+#include <cubez/filesystem.h>
 #include <cubez/log.h>
 #include <cubez/renderer.h>
 #include "mesh_builder.h"
@@ -47,6 +48,8 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/IOStream.hpp>
+#include <assimp/IOSystem.hpp>
 
 #ifdef _DEBUG
 #define CHECK_GL()  {if (GLenum err = glGetError()) FATAL(gluErrorString(err)) }
@@ -54,36 +57,12 @@
 #define CHECK_GL()
 #endif
 
+
 // Make sure that the vectors are byte compatible.
 static_assert(sizeof(vec3s) == sizeof(aiVector3f));
 
 static inline vec3s pos_to_world(vec3s p, const qbTransform_* t) {
   return glms_vec3_add(p, t->position);
-}
-
-qbMesh qb_mesh_load(const char* mesh_name, const utf8_t* filename) {
-  auto resources = qb_resources();
-  std::filesystem::path path = std::filesystem::path(qb_dir()) / qb_resources()->resources;
-  if (resources->meshes) {
-    path = path /qb_resources()->meshes;
-  }
-
-  path = path / filename;
-
-  assert(std::filesystem::exists(path) && "Mesh does not exist.");
-
-  MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
-  qbMesh ret = builder.Mesh(QB_DRAW_MODE_TRIANGLES);
-
-  Assimp::Importer importer;
-  const aiScene* scene = importer.ReadFile(path.string(), 0);
-  
-  qbRenderer r = qb_renderer();
-  if (r) {
-    r->mesh_create(r, ret);
-  }
-
-  return ret;
 }
 
 namespace {
@@ -234,22 +213,143 @@ qbMaterial aimaterial_to_qbmaterial(const char* material_name, const aiMaterial*
   return ret;
 }
 
+
+
+class AssimpIOSystemBridge : public Assimp::IOSystem {
+public:
+  ~AssimpIOSystemBridge() override = default;
+
+  bool Exists(const char* pFile) const override;
+  char getOsSeparator() const override;
+  Assimp::IOStream* Open(const char* pFile, const char* pMode = "rb") override;
+  void Close(Assimp::IOStream* pFile) override;
+};
+
+class AssimpIOStreamBridge : public Assimp::IOStream {
+public:
+  AssimpIOStreamBridge(qbFile file) : file_(file) {}
+  ~AssimpIOStreamBridge() { Close(); };
+
+  size_t Read(void* pvBuffer,
+    size_t pSize,
+    size_t pCount) override {
+    qbBuffer_ buf{ .capacity = pSize * pCount, .bytes = (uint8_t*)pvBuffer };
+
+    size_t nread = 0;
+    qbResult result = qb_fread(file_, &buf, pSize, pCount, &nread);
+    QB_ASSERT(result == QB_OK || result == QB_EOF);
+
+    return nread;
+  }
+
+  size_t Write(const void* pvBuffer,
+    size_t pSize,
+    size_t pCount) override {
+    return fwrite(pvBuffer, pSize, pCount, (FILE*)file_);
+  }
+
+  aiReturn Seek(size_t pOffset,
+    aiOrigin pOrigin) override {
+
+    QB_ASSERT(pOffset < std::numeric_limits<int32_t>::max());
+
+    qbOrigin origin = {};
+    switch (pOrigin) {
+      case aiOrigin::aiOrigin_SET: origin = QB_ORIGIN_SET; break;
+      case aiOrigin::aiOrigin_CUR: origin = QB_ORIGIN_CUR; break;
+      case aiOrigin::aiOrigin_END: origin = QB_ORIGIN_END; break;
+    }
+
+    return qb_fseek(file_, (int32_t)(0x00000000FFFFFFFF & pOffset), origin) == QB_OK ? aiReturn_FAILURE : aiReturn_SUCCESS;
+  }
+
+  size_t Tell() const override {
+    int32_t pos;
+    QB_ASSERT_OK(qb_ftell(file_, &pos));
+    return (size_t)pos;
+  }
+
+  size_t FileSize() const override {
+    // Save the cursor.
+    int32_t cursor = 0;
+    QB_ASSERT_OK(qb_ftell(file_, &cursor));
+
+    int32_t file_size = 0;
+    QB_ASSERT_OK(qb_fseek(file_, 0, QB_ORIGIN_END));
+    QB_ASSERT_OK(qb_ftell(file_, &file_size));
+    QB_ASSERT_OK(qb_fseek(file_, cursor, QB_ORIGIN_SET));
+
+    return (size_t)file_size;
+  }
+
+  void Flush() override {
+    fflush((FILE*)file_);
+  }
+
+  void Close() {
+    QB_ASSERT_OK(qb_fclose(file_));
+  }
+
+private:
+  qbFile file_;
+};
+
+bool AssimpIOSystemBridge::Exists(const char* pFile) const {
+  return qb_fexists((utf8_t*)pFile);
+}
+
+char AssimpIOSystemBridge::getOsSeparator() const {
+#ifdef __COMPILE_AS_WINDOWS__
+  return '\\';
+#else
+  return '/';
+#endif
+}
+
+Assimp::IOStream* AssimpIOSystemBridge::Open(const char* pFile, const char* pMode) {
+  qbFile fp;
+  QB_ASSERT_OK(qb_fopen(&fp, (utf8_t*)pFile, pMode));
+
+  return new AssimpIOStreamBridge(fp);
+}
+
+void AssimpIOSystemBridge::Close(Assimp::IOStream* pFile) {
+  delete pFile;
+}
+
+}
+
+qbMesh qb_mesh_load(const char* mesh_name, const utf8_t* filename) {
+  std::filesystem::path path(filename);
+
+  assert(std::filesystem::exists(path) && "Mesh does not exist.");
+
+  MeshBuilder builder = MeshBuilder::FromFile(path.string().c_str());
+  qbMesh ret = builder.Mesh(QB_DRAW_MODE_TRIANGLES);
+
+  Assimp::Importer importer;
+  AssimpIOSystemBridge assimp_io_system_bridge{};
+  importer.SetIOHandler(&assimp_io_system_bridge);
+  const aiScene* scene = importer.ReadFile(path.string(), 0);
+
+  qbRenderer r = qb_renderer();
+  if (r) {
+    r->mesh_create(r, ret);
+  }
+
+  importer.SetIOHandler(nullptr);
+  return ret;
 }
 
 qbModel qb_model_load(const char* model_name, const utf8_t* filename) {
-  auto resources = qb_resources();
-  std::filesystem::path path(qb_dir());
-  if (resources->meshes) {
-    path = path / std::filesystem::path(qb_resources()->resources) / qb_resources()->meshes;
-  } else {
-    path = path / std::filesystem::path(qb_resources()->resources);
-  }
-
-  path = path / filename;
+  std::filesystem::path path(filename);
 
   qbModelAttr_ attr = {};
   qbModel ret = nullptr;
   Assimp::Importer importer{};
+  AssimpIOSystemBridge assimp_io_system_bridge{};
+  importer.SetIOHandler(&assimp_io_system_bridge);
+
   const aiScene* scene = importer.ReadFile(path.string().c_str(), aiProcess_Triangulate | aiProcess_FlipUVs);
   if (!scene) {
     qb_err("Could not find file: \"%s\"", path.string().c_str());
@@ -300,12 +400,12 @@ qbModel qb_model_load(const char* model_name, const utf8_t* filename) {
   }
 
   qb_model_create(&ret, &attr);
-
+  importer.SetIOHandler(nullptr);
   return ret;
 
 cleanup:
   qb_err("Could not import mesh \"%s\"", path.string().c_str());
-
+  importer.SetIOHandler(nullptr);
   for (size_t i = 0; i < attr.mesh_count; ++i) {
     if (attr.meshes[i]) {
       qb_mesh_destroy(&attr.meshes[i]);

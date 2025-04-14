@@ -14,7 +14,7 @@ int audio_loadwav(lua_State* L) {
 
   const char* f = lua_tostring(L, 1);
 
-  qbAudioBuffer buf = qb_audio_loadwav(f, nullptr);
+  qbAudioBuffer buf = qb_audio_loadwav((utf8_t*)f, nullptr);
   
   lua_pushlightuserdata(L, buf);
   return 1;

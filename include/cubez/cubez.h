@@ -93,20 +93,6 @@ typedef struct qbSchedulerAttr_ {
   size_t max_async_tasks_queue_size;
 } qbSchedulerAttr_;
 
-typedef struct qbResourceAttr_ {
-  // Relative path from binary to load resources from.
-  // Default is the directory where the executable runs from.
-  const utf8_t* resources;
-
-  // All the following paths default to load directly from the "resources" directory.
-  // If specified, are relative from the "resources" directory.
-  const utf8_t* scripts;
-  const utf8_t* fonts;
-  const utf8_t* sounds;
-  const utf8_t* images;
-  const utf8_t* meshes;  
-} qbResourceAttr_, *qbResourceAttr;
-
 typedef struct qbLoggingAttr_ {
   // Path to the directory to write game logs.
   // Default is "logs".
@@ -129,7 +115,6 @@ typedef struct {
   struct qbAudioAttr_* audio_args;
   struct qbScriptAttr_* script_args;
   struct qbSchedulerAttr_* scheduler_args;
-  struct qbResourceAttr_* resource_args;
   struct qbLoggingAttr_* logging_args;
 } qbUniverseAttr_, *qbUniverseAttr;
 
@@ -140,8 +125,6 @@ QB_API void qb_pause();
 QB_API void qb_resume();
 
 QB_API qbBool qb_running();
-QB_API const qbResourceAttr_* qb_resources();
-QB_API const utf8_t* qb_dir();
 
 typedef struct qbLoopCallbacks_ {
   void(*on_update)(uint64_t frame, qbVar);

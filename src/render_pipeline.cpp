@@ -31,6 +31,7 @@
 #include <cubez/common.h>
 #include <cubez/log.h>
 #include <cubez/time.h>
+#include <cubez/filesystem.h>
 
 #include <algorithm>
 #include <mutex>
@@ -717,23 +718,30 @@ const char* qb_image_name(qbImage image) {
   return image->name;
 }
 
-void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
+qbResult qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
   qbImage image = *image_ref = new qbImage_{};
   image->type = attr->type;
   
-  std::filesystem::path image_path = std::filesystem::path(qb_dir()) / file;
+  std::filesystem::path image_path(file);
   if (!std::filesystem::exists(image_path)) {
     qb_fatal("Could not find image: %s", image_path.u8string().c_str());
-    return;
+    return QB_ERROR_FILE_NOT_FOUND;
   }
 
   // Load the image from the file into SDL's surface representation
+  auto buf_or = qb_fload(file);
+  if (!buf_or.has_val) {
+    return buf_or.res;
+  }
+  
+  qbBuffer buf = &buf_or.val;
   int w, h, n;
-  unsigned char* pixels = stbi_load((char*)file, &w, &h, &n, 0);
+  unsigned char* pixels = stbi_load_from_memory(buf->bytes, buf->capacity, &w, &h, &n, 0);
 
+  qb_ffree(buf);
   if (!pixels) {
     qb_err("Could not load image: %s\n Caused By: %s", image_path.u8string().c_str(), stbi_failure_reason());
-    return;
+    return QB_UNKNOWN;
   }
 
   image->width = w;
@@ -782,6 +790,8 @@ void qb_image_load(qbImage* image_ref, qbImageAttr attr, const utf8_t* file) {
 
   stbi_image_free(pixels);
   CHECK_GL();
+
+  return QB_OK;
 }
 
 void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data) {

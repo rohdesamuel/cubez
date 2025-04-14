@@ -25,7 +25,7 @@
 // memory in the buffer is owned by the user. The bytes are written in network
 // order.
 typedef struct qbBuffer_ {
-  const size_t capacity;
+  size_t capacity;
   uint8_t* bytes;
 } qbBuffer_, *qbBuffer;
 

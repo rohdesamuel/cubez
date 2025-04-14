@@ -570,7 +570,7 @@ QB_API void qb_image_create(qbImage* image, qbImageAttr attr, qbPixelMap pixel_m
 QB_API void qb_image_raw(qbImage* image, qbImageAttr attr, qbPixelFormat format, uint32_t width, uint32_t height, void* pixels);
 QB_API void qb_image_destroy(qbImage* image);
 QB_API const char* qb_image_name(qbImage image);
-QB_API void qb_image_load(qbImage* image, qbImageAttr attr, const utf8_t* file);
+QB_API qbResult qb_image_load(qbImage* image, qbImageAttr attr, const utf8_t* file);
 QB_API void qb_image_update(qbImage image, ivec3s offset, ivec3s sizes, void* data);
 QB_API int qb_image_width(qbImage image);
 QB_API int qb_image_height(qbImage image);

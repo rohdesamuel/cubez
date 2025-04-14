@@ -49,6 +49,7 @@
 #include "async_internal.h"
 #include "sprite_internal.h"
 #include "entity_table.h"
+#include "vfs.h"
 
 namespace fs = std::filesystem;
 
@@ -70,11 +71,6 @@ qbTimer render_timer;
 CoroScheduler* coro_scheduler;
 Coro coro_main;
 
-std::u8string cwd_dir_str;
-fs::path cwd_dir;
-fs::path resource_dir;
-qbResourceAttr_ resource_attr{};
-
 static qbComponent qb_id_component;
 static qbComponent qb_entity_component;
 
@@ -90,19 +86,6 @@ struct GameLoop {
   volatile std::atomic_bool is_paused{ false };
 } game_loop;
 
-namespace {
-std::u8string wstring_to_utf8(const std::wstring& str) {
-  std::wstring_convert<std::codecvt_utf16<wchar_t>> to_utf16;
-  std::wstring_convert<std::codecvt_utf8_utf16<char16_t, 0x10ffff,
-    std::codecvt_mode::little_endian>, char16_t> to_utf8;
-
-  std::u16string utf16_str((char16_t*)to_utf16.to_bytes(str).data());
-  std::string utf8_str = to_utf8.to_bytes(utf16_str);
-
-  return std::u8string(utf8_str.begin(), utf8_str.end());
-}
-}
-
 qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   universe_ = u;
   assert(u->argc > 0 && (u->argv || u->wargv) && "Must include the argc and argv during initialization.");
@@ -113,48 +96,6 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
   utils_initialize();
   coro_main = coro_initialize(u);
 
-  {
-    std::filesystem::path cwd;
-
-    if (u->argv) {
-      std::u8string arg(u->argv[0], u->argv[0] + strlen(u->argv[0]));
-      cwd = arg;
-    } else {
-      std::wstring warg(u->wargv[0]);
-      cwd = warg;
-    }
-    cwd = cwd.remove_filename();
-
-    cwd_dir_str = cwd.u8string();
-    cwd_dir = cwd.u8string().c_str();
-
-    std::filesystem::path resource_path = cwd;
-
-    resource_attr.resources = u8"resources";
-    resource_attr.fonts = u8"";
-    resource_attr.scripts = u8"";
-    resource_attr.sounds = u8"";
-    resource_attr.images = u8"";
-
-    if (attr->resource_args) {
-      resource_attr.resources = attr->resource_args->resources ?
-        (const utf8_t*)STRDUP((const char*)attr->resource_args->resources) : (const utf8_t*)resource_attr.resources;
-
-      resource_attr.fonts = attr->resource_args->fonts ?
-        (const utf8_t*)STRDUP((const char*)attr->resource_args->fonts) : (const utf8_t*)resource_attr.fonts;
-
-      resource_attr.scripts = attr->resource_args->scripts ?
-        (const utf8_t*)STRDUP((const char*)attr->resource_args->scripts) : (const utf8_t*)resource_attr.scripts;
-
-      resource_attr.sounds = attr->resource_args->sounds ?
-        (const utf8_t*)STRDUP((const char*)attr->resource_args->sounds) : (const utf8_t*)resource_attr.sounds;
-
-      resource_attr.images = attr->resource_args->images ?
-        (const utf8_t*)STRDUP((const char*)attr->resource_args->images) : (const utf8_t*)resource_attr.images;
-    }
-
-    resource_dir = resource_path / fs::path(resource_attr.resources);
-  }
   
   // Initialize Lua before PrivateUniverse is constructed because the Lua VM
   // is initialized per-thread.
@@ -174,6 +115,15 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 
   if (universe_->enabled == QB_FEATURE_ALL) {
     universe_->enabled = 0xFFFF;
+  }
+
+  {
+    qbVfsAttr_ attr{
+      .argv = u->argv,
+      .wargv = u->wargv
+    };
+
+    vfs_initialize(&attr);
   }
 
   {
@@ -278,16 +228,8 @@ void qb_resume() {
   game_loop.is_paused = false;
 }
 
-const utf8_t* qb_dir() {
-  return cwd_dir_str.c_str();
-}
-
 qbBool qb_running() {
   return game_loop.is_running;
-}
-
-const qbResourceAttr_* qb_resources() {
-  return &resource_attr;
 }
 
 qbResult loop(qbLoopCallbacks callbacks,

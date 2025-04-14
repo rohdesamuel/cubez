@@ -35,8 +35,11 @@
 #define __COMPILE_AS_LINUX__
 #endif
 
-#define QB_ASSERT(expr, exit_code) \
-do{ if (!(expr)) { qb_fatal_ex(exit_code, "Failed assertion: "#expr);} } while (0)
+#define QB_ASSERT(expr) \
+do{ if (!(expr)) { qb_fatal_ex(QB_PANIC, "Failed assertion: "#expr);} } while (0)
+
+#define QB_ASSERT_OK(expr) \
+do{ if ((expr) != QB_OK) { qb_fatal_ex(QB_PANIC, "Failed assertion: "#expr);} } while (0)
 
 #ifdef __ENGINE_DEBUG__
 #include <iostream>
@@ -95,10 +98,6 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define QB_PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
 
-#ifndef __COMPILE_AS_WINDOWS__
-using std::size_t;
-#endif
-
 typedef int qbBool;
 #define QB_TRUE 1
 #define QB_FALSE 0
@@ -108,6 +107,9 @@ typedef int64_t qbId;
 
 #ifdef __cplusplus
 typedef char8_t utf8_t;
+#ifndef __COMPILE_AS_WINDOWS__
+using std::size_t;
+#endif
 #else
 typedef uint8_t utf8_t;
 #endif
@@ -124,8 +126,11 @@ QB_API extern const qbHandle qbInvalidHandle;
 // Cubez engine success codes.
 enum qbResult {
   QB_OK = 0,
-  QB_UNKNOWN = 1,
-  QB_DONE = 2,
+  QB_UNKNOWN,
+  QB_PANIC,
+  QB_DONE,
+  QB_EOF,
+
   QB_ERROR_MEMORY_LEAK = -1,
   QB_ERROR_MEMORY_OUT_OF_BOUNDS = -2,
   QB_ERROR_OUT_OF_MEMORY = -3,
@@ -151,6 +156,13 @@ enum qbResult {
   QB_ERROR_SEMAPHORE_NONMONOTONIC_SIGNAL = -500,
   QB_ERROR_SOCKET = -600,
   QB_ERROR_MAX_TABLES_REACHED = -700,
+
+  QB_ERROR_FILE_NOT_FOUND = -800,
+  QB_ERROR_FILE_ALREADY_EXISTS = -801,
+  QB_ERROR_FILE_IS_A_DIRECTORY = -802,
+  QB_ERROR_FILE_TOO_MANY_OPEN_FILES = -803,
+  QB_ERROR_FILE_INVALID_SEEK = -804,
+  QB_ERROR_FILE_PERMISSION_DENIED = -805,
 };
 
 #endif  // CUBEZ_COMMON__H

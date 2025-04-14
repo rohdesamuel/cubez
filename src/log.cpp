@@ -42,6 +42,7 @@
 #endif
 
 #include "log_internal.h"
+#include "utils.h"
 
 qbId program_id;
 size_t max_log_size = 1 << 30;
@@ -54,23 +55,6 @@ std::string timestamp_to_str(std::chrono::time_point<std::chrono::system_clock> 
   return std::format("{:%FT%TZ}", now);
 }
 
-#ifdef __COMPILE_AS_WINDOWS__
-std::wstring string_to_wstring(const std::string& str) {
-  if (str.empty()) {
-    return std::wstring();
-  }
-
-  if constexpr (sizeof(int) < sizeof(size_t)) {
-    assert((str.size() < (1ull << 32)) && "Trying to convert a string that is too big.");
-  }
-
-  int buf_size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.c_str(), (int)str.size(), nullptr, 0);
-  std::wstring buf(buf_size, L'\0');
-
-  assert(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.c_str(), (int)str.size(), buf.data(), buf.size()) > 0);
-  return buf;
-}
-#endif  // __COMPILE_AS_WINDOWS__
 }  // namespace
 
 struct LogEntry {
@@ -184,7 +168,7 @@ void log_initialize(qbLoggingAttr_ log_attr) {
   console_output = &std::cout;
 #endif  // __COMPILE_AS_WINDOWS__
 
-  auto log_file_path = std::filesystem::path(qb_dir()) / log_attr.logs;
+  auto log_file_path = (const char*)log_attr.logs;
   if (std::filesystem::exists(log_file_path)) {
     *console_output << "Warning: log file " << log_file_path << " already exists. Will overwrite file." << std::endl;
   }

@@ -62,7 +62,7 @@ typedef struct qbAudioLoadAttr_ {
   qbBool loop;
 } qbAudioLoadAttr_, *qbAudioLoadAttr;
 // Loads the WAV file in the resources directory. Returns NULL if file is not found.
-QB_API qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr);
+QB_API qbAudioBuffer qb_audio_loadwav(const utf8_t* file, qbAudioLoadAttr opt_attr);
 QB_API void qb_audio_free(qbAudioBuffer loaded);
 
 // Starts playing the loaded sound. The pan, volume, and loop defaults are set

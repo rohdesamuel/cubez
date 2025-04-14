@@ -16,10 +16,25 @@
 * limitations under the License.
 */
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
 #include <cubez/gui.h>
 
 #include "nuklear_sdl_gl3.h"
 
 struct nk_context* nk_ctx() {
   return nk_sdl_ctx();
+}
+
+void nk_font_stash_begin(struct nk_font_atlas** atlas) {
+  nk_sdl_font_stash_begin(atlas);
+}
+
+void nk_font_stash_end(void) {
+  nk_sdl_font_stash_end();
 }

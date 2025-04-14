@@ -18,6 +18,7 @@
 
 #include <cubez/audio.h>
 #include <cubez/log.h>
+#include <cubez/filesystem.h>
 
 #include <atomic>
 #include <chrono>
@@ -115,11 +116,21 @@ void audio_shutdown() {
   cs_shutdown_context(ctx);
 }
 
-qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr) {
-  fs::path path = fs::path(qb_resources()->resources) / fs::path(qb_resources()->sounds) / file;
-  if (fs::exists(path)) {
+cs_loaded_sound_t load_wav(const utf8_t* path) {
+  cs_loaded_sound_t sound = { 0 };
+  auto buffer_or = qb_fload(path);
+  QB_ASSERT(buffer_or.has_val);
+  
+  qbBuffer buf = &buffer_or.val;
+  cs_read_mem_wav(buf->bytes, buf->capacity, &sound);
+  qb_ffree(buf);
+  return sound;
+}
+
+qbAudioBuffer qb_audio_loadwav(const utf8_t* file, qbAudioLoadAttr opt_attr) {
+  if (qb_fexists(file)) {
     std::lock_guard<decltype(loaded_mu_)> l(loaded_mu_);
-    qbAudioBuffer ret = new qbAudioBuffer_{ sound_id, cs_load_wav(path.string().c_str()) };
+    qbAudioBuffer ret = new qbAudioBuffer_{ sound_id, load_wav(file) };
 
     if (opt_attr) {
       ret->volume = opt_attr->volume;
@@ -134,8 +145,7 @@ qbAudioBuffer qb_audio_loadwav(const char* file, qbAudioLoadAttr opt_attr) {
     loaded_.insert(ret);
     return ret;
   } else {
-    std::string p = path.string();
-    qb_log(QB_ERR, "Could not load sound: \"%s\"", p.c_str());
+    qb_log(QB_ERR, "Could not load sound: \"%s\"", file);
   }
   return nullptr;
 }

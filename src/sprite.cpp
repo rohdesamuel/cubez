@@ -745,7 +745,6 @@ qbRenderPipeline sprite_create_renderpipeline(uint32_t width, uint32_t height) {
 
 void sprite_initialize(uint32_t width, uint32_t height) {
   sprite_render_pipeline = sprite_create_renderpipeline(width, height);
-  sprite_path = std::filesystem::path(qb_resources()->resources) / qb_resources()->images;
 
   {
     qbComponentAttr attr;
