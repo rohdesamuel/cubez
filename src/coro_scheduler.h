@@ -25,16 +25,16 @@
 
 class CoroScheduler {
 public:
-  CoroScheduler(size_t num_threads);
-  ~CoroScheduler();
+  CoroScheduler(qbSchedulerAttr_* attr);
+  ~CoroScheduler() = default;
 
-  qbCoro schedule_sync(qbVar(*entry)(qbVar), qbVar var);
+  qbCoro schedule_defer(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size);
 
   // Creates a coroutine and schedules the given function to be run on a
   // background thread. Thread-safe.
-  qbCoro schedule_async(qbVar(*entry)(qbVar), qbVar var);
+  qbCoro schedule_async(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size);
 
-  qbVar await(qbCoro coro);
+  qbVar await(qbCoro* coro);
 
   qbVar peek(qbCoro coro);
 
@@ -54,9 +54,21 @@ private:
     std::vector<SyncCoro> new_coros;
   };
 
+  qbCoro take_coro(qbCoroStackSize stack_size);
+  void release_coro(qbCoro coro);
+
   std::unique_ptr<CoroThreadPool> thread_pool_;
-  SyncCoros* coros_;
+  std::unique_ptr<SyncCoros> coros_;
   qbCoro sync_coro_;
+
+  std::shared_mutex free_small_coros_mu_;
+  std::vector<qbCoro> free_small_coros_;
+
+  std::shared_mutex free_large_coros_mu_;
+  std::vector<qbCoro> free_large_coros_;
+
+  std::vector<qbCoro> small_coros_pool_;
+  std::vector<qbCoro> large_coros_pool_;
 };
 
 #endif  // CORO_SCHEDULER__H

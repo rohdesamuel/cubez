@@ -61,6 +61,7 @@ struct qbCoro_ {
   std::shared_mutex ret_mu;
   qbVar ret;
   qbVar arg;
+  qbCoroStackSize stack_size;
 };
 
 struct qbInstanceOnCreateEvent_ {

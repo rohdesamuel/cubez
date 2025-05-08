@@ -55,7 +55,12 @@ Coro coro_initialize(void* local_sp);
 /*
 * Create a new coroutine from the given function.
 */
-Coro coro_new(_entry fn);
+Coro coro_new(qbCoroStackSize stack_size);
+
+/*
+* Create a new coroutine from the given function.
+*/
+void coro_init(Coro c, _entry fn);
 
 Coro coro_clone(Coro target);
 
@@ -79,5 +84,26 @@ int coro_done(Coro c);
 * Free the coroutine and return the space for the stack.
 */
 void coro_free(Coro c);
+
+void coro_clear(Coro c);
+
+// Creates and returns a new coroutine only valid on the current thread.
+// Cannot be passed between threads.
+qbCoro      qb_coro_create(qbVar(*entry)(qbVar var), qbCoroStackSize stack_size);
+
+// Copies a given coroutine only valid on the current thread. Does not copy the
+// coroutine state. Currently, only copies the entry function.
+// Cannot be passed between threads.
+qbCoro      qb_coro_copy(qbCoro coro);
+
+// A coroutine is safe to destroy only it is finished running. This can be
+// queried with qb_coro_peek or qb_coro_done. A coroutine can be waited upon by
+// using qb_coro_await.
+qbResult    qb_coro_destroy(qbCoro* coro);
+
+// Immediately runs the given coroutine on the same thread as the caller.
+// WARNING: A coroutine has its own stack, do not pass in pointers to stack
+// variables. They will be invalid pointers.
+qbVar       qb_coro_call(qbCoro coro, qbVar var);
 
 #endif /* __CORO_H__ */

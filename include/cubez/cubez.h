@@ -83,14 +83,31 @@ typedef struct qbScriptAttr_ {
 } qbScriptAttr_;
 
 typedef struct qbSchedulerAttr_ {
-  // Default is 16.
-  size_t max_async_coros;
-
   // Default is number of CPU cores.
   size_t max_async_tasks;
 
   // Default is 1024.
   size_t max_async_tasks_queue_size;
+
+  // The maximum number of concurrently running coroutines.
+  // Default is 16.
+  size_t max_async_coros;
+
+  // The maximum number of active small coroutines.
+  // Default is 25.
+  size_t max_small_coros;
+
+  // The maximum number of active large coroutines.
+  // Default is 10.
+  size_t max_large_coros;
+
+  // Small Coroutine stack sizes.
+  // Default is 16 KiB.
+  size_t coro_small_stack_size;
+
+  // Large Coroutine stack sizes.
+  // Default is 256 KiB.
+  size_t coro_large_stack_size;
 } qbSchedulerAttr_;
 
 typedef struct qbLoggingAttr_ {
@@ -970,24 +987,10 @@ QB_API qbResult      qb_scene_ondeactivate(qbScene scene,
 ///////////////////////  Coroutines  //////////////////////
 ///////////////////////////////////////////////////////////
 
-// Creates and returns a new coroutine only valid on the current thread.
-// Cannot be passed between threads.
-QB_API qbCoro      qb_coro_create(qbVar(*entry)(qbVar var));
-
-// Copies a given coroutine only valid on the current thread. Does not copy the
-// coroutine state. Currently, only copies the entry function.
-// Cannot be passed between threads.
-QB_API qbCoro      qb_coro_copy(qbCoro coro);
-
-// A coroutine is safe to destroy only it is finished running. This can be
-// queried with qb_coro_peek or qb_coro_done. A coroutine can be waited upon by
-// using qb_coro_await.
-QB_API qbResult    qb_coro_destroy(qbCoro* coro);
-
-// Immediately runs the given coroutine on the same thread as the caller.
-// WARNING: A coroutine has its own stack, do not pass in pointers to stack
-// variables. They will be invalid pointers.
-QB_API qbVar       qb_coro_call(qbCoro coro, qbVar var);
+typedef enum qbCoroStackSize {
+  QB_CORO_SMALL,  // Default stack size is 16 KiB
+  QB_CORO_LARGE,  // Default stack size is 256 KiB
+};
 
 // Creates a coroutine and schedules the given function to be run on the main
 // thread. All coroutines are then run serially after event dispatch and
@@ -995,7 +998,11 @@ QB_API qbVar       qb_coro_call(qbCoro coro, qbVar var);
 // run the next coroutine, the given entry function must call qb_coro_yield().
 // WARNING: A coroutine has its own stack, do not pass in pointers to stack
 // variables. They will be invalid pointers.
-QB_API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
+QB_API qbCoro      qb_coro_defer(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size);
+
+// Same as `qb_coro_defer`, but the given memory is copied to the coroutine's
+// stack with the new pointer being pased as the argument.
+QB_API qbCoro      qb_coro_deferp(qbVar(*entry)(qbVar), void* ptr, size_t size, qbCoroStackSize stack_size);
 
 // Creates a coroutine and schedules the given function to be run on a
 // background thread. Thread-safe.
@@ -1004,7 +1011,11 @@ QB_API qbCoro      qb_coro_sync(qbVar(*entry)(qbVar), qbVar var);
 // WARNING: Any async coros still running when qb_stop() is called will block
 // shutting down. Use `qb_running()` to check state of game engine and return
 // early.
-QB_API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var);
+QB_API qbCoro      qb_coro_async(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size);
+
+// Same as `qb_coro_async`, but the given memory is copied to the coroutine's
+// stack with the new pointer being pased as the argument.
+QB_API qbCoro      qb_coro_asyncp(qbVar(*entry)(qbVar), void* ptr, size_t size, qbCoroStackSize stack_size);
 
 // Yields control with the given var back to the current coroutine's caller.
 // WARNING: A coroutine has its own stack, do not pass in pointers to stack
@@ -1017,8 +1028,9 @@ QB_API void        qb_coro_wait(double seconds);
 // Yields "qbFuture" until the given frames have elapsed.
 QB_API void        qb_coro_waitframes(uint32_t frames);
 
-// Yields "qbFuture" until coro is done running. 
-QB_API qbVar       qb_coro_await(qbCoro coro);
+// Yields "qbFuture" until coro is done running, after which the coroutine is
+// released.
+QB_API qbVar       qb_coro_await(qbCoro* coro);
 
 // Peeks at the return value of the scheduled coro. Returns "qbFuture" if the
 // scheduled coro is running.

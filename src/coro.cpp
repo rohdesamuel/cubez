@@ -60,10 +60,11 @@
 * overhead per call, 256 calls = 1024. If stack allocation is performed,
 * this will need to be increased.
 */
-#define STACK_TGROW (1 << 12)
+#define STACK_TGROW (1 << 14)
 #define STACK_DEFAULT (sizeof(intptr_t) * STACK_TGROW)
 #define STACK_TSHRINK (2 * STACK_DEFAULT)
 #define STACK_ADJ STACK_DEFAULT
+#define STACK_ALIGNMENT 16  // Always true as defined in the x64 ABI.
 
 /* the coroutine structure */
 struct _Coro {
@@ -84,32 +85,40 @@ struct _Coro {
 THREAD_LOCAL volatile Coro _cur;
 THREAD_LOCAL volatile qbVar _value;
 THREAD_LOCAL struct _Coro _on_exit;
-THREAD_LOCAL uintptr_t _sp_base;
+THREAD_LOCAL intptr_t _sp_base;
 
-void _fix_frame_pointer(jmp_buf buf) {
+static void _fix_frame_pointer(jmp_buf buf) {
 #if defined(__COMPILE_AS_WINDOWS__) && defined(__COMPILE_AS_64__)
   // See https://stackoverflow.com/questions/26605063/an-invalid-or-unaligned-stack-was-encountered-during-an-unwind-operation.
   ((_JUMP_BUFFER*)buf)->Frame = 0;
 #endif
 }
 
-void _coro_save(Coro to, uintptr_t mark) {
-  uintptr_t sp = (_stack_grows_up ? _sp_base : mark);
-  size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
-  if (to->stack_size < sz + STACK_TGROW || to->stack_size > sz - STACK_TSHRINK) {
-    size_t newsz = sz + STACK_ADJ;
-    free(to->stack_base);
-    to->stack_base = calloc(1, newsz);
-    to->stack_size = newsz;
-  }
-  to->stack_used = sz;
-  memcpy(to->stack_base, (void *)sp, sz);
+static void _coro_save(Coro to, uintptr_t mark) {
+  intptr_t sp = (_stack_grows_up ? _sp_base : mark);
+  ptrdiff_t sz = (_stack_grows_up ? (intptr_t)mark - _sp_base : _sp_base - mark);
+
+  QB_ASSERT(sz >= 0);
+  QB_ASSERT(sz < to->stack_size);
+
+  to->stack_used = (size_t)sz;
+  memcpy(to->stack_base, (void*)sp, (size_t)sz);
 }
 
-void _coro_restore(uintptr_t target_sz, void ** pad) {
+/*
+static void _coro_restore() {
+  size_t sz = _cur->stack_used;
+  void* sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
+  memcpy(sp, _cur->stack_base, sz);
+  _fix_frame_pointer(_cur->ctxt);
+  _rstr_and_jmp(_cur->ctxt);
+}
+*/
+
+static void _coro_restore(uintptr_t target_sz, void** pad) {
   if ((uintptr_t)&pad - _sp_base > target_sz) {
     size_t sz = _cur->stack_used;
-    void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
+    void* sp = (void*)(_stack_grows_up ? _sp_base : _sp_base - sz);
     memcpy(sp, _cur->stack_base, sz);
     _fix_frame_pointer(_cur->ctxt);
     _rstr_and_jmp(_cur->ctxt);
@@ -120,7 +129,7 @@ void _coro_restore(uintptr_t target_sz, void ** pad) {
   }
 }
 
-qbVar _coro_fastcall(Coro target, qbVar value) {
+static qbVar _coro_fastcall(Coro target, qbVar value) {
 #ifdef __COMPILE_AS_64__
   char stack_top[16];
 #elif defined (__COMPILE_AS_32__) 
@@ -128,13 +137,9 @@ qbVar _coro_fastcall(Coro target, qbVar value) {
 #endif
   *(qbVar*)(&_value) = value; /* pass value to 'target' */
   if (!_save_and_resumed(_cur->ctxt)) {
-    /* _sp_base - &local is used to calculate the size of the env */
-    uintptr_t target_sz = (_stack_grows_up
-                           ? 0
-                           : target->stack_size);
     _coro_save(_cur, (uintptr_t)&stack_top);
     _cur = target;
-    _coro_restore(target_sz, NULL);
+    _coro_restore(_cur->stack_size, NULL);
   }
   /* when someone called us, just return the value */
   return *(qbVar*)(&_value);
@@ -145,7 +150,7 @@ qbVar _coro_fastcall(Coro target, qbVar value) {
 * coroutine is first called. If it was called from coro_new, then it sets
 * up the stack and initializes the saved context.
 */
-void _coro_enter(Coro c) {
+static void _coro_enter(Coro c) {
   if (_save_and_resumed(c->ctxt)) {       /* start the coroutine; stack is empty at this point. */
     qbVar _return;
     _return.p = _cur;
@@ -154,14 +159,14 @@ void _coro_enter(Coro c) {
     /* return the exited coroutine to the exit handler */
     _coro_fastcall(&_on_exit, _return);
   } else {
-    void* stack_top;
+    char stack_top[16];
     _coro_save(c, (intptr_t)&stack_top);
   }
 }
 
-void _stack_init(Coro c, size_t init_size) {
+static void _stack_init(Coro c, size_t init_size) {
   c->stack_size = init_size;
-  c->stack_base = calloc(1, c->stack_size);
+  c->stack_base = ALIGNED_ALLOC(c->stack_size, 16);
 }
 
 #if defined(__clang__)
@@ -181,7 +186,7 @@ void _stack_init(Coro c, size_t init_size) {
 Coro coro_initialize(void* sp_base) {
   _infer_stack_direction();
   _sp_base = (intptr_t)sp_base;
-  _stack_init(&_on_exit, STACK_DEFAULT);
+  _stack_init(&_on_exit, 1ull << 20);
 
   _cur = &_on_exit;
   _coro_enter(&_on_exit);
@@ -196,19 +201,32 @@ Coro coro_initialize(void* sp_base) {
 #pragma optimize( "", on )
 #endif
 
-Coro coro_new(_entry fn) {
+Coro coro_new(qbCoroStackSize stack_size) {
   Coro c = (Coro)malloc(sizeof(struct _Coro));
-  _stack_init(c, STACK_DEFAULT);
+  _stack_init(c, stack_size == QB_CORO_SMALL ? 1 << 14 : 1 << 18);
+  return c;
+}
 
+void coro_init(Coro c, _entry fn) {
   c->start = fn;
   c->is_done = 0;
+  c->stack_used = 0;
+  c->parent = nullptr;
   _coro_enter(c);
-  return c;
+}
+
+void coro_clear(Coro c) {
+  c->parent = nullptr;
+  c->start = nullptr;
+  c->stack_used = 0;
+  c->is_done = false;
+
+  memset(&c->ctxt, 0, sizeof(c->ctxt));
 }
 
 Coro coro_clone(Coro target) {
   Coro c = (Coro)malloc(sizeof(struct _Coro));
-  _stack_init(c, STACK_DEFAULT);
+  _stack_init(c, target->stack_size);
 
   c->start = target->start;
   c->is_done = 0;
@@ -238,14 +256,10 @@ qbVar coro_call(Coro target, qbVar value) {
 #endif
   *(qbVar*)(&_value) = value; /* pass value to 'target' */
   if (!_save_and_resumed(_cur->ctxt)) {
-    /* _sp_base - &local is used to calculate the size of the env */
-    uintptr_t target_sz = (_stack_grows_up
-                           ? 0
-                           : target->stack_size);
     _coro_save(_cur, (uintptr_t)&stack_top);
     target->parent = _cur;
     _cur = target;
-    _coro_restore(target_sz, NULL);
+    _coro_restore(_cur->stack_size, NULL);
   }
   /* when someone called us, just return the value */
   return *(qbVar*)(&_value);
@@ -259,8 +273,8 @@ qbVar coro_yield(qbVar var) {
 }
 
 void coro_free(Coro c) {
-  if (c->stack_base != NULL) {
-    free((void *)c->stack_base);
+  if (c->stack_base) {
+    ALIGNED_FREE((void *)c->stack_base);
   }
   free(c);
 }

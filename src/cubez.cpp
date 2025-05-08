@@ -108,7 +108,7 @@ qbResult qb_init(qbUniverse* u, qbUniverseAttr attr) {
 #endif
 
   universe_->self = new PrivateUniverse();
-  coro_scheduler = new CoroScheduler(attr->scheduler_args ? attr->scheduler_args->max_async_coros : 16);
+  coro_scheduler = new CoroScheduler(attr->scheduler_args);
   async_initialize(attr->scheduler_args);  
 
   qbResult ret = AS_PRIVATE(init());
@@ -1042,10 +1042,11 @@ qbVar qb_instance_struct(qbInstance instance) {
   return qbStruct(s->internals.schema, s);
 }
 
-qbCoro qb_coro_create(qbVar(*entry)(qbVar var)) {
+qbCoro qb_coro_create(qbVar(*entry)(qbVar), qbCoroStackSize stack_size) {
   qbCoro ret = new qbCoro_();
   ret->ret = qbFuture;
-  ret->main = coro_new(entry);
+  ret->main = coro_new(stack_size);
+  coro_init(ret->main, entry);
   return ret;
 }
 
@@ -1068,15 +1069,15 @@ qbVar qb_coro_call(qbCoro coro, qbVar var) {
   return coro_call(coro->main, var);
 }
 
-qbCoro qb_coro_sync(qbVar(*entry)(qbVar), qbVar var) {
-  return coro_scheduler->schedule_sync(entry, var);
+qbCoro qb_coro_defer(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size) {
+  return coro_scheduler->schedule_defer(entry, var, stack_size);
 }
 
-qbCoro qb_coro_async(qbVar(*entry)(qbVar), qbVar var) {
-  return coro_scheduler->schedule_async(entry, var);
+qbCoro qb_coro_async(qbVar(*entry)(qbVar), qbVar var, qbCoroStackSize stack_size) {
+  return coro_scheduler->schedule_async(entry, var, stack_size);
 }
 
-qbVar qb_coro_await(qbCoro coro) {
+qbVar qb_coro_await(qbCoro* coro) {
   return coro_scheduler->await(coro);
 }
 

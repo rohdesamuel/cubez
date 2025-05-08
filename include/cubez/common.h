@@ -85,8 +85,8 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define STRCPY strcpy_s
 #define STRDUP _strdup
 #define SSCANF sscanf_s
-#define ALIGNED_ALLOC _aligned_malloc
-#define ALIGNED_FREE _aligned_free
+#define ALIGNED_ALLOC(size, alignment) _aligned_malloc((size), (alignment))
+#define ALIGNED_FREE(ptr) _aligned_free(ptr)
 #define QB_PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop))
 #else
 #define QB_API extern "C"
@@ -94,7 +94,7 @@ DEBUG_ASSERT((var) != nullptr, QB_ERROR_NULL_POINTER)
 #define STRDUP strdup
 #define SSCANF sscanf
 #define ALIGNED_ALLOC(size, alignment) aligned_alloc((alignment), (size))
-#define ALIGNED_FREE free
+#define ALIGNED_FREE(ptr) free(ptr)
 #define QB_PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif
 
