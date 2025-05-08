@@ -85,7 +85,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <OmitFramePointers>false</OmitFramePointers>
+      <OmitFramePointers>true</OmitFramePointers>
       <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <AdditionalOptions>/D "_HAS_ITERATOR_DEBUGGING=1" /D "_SECURE_SCL=1" %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -95,6 +95,7 @@
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;SDL2.lib;freetype.lib;lua53.lib;assimp-debug.lib;zlibstatic.lib;Ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -111,7 +112,7 @@
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
       <AdditionalIncludeDirectories>$(ProjectRoot)\include;$(ProjectRoot)\deps\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <OmitFramePointers>false</OmitFramePointers>
+      <OmitFramePointers>true</OmitFramePointers>
       <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -141,7 +142,7 @@
       <ExceptionHandling>false</ExceptionHandling>
       <OpenMPSupport>true</OpenMPSupport>
       <EnablePREfast>false</EnablePREfast>
-      <OmitFramePointers>false</OmitFramePointers>
+      <OmitFramePointers>true</OmitFramePointers>
       <DisableSpecificWarnings>4530;4577;4102;4200;</DisableSpecificWarnings>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -165,6 +166,7 @@
     <ClInclude Include="..\..\..\include\cubez\common.h" />
     <ClInclude Include="..\..\..\include\cubez\cubez.h" />
     <ClInclude Include="..\..\..\include\cubez\draw.h" />
+    <ClInclude Include="..\..\..\include\cubez\filesystem.h" />
     <ClInclude Include="..\..\..\include\cubez\gui.h" />
     <ClInclude Include="..\..\..\include\cubez\hash.h" />
     <ClInclude Include="..\..\..\include\cubez\input.h" />
@@ -256,6 +258,7 @@
     <ClInclude Include="..\..\..\src\utils.h" />
     <ClInclude Include="..\..\..\src\utils_internal.h" />
     <ClInclude Include="..\..\..\src\tls.h" />
+    <ClInclude Include="..\..\..\src\vfs.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\async.cpp" />
@@ -348,6 +351,8 @@
     <ClCompile Include="..\..\..\src\tiny_obj_loader.cpp" />
     <ClCompile Include="..\..\..\src\utf8.cpp" />
     <ClCompile Include="..\..\..\src\time.cpp" />
+    <ClCompile Include="..\..\..\src\utils.cpp" />
+    <ClCompile Include="..\..\..\src\vfs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\docs\lua.md" />
